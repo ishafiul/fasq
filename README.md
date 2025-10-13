@@ -4,8 +4,6 @@ A powerful async state management library for Flutter. Handles API calls, databa
 
 Inspired by React Query and SWR, built specifically for Flutter.
 
-**Current Version:** 0.1.0 (Phase 2 + 3 Complete)  
-**Status:** Phase 3 Complete - Mutation Support & Adapters
 
 ## 📦 Packages
 
@@ -24,7 +22,7 @@ This monorepo contains the following packages:
 
 ## 🚀 Getting Started
 
-Flutter Query is currently in active development. Phases 1-3 are complete and ready for testing.
+Flutter Query is currently in active development. 
 
 ### Prerequisites
 
@@ -178,7 +176,7 @@ See the [PRD folder](./prd/) for comprehensive product requirements and implemen
 
 ## 💡 What You Can Build Today
 
-With Phases 1-3 complete, you can already build:
+you can already build:
 
 **✅ Data Fetching Apps:**
 - API-driven applications with automatic caching
@@ -226,20 +224,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 🎯 Current Status
-
-**Completed Phases:**
-- ✅ Phase 1: MVP - Core Query System
-- ✅ Phase 2: Caching Layer with stale-while-revalidate
-- ✅ Phase 3: Mutation Support & State Management Adapters
-
-**In Development:**
-- None currently
-
-**Next Up:**
-- Phase 4: Advanced Features (Infinite Queries, Offline Queue)
-- Phase 5: Production Hardening (Security, Performance, DevTools)
-
-**Version:** 0.1.0  
-**Last Updated:** October 2025
 
