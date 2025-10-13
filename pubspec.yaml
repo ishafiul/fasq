@@ -1,0 +1,10 @@
+name: flutter_query_workspace
+description: A monorepo workspace for Flutter Query packages
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dev_dependencies:
+  melos: ^6.3.0
+

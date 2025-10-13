@@ -1,0 +1,249 @@
+import 'dart:async';
+
+import 'async_lock.dart';
+import 'cache_config.dart';
+import 'cache_entry.dart';
+import 'cache_metrics.dart';
+import 'eviction_policy.dart';
+import 'eviction/eviction_strategy.dart';
+import 'eviction/fifo_eviction.dart';
+import 'eviction/lfu_eviction.dart';
+import 'eviction/lru_eviction.dart';
+
+/// Core cache storage and management for queries.
+///
+/// Handles caching, staleness detection, eviction, and request deduplication.
+class QueryCache {
+  final CacheConfig config;
+  final Map<String, CacheEntry> _entries = {};
+  final Map<String, Future> _inFlightRequests = {};
+  final Map<String, AsyncLock> _locks = {};
+  final CacheMetrics _metrics = CacheMetrics();
+
+  Timer? _gcTimer;
+
+  QueryCache({CacheConfig? config}) : config = config ?? const CacheConfig() {
+    _startGarbageCollection();
+  }
+
+  /// Gets a cache entry if it exists.
+  ///
+  /// Updates access metadata and returns null if not found.
+  CacheEntry<T>? get<T>(String key) {
+    final entry = _entries[key];
+    if (entry == null) {
+      _metrics.recordMiss();
+      return null;
+    }
+
+    _metrics.recordHit();
+
+    final updated = entry.withAccess();
+    _entries[key] = updated;
+
+    return updated as CacheEntry<T>;
+  }
+
+  /// Sets data in the cache.
+  ///
+  /// Creates or updates a cache entry. Triggers eviction if size limit exceeded.
+  void set<T>(
+    String key,
+    T data, {
+    Duration? staleTime,
+    Duration? cacheTime,
+  }) {
+    final entry = CacheEntry<T>.create(
+      data: data,
+      staleTime: staleTime ?? config.defaultStaleTime,
+      cacheTime: cacheTime ?? config.defaultCacheTime,
+    );
+
+    _entries[key] = entry;
+
+    if (_shouldEvict()) {
+      _evictIfNeeded();
+    }
+  }
+
+  /// Removes a cache entry by key.
+  void remove(String key) {
+    _entries.remove(key);
+  }
+
+  /// Clears all cache entries.
+  void clear() {
+    _entries.clear();
+    _inFlightRequests.clear();
+    _metrics.reset();
+  }
+
+  /// Invalidates a specific cache entry.
+  ///
+  /// Removes the entry, forcing a refetch on next access.
+  void invalidate(String key) {
+    remove(key);
+  }
+
+  /// Invalidates all cache entries with keys starting with the prefix.
+  void invalidateWithPrefix(String prefix) {
+    final keysToRemove = _entries.keys
+        .where((key) => key.startsWith(prefix))
+        .toList();
+
+    for (final key in keysToRemove) {
+      remove(key);
+    }
+  }
+
+  /// Invalidates cache entries matching the predicate.
+  void invalidateWhere(bool Function(String key) predicate) {
+    final keysToRemove = _entries.keys
+        .where(predicate)
+        .toList();
+
+    for (final key in keysToRemove) {
+      remove(key);
+    }
+  }
+
+  /// Gets raw data from cache (for manual access).
+  T? getData<T>(String key) {
+    final entry = get<T>(key);
+    return entry?.data;
+  }
+
+  /// Sets raw data in cache (for manual updates).
+  void setData<T>(String key, T data) {
+    set<T>(key, data);
+  }
+
+  /// Deduplicates a request by key.
+  ///
+  /// If a request with the same key is in flight, returns the existing future.
+  /// Otherwise, executes and tracks the new request.
+  Future<T> deduplicate<T>(
+    String key,
+    Future<T> Function() fn,
+  ) async {
+    if (_inFlightRequests.containsKey(key)) {
+      return _inFlightRequests[key] as Future<T>;
+    }
+
+    final future = fn();
+    _inFlightRequests[key] = future;
+
+    try {
+      final result = await future;
+      return result;
+    } finally {
+      _inFlightRequests.remove(key);
+    }
+  }
+
+  /// Executes a function with a lock on the given key.
+  ///
+  /// Ensures thread-safe access to cache entries.
+  Future<T> withLock<T>(String key, Future<T> Function() fn) async {
+    final lock = _locks.putIfAbsent(key, () => AsyncLock());
+    return await lock.synchronized(fn);
+  }
+
+  /// Current total cache size in bytes.
+  int get currentSize {
+    int total = 0;
+    for (final entry in _entries.values) {
+      total += entry.estimateSize();
+    }
+    return total;
+  }
+
+  /// Current number of cache entries.
+  int get entryCount => _entries.length;
+
+  /// Cache metrics for monitoring.
+  CacheMetrics get metrics => _metrics;
+
+  /// Gets a snapshot of cache state.
+  CacheInfo getCacheInfo() {
+    return CacheInfo(
+      entryCount: entryCount,
+      sizeBytes: currentSize,
+      metrics: _metrics,
+      maxCacheSize: config.maxCacheSize,
+    );
+  }
+
+  /// Gets all cache keys.
+  List<String> getCacheKeys() {
+    return _entries.keys.toList();
+  }
+
+  /// Inspects a specific cache entry.
+  CacheEntry? inspectEntry(String key) {
+    return _entries[key];
+  }
+
+  bool _shouldEvict() {
+    return currentSize > config.maxCacheSize || 
+           entryCount > config.maxEntries;
+  }
+
+  void _evictIfNeeded() {
+    if (!_shouldEvict()) return;
+
+    final targetSize = (config.maxCacheSize * 0.9).toInt();
+    final strategy = _getEvictionStrategy();
+
+    final keysToEvict = strategy.selectKeysToEvict(
+      _entries,
+      currentSize,
+      targetSize,
+    );
+
+    for (final key in keysToEvict) {
+      _entries.remove(key);
+      _metrics.recordEviction();
+    }
+  }
+
+  EvictionStrategy _getEvictionStrategy() {
+    switch (config.evictionPolicy) {
+      case EvictionPolicy.lru:
+        return const LRUEviction();
+      case EvictionPolicy.lfu:
+        return const LFUEviction();
+      case EvictionPolicy.fifo:
+        return const FIFOEviction();
+    }
+  }
+
+  void _startGarbageCollection() {
+    _gcTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _runGarbageCollection();
+    });
+  }
+
+  void _runGarbageCollection() {
+    final now = DateTime.now();
+    final keysToRemove = <String>[];
+
+    for (final entry in _entries.entries) {
+      if (entry.value.shouldGarbageCollect(now)) {
+        keysToRemove.add(entry.key);
+      }
+    }
+
+    for (final key in keysToRemove) {
+      _entries.remove(key);
+    }
+  }
+
+  /// Disposes the cache and stops garbage collection.
+  void dispose() {
+    _gcTimer?.cancel();
+    _gcTimer = null;
+    clear();
+  }
+}
+

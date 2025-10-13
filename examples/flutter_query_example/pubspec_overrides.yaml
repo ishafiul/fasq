@@ -1,0 +1,4 @@
+# melos_managed_dependency_overrides: flutter_query
+dependency_overrides:
+  flutter_query:
+    path: ../../packages/flutter_query

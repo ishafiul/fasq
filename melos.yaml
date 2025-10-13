@@ -1,0 +1,37 @@
+name: flutter_query_workspace
+
+packages:
+  - packages/**
+  - examples/**
+
+command:
+  bootstrap:
+    environment:
+      sdk: ">=3.0.0 <4.0.0"
+      flutter: ">=3.10.0"
+    
+  version:
+    branch: main
+    message: "chore(release): publish packages"
+
+scripts:
+  analyze:
+    run: melos exec -- flutter analyze
+    description: Run flutter analyze in all packages
+    
+  format:
+    run: melos exec -- dart format .
+    description: Format all packages
+    
+  test:
+    run: melos exec -- flutter test
+    description: Run tests in all packages
+    
+  clean:
+    run: melos exec -- flutter clean
+    description: Clean all packages
+    
+  get:
+    run: melos exec -- flutter pub get
+    description: Get dependencies for all packages
+
