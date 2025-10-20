@@ -1,6 +1,6 @@
-# Flutter Query - Development Roadmap Overview
+# FASQ - Development Roadmap Overview
 
-**Project:** Flutter Query - Server State Management for Flutter  
+**Project:** FASQ - Server State Management for Flutter  
 **Version:** 1.0  
 **Last Updated:** January 2025  
 **Status:** Planning
@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This document provides a high-level overview of the Flutter Query development roadmap. The project is broken down into multiple phases, each with its own dedicated Product Requirements Document (PRD). This approach allows for focused, incremental development with clear milestones and deliverables.
+This document provides a high-level overview of the FASQ development roadmap. The project is broken down into multiple phases, each with its own dedicated Product Requirements Document (PRD). This approach allows for focused, incremental development with clear milestones and deliverables.
 
 ## Development Philosophy
 

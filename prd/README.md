@@ -1,6 +1,6 @@
-# Flutter Query - Product Requirements Documentation
+# FASQ - Product Requirements Documentation
 
-This directory contains the complete Product Requirements Documentation (PRD) for the Flutter Query project, an async state management library for Flutter inspired by React Query. While primarily designed for API calls and server state, it elegantly handles any async operation including database queries, file I/O, and local computations.
+This directory contains the complete Product Requirements Documentation (PRD) for the FASQ project, an async state management library for Flutter inspired by React Query. While primarily designed for API calls and server state, it elegantly handles any async operation including database queries, file I/O, and local computations.
 
 ## Documentation Structure
 
@@ -46,7 +46,7 @@ Caching transforms the library from a simple state manager into a sophisticated 
 - **Timeline:** Weeks 5-6
 - **Focus:** Integration with Hooks, Bloc, and Riverpod
 - **Goal:** Make the library accessible to all developers
-- **Deliverables:** flutter_query_hooks, flutter_query_bloc, flutter_query_riverpod
+- **Deliverables:** fasq_hooks, fasq_bloc, fasq_riverpod
 
 **Why This Phase:**
 Supporting multiple state management solutions maximizes adoption and validates that the core is truly state-agnostic. Each adapter provides an idiomatic API while sharing the same underlying query engine.
@@ -125,7 +125,7 @@ Each phase has a clear focus. Features outside the phase scope are explicitly do
 
 ## Original PRD
 
-📚 **[flutter_query_prd.md](flutter_query_prd.md)**
+📚 **[fasq_prd.md](fasq_prd.md)**
 - Comprehensive single-document PRD
 - Narrative format explaining concepts in depth
 - Reference for understanding the vision
@@ -183,7 +183,7 @@ If you have questions about any PRD document or suggestions for improvements, pl
 
 ---
 
-**Project:** Flutter Query  
+**Project:** FASQ  
 **Documentation Version:** 1.0  
 **Last Updated:** January 2025  
 **Status:** Planning Complete - Ready for Implementation

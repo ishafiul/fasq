@@ -1,6 +1,6 @@
-# Flutter Query
+# FASQ
 
-A powerful async state management library for Flutter. Handles API calls, database queries, file operations, and any async operation with intelligent caching, automatic refetching, and error recovery.
+**FASQ (Flutter Async State Query)** - A powerful async state management library for Flutter. Handles API calls, database queries, file operations, and any async operation with intelligent caching, automatic refetching, and error recovery.
 
 Inspired by React Query and SWR, built specifically for Flutter.
 
@@ -10,19 +10,19 @@ Inspired by React Query and SWR, built specifically for Flutter.
 This monorepo contains the following packages:
 
 ### Core Package
-- **[flutter_query](./packages/flutter_query/)** - The core async state management library with queries, mutations, and caching
+- **[fasq](./packages/fasq/)** - The core async state management library with queries, mutations, and caching
 
 ### State Management Adapters
-- **[flutter_query_hooks](./packages/flutter_query_hooks/)** - Flutter Hooks adapter (useQuery, useMutation)
-- **[flutter_query_bloc](./packages/flutter_query_bloc/)** - Bloc/Cubit adapter (QueryCubit, MutationCubit)
-- **[flutter_query_riverpod](./packages/flutter_query_riverpod/)** - Riverpod adapter (queryProvider, mutationProvider)
+- **[fasq_hooks](./packages/fasq_hooks/)** - Flutter Hooks adapter (useQuery, useMutation)
+- **[fasq_bloc](./packages/fasq_bloc/)** - Bloc/Cubit adapter (QueryCubit, MutationCubit)
+- **[fasq_riverpod](./packages/fasq_riverpod/)** - Riverpod adapter (queryProvider, mutationProvider)
 
 ### Examples
-- **[flutter_query_example](./examples/flutter_query_example/)** - Comprehensive examples with caching, mutations, and forms
+- **[fasq_example](./examples/fasq_example/)** - Comprehensive examples with caching, mutations, and forms
 
 ## 🚀 Getting Started
 
-Flutter Query is currently in active development. 
+FASQ is currently in active development. 
 
 ### Prerequisites
 
@@ -35,23 +35,23 @@ Flutter Query is currently in active development.
 **Option 1: Core Package Only**
 ```yaml
 dependencies:
-  flutter_query:
+  fasq:
     git:
-      url: https://github.com/yourusername/flutter_query
-      path: packages/flutter_query
+      url: https://github.com/yourusername/fasq
+      path: packages/fasq
 ```
 
 **Option 2: With Your Favorite Adapter**
 ```yaml
 dependencies:
-  flutter_query_hooks:  # For Flutter Hooks users
+  fasq_hooks:  # For Flutter Hooks users
   # OR
-  flutter_query_bloc:   # For Bloc/Cubit users
+  fasq_bloc:   # For Bloc/Cubit users
   # OR
-  flutter_query_riverpod: # For Riverpod users
+  fasq_riverpod: # For Riverpod users
     git:
-      url: https://github.com/yourusername/flutter_query
-      path: packages/flutter_query_riverpod
+      url: https://github.com/yourusername/fasq
+      path: packages/fasq_riverpod
 ```
 
 ### Developer Setup
@@ -59,7 +59,7 @@ dependencies:
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd flutter_query
+   cd fasq
    ```
 
 2. **Install Melos** (if not already installed)
@@ -98,28 +98,28 @@ melos get
 ### Working on the Core Package
 
 ```bash
-cd packages/flutter_query
+cd packages/fasq
 flutter test
 ```
 
 ### Running the Example App
 
 ```bash
-cd examples/flutter_query_example
+cd examples/fasq_example
 flutter run
 ```
 
 ## 📁 Project Structure
 
 ```
-flutter_query/
+fasq/
 ├── packages/
-│   ├── flutter_query/          # Core package (Phases 1-3)
-│   ├── flutter_query_hooks/    # Hooks adapter (Phase 3)
-│   ├── flutter_query_bloc/     # Bloc adapter (Phase 3)
-│   └── flutter_query_riverpod/ # Riverpod adapter (Phase 3)
+│   ├── fasq/          # Core package (Phases 1-3)
+│   ├── fasq_hooks/    # Hooks adapter (Phase 3)
+│   ├── fasq_bloc/     # Bloc adapter (Phase 3)
+│   └── fasq_riverpod/ # Riverpod adapter (Phase 3)
 ├── examples/
-│   └── flutter_query_example/  # Example app with 7 demos
+│   └── fasq_example/  # Example app with 7 demos
 ├── prd/                        # Product Requirements Documents
 ├── melos.yaml                  # Melos configuration
 ├── pubspec.yaml               # Root workspace configuration
