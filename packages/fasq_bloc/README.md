@@ -5,6 +5,7 @@ Bloc/Cubit adapter for FASQ (Flutter Async State Query) - bringing powerful asyn
 ## Features
 
 - 🧊 **QueryCubit** - Cubit wrapper for queries
+- ♾️ **InfiniteQueryCubit** - Infinite queries for pagination
 - 🔄 **MutationCubit** - Cubit for server mutations
 - 🚀 **Automatic caching** - Built on FASQ's production-ready cache
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
@@ -18,6 +19,27 @@ dependencies:
 ```
 
 ## Usage
+### Infinite Queries with InfiniteQueryCubit
+
+```dart
+BlocProvider(
+  create: (_) => InfiniteQueryCubit<List<Post>, int>(
+    key: 'posts',
+    queryFn: (page) => api.fetchPosts(page: page),
+    options: InfiniteQueryOptions(
+      getNextPageParam: (pages, last) => pages.length + 1,
+    ),
+  ),
+  child: BlocBuilder<InfiniteQueryCubit<List<Post>, int>, InfiniteQueryState<List<Post>, int>>(
+    builder: (context, state) {
+      return ListView.builder(
+        itemCount: state.pages.expand((p) => p.data ?? []).length,
+        itemBuilder: (_, i) => Text('Item #$i'),
+      );
+    },
+  ),
+)
+```
 
 ### Basic Query with QueryCubit
 

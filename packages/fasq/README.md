@@ -2,7 +2,7 @@
 
 A powerful async state management library for Flutter. Handles API calls, database queries, file operations, and any async operation with intelligent caching, automatic refetching, and error recovery.
 
-**Current Version:** 0.1.0 (Phase 2 - Caching Layer)  
+**Current Version:** 0.2.0 (Phase 4 - Advanced Features)  
 **Status:** In Development
 
 ## Features
@@ -18,8 +18,8 @@ A powerful async state management library for Flutter. Handles API calls, databa
 - ✅ **Type Safe** - Full generic type support for your data
 - ✅ **Thread Safe** - Concurrent access protection with async locks
 - ✅ **Production Ready** - Comprehensive testing and error handling
-- 🔄 **State Management Adapters** - Coming in Phase 3 (Hooks, Bloc, Riverpod)
-- 🔄 **Offline Support** - Coming in Phase 4
+- ✅ **State Management Adapters** - Hooks, Bloc, Riverpod
+- 🔄 **Offline Support** - Coming in Phase 5
 
 ## Installation
 
@@ -200,7 +200,7 @@ final query = QueryClient().getQueryByKey<List<User>>('users');
 query?.fetch();
 ```
 
-### 5. Control Query Execution
+### 9. Control Query Execution
 
 Disable automatic fetching with the `enabled` option:
 
@@ -652,6 +652,23 @@ bool exists = client.hasQuery('users');
 
 // Get query count
 int count = client.queryCount;
+```
+
+### Infinite Queries
+
+Core classes for pagination and infinite scroll:
+
+```dart
+final query = QueryClient().getInfiniteQuery<List<Item>, int>(
+  'items',
+  (page) => api.fetchItems(page),
+  options: InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+    maxPages: 10,
+  ),
+);
+
+await query.fetchNextPage(1);
 ```
 
 ## Examples

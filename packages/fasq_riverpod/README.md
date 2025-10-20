@@ -5,6 +5,7 @@ Riverpod adapter for FASQ (Flutter Async State Query) - bringing powerful async 
 ## Features
 
 - 🔌 **queryProvider** - Provider factory for queries
+- ♾️ **infiniteQueryProvider** - Provider factory for infinite queries
 - 🔄 **QueryNotifier** - StateNotifier for query state
 - 🚀 **Automatic caching** - Built on FASQ's production-ready cache
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
@@ -18,6 +19,35 @@ dependencies:
 ```
 
 ## Usage
+### Infinite Queries with infiniteQueryProvider
+
+```dart
+final postsProvider = infiniteQueryProvider<List<Post>, int>(
+  'posts',
+  (page) => api.fetchPosts(page: page),
+  options: InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  ),
+);
+
+class Posts extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(postsProvider);
+    final notifier = ref.read(postsProvider.notifier);
+    return Column(
+      children: [
+        Expanded(child: ListView(/* render pages */)),
+        if (state.hasNextPage)
+          ElevatedButton(
+            onPressed: () => notifier.fetchNextPage(),
+            child: Text('Load More'),
+          ),
+      ],
+    );
+  }
+}
+```
 
 ### Basic Query with queryProvider
 
