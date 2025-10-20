@@ -1,4 +1,4 @@
-import { Tabs, Tab } from 'nextra/components'
+import { Tabs } from 'nextra/components'
 
 # Infinite Queries
 
@@ -22,7 +22,7 @@ InfiniteQueryOptions<TData, TParam> {
 ## Examples
 
 <Tabs items={['Hooks', 'Bloc', 'Riverpod']}>
-  <Tab>
+  <Tabs.Tab>
 
 ```dart
 final state = useInfiniteQuery<List<Post>, int>(
@@ -34,8 +34,8 @@ final state = useInfiniteQuery<List<Post>, int>(
   ),
 );
 ```
-  </Tab>
-  <Tab>
+  </Tabs.Tab>
+  <Tabs.Tab>
 
 ```dart
 final cubit = InfiniteQueryCubit<List<Post>, int>(
@@ -46,8 +46,8 @@ final cubit = InfiniteQueryCubit<List<Post>, int>(
   ),
 );
 ```
-  </Tab>
-  <Tab>
+  </Tabs.Tab>
+  <Tabs.Tab>
 
 ```dart
 final provider = infiniteQueryProvider<List<Post>, int>(
@@ -58,7 +58,7 @@ final provider = infiniteQueryProvider<List<Post>, int>(
   ),
 );
 ```
-  </Tab>
+  </Tabs.Tab>
 </Tabs>
 
 
