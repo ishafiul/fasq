@@ -1,0 +1,667 @@
+# Cache Configuration
+
+Fasq provides flexible cache configuration options to optimize memory usage and performance. Learn how to configure cache policies, memory management, and eviction strategies.
+
+## Basic Cache Configuration
+
+### Default Cache Settings
+
+```dart
+class DefaultCacheExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      child: MaterialApp(
+        title: 'Fasq App',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Cache Configuration')),
+      body: Center(
+        child: Column(
+          children: [
+            Text('Default Cache Configuration'),
+            Text('Max Size: 50MB'),
+            Text('Eviction Policy: LRU'),
+            Text('Default Stale Time: 5 minutes'),
+            Text('Default Cache Time: 30 minutes'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Custom Cache Configuration
+
+```dart
+class CustomCacheExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      queryClient: QueryClient(
+        cacheConfig: CacheConfig(
+          maxSizeBytes: 100 * 1024 * 1024, // 100MB
+          evictionPolicy: EvictionPolicy.lru,
+          defaultStaleTime: Duration(minutes: 10),
+          defaultCacheTime: Duration(hours: 1),
+        ),
+      ),
+      child: MaterialApp(
+        title: 'Fasq App',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Custom Cache')),
+      body: Center(
+        child: Column(
+          children: [
+            Text('Custom Cache Configuration'),
+            Text('Max Size: 100MB'),
+            Text('Eviction Policy: LRU'),
+            Text('Default Stale Time: 10 minutes'),
+            Text('Default Cache Time: 1 hour'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Cache Policies
+
+### LRU (Least Recently Used)
+
+```dart
+class LRUCacheExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      queryClient: QueryClient(
+        cacheConfig: CacheConfig(
+          evictionPolicy: EvictionPolicy.lru,
+          maxSizeBytes: 50 * 1024 * 1024, // 50MB
+        ),
+      ),
+      child: MaterialApp(
+        title: 'LRU Cache',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('LRU Cache')),
+      body: Column(
+        children: [
+          Text('LRU Eviction Policy'),
+          Text('Removes least recently used entries'),
+          ElevatedButton(
+            onPressed: () {
+              // Load multiple queries to test LRU
+              QueryClient().prefetchQuery('users', () => api.fetchUsers());
+              QueryClient().prefetchQuery('posts', () => api.fetchPosts());
+              QueryClient().prefetchQuery('comments', () => api.fetchComments());
+            },
+            child: Text('Load Multiple Queries'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### LFU (Least Frequently Used)
+
+```dart
+class LFUCacheExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      queryClient: QueryClient(
+        cacheConfig: CacheConfig(
+          evictionPolicy: EvictionPolicy.lfu,
+          maxSizeBytes: 50 * 1024 * 1024, // 50MB
+        ),
+      ),
+      child: MaterialApp(
+        title: 'LFU Cache',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('LFU Cache')),
+      body: Column(
+        children: [
+          Text('LFU Eviction Policy'),
+          Text('Removes least frequently used entries'),
+          ElevatedButton(
+            onPressed: () {
+              // Load queries with different access patterns
+              QueryClient().prefetchQuery('users', () => api.fetchUsers());
+              QueryClient().prefetchQuery('posts', () => api.fetchPosts());
+            },
+            child: Text('Load Queries'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### FIFO (First In, First Out)
+
+```dart
+class FIFOCacheExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      queryClient: QueryClient(
+        cacheConfig: CacheConfig(
+          evictionPolicy: EvictionPolicy.fifo,
+          maxSizeBytes: 50 * 1024 * 1024, // 50MB
+        ),
+      ),
+      child: MaterialApp(
+        title: 'FIFO Cache',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('FIFO Cache')),
+      body: Column(
+        children: [
+          Text('FIFO Eviction Policy'),
+          Text('Removes oldest entries first'),
+          ElevatedButton(
+            onPressed: () {
+              // Load queries in sequence
+              QueryClient().prefetchQuery('users', () => api.fetchUsers());
+              Future.delayed(Duration(seconds: 1), () {
+                QueryClient().prefetchQuery('posts', () => api.fetchPosts());
+              });
+            },
+            child: Text('Load Sequential Queries'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Memory Management
+
+### Size-based Configuration
+
+```dart
+class SizeBasedCacheExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      queryClient: QueryClient(
+        cacheConfig: CacheConfig(
+          maxSizeBytes: 25 * 1024 * 1024, // 25MB
+          maxEntries: 100,               // Max 100 entries
+          evictionPolicy: EvictionPolicy.lru,
+        ),
+      ),
+      child: MaterialApp(
+        title: 'Size-based Cache',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Size-based Cache')),
+      body: Column(
+        children: [
+          Text('Max Size: 25MB'),
+          Text('Max Entries: 100'),
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              final info = queryClient.getCacheInfo();
+              print('Cache Size: ${info.sizeBytes} bytes');
+              print('Cache Entries: ${info.entryCount}');
+            },
+            child: Text('Check Cache Size'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Memory Monitoring
+
+```dart
+class MemoryMonitoringExample extends StatefulWidget {
+  @override
+  State<MemoryMonitoringExample> createState() => _MemoryMonitoringExampleState();
+}
+
+class _MemoryMonitoringExampleState extends State<MemoryMonitoringExample> {
+  Timer? _monitorTimer;
+  CacheInfo? _cacheInfo;
+  
+  @override
+  void initState() {
+    super.initState();
+    _startMonitoring();
+  }
+  
+  void _startMonitoring() {
+    _monitorTimer = Timer.periodic(Duration(seconds: 5), (timer) {
+      setState(() {
+        _cacheInfo = QueryClient().getCacheInfo();
+      });
+    });
+  }
+  
+  @override
+  void dispose() {
+    _monitorTimer?.cancel();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Memory Monitoring')),
+      body: Column(
+        children: [
+          if (_cacheInfo != null) ...[
+            Text('Cache Size: ${(_cacheInfo!.sizeBytes / 1024 / 1024).toStringAsFixed(1)}MB'),
+            Text('Cache Entries: ${_cacheInfo!.entryCount}'),
+            Text('Hit Rate: ${(_cacheInfo!.metrics.hitRate * 100).toStringAsFixed(1)}%'),
+            Text('Hits: ${_cacheInfo!.metrics.hits}'),
+            Text('Misses: ${_cacheInfo!.metrics.misses}'),
+          ],
+          ElevatedButton(
+            onPressed: () {
+              // Load data to test memory usage
+              QueryClient().prefetchQuery('users', () => api.fetchUsers());
+            },
+            child: Text('Load Data'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Cache Strategies
+
+### Aggressive Caching
+
+```dart
+class AggressiveCachingExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      queryClient: QueryClient(
+        cacheConfig: CacheConfig(
+          maxSizeBytes: 200 * 1024 * 1024, // 200MB
+          defaultStaleTime: Duration(hours: 1),
+          defaultCacheTime: Duration(hours: 24),
+          evictionPolicy: EvictionPolicy.lru,
+        ),
+      ),
+      child: MaterialApp(
+        title: 'Aggressive Caching',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Aggressive Caching')),
+      body: Column(
+        children: [
+          Text('Aggressive Caching Strategy'),
+          Text('Max Size: 200MB'),
+          Text('Stale Time: 1 hour'),
+          Text('Cache Time: 24 hours'),
+          ElevatedButton(
+            onPressed: () {
+              // Load data with aggressive caching
+              QueryClient().prefetchQuery('users', () => api.fetchUsers());
+            },
+            child: Text('Load with Aggressive Caching'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Conservative Caching
+
+```dart
+class ConservativeCachingExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      queryClient: QueryClient(
+        cacheConfig: CacheConfig(
+          maxSizeBytes: 10 * 1024 * 1024, // 10MB
+          defaultStaleTime: Duration(minutes: 1),
+          defaultCacheTime: Duration(minutes: 5),
+          evictionPolicy: EvictionPolicy.lru,
+        ),
+      ),
+      child: MaterialApp(
+        title: 'Conservative Caching',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Conservative Caching')),
+      body: Column(
+        children: [
+          Text('Conservative Caching Strategy'),
+          Text('Max Size: 10MB'),
+          Text('Stale Time: 1 minute'),
+          Text('Cache Time: 5 minutes'),
+          ElevatedButton(
+            onPressed: () {
+              // Load data with conservative caching
+              QueryClient().prefetchQuery('users', () => api.fetchUsers());
+            },
+            child: Text('Load with Conservative Caching'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Cache Optimization
+
+### Automatic Garbage Collection
+
+```dart
+class GarbageCollectionExample extends StatefulWidget {
+  @override
+  State<GarbageCollectionExample> createState() => _GarbageCollectionExampleState();
+}
+
+class _GarbageCollectionExampleState extends State<GarbageCollectionExample> {
+  Timer? _gcTimer;
+  
+  @override
+  void initState() {
+    super.initState();
+    _startGarbageCollection();
+  }
+  
+  void _startGarbageCollection() {
+    _gcTimer = Timer.periodic(Duration(minutes: 5), (timer) {
+      QueryClient().garbageCollect();
+      print('Garbage collection completed');
+    });
+  }
+  
+  @override
+  void dispose() {
+    _gcTimer?.cancel();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Garbage Collection')),
+      body: Column(
+        children: [
+          Text('Automatic Garbage Collection'),
+          Text('Runs every 5 minutes'),
+          ElevatedButton(
+            onPressed: () {
+              QueryClient().garbageCollect();
+              print('Manual garbage collection completed');
+            },
+            child: Text('Manual GC'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Cache Warming
+
+```dart
+class CacheWarmingExample extends StatefulWidget {
+  @override
+  State<CacheWarmingExample> createState() => _CacheWarmingExampleState();
+}
+
+class _CacheWarmingExampleState extends State<CacheWarmingExample> {
+  @override
+  void initState() {
+    super.initState();
+    _warmCache();
+  }
+  
+  void _warmCache() {
+    final queryClient = QueryClient();
+    
+    // Warm cache with frequently accessed data
+    queryClient.prefetchQuery('users', () => api.fetchUsers());
+    queryClient.prefetchQuery('posts', () => api.fetchPosts());
+    queryClient.prefetchQuery('comments', () => api.fetchComments());
+    
+    print('Cache warmed with initial data');
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Cache Warming')),
+      body: Column(
+        children: [
+          Text('Cache Warming Strategy'),
+          Text('Preloads frequently accessed data'),
+          ElevatedButton(
+            onPressed: () {
+              _warmCache();
+            },
+            child: Text('Warm Cache'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Performance Monitoring
+
+### Cache Performance Metrics
+
+```dart
+class CachePerformanceExample extends StatefulWidget {
+  @override
+  State<CachePerformanceExample> createState() => _CachePerformanceExampleState();
+}
+
+class _CachePerformanceExampleState extends State<CachePerformanceExample> {
+  Timer? _metricsTimer;
+  CacheInfo? _cacheInfo;
+  
+  @override
+  void initState() {
+    super.initState();
+    _startMetricsCollection();
+  }
+  
+  void _startMetricsCollection() {
+    _metricsTimer = Timer.periodic(Duration(seconds: 10), (timer) {
+      setState(() {
+        _cacheInfo = QueryClient().getCacheInfo();
+      });
+    });
+  }
+  
+  @override
+  void dispose() {
+    _metricsTimer?.cancel();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Cache Performance')),
+      body: Column(
+        children: [
+          if (_cacheInfo != null) ...[
+            Text('Cache Performance Metrics'),
+            Text('Hit Rate: ${(_cacheInfo!.metrics.hitRate * 100).toStringAsFixed(1)}%'),
+            Text('Hits: ${_cacheInfo!.metrics.hits}'),
+            Text('Misses: ${_cacheInfo!.metrics.misses}'),
+            Text('Size: ${(_cacheInfo!.sizeBytes / 1024 / 1024).toStringAsFixed(1)}MB'),
+            Text('Entries: ${_cacheInfo!.entryCount}'),
+          ],
+          ElevatedButton(
+            onPressed: () {
+              // Load data to test performance
+              QueryClient().prefetchQuery('users', () => api.fetchUsers());
+            },
+            child: Text('Load Data'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Best Practices
+
+### Optimal Configuration
+
+```dart
+class OptimalConfigurationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      queryClient: QueryClient(
+        cacheConfig: CacheConfig(
+          // Size limits
+          maxSizeBytes: 100 * 1024 * 1024, // 100MB
+          maxEntries: 500,
+          
+          // Eviction policy
+          evictionPolicy: EvictionPolicy.lru,
+          
+          // Default times
+          defaultStaleTime: Duration(minutes: 5),
+          defaultCacheTime: Duration(minutes: 30),
+          
+          // Performance settings
+          enableGarbageCollection: true,
+          gcInterval: Duration(minutes: 10),
+        ),
+      ),
+      child: MaterialApp(
+        title: 'Optimal Configuration',
+        home: HomePage(),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Optimal Configuration')),
+      body: Column(
+        children: [
+          Text('Optimal Cache Configuration'),
+          Text('Max Size: 100MB'),
+          Text('Max Entries: 500'),
+          Text('Eviction: LRU'),
+          Text('Stale Time: 5 minutes'),
+          Text('Cache Time: 30 minutes'),
+          Text('GC Interval: 10 minutes'),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Performance Tips
+
+1. **Choose appropriate eviction policy** - LRU for most cases, LFU for access patterns
+2. **Set reasonable size limits** - Balance memory usage with performance
+3. **Configure stale times** - Shorter for real-time data, longer for static data
+4. **Monitor cache performance** - Track hit rates and memory usage
+5. **Use garbage collection** - Enable automatic cleanup of unused data
+6. **Warm cache strategically** - Preload frequently accessed data
+7. **Optimize cache keys** - Use consistent and meaningful keys
+
+## Next Steps
+
+- **[Cache Invalidation](/docs/core/cache-invalidation)** - Learn about invalidation strategies
+- **[Error Handling](/docs/core/error-handling)** - Learn about error handling patterns
+- **[QueryClient](/docs/core/query-client)** - Learn about cache management
+- **[QueryOptions](/docs/core/query-options)** - Learn about configuration options

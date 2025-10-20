@@ -1,0 +1,1078 @@
+# CRUD Operations
+
+Complete examples of implementing CRUD (Create, Read, Update, Delete) operations with Fasq. Learn how to build a full-featured data management interface.
+
+## Basic CRUD Setup
+
+### Data Models
+
+```dart
+class User {
+  final String id;
+  final String name;
+  final String email;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+  
+  User copyWith({
+    String? id,
+    String? name,
+    String? email,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return User(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+class Post {
+  final String id;
+  final String title;
+  final String content;
+  final String authorId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  
+  Post({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.authorId,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  
+  factory Post.fromJson(Map<String, dynamic> json) {
+    return Post(
+      id: json['id'],
+      title: json['title'],
+      content: json['content'],
+      authorId: json['authorId'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'content': content,
+      'authorId': authorId,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+  
+  Post copyWith({
+    String? id,
+    String? title,
+    String? content,
+    String? authorId,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Post(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      authorId: authorId ?? this.authorId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+```
+
+### API Service
+
+```dart
+class CrudApiService {
+  static const String baseUrl = 'https://api.example.com';
+  
+  // Users CRUD
+  static Future<List<User>> getUsers() async {
+    final response = await http.get(Uri.parse('$baseUrl/users'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data['users'] as List)
+          .map((json) => User.fromJson(json))
+          .toList();
+    } else {
+      throw Exception('Failed to fetch users');
+    }
+  }
+  
+  static Future<User> getUser(String id) async {
+    final response = await http.get(Uri.parse('$baseUrl/users/$id'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return User.fromJson(data['user']);
+    } else {
+      throw Exception('Failed to fetch user');
+    }
+  }
+  
+  static Future<User> createUser(Map<String, String> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/users'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    if (response.statusCode == 201) {
+      final responseData = jsonDecode(response.body);
+      return User.fromJson(responseData['user']);
+    } else {
+      throw Exception('Failed to create user');
+    }
+  }
+  
+  static Future<User> updateUser(String id, Map<String, String> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/users/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      return User.fromJson(responseData['user']);
+    } else {
+      throw Exception('Failed to update user');
+    }
+  }
+  
+  static Future<void> deleteUser(String id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/users/$id'));
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete user');
+    }
+  }
+  
+  // Posts CRUD
+  static Future<List<Post>> getPosts() async {
+    final response = await http.get(Uri.parse('$baseUrl/posts'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data['posts'] as List)
+          .map((json) => Post.fromJson(json))
+          .toList();
+    } else {
+      throw Exception('Failed to fetch posts');
+    }
+  }
+  
+  static Future<Post> getPost(String id) async {
+    final response = await http.get(Uri.parse('$baseUrl/posts/$id'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Post.fromJson(data['post']);
+    } else {
+      throw Exception('Failed to fetch post');
+    }
+  }
+  
+  static Future<Post> createPost(Map<String, String> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/posts'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    if (response.statusCode == 201) {
+      final responseData = jsonDecode(response.body);
+      return Post.fromJson(responseData['post']);
+    } else {
+      throw Exception('Failed to create post');
+    }
+  }
+  
+  static Future<Post> updatePost(String id, Map<String, String> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/posts/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      return Post.fromJson(responseData['post']);
+    } else {
+      throw Exception('Failed to update post');
+    }
+  }
+  
+  static Future<void> deletePost(String id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/posts/$id'));
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete post');
+    }
+  }
+}
+```
+
+## Users CRUD Interface
+
+### Users List Screen
+
+```dart
+class UsersListScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Users'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              QueryClient().invalidateQuery('users');
+            },
+          ),
+        ],
+      ),
+      body: QueryBuilder<List<User>>(
+        queryKey: 'users',
+        queryFn: () => CrudApiService.getUsers(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $error'),
+                  ElevatedButton(
+                    onPressed: () {
+                      QueryClient().invalidateQuery('users');
+                    },
+                    child: Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+            data: (users) => ListView.builder(
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                return UserTile(user: user);
+              },
+            ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreateUserScreen(),
+            ),
+          );
+        },
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class UserTile extends StatelessWidget {
+  final User user;
+  
+  const UserTile({required this.user});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        title: Text(user.name),
+        subtitle: Text(user.email),
+        trailing: PopupMenuButton(
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit),
+                  SizedBox(width: 8),
+                  Text('Edit'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Delete', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+          onSelected: (value) {
+            switch (value) {
+              case 'edit':
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditUserScreen(user: user),
+                  ),
+                );
+                break;
+              case 'delete':
+                _showDeleteDialog(context);
+                break;
+            }
+          },
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => UserDetailScreen(userId: user.id),
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete User'),
+        content: Text('Are you sure you want to delete ${user.name}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteUser(context);
+            },
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _deleteUser(BuildContext context) {
+    MutationBuilder<void, String>(
+      mutationFn: (id) => CrudApiService.deleteUser(id),
+      options: MutationOptions(
+        onSuccess: (_, id) {
+          // Invalidate users list to refetch
+          QueryClient().invalidateQuery('users');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User deleted successfully')),
+          );
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete user: $error')),
+          );
+        },
+      ),
+      builder: (context, state) {
+        return state.mutate(user.id);
+      },
+    );
+  }
+}
+```
+
+### Create User Screen
+
+```dart
+class CreateUserScreen extends StatefulWidget {
+  @override
+  State<CreateUserScreen> createState() => _CreateUserScreenState();
+}
+
+class _CreateUserScreenState extends State<CreateUserScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Create User')),
+      body: MutationBuilder<User, Map<String, String>>(
+        mutationFn: (data) => CrudApiService.createUser(data),
+        options: MutationOptions(
+          onSuccess: (user) {
+            // Invalidate users list to refetch
+            QueryClient().invalidateQuery('users');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('User created successfully')),
+            );
+            Navigator.pop(context);
+          },
+          onError: (error) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to create user: $error')),
+            );
+          },
+        ),
+        builder: (context, state) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(labelText: 'Name'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: InputDecoration(labelText: 'Email'),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Email is required';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: state.isLoading ? null : () {
+                      if (_formKey.currentState!.validate()) {
+                        state.mutate({
+                          'name': _nameController.text,
+                          'email': _emailController.text,
+                        });
+                      }
+                    },
+                    child: state.isLoading
+                        ? CircularProgressIndicator()
+                        : Text('Create User'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+### Edit User Screen
+
+```dart
+class EditUserScreen extends StatefulWidget {
+  final User user;
+  
+  const EditUserScreen({required this.user});
+  
+  @override
+  State<EditUserScreen> createState() => _EditUserScreenState();
+}
+
+class _EditUserScreenState extends State<EditUserScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.user.name);
+    _emailController = TextEditingController(text: widget.user.email);
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Edit User')),
+      body: MutationBuilder<User, Map<String, String>>(
+        mutationFn: (data) => CrudApiService.updateUser(widget.user.id, data),
+        options: MutationOptions(
+          onSuccess: (user) {
+            // Invalidate related queries
+            QueryClient().invalidateQuery('users');
+            QueryClient().invalidateQuery('user:${widget.user.id}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('User updated successfully')),
+            );
+            Navigator.pop(context);
+          },
+          onError: (error) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to update user: $error')),
+            );
+          },
+        ),
+        builder: (context, state) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(labelText: 'Name'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: InputDecoration(labelText: 'Email'),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Email is required';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: state.isLoading ? null : () {
+                      if (_formKey.currentState!.validate()) {
+                        state.mutate({
+                          'name': _nameController.text,
+                          'email': _emailController.text,
+                        });
+                      }
+                    },
+                    child: state.isLoading
+                        ? CircularProgressIndicator()
+                        : Text('Update User'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+### User Detail Screen
+
+```dart
+class UserDetailScreen extends StatelessWidget {
+  final String userId;
+  
+  const UserDetailScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('User Details')),
+      body: QueryBuilder<User>(
+        queryKey: 'user:$userId',
+        queryFn: () => CrudApiService.getUser(userId),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $error'),
+                  ElevatedButton(
+                    onPressed: () {
+                      QueryClient().invalidateQuery('user:$userId');
+                    },
+                    child: Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+            data: (user) => Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Name: ${user.name}', style: TextStyle(fontSize: 18)),
+                          SizedBox(height: 8),
+                          Text('Email: ${user.email}'),
+                          SizedBox(height: 8),
+                          Text('ID: ${user.id}'),
+                          SizedBox(height: 8),
+                          Text('Created: ${user.createdAt}'),
+                          SizedBox(height: 8),
+                          Text('Updated: ${user.updatedAt}'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditUserScreen(user: user),
+                        ),
+                      );
+                    },
+                    child: Text('Edit User'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Posts CRUD Interface
+
+### Posts List Screen
+
+```dart
+class PostsListScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Posts'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              QueryClient().invalidateQuery('posts');
+            },
+          ),
+        ],
+      ),
+      body: QueryBuilder<List<Post>>(
+        queryKey: 'posts',
+        queryFn: () => CrudApiService.getPosts(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $error'),
+                  ElevatedButton(
+                    onPressed: () {
+                      QueryClient().invalidateQuery('posts');
+                    },
+                    child: Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+            data: (posts) => ListView.builder(
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final post = posts[index];
+                return PostTile(post: post);
+              },
+            ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreatePostScreen(),
+            ),
+          );
+        },
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class PostTile extends StatelessWidget {
+  final Post post;
+  
+  const PostTile({required this.post});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        title: Text(post.title),
+        subtitle: Text(post.content),
+        trailing: PopupMenuButton(
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit),
+                  SizedBox(width: 8),
+                  Text('Edit'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Delete', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+          onSelected: (value) {
+            switch (value) {
+              case 'edit':
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditPostScreen(post: post),
+                  ),
+                );
+                break;
+              case 'delete':
+                _showDeleteDialog(context);
+                break;
+            }
+          },
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PostDetailScreen(postId: post.id),
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Post'),
+        content: Text('Are you sure you want to delete "${post.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deletePost(context);
+            },
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _deletePost(BuildContext context) {
+    MutationBuilder<void, String>(
+      mutationFn: (id) => CrudApiService.deletePost(id),
+      options: MutationOptions(
+        onSuccess: (_, id) {
+          QueryClient().invalidateQuery('posts');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Post deleted successfully')),
+          );
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete post: $error')),
+          );
+        },
+      ),
+      builder: (context, state) {
+        return state.mutate(post.id);
+      },
+    );
+  }
+}
+```
+
+## Optimistic Updates
+
+### Optimistic CRUD Operations
+
+```dart
+class OptimisticUserTile extends StatelessWidget {
+  final User user;
+  
+  const OptimisticUserTile({required this.user});
+  
+  @override
+  Widget build(BuildContext context) {
+    return MutationBuilder<User, Map<String, String>>(
+      mutationFn: (data) => CrudApiService.updateUser(user.id, data),
+      options: MutationOptions(
+        onMutate: (data) {
+          // Optimistically update cache
+          final users = QueryClient().getQueryData<List<User>>('users');
+          if (users != null) {
+            final optimisticUser = user.copyWith(
+              name: data['name'] ?? user.name,
+              email: data['email'] ?? user.email,
+              updatedAt: DateTime.now(),
+            );
+            
+            final optimisticUsers = users.map((u) => 
+              u.id == user.id ? optimisticUser : u
+            ).toList();
+            
+            QueryClient().setQueryData('users', optimisticUsers);
+          }
+        },
+        onSuccess: (updatedUser) {
+          // Invalidate to get fresh data
+          QueryClient().invalidateQuery('users');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User updated successfully')),
+          );
+        },
+        onError: (error) {
+          // Rollback on error
+          QueryClient().invalidateQuery('users');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to update user: $error')),
+          );
+        },
+      ),
+      builder: (context, state) {
+        return Card(
+          child: ListTile(
+            title: Text(user.name),
+            subtitle: Text(user.email),
+            trailing: state.isLoading
+                ? CircularProgressIndicator()
+                : IconButton(
+                    icon: Icon(Icons.edit),
+                    onPressed: () {
+                      _showEditDialog(context, state);
+                    },
+                  ),
+          ),
+        );
+      },
+    );
+  }
+  
+  void _showEditDialog(BuildContext context, MutationState<User> state) {
+    final nameController = TextEditingController(text: user.name);
+    final emailController = TextEditingController(text: user.email);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit User'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(labelText: 'Name'),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              state.mutate({
+                'name': nameController.text,
+                'email': emailController.text,
+              });
+            },
+            child: Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Batch Operations
+
+### Batch CRUD Operations
+
+```dart
+class BatchOperationsScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Batch Operations')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () => _batchCreateUsers(),
+            child: Text('Batch Create Users'),
+          ),
+          ElevatedButton(
+            onPressed: () => _batchUpdateUsers(),
+            child: Text('Batch Update Users'),
+          ),
+          ElevatedButton(
+            onPressed: () => _batchDeleteUsers(),
+            child: Text('Batch Delete Users'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _batchCreateUsers() async {
+    final users = [
+      {'name': 'User 1', 'email': 'user1@example.com'},
+      {'name': 'User 2', 'email': 'user2@example.com'},
+      {'name': 'User 3', 'email': 'user3@example.com'},
+    ];
+    
+    try {
+      await Future.wait(
+        users.map((userData) => CrudApiService.createUser(userData)),
+      );
+      
+      QueryClient().invalidateQuery('users');
+      print('Batch create completed');
+    } catch (error) {
+      print('Batch create failed: $error');
+    }
+  }
+  
+  Future<void> _batchUpdateUsers() async {
+    final updates = [
+      {'id': '1', 'name': 'Updated User 1'},
+      {'id': '2', 'name': 'Updated User 2'},
+      {'id': '3', 'name': 'Updated User 3'},
+    ];
+    
+    try {
+      await Future.wait(
+        updates.map((update) => CrudApiService.updateUser(
+          update['id']!,
+          {'name': update['name']!},
+        )),
+      );
+      
+      QueryClient().invalidateQuery('users');
+      print('Batch update completed');
+    } catch (error) {
+      print('Batch update failed: $error');
+    }
+  }
+  
+  Future<void> _batchDeleteUsers() async {
+    final userIds = ['1', '2', '3'];
+    
+    try {
+      await Future.wait(
+        userIds.map((id) => CrudApiService.deleteUser(id)),
+      );
+      
+      QueryClient().invalidateQuery('users');
+      print('Batch delete completed');
+    } catch (error) {
+      print('Batch delete failed: $error');
+    }
+  }
+}
+```
+
+## Best Practices
+
+1. **Use proper validation** - Validate input data before sending requests
+2. **Implement optimistic updates** - Provide instant feedback for better UX
+3. **Handle errors gracefully** - Show meaningful error messages
+4. **Invalidate related queries** - Keep data consistent across the app
+5. **Use batch operations** - Improve performance for bulk operations
+6. **Implement proper loading states** - Show progress indicators
+7. **Cache management** - Use appropriate cache policies for different data types
+
+## Next Steps
+
+- **[Real-time Data](/docs/examples/real-time-data)** - Learn about real-time patterns
+- **[File Operations](/docs/examples/file-operations)** - Learn about file handling
+- **[Database Queries](/docs/examples/database-queries)** - Learn about database patterns

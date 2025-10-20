@@ -1,0 +1,449 @@
+# mutationProvider
+
+The `mutationProvider` is a Riverpod provider factory that creates and manages Fasq mutations. It provides a compile-safe way to handle server-side operations like creating, updating, or deleting data.
+
+## Basic Usage
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// Define your mutation provider
+final createUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => api.createUser(data),
+);
+
+class CreateUserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final createUser = ref.watch(createUserProvider);
+    
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: createUser.isLoading 
+            ? null 
+            : () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
+          child: createUser.isLoading
+            ? CircularProgressIndicator()
+            : Text('Create User'),
+        ),
+        if (createUser.hasError)
+          Text('Error: ${createUser.error}'),
+        if (createUser.hasData)
+          Text('Created: ${createUser.data!.name}'),
+      ],
+    );
+  }
+}
+```
+
+## Provider Configuration
+
+Configure mutation behavior with MutationOptions:
+
+```dart
+final createUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => api.createUser(data),
+  options: MutationOptions(
+    onSuccess: (user) {
+      print('User created: ${user.name}');
+      // Invalidate users query to refetch
+      ref.invalidate(usersProvider);
+    },
+    onError: (error) {
+      print('Error creating user: $error');
+    },
+    onMutate: (data) {
+      print('About to create user: ${data['name']}');
+    },
+  ),
+);
+```
+
+## Status Handling
+
+Handle different mutation statuses:
+
+```dart
+class CreateUserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final createUser = ref.watch(createUserProvider);
+    
+    switch (createUser.status) {
+      case MutationStatus.idle:
+        return ElevatedButton(
+          onPressed: () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
+          child: Text('Create User'),
+        );
+      case MutationStatus.loading:
+        return CircularProgressIndicator();
+      case MutationStatus.success:
+        return Text('Created: ${createUser.data!.name}');
+      case MutationStatus.error:
+        return Text('Error: ${createUser.error}');
+    }
+  }
+}
+```
+
+## Form Submission
+
+Handle form submissions with mutations:
+
+```dart
+final createUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => api.createUser(data),
+  options: MutationOptions(
+    onSuccess: (user) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User created: ${user.name}')),
+      );
+    },
+    onError: (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $error')),
+      );
+    },
+  ),
+);
+
+class CreateUserForm extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<CreateUserForm> createState() => _CreateUserFormState();
+}
+
+class _CreateUserFormState extends ConsumerState<CreateUserForm> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  
+  @override
+  Widget build(BuildContext context) {
+    final createUser = ref.watch(createUserProvider);
+    
+    return Column(
+      children: [
+        TextField(
+          controller: _nameController,
+          decoration: InputDecoration(labelText: 'Name'),
+        ),
+        TextField(
+          controller: _emailController,
+          decoration: InputDecoration(labelText: 'Email'),
+        ),
+        ElevatedButton(
+          onPressed: createUser.isLoading
+              ? null
+              : () {
+                  createUser.mutate({
+                    'name': _nameController.text,
+                    'email': _emailController.text,
+                  });
+                  _nameController.clear();
+                  _emailController.clear();
+                },
+          child: createUser.isLoading
+              ? CircularProgressIndicator()
+              : Text('Create User'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Cache Invalidation After Mutation
+
+After a mutation succeeds, invalidate related queries:
+
+```dart
+final deleteUserProvider = mutationProvider<void, String>(
+  (userId) => api.deleteUser(userId),
+  options: MutationOptions(
+    onSuccess: (_, userId) {
+      // Invalidate users query to refetch
+      ref.invalidate(usersProvider);
+      ref.invalidate(userProvider(userId));
+    },
+  ),
+);
+
+class DeleteUserButton extends ConsumerWidget {
+  final String userId;
+  
+  const DeleteUserButton({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final deleteUser = ref.watch(deleteUserProvider);
+    
+    return IconButton(
+      icon: Icon(Icons.delete),
+      onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(userId),
+    );
+  }
+}
+```
+
+## Optimistic Updates
+
+Update the cache immediately for instant UX, then rollback on error:
+
+```dart
+final updateUserProvider = mutationProvider<User, User>(
+  (updatedUser) => api.updateUser(updatedUser),
+  options: MutationOptions(
+    onMutate: (updatedUser) {
+      // Optimistically update cache
+      final users = ref.read(usersProvider).data;
+      if (users != null) {
+        final optimistic = users.map((u) => 
+          u.id == updatedUser.id ? updatedUser : u
+        ).toList();
+        
+        ref.read(usersProvider.notifier).setData(optimistic);
+      }
+    },
+    onSuccess: (user) {
+      // Invalidate to get fresh data
+      ref.invalidate(usersProvider);
+    },
+    onError: (error) {
+      // Rollback on error
+      ref.invalidate(usersProvider);
+    },
+  ),
+);
+
+class UpdateUserButton extends ConsumerWidget {
+  final User user;
+  
+  const UpdateUserButton({required this.user});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final updateUser = ref.watch(updateUserProvider);
+    
+    return ElevatedButton(
+      onPressed: () => updateUser.mutate(user),
+      child: Text('Update'),
+    );
+  }
+}
+```
+
+## Multiple Mutations
+
+Handle multiple mutations in one screen:
+
+```dart
+final updateUserProvider = mutationProvider<User, User>(
+  (updatedUser) => api.updateUser(updatedUser),
+);
+
+final deleteUserProvider = mutationProvider<void, String>(
+  (userId) => api.deleteUser(userId),
+);
+
+class UserActions extends ConsumerWidget {
+  final User user;
+  
+  const UserActions({required this.user});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final updateUser = ref.watch(updateUserProvider);
+    final deleteUser = ref.watch(deleteUserProvider);
+    
+    return Row(
+      children: [
+        IconButton(
+          icon: Icon(Icons.edit),
+          onPressed: updateUser.isLoading ? null : () => updateUser.mutate(user),
+        ),
+        IconButton(
+          icon: Icon(Icons.delete),
+          onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(user.id),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Error Handling
+
+Handle errors with retry functionality:
+
+```dart
+class CreateUserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final createUser = ref.watch(createUserProvider);
+    
+    if (createUser.hasError) {
+      return Column(
+        children: [
+          Text('Error: ${createUser.error}'),
+          ElevatedButton(
+            onPressed: () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
+            child: Text('Retry'),
+          ),
+        ],
+      );
+    }
+    
+    return ElevatedButton(
+      onPressed: createUser.isLoading ? null : () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
+      child: createUser.isLoading 
+        ? CircularProgressIndicator()
+        : Text('Create User'),
+    );
+  }
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+// Type-safe provider definition
+final createUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => api.createUser(data),
+);
+
+class TypeSafeCreateUserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final createUser = ref.watch(createUserProvider);
+    
+    return ElevatedButton(
+      onPressed: createUser.isLoading ? null : () {
+        // Type-safe mutation call
+        createUser.mutate({
+          'name': 'John Doe',
+          'email': 'john@example.com',
+        });
+      },
+      child: Text('Create User'),
+    );
+  }
+}
+```
+
+## Common Patterns
+
+### Loading Button
+
+```dart
+class CreateUserButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final createUser = ref.watch(createUserProvider);
+    
+    return ElevatedButton(
+      onPressed: createUser.isLoading ? null : () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
+      child: createUser.isLoading
+          ? SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text('Create User'),
+    );
+  }
+}
+```
+
+### Success Feedback
+
+```dart
+final createUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => api.createUser(data),
+  options: MutationOptions(
+    onSuccess: (user) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('User created: ${user.name}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    },
+  ),
+);
+
+class CreateUserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final createUser = ref.watch(createUserProvider);
+    
+    return ElevatedButton(
+      onPressed: createUser.isLoading ? null : () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
+      child: Text('Create User'),
+    );
+  }
+}
+```
+
+### Form Validation
+
+```dart
+class CreateUserForm extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<CreateUserForm> createState() => _CreateUserFormState();
+}
+
+class _CreateUserFormState extends ConsumerState<CreateUserForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  
+  @override
+  Widget build(BuildContext context) {
+    final createUser = ref.watch(createUserProvider);
+    
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _nameController,
+            decoration: InputDecoration(labelText: 'Name'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Name is required';
+              }
+              return null;
+            },
+          ),
+          ElevatedButton(
+            onPressed: createUser.isLoading ? null : () {
+              if (_formKey.currentState!.validate()) {
+                createUser.mutate({'name': _nameController.text});
+              }
+            },
+            child: Text('Create User'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Performance Tips
+
+1. **Use optimistic updates** - Provide instant feedback
+2. **Handle errors gracefully** - Don't leave users stuck
+3. **Invalidate related queries** - Keep data fresh
+4. **Use proper types** - Leverage compile-time safety
+5. **Provide loading states** - Show progress to users
+
+## Next Steps
+
+- **[queryProvider](/docs/riverpod/query-provider)** - Learn about queries
+- **[Family Providers](/docs/riverpod/family-providers)** - Parameterized mutations
+- **[Riverpod Patterns](/docs/riverpod/riverpod-patterns)** - Best practices
+- **[Examples](/docs/riverpod/examples)** - Complete working examples

@@ -1,0 +1,544 @@
+# Examples
+
+Complete working examples using the Fasq Hooks adapter.
+
+## Basic User Management
+
+A complete example showing user listing, creation, and deletion:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+class User {
+  final String id;
+  final String name;
+  final String email;
+  
+  User({required this.id, required this.name, required this.email});
+  
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+    );
+  }
+}
+
+class ApiService {
+  Future<List<User>> fetchUsers() async {
+    await Future.delayed(Duration(seconds: 1)); // Simulate network
+    return [
+      User(id: '1', name: 'Alice', email: 'alice@example.com'),
+      User(id: '2', name: 'Bob', email: 'bob@example.com'),
+    ];
+  }
+  
+  Future<User> createUser(Map<String, String> data) async {
+    await Future.delayed(Duration(seconds: 1));
+    return User(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: data['name']!,
+      email: data['email']!,
+    );
+  }
+  
+  Future<void> deleteUser(String id) async {
+    await Future.delayed(Duration(seconds: 1));
+  }
+}
+
+class UserManagementScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery<List<User>>('users', () => ApiService().fetchUsers());
+    final createUser = useMutation<User, Map<String, String>>(
+      (data) => ApiService().createUser(data),
+      options: MutationOptions(
+        onSuccess: (user) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User ${user.name} created!')),
+          );
+          useQueryClient().invalidateQuery('users');
+        },
+      ),
+    );
+    final deleteUser = useMutation<void, String>(
+      (id) => ApiService().deleteUser(id),
+      options: MutationOptions(
+        onSuccess: (_, id) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User deleted')),
+          );
+          useQueryClient().invalidateQuery('users');
+        },
+      ),
+    );
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('User Management')),
+      body: Column(
+        children: [
+          Expanded(
+            child: usersState.when(
+              idle: () => Center(child: Text('Ready to load users')),
+              loading: () => Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Error: $error'),
+                    ElevatedButton(
+                      onPressed: () => useQueryClient().getQueryByKey<List<User>>('users')?.fetch(),
+                      child: Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+              data: (users) => ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return ListTile(
+                    title: Text(user.name),
+                    subtitle: Text(user.email),
+                    trailing: IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(user.id),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: createUser.isLoading ? null : () => _showCreateUserDialog(context, createUser),
+              child: createUser.isLoading
+                  ? CircularProgressIndicator()
+                  : Text('Add User'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showCreateUserDialog(BuildContext context, MutationState<User, Map<String, String>> createUser) {
+    showDialog(
+      context: context,
+      builder: (context) => CreateUserDialog(createUser: createUser),
+    );
+  }
+}
+
+class CreateUserDialog extends HookWidget {
+  final MutationState<User, Map<String, String>> createUser;
+  
+  const CreateUserDialog({required this.createUser});
+  
+  @override
+  Widget build(BuildContext context) {
+    final nameController = useTextEditingController();
+    final emailController = useTextEditingController();
+    
+    return AlertDialog(
+      title: Text('Create User'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: nameController,
+            decoration: InputDecoration(labelText: 'Name'),
+          ),
+          TextField(
+            controller: emailController,
+            decoration: InputDecoration(labelText: 'Email'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: createUser.isLoading ? null : () {
+            createUser.mutate({
+              'name': nameController.text,
+              'email': emailController.text,
+            });
+            Navigator.pop(context);
+          },
+          child: createUser.isLoading
+              ? CircularProgressIndicator()
+              : Text('Create'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Pagination Example
+
+Implementing pagination with hooks:
+
+```dart
+class PaginatedUsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final page = useState(1);
+    final pageSize = 10;
+    
+    final usersState = useQuery<List<User>>(
+      'users:page:${page.value}',
+      () => ApiService().fetchUsersPage(page.value, pageSize),
+      options: QueryOptions(
+        staleTime: Duration(minutes: 5), // Keep pages fresh for 5 minutes
+      ),
+    );
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Paginated Users')),
+      body: Column(
+        children: [
+          Expanded(
+            child: usersState.when(
+              loading: () => Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('Error: $error')),
+              data: (users) => ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return ListTile(
+                    title: Text(user.name),
+                    subtitle: Text(user.email),
+                  );
+                },
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(
+                onPressed: page.value > 1 ? () => page.value-- : null,
+                child: Text('Previous'),
+              ),
+              Text('Page ${page.value}'),
+              ElevatedButton(
+                onPressed: () => page.value++,
+                child: Text('Next'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Real-time Updates
+
+Simulating real-time updates with polling:
+
+```dart
+class RealTimeUsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery<List<User>>(
+      'users:realtime',
+      () => ApiService().fetchUsers(),
+      options: QueryOptions(
+        refetchInterval: Duration(seconds: 30), // Poll every 30 seconds
+        refetchOnWindowFocus: true, // Refetch when app regains focus
+      ),
+    );
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Real-time Users'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () => useQueryClient().getQueryByKey<List<User>>('users:realtime')?.fetch(),
+          ),
+        ],
+      ),
+      body: usersState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (users) => Column(
+          children: [
+            if (usersState.isFetching && !usersState.isLoading)
+              LinearProgressIndicator(),
+            Expanded(
+              child: ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return ListTile(
+                    title: Text(user.name),
+                    subtitle: Text(user.email),
+                    trailing: Text('Updated: ${DateTime.now().toString().substring(11, 19)}'),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Optimistic Updates
+
+Implementing optimistic updates for instant feedback:
+
+```dart
+class OptimisticUserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery<List<User>>('users', () => ApiService().fetchUsers());
+    final updateUser = useMutation<User, User>(
+      (user) => ApiService().updateUser(user),
+      options: MutationOptions(
+        onMutate: (updatedUser) {
+          // Optimistically update cache
+          final currentUsers = useQueryClient().getQueryData<List<User>>('users');
+          final optimisticUsers = currentUsers?.map((u) => 
+            u.id == updatedUser.id ? updatedUser : u
+          ).toList();
+          
+          useQueryClient().setQueryData('users', optimisticUsers);
+        },
+        onSuccess: (user) {
+          // Invalidate to get fresh data
+          useQueryClient().invalidateQuery('users');
+        },
+        onError: (error) {
+          // Rollback on error
+          useQueryClient().invalidateQuery('users');
+        },
+      ),
+    );
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Optimistic Updates')),
+      body: usersState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (users) => ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(
+              title: Text(user.name),
+              subtitle: Text(user.email),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.edit),
+                    onPressed: updateUser.isLoading ? null : () {
+                      final updatedUser = User(
+                        id: user.id,
+                        name: '${user.name} (Updated)',
+                        email: user.email,
+                      );
+                      updateUser.mutate(updatedUser);
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Custom Hook Example
+
+Creating a reusable custom hook:
+
+```dart
+// Custom hook for user management
+QueryState<List<User>> useUsers() {
+  return useQuery<List<User>>(
+    'users',
+    () => ApiService().fetchUsers(),
+    options: QueryOptions(
+      staleTime: Duration(minutes: 5),
+    ),
+  );
+}
+
+MutationState<User, Map<String, String>> useCreateUser() {
+  return useMutation<User, Map<String, String>>(
+    (data) => ApiService().createUser(data),
+    options: MutationOptions(
+      onSuccess: (user) {
+        useQueryClient().invalidateQuery('users');
+      },
+    ),
+  );
+}
+
+MutationState<void, String> useDeleteUser() {
+  return useMutation<void, String>(
+    (id) => ApiService().deleteUser(id),
+    options: MutationOptions(
+      onSuccess: (_, id) {
+        useQueryClient().invalidateQuery('users');
+      },
+    ),
+  );
+}
+
+// Using the custom hooks
+class UserScreenWithCustomHooks extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useUsers();
+    final createUser = useCreateUser();
+    final deleteUser = useDeleteUser();
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Custom Hooks Example')),
+      body: usersState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (users) => ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(
+              title: Text(user.name),
+              subtitle: Text(user.email),
+              trailing: IconButton(
+                icon: Icon(Icons.delete),
+                onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(user.id),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Error Boundary Example
+
+Implementing error boundaries with hooks:
+
+```dart
+class ErrorBoundary extends HookWidget {
+  final Widget child;
+  final Widget Function(Object error)? errorBuilder;
+  
+  const ErrorBoundary({
+    required this.child,
+    this.errorBuilder,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    final error = useState<Object?>(null);
+    
+    return Builder(
+      builder: (context) {
+        if (error.value != null) {
+          return errorBuilder?.call(error.value!) ?? 
+            Center(child: Text('Error: ${error.value}'));
+        }
+        
+        return child;
+      },
+    );
+  }
+}
+
+class UsersScreenWithErrorBoundary extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ErrorBoundary(
+      errorBuilder: (error) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text('Something went wrong'),
+            SizedBox(height: 8),
+            Text('$error'),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+      child: UserManagementScreen(),
+    );
+  }
+}
+```
+
+## Performance Optimization
+
+Optimizing performance with proper cache configuration:
+
+```dart
+class OptimizedUsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery<List<User>>(
+      'users',
+      () => ApiService().fetchUsers(),
+      options: QueryOptions(
+        staleTime: Duration(minutes: 10), // Keep fresh for 10 minutes
+        cacheTime: Duration(minutes: 30), // Keep in cache for 30 minutes
+        refetchOnWindowFocus: false, // Don't refetch on focus
+        refetchOnMount: false, // Don't refetch on mount if data exists
+      ),
+    );
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Optimized Users')),
+      body: usersState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (users) => ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(
+              title: Text(user.name),
+              subtitle: Text(user.email),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Next Steps
+
+- **[useQuery](/docs/hooks/use-query)** - Learn about the useQuery hook
+- **[useMutation](/docs/hooks/use-mutation)** - Learn about the useMutation hook
+- **[useQueryClient](/docs/hooks/use-query-client)** - Learn about cache management
+- **[Custom Hooks](/docs/hooks/custom-hooks)** - Creating reusable logic

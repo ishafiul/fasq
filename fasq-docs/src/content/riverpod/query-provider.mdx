@@ -1,0 +1,452 @@
+# queryProvider
+
+The `queryProvider` is a Riverpod provider factory that creates and manages Fasq queries. It provides a compile-safe and flexible way to manage server state with Riverpod's dependency injection system.
+
+## Basic Usage
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// Define your query provider
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+class UsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Users')),
+      body: usersState.when(
+        idle: () => Center(child: Text('Ready to load users')),
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (users) => ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(title: Text(user.name));
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Provider Configuration
+
+Configure query behavior with QueryOptions:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
+    cacheTime: Duration(minutes: 10), // Keep in cache for 10 minutes
+    enabled: true,                     // Whether to execute the query
+    onSuccess: (users) {
+      print('Users fetched: ${users.length}');
+    },
+    onError: (error) {
+      print('Error fetching users: $error');
+    },
+  ),
+);
+```
+
+## Parameterized Queries
+
+Use Riverpod's `family` modifier for parameterized queries:
+
+```dart
+// Define a family provider for user details
+final userProvider = queryProvider.family<User, String>(
+  (userId) => 'user:$userId',
+  (userId) => api.fetchUser(userId),
+);
+
+class UserProfileScreen extends ConsumerWidget {
+  final String userId;
+  
+  const UserProfileScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(userProvider(userId));
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('User Profile')),
+      body: userState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (user) => Column(
+          children: [
+            Text('Name: ${user.name}'),
+            Text('Email: ${user.email}'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Conditional Queries
+
+Disable queries based on conditions:
+
+```dart
+final userProvider = queryProvider.family<User?, String>(
+  (userId) => 'user:$userId',
+  (userId) => api.fetchUser(userId),
+  options: QueryOptions(
+    enabled: (userId) => userId.isNotEmpty, // Only fetch when userId is not empty
+  ),
+);
+
+class ConditionalUserScreen extends ConsumerWidget {
+  final String? userId;
+  
+  const ConditionalUserScreen({this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (userId == null) {
+      return Center(child: Text('Please select a user'));
+    }
+    
+    final userState = ref.watch(userProvider(userId!));
+    
+    return userState.when(
+      loading: () => Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (user) => user != null 
+        ? Text('User: ${user.name}')
+        : Text('User not found'),
+    );
+  }
+}
+```
+
+## Dependent Queries
+
+Create queries that depend on other queries:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+final userPostsProvider = queryProvider.family<List<Post>, String>(
+  (userId) => 'posts:user:$userId',
+  (userId) => api.fetchUserPosts(userId),
+  options: QueryOptions(
+    enabled: (userId) {
+      // Only fetch posts when users are loaded
+      final usersState = ref.read(usersProvider);
+      return usersState.hasData;
+    },
+  ),
+);
+
+class UserPostsScreen extends ConsumerWidget {
+  final String userId;
+  
+  const UserPostsScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    final postsState = ref.watch(userPostsProvider(userId));
+    
+    if (usersState.isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+    
+    if (!usersState.hasData) {
+      return Center(child: Text('Users not loaded'));
+    }
+    
+    return postsState.when(
+      loading: () => Center(child: Text('Loading posts...')),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (posts) => ListView.builder(
+        itemCount: posts.length,
+        itemBuilder: (context, index) {
+          final post = posts[index];
+          return ListTile(title: Text(post.title));
+        },
+      ),
+    );
+  }
+}
+```
+
+## Manual Refetching
+
+Trigger manual refetches using the provider:
+
+```dart
+class RefreshButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ElevatedButton(
+      onPressed: () {
+        // Invalidate and refetch
+        ref.invalidate(usersProvider);
+      },
+      child: Text('Refresh Users'),
+    );
+  }
+}
+```
+
+## Cache Management
+
+Access the QueryClient for advanced cache operations:
+
+```dart
+class CacheManager extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            // Invalidate specific query
+            ref.invalidate(usersProvider);
+          },
+          child: Text('Invalidate Users'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Set query data manually
+            ref.read(usersProvider.notifier).setData([
+              User(id: '1', name: 'John'),
+              User(id: '2', name: 'Jane'),
+            ]);
+          },
+          child: Text('Set Users Data'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Get cache info
+            final queryClient = ref.read(queryClientProvider);
+            final info = queryClient.getCacheInfo();
+            print('Cache entries: ${info.entryCount}');
+          },
+          child: Text('Print Cache Info'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Error Handling
+
+Handle errors with retry functionality:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+class UsersScreenWithErrorHandling extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    if (usersState.hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error: ${usersState.error}'),
+            ElevatedButton(
+              onPressed: () {
+                // Retry the query
+                ref.invalidate(usersProvider);
+              },
+              child: Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return usersState.when(
+      loading: () => Center(child: CircularProgressIndicator()),
+      data: (users) => ListView.builder(
+        itemCount: users.length,
+        itemBuilder: (context, index) {
+          final user = users[index];
+          return ListTile(title: Text(user.name));
+        },
+      ),
+    );
+  }
+}
+```
+
+## Background Refetching
+
+Handle background refetching with `isFetching`:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+class UsersScreenWithBackgroundRefresh extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    return Column(
+      children: [
+        if (usersState.isFetching && !usersState.isLoading)
+          LinearProgressIndicator(), // Background refresh indicator
+        Expanded(
+          child: usersState.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(child: Text('Error: $error')),
+            data: (users) => ListView.builder(
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                return ListTile(title: Text(user.name));
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+// Type-safe provider definition
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+class TypeSafeUsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    return usersState.when(
+      loading: () => Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (users) {
+        // users is List<User>
+        return ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index]; // user is User
+            return ListTile(
+              title: Text(user.name),
+              subtitle: Text(user.email),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+```
+
+## Common Patterns
+
+### Loading Skeleton
+
+```dart
+class UsersScreenWithSkeleton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    if (usersState.isLoading) {
+      return ListView.builder(
+        itemCount: 5,
+        itemBuilder: (context, index) => UserTileSkeleton(),
+      );
+    }
+    
+    return usersState.when(
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (users) => ListView.builder(
+        itemCount: users.length,
+        itemBuilder: (context, index) => UserTile(users[index]),
+      ),
+    );
+  }
+}
+```
+
+### Empty State
+
+```dart
+class UsersScreenWithEmptyState extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    return usersState.when(
+      loading: () => Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (users) {
+        if (users.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.people, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No users found'),
+              ],
+            ),
+          );
+        }
+        
+        return ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) => UserTile(users[index]),
+        );
+      },
+    );
+  }
+}
+```
+
+## Performance Tips
+
+1. **Use family providers** - For parameterized queries
+2. **Configure staleTime** - Reduce unnecessary refetches
+3. **Handle loading states** - Provide good user experience
+4. **Use error boundaries** - Graceful error handling
+5. **Leverage Riverpod's caching** - Automatic provider caching
+
+## Next Steps
+
+- **[mutationProvider](/docs/riverpod/mutation-provider)** - Learn about mutations
+- **[Family Providers](/docs/riverpod/family-providers)** - Advanced parameterized queries
+- **[Riverpod Patterns](/docs/riverpod/riverpod-patterns)** - Best practices
+- **[Examples](/docs/riverpod/examples)** - Complete working examples

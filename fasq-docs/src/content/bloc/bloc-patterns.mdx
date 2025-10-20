@@ -1,0 +1,699 @@
+# Bloc Patterns
+
+Best practices and common patterns for using Fasq with Bloc. These patterns will help you build maintainable and performant applications using the Bloc architecture.
+
+## Cubit Organization
+
+### Group Related Cubits
+
+Organize cubits by feature or domain:
+
+```dart
+// user_cubits.dart
+class UsersQueryCubit extends QueryCubit<List<User>> {
+  UsersQueryCubit() : super(
+    queryKey: 'users',
+    queryFn: () => api.fetchUsers(),
+  );
+}
+
+class UserQueryCubit extends QueryCubit<User> {
+  UserQueryCubit(String userId) : super(
+    queryKey: 'user:$userId',
+    queryFn: () => api.fetchUser(userId),
+  );
+}
+
+class CreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
+  CreateUserMutationCubit() : super(
+    mutationFn: (data) => api.createUser(data),
+  );
+}
+
+class UpdateUserMutationCubit extends MutationCubit<User, User> {
+  UpdateUserMutationCubit() : super(
+    mutationFn: (user) => api.updateUser(user),
+  );
+}
+
+class DeleteUserMutationCubit extends MutationCubit<void, String> {
+  DeleteUserMutationCubit() : super(
+    mutationFn: (userId) => api.deleteUser(userId),
+  );
+}
+```
+
+### Cubit Dependencies
+
+Create cubits that depend on other cubits:
+
+```dart
+class AuthQueryCubit extends QueryCubit<User?> {
+  AuthQueryCubit() : super(
+    queryKey: 'auth',
+    queryFn: () => api.getCurrentUser(),
+  );
+}
+
+class UserPostsQueryCubit extends QueryCubit<List<Post>> {
+  UserPostsQueryCubit(String userId) : super(
+    queryKey: 'posts:user:$userId',
+    queryFn: () => api.fetchUserPosts(userId),
+    options: QueryOptions(
+      enabled: () {
+        // Only fetch posts when user is authenticated
+        final authCubit = QueryClient().getQueryByKey<User?>('auth');
+        return authCubit?.state.hasData == true && authCubit?.state.data != null;
+      },
+    ),
+  );
+}
+```
+
+## State Management Patterns
+
+### Combining Multiple Cubits
+
+Combine data from multiple cubits:
+
+```dart
+class DashboardScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => UsersQueryCubit()),
+        BlocProvider(create: (context) => PostsQueryCubit()),
+      ],
+      child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
+        builder: (context, usersState) {
+          return BlocBuilder<PostsQueryCubit, QueryState<List<Post>>>(
+            builder: (context, postsState) {
+              return DashboardView(
+                users: usersState.data ?? [],
+                posts: postsState.data ?? [],
+                isLoading: usersState.isLoading || postsState.isLoading,
+                hasError: usersState.hasError || postsState.hasError,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class DashboardView extends StatelessWidget {
+  final List<User> users;
+  final List<Post> posts;
+  final bool isLoading;
+  final bool hasError;
+  
+  const DashboardView({
+    required this.users,
+    required this.posts,
+    required this.isLoading,
+    required this.hasError,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) return CircularProgressIndicator();
+    if (hasError) return Text('Error loading data');
+    
+    return Column(
+      children: [
+        Text('Users: ${users.length}'),
+        Text('Posts: ${posts.length}'),
+      ],
+    );
+  }
+}
+```
+
+### Derived State
+
+Create computed state from other cubits:
+
+```dart
+class UsersStatsCubit extends Cubit<UsersStats> {
+  UsersStatsCubit() : super(UsersStats.empty());
+  
+  void updateStats(List<User> users) {
+    emit(UsersStats(
+      totalUsers: users.length,
+      activeUsers: users.where((user) => user.isActive).length,
+      inactiveUsers: users.where((user) => !user.isActive).length,
+    ));
+  }
+}
+
+class UsersStats {
+  final int totalUsers;
+  final int activeUsers;
+  final int inactiveUsers;
+  
+  UsersStats({
+    required this.totalUsers,
+    required this.activeUsers,
+    required this.inactiveUsers,
+  });
+  
+  factory UsersStats.empty() => UsersStats(
+    totalUsers: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+  );
+}
+
+class UsersScreenWithStats extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => UsersQueryCubit()),
+        BlocProvider(create: (context) => UsersStatsCubit()),
+      ],
+      child: BlocListener<UsersQueryCubit, QueryState<List<User>>>(
+        listener: (context, state) {
+          if (state.hasData) {
+            context.read<UsersStatsCubit>().updateStats(state.data!);
+          }
+        },
+        child: BlocBuilder<UsersStatsCubit, UsersStats>(
+          builder: (context, stats) {
+            return Column(
+              children: [
+                Text('Total Users: ${stats.totalUsers}'),
+                Text('Active Users: ${stats.activeUsers}'),
+                Text('Inactive Users: ${stats.inactiveUsers}'),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Error Handling Patterns
+
+### Global Error Handler
+
+Create a global error handler for mutations:
+
+```dart
+class GlobalErrorHandler {
+  static void handleError(BuildContext context, Object error) {
+    // Log error
+    print('Global error: $error');
+    
+    // Show error snackbar
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('An error occurred: $error'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+class CreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
+  CreateUserMutationCubit() : super(
+    mutationFn: (data) => api.createUser(data),
+    options: MutationOptions(
+      onError: (error) {
+        // Handle error globally
+        GlobalErrorHandler.handleError(context, error);
+      },
+    ),
+  );
+}
+```
+
+### Retry Logic
+
+Implement retry logic for failed queries:
+
+```dart
+class UsersQueryCubit extends QueryCubit<List<User>> {
+  UsersQueryCubit() : super(
+    queryKey: 'users',
+    queryFn: () => api.fetchUsers(),
+    options: QueryOptions(
+      onError: (error) {
+        // Implement retry logic
+        Future.delayed(Duration(seconds: 2), () {
+          fetch();
+        });
+      },
+    ),
+  );
+}
+```
+
+## Cache Management Patterns
+
+### Cache Warming
+
+Preload data for better performance:
+
+```dart
+class CacheWarmerCubit extends Cubit<void> {
+  CacheWarmerCubit() : super(null);
+  
+  void warmCache() {
+    // Warm cache on app start
+    QueryClient().prefetchQuery('users', () => api.fetchUsers());
+    QueryClient().prefetchQuery('posts', () => api.fetchPosts());
+  }
+}
+
+class AppInitializer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => CacheWarmerCubit()..warmCache(),
+      child: MaterialApp(
+        home: HomeScreen(),
+      ),
+    );
+  }
+}
+```
+
+### Cache Invalidation Strategies
+
+Implement smart cache invalidation:
+
+```dart
+class CacheInvalidationService {
+  static void invalidateUserCache(String userId) {
+    // Invalidate specific user
+    QueryClient().invalidateQuery('user:$userId');
+    
+    // Invalidate user list if it might be affected
+    QueryClient().invalidateQuery('users');
+    
+    // Invalidate user posts
+    QueryClient().invalidateQuery('posts:user:$userId');
+  }
+}
+
+class UpdateUserMutationCubit extends MutationCubit<User, User> {
+  UpdateUserMutationCubit() : super(
+    mutationFn: (user) => api.updateUser(user),
+    options: MutationOptions(
+      onSuccess: (updatedUser) {
+        CacheInvalidationService.invalidateUserCache(updatedUser.id);
+      },
+    ),
+  );
+}
+```
+
+## Form Handling Patterns
+
+### Form State Management
+
+Manage form state with Bloc:
+
+```dart
+class CreateUserFormCubit extends Cubit<CreateUserFormState> {
+  CreateUserFormCubit() : super(CreateUserFormState.initial());
+  
+  void updateName(String name) {
+    emit(state.copyWith(
+      name: name,
+      isValid: name.isNotEmpty && state.email.isNotEmpty,
+      nameError: name.isEmpty ? 'Name is required' : null,
+    ));
+  }
+  
+  void updateEmail(String email) {
+    emit(state.copyWith(
+      email: email,
+      isValid: state.name.isNotEmpty && email.isNotEmpty,
+      emailError: email.isEmpty ? 'Email is required' : null,
+    ));
+  }
+  
+  void reset() {
+    emit(CreateUserFormState.initial());
+  }
+}
+
+class CreateUserFormState {
+  final String name;
+  final String email;
+  final bool isValid;
+  final String? nameError;
+  final String? emailError;
+  
+  CreateUserFormState({
+    required this.name,
+    required this.email,
+    required this.isValid,
+    this.nameError,
+    this.emailError,
+  });
+  
+  factory CreateUserFormState.initial() => CreateUserFormState(
+    name: '',
+    email: '',
+    isValid: false,
+  );
+  
+  CreateUserFormState copyWith({
+    String? name,
+    String? email,
+    bool? isValid,
+    String? nameError,
+    String? emailError,
+  }) {
+    return CreateUserFormState(
+      name: name ?? this.name,
+      email: email ?? this.email,
+      isValid: isValid ?? this.isValid,
+      nameError: nameError,
+      emailError: emailError,
+    );
+  }
+}
+```
+
+### Form Submission with Validation
+
+```dart
+class CreateUserForm extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => CreateUserFormCubit()),
+        BlocProvider(create: (context) => CreateUserMutationCubit()),
+      ],
+      child: BlocBuilder<CreateUserFormCubit, CreateUserFormState>(
+        builder: (context, formState) {
+          return BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
+            builder: (context, mutationState) {
+              return Form(
+                child: Column(
+                  children: [
+                    TextFormField(
+                      decoration: InputDecoration(labelText: 'Name'),
+                      onChanged: (value) {
+                        context.read<CreateUserFormCubit>().updateName(value);
+                      },
+                      validator: (value) => formState.nameError,
+                    ),
+                    TextFormField(
+                      decoration: InputDecoration(labelText: 'Email'),
+                      onChanged: (value) {
+                        context.read<CreateUserFormCubit>().updateEmail(value);
+                      },
+                      validator: (value) => formState.emailError,
+                    ),
+                    ElevatedButton(
+                      onPressed: formState.isValid && !mutationState.isLoading
+                          ? () {
+                              final mutationCubit = context.read<CreateUserMutationCubit>();
+                              mutationCubit.mutate({
+                                'name': formState.name,
+                                'email': formState.email,
+                              });
+                            }
+                          : null,
+                      child: mutationState.isLoading
+                          ? CircularProgressIndicator()
+                          : Text('Create User'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Navigation Patterns
+
+### Route-Based Data Loading
+
+Load data based on route parameters:
+
+```dart
+class UserDetailScreen extends StatelessWidget {
+  final String userId;
+  
+  const UserDetailScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => UserQueryCubit(userId),
+      child: Scaffold(
+        appBar: AppBar(title: Text('User Details')),
+        body: BlocBuilder<UserQueryCubit, QueryState<User>>(
+          builder: (context, state) {
+            if (state.isLoading) return CircularProgressIndicator();
+            if (state.hasError) return Text('Error: ${state.error}');
+            if (state.hasData) return UserDetailsView(user: state.data!);
+            return SizedBox();
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Deep Linking Support
+
+Handle deep links with proper data loading:
+
+```dart
+class DeepLinkHandler {
+  static void handleDeepLink(BuildContext context, String path) {
+    final segments = path.split('/');
+    
+    if (segments.length >= 2) {
+      final resource = segments[1];
+      final id = segments.length >= 3 ? segments[2] : null;
+      
+      switch (resource) {
+        case 'users':
+          if (id != null) {
+            QueryClient().prefetchQuery('user:$id', () => api.fetchUser(id));
+          } else {
+            QueryClient().prefetchQuery('users', () => api.fetchUsers());
+          }
+          break;
+        case 'posts':
+          if (id != null) {
+            QueryClient().prefetchQuery('post:$id', () => api.fetchPost(id));
+          } else {
+            QueryClient().prefetchQuery('posts', () => api.fetchPosts());
+          }
+          break;
+      }
+    }
+  }
+}
+```
+
+## Testing Patterns
+
+### Mock Cubits for Testing
+
+Create mock cubits for testing:
+
+```dart
+// test_helpers.dart
+class MockUsersQueryCubit extends QueryCubit<List<User>> {
+  MockUsersQueryCubit() : super(
+    queryKey: 'users',
+    queryFn: () => Future.value([
+      User(id: '1', name: 'Test User 1'),
+      User(id: '2', name: 'Test User 2'),
+    ]),
+  );
+}
+
+class MockCreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
+  MockCreateUserMutationCubit() : super(
+    mutationFn: (data) => Future.value(User(
+      id: '3',
+      name: data['name']!,
+      email: data['email']!,
+    )),
+  );
+}
+
+// In your test
+void main() {
+  testWidgets('should display users', (tester) async {
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<QueryCubit<List<User>>, QueryState<List<User>>>(
+            create: (context) => MockUsersQueryCubit(),
+          ),
+        ],
+        child: MaterialApp(home: UsersScreen()),
+      ),
+    );
+    
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Test User 1'), findsOneWidget);
+    expect(find.text('Test User 2'), findsOneWidget);
+  });
+}
+```
+
+### Cubit Testing Utilities
+
+Create utilities for testing cubits:
+
+```dart
+class CubitTestHelper {
+  static Future<void> pumpWidgetWithCubits(
+    WidgetTester tester,
+    Widget child,
+    List<BlocProvider> providers,
+  ) async {
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: providers,
+        child: MaterialApp(home: child),
+      ),
+    );
+  }
+  
+  static Future<void> waitForCubitState<T extends Cubit<S>, S>(
+    WidgetTester tester,
+    T cubit,
+    S expectedState,
+  ) async {
+    await tester.pump();
+    while (cubit.state != expectedState) {
+      await tester.pump(Duration(milliseconds: 100));
+    }
+  }
+}
+
+// Usage in tests
+void main() {
+  testWidgets('should create user successfully', (tester) async {
+    final createUserCubit = MockCreateUserMutationCubit();
+    
+    await CubitTestHelper.pumpWidgetWithCubits(
+      tester,
+      CreateUserForm(),
+      [
+        BlocProvider<MutationCubit<User, Map<String, String>>, MutationState<User>>(
+          create: (context) => createUserCubit,
+        ),
+      ],
+    );
+    
+    await tester.enterText(find.byType(TextFormField).first, 'Test User');
+    await tester.enterText(find.byType(TextFormField).last, 'test@example.com');
+    await tester.tap(find.byType(ElevatedButton));
+    await tester.pumpAndSettle();
+    
+    expect(createUserCubit.state.isSuccess, isTrue);
+    expect(createUserCubit.state.data?.name, equals('Test User'));
+  });
+}
+```
+
+## Performance Optimization Patterns
+
+### Lazy Loading
+
+Implement lazy loading for large datasets:
+
+```dart
+class PaginatedUsersCubit extends Cubit<List<User>> {
+  PaginatedUsersCubit() : super([]);
+  
+  Future<void> loadPage(int page) async {
+    final users = await api.fetchUsersPage(page: page, limit: 20);
+    emit([...state, ...users]);
+  }
+  
+  Future<void> loadAllPages() async {
+    int currentPage = 1;
+    List<User> allUsers = [];
+    
+    while (true) {
+      final users = await api.fetchUsersPage(page: currentPage, limit: 20);
+      allUsers.addAll(users);
+      
+      if (users.length < 20) break; // Last page
+      currentPage++;
+    }
+    
+    emit(allUsers);
+  }
+}
+```
+
+### Debounced Search
+
+Implement debounced search to avoid excessive API calls:
+
+```dart
+class SearchQueryCubit extends Cubit<String> {
+  Timer? _debounceTimer;
+  
+  SearchQueryCubit() : super('');
+  
+  void updateQuery(String query) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(Duration(milliseconds: 500), () {
+      emit(query);
+    });
+  }
+  
+  @override
+  Future<void> close() {
+    _debounceTimer?.cancel();
+    return super.close();
+  }
+}
+
+class SearchResultsCubit extends QueryCubit<List<Post>> {
+  SearchResultsCubit(String query) : super(
+    queryKey: 'search:$query',
+    queryFn: () => api.searchPosts(query),
+    options: QueryOptions(
+      enabled: query.isNotEmpty && query.length >= 2,
+    ),
+  );
+}
+```
+
+## Best Practices
+
+1. **Organize cubits by feature** - Keep related cubits together
+2. **Use meaningful names** - Make cubit names descriptive
+3. **Handle errors gracefully** - Implement proper error handling
+4. **Optimize cache usage** - Use appropriate staleTime and cacheTime
+5. **Test thoroughly** - Create comprehensive tests for cubits
+6. **Use type safety** - Leverage generic types for compile-time safety
+7. **Document complex logic** - Add comments for complex cubit logic
+
+## Next Steps
+
+- **[QueryCubit](/docs/bloc/query-cubit)** - Learn about the QueryCubit
+- **[MutationCubit](/docs/bloc/mutation-cubit)** - Learn about the MutationCubit
+- **[Testing](/docs/bloc/testing)** - Testing strategies
+- **[Examples](/docs/bloc/examples)** - Complete working examples

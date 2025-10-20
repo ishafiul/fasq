@@ -1,0 +1,942 @@
+# Database Queries
+
+Complete examples of implementing database queries with Fasq. Learn how to integrate with SQLite, PostgreSQL, MongoDB, and other databases.
+
+## SQLite Integration
+
+### SQLite Service
+
+```dart
+class SQLiteService {
+  static Database? _database;
+  
+  static Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDatabase();
+    return _database!;
+  }
+  
+  static Future<Database> _initDatabase() async {
+    final path = await getDatabasesPath();
+    final dbPath = join(path, 'app_database.db');
+    
+    return await openDatabase(
+      dbPath,
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL
+          )
+        ''');
+        
+        await db.execute('''
+          CREATE TABLE posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        ''');
+      },
+    );
+  }
+  
+  // Users CRUD
+  static Future<List<User>> getUsers() async {
+    final db = await database;
+    final result = await db.query('users', orderBy: 'created_at DESC');
+    return result.map((json) => User.fromJson(json)).toList();
+  }
+  
+  static Future<User> getUser(int id) async {
+    final db = await database;
+    final result = await db.query('users', where: 'id = ?', whereArgs: [id]);
+    if (result.isEmpty) throw Exception('User not found');
+    return User.fromJson(result.first);
+  }
+  
+  static Future<int> createUser(Map<String, dynamic> data) async {
+    final db = await database;
+    data['created_at'] = DateTime.now().toIso8601String();
+    return await db.insert('users', data);
+  }
+  
+  static Future<int> updateUser(int id, Map<String, dynamic> data) async {
+    final db = await database;
+    return await db.update('users', data, where: 'id = ?', whereArgs: [id]);
+  }
+  
+  static Future<int> deleteUser(int id) async {
+    final db = await database;
+    return await db.delete('users', where: 'id = ?', whereArgs: [id]);
+  }
+  
+  // Posts CRUD
+  static Future<List<Post>> getPosts() async {
+    final db = await database;
+    final result = await db.query('posts', orderBy: 'created_at DESC');
+    return result.map((json) => Post.fromJson(json)).toList();
+  }
+  
+  static Future<List<Post>> getPostsByUser(int userId) async {
+    final db = await database;
+    final result = await db.query('posts', 
+      where: 'user_id = ?', 
+      whereArgs: [userId],
+      orderBy: 'created_at DESC'
+    );
+    return result.map((json) => Post.fromJson(json)).toList();
+  }
+  
+  static Future<int> createPost(Map<String, dynamic> data) async {
+    final db = await database;
+    data['created_at'] = DateTime.now().toIso8601String();
+    return await db.insert('posts', data);
+  }
+  
+  static Future<int> updatePost(int id, Map<String, dynamic> data) async {
+    final db = await database;
+    return await db.update('posts', data, where: 'id = ?', whereArgs: [id]);
+  }
+  
+  static Future<int> deletePost(int id) async {
+    final db = await database;
+    return await db.delete('posts', where: 'id = ?', whereArgs: [id]);
+  }
+}
+
+class User {
+  final int id;
+  final String name;
+  final String email;
+  final DateTime createdAt;
+  
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.createdAt,
+  });
+  
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+}
+
+class Post {
+  final int id;
+  final String title;
+  final String content;
+  final int userId;
+  final DateTime createdAt;
+  
+  Post({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.userId,
+    required this.createdAt,
+  });
+  
+  factory Post.fromJson(Map<String, dynamic> json) {
+    return Post(
+      id: json['id'],
+      title: json['title'],
+      content: json['content'],
+      userId: json['user_id'],
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'content': content,
+      'user_id': userId,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+}
+```
+
+### SQLite Users Screen
+
+```dart
+class SQLiteUsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('SQLite Users'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              QueryClient().invalidateQuery('sqlite-users');
+            },
+          ),
+        ],
+      ),
+      body: QueryBuilder<List<User>>(
+        queryKey: 'sqlite-users',
+        queryFn: () => SQLiteService.getUsers(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $error'),
+                  ElevatedButton(
+                    onPressed: () {
+                      QueryClient().invalidateQuery('sqlite-users');
+                    },
+                    child: Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+            data: (users) => ListView.builder(
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                return SQLiteUserTile(user: user);
+              },
+            ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CreateSQLiteUserScreen(),
+            ),
+          );
+        },
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class SQLiteUserTile extends StatelessWidget {
+  final User user;
+  
+  const SQLiteUserTile({required this.user});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        title: Text(user.name),
+        subtitle: Text(user.email),
+        trailing: PopupMenuButton(
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit),
+                  SizedBox(width: 8),
+                  Text('Edit'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Delete', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+          onSelected: (value) {
+            switch (value) {
+              case 'edit':
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditSQLiteUserScreen(user: user),
+                  ),
+                );
+                break;
+              case 'delete':
+                _showDeleteDialog(context);
+                break;
+            }
+          },
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SQLiteUserDetailScreen(userId: user.id),
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete User'),
+        content: Text('Are you sure you want to delete ${user.name}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteUser(context);
+            },
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _deleteUser(BuildContext context) {
+    MutationBuilder<int, int>(
+      mutationFn: (id) => SQLiteService.deleteUser(id),
+      options: MutationOptions(
+        onSuccess: (_, id) {
+          QueryClient().invalidateQuery('sqlite-users');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User deleted successfully')),
+          );
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete user: $error')),
+          );
+        },
+      ),
+      builder: (context, state) {
+        return state.mutate(user.id);
+      },
+    );
+  }
+}
+```
+
+## PostgreSQL Integration
+
+### PostgreSQL Service
+
+```dart
+class PostgreSQLService {
+  static late PostgreSQLConnection _connection;
+  
+  static Future<void> initialize() async {
+    _connection = PostgreSQLConnection(
+      'localhost',
+      5432,
+      'app_database',
+      username: 'postgres',
+      password: 'password',
+    );
+    
+    await _connection.open();
+  }
+  
+  static Future<void> close() async {
+    await _connection.close();
+  }
+  
+  // Users CRUD
+  static Future<List<User>> getUsers() async {
+    final result = await _connection.query('SELECT * FROM users ORDER BY created_at DESC');
+    return result.map((row) => User.fromJson(row.toColumnMap())).toList();
+  }
+  
+  static Future<User> getUser(int id) async {
+    final result = await _connection.query(
+      'SELECT * FROM users WHERE id = @id',
+      substitutionValues: {'id': id},
+    );
+    if (result.isEmpty) throw Exception('User not found');
+    return User.fromJson(result.first.toColumnMap());
+  }
+  
+  static Future<int> createUser(Map<String, dynamic> data) async {
+    final result = await _connection.query(
+      'INSERT INTO users (name, email, created_at) VALUES (@name, @email, @created_at) RETURNING id',
+      substitutionValues: {
+        'name': data['name'],
+        'email': data['email'],
+        'created_at': DateTime.now().toIso8601String(),
+      },
+    );
+    return result.first[0] as int;
+  }
+  
+  static Future<int> updateUser(int id, Map<String, dynamic> data) async {
+    final result = await _connection.query(
+      'UPDATE users SET name = @name, email = @email WHERE id = @id',
+      substitutionValues: {
+        'id': id,
+        'name': data['name'],
+        'email': data['email'],
+      },
+    );
+    return result.affectedRowCount;
+  }
+  
+  static Future<int> deleteUser(int id) async {
+    final result = await _connection.query(
+      'DELETE FROM users WHERE id = @id',
+      substitutionValues: {'id': id},
+    );
+    return result.affectedRowCount;
+  }
+  
+  // Posts CRUD
+  static Future<List<Post>> getPosts() async {
+    final result = await _connection.query('SELECT * FROM posts ORDER BY created_at DESC');
+    return result.map((row) => Post.fromJson(row.toColumnMap())).toList();
+  }
+  
+  static Future<List<Post>> getPostsByUser(int userId) async {
+    final result = await _connection.query(
+      'SELECT * FROM posts WHERE user_id = @user_id ORDER BY created_at DESC',
+      substitutionValues: {'user_id': userId},
+    );
+    return result.map((row) => Post.fromJson(row.toColumnMap())).toList();
+  }
+  
+  static Future<int> createPost(Map<String, dynamic> data) async {
+    final result = await _connection.query(
+      'INSERT INTO posts (title, content, user_id, created_at) VALUES (@title, @content, @user_id, @created_at) RETURNING id',
+      substitutionValues: {
+        'title': data['title'],
+        'content': data['content'],
+        'user_id': data['user_id'],
+        'created_at': DateTime.now().toIso8601String(),
+      },
+    );
+    return result.first[0] as int;
+  }
+  
+  static Future<int> updatePost(int id, Map<String, dynamic> data) async {
+    final result = await _connection.query(
+      'UPDATE posts SET title = @title, content = @content WHERE id = @id',
+      substitutionValues: {
+        'id': id,
+        'title': data['title'],
+        'content': data['content'],
+      },
+    );
+    return result.affectedRowCount;
+  }
+  
+  static Future<int> deletePost(int id) async {
+    final result = await _connection.query(
+      'DELETE FROM posts WHERE id = @id',
+      substitutionValues: {'id': id},
+    );
+    return result.affectedRowCount;
+  }
+}
+
+class PostgreSQLUsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('PostgreSQL Users')),
+      body: QueryBuilder<List<User>>(
+        queryKey: 'postgresql-users',
+        queryFn: () => PostgreSQLService.getUsers(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(child: Text('Error: $error')),
+            data: (users) => ListView.builder(
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                return ListTile(
+                  title: Text(user.name),
+                  subtitle: Text(user.email),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## MongoDB Integration
+
+### MongoDB Service
+
+```dart
+class MongoDBService {
+  static late MongoClient _client;
+  static late MongoDatabase _database;
+  
+  static Future<void> initialize() async {
+    _client = MongoClient('mongodb://localhost:27017');
+    await _client.open();
+    _database = _client.database('app_database');
+  }
+  
+  static Future<void> close() async {
+    await _client.close();
+  }
+  
+  // Users CRUD
+  static Future<List<User>> getUsers() async {
+    final collection = _database.collection('users');
+    final cursor = await collection.find();
+    final users = <User>[];
+    await for (final doc in cursor) {
+      users.add(User.fromJson(doc));
+    }
+    return users;
+  }
+  
+  static Future<User> getUser(String id) async {
+    final collection = _database.collection('users');
+    final doc = await collection.findOne(where.eq('_id', ObjectId.fromHexString(id)));
+    if (doc == null) throw Exception('User not found');
+    return User.fromJson(doc);
+  }
+  
+  static Future<String> createUser(Map<String, dynamic> data) async {
+    final collection = _database.collection('users');
+    data['created_at'] = DateTime.now().toIso8601String();
+    final result = await collection.insertOne(data);
+    return result.insertedId.toString();
+  }
+  
+  static Future<int> updateUser(String id, Map<String, dynamic> data) async {
+    final collection = _database.collection('users');
+    final result = await collection.updateOne(
+      where.eq('_id', ObjectId.fromHexString(id)),
+      ModifierBuilder().set('name', data['name']).set('email', data['email']),
+    );
+    return result.modifiedCount;
+  }
+  
+  static Future<int> deleteUser(String id) async {
+    final collection = _database.collection('users');
+    final result = await collection.deleteOne(where.eq('_id', ObjectId.fromHexString(id)));
+    return result.deletedCount;
+  }
+  
+  // Posts CRUD
+  static Future<List<Post>> getPosts() async {
+    final collection = _database.collection('posts');
+    final cursor = await collection.find();
+    final posts = <Post>[];
+    await for (final doc in cursor) {
+      posts.add(Post.fromJson(doc));
+    }
+    return posts;
+  }
+  
+  static Future<List<Post>> getPostsByUser(String userId) async {
+    final collection = _database.collection('posts');
+    final cursor = await collection.find(where.eq('user_id', ObjectId.fromHexString(userId)));
+    final posts = <Post>[];
+    await for (final doc in cursor) {
+      posts.add(Post.fromJson(doc));
+    }
+    return posts;
+  }
+  
+  static Future<String> createPost(Map<String, dynamic> data) async {
+    final collection = _database.collection('posts');
+    data['created_at'] = DateTime.now().toIso8601String();
+    final result = await collection.insertOne(data);
+    return result.insertedId.toString();
+  }
+  
+  static Future<int> updatePost(String id, Map<String, dynamic> data) async {
+    final collection = _database.collection('posts');
+    final result = await collection.updateOne(
+      where.eq('_id', ObjectId.fromHexString(id)),
+      ModifierBuilder().set('title', data['title']).set('content', data['content']),
+    );
+    return result.modifiedCount;
+  }
+  
+  static Future<int> deletePost(String id) async {
+    final collection = _database.collection('posts');
+    final result = await collection.deleteOne(where.eq('_id', ObjectId.fromHexString(id)));
+    return result.deletedCount;
+  }
+}
+
+class MongoDBUsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('MongoDB Users')),
+      body: QueryBuilder<List<User>>(
+        queryKey: 'mongodb-users',
+        queryFn: () => MongoDBService.getUsers(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(child: Text('Error: $error')),
+            data: (users) => ListView.builder(
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                return ListTile(
+                  title: Text(user.name),
+                  subtitle: Text(user.email),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Database Migrations
+
+### Migration Service
+
+```dart
+class MigrationService {
+  static Future<void> runMigrations() async {
+    final db = await SQLiteService.database;
+    
+    // Check if migrations table exists
+    final result = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='migrations'"
+    );
+    
+    if (result.isEmpty) {
+      await db.execute('''
+        CREATE TABLE migrations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          version TEXT NOT NULL UNIQUE,
+          applied_at TEXT NOT NULL
+        )
+      ''');
+    }
+    
+    // Run pending migrations
+    await _runMigration(db, '001_create_users_table', '''
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    
+    await _runMigration(db, '002_create_posts_table', '''
+      CREATE TABLE IF NOT EXISTS posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        user_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    ''');
+    
+    await _runMigration(db, '003_add_user_avatar', '''
+      ALTER TABLE users ADD COLUMN avatar_url TEXT
+    ''');
+  }
+  
+  static Future<void> _runMigration(Database db, String version, String sql) async {
+    // Check if migration already applied
+    final result = await db.query('migrations', where: 'version = ?', whereArgs: [version]);
+    if (result.isNotEmpty) return;
+    
+    // Run migration
+    await db.transaction((txn) async {
+      await txn.execute(sql);
+      await txn.insert('migrations', {
+        'version': version,
+        'applied_at': DateTime.now().toIso8601String(),
+      });
+    });
+    
+    print('Migration $version applied successfully');
+  }
+}
+
+class MigrationScreen extends StatefulWidget {
+  @override
+  State<MigrationScreen> createState() => _MigrationScreenState();
+}
+
+class _MigrationScreenState extends State<MigrationScreen> {
+  bool _isRunning = false;
+  String _status = 'Ready to run migrations';
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Database Migrations')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Text(_status),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _isRunning ? null : _runMigrations,
+              child: _isRunning
+                  ? CircularProgressIndicator()
+                  : Text('Run Migrations'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _runMigrations() async {
+    setState(() {
+      _isRunning = true;
+      _status = 'Running migrations...';
+    });
+    
+    try {
+      await MigrationService.runMigrations();
+      setState(() {
+        _status = 'Migrations completed successfully';
+      });
+    } catch (error) {
+      setState(() {
+        _status = 'Migration failed: $error';
+      });
+    } finally {
+      setState(() {
+        _isRunning = false;
+      });
+    }
+  }
+}
+```
+
+## Database Transactions
+
+### Transaction Service
+
+```dart
+class TransactionService {
+  static Future<void> createUserWithPosts(User user, List<Post> posts) async {
+    final db = await SQLiteService.database;
+    
+    await db.transaction((txn) async {
+      // Insert user
+      final userId = await txn.insert('users', user.toJson());
+      
+      // Insert posts
+      for (final post in posts) {
+        final postData = post.toJson();
+        postData['user_id'] = userId;
+        await txn.insert('posts', postData);
+      }
+    });
+  }
+  
+  static Future<void> deleteUserWithPosts(int userId) async {
+    final db = await SQLiteService.database;
+    
+    await db.transaction((txn) async {
+      // Delete user's posts first
+      await txn.delete('posts', where: 'user_id = ?', whereArgs: [userId]);
+      
+      // Delete user
+      await txn.delete('users', where: 'id = ?', whereArgs: [userId]);
+    });
+  }
+  
+  static Future<void> updateUserWithPosts(int userId, User user, List<Post> posts) async {
+    final db = await SQLiteService.database;
+    
+    await db.transaction((txn) async {
+      // Update user
+      await txn.update('users', user.toJson(), where: 'id = ?', whereArgs: [userId]);
+      
+      // Delete existing posts
+      await txn.delete('posts', where: 'user_id = ?', whereArgs: [userId]);
+      
+      // Insert new posts
+      for (final post in posts) {
+        final postData = post.toJson();
+        postData['user_id'] = userId;
+        await txn.insert('posts', postData);
+      }
+    });
+  }
+}
+
+class TransactionScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Database Transactions')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            ElevatedButton(
+              onPressed: () => _createUserWithPosts(context),
+              child: Text('Create User with Posts'),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => _deleteUserWithPosts(context),
+              child: Text('Delete User with Posts'),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => _updateUserWithPosts(context),
+              child: Text('Update User with Posts'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _createUserWithPosts(BuildContext context) async {
+    try {
+      final user = User(
+        id: 0,
+        name: 'John Doe',
+        email: 'john@example.com',
+        createdAt: DateTime.now(),
+      );
+      
+      final posts = [
+        Post(
+          id: 0,
+          title: 'First Post',
+          content: 'This is my first post',
+          userId: 0,
+          createdAt: DateTime.now(),
+        ),
+        Post(
+          id: 0,
+          title: 'Second Post',
+          content: 'This is my second post',
+          userId: 0,
+          createdAt: DateTime.now(),
+        ),
+      ];
+      
+      await TransactionService.createUserWithPosts(user, posts);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User with posts created successfully')),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create user with posts: $error')),
+      );
+    }
+  }
+  
+  Future<void> _deleteUserWithPosts(BuildContext context) async {
+    try {
+      await TransactionService.deleteUserWithPosts(1);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User with posts deleted successfully')),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete user with posts: $error')),
+      );
+    }
+  }
+  
+  Future<void> _updateUserWithPosts(BuildContext context) async {
+    try {
+      final user = User(
+        id: 1,
+        name: 'John Updated',
+        email: 'john.updated@example.com',
+        createdAt: DateTime.now(),
+      );
+      
+      final posts = [
+        Post(
+          id: 0,
+          title: 'Updated Post',
+          content: 'This is an updated post',
+          userId: 1,
+          createdAt: DateTime.now(),
+        ),
+      ];
+      
+      await TransactionService.updateUserWithPosts(1, user, posts);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User with posts updated successfully')),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update user with posts: $error')),
+      );
+    }
+  }
+}
+```
+
+## Best Practices
+
+1. **Use transactions** - Ensure data consistency with database transactions
+2. **Handle migrations** - Implement proper database migration system
+3. **Optimize queries** - Use indexes and efficient query patterns
+4. **Handle errors gracefully** - Provide meaningful error messages
+5. **Use connection pooling** - Manage database connections efficiently
+6. **Implement caching** - Cache frequently accessed data
+7. **Secure database access** - Validate inputs and use prepared statements
+
+## Next Steps
+
+- **[Authentication](/docs/examples/authentication)** - Learn about authentication patterns
+- **[CRUD Operations](/docs/examples/crud-operations)** - Learn about CRUD patterns
+- **[Real-time Data](/docs/examples/real-time-data)** - Learn about real-time patterns

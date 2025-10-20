@@ -1,0 +1,547 @@
+# Family Providers
+
+Family providers in Riverpod allow you to create parameterized queries and mutations. This is essential for handling dynamic data that depends on parameters like user IDs, page numbers, or search terms.
+
+## Basic Family Query Provider
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// Define a family provider for user details
+final userProvider = queryProvider.family<User, String>(
+  (userId) => 'user:$userId',  // Query key with parameter
+  (userId) => api.fetchUser(userId),  // Query function
+);
+
+class UserProfileScreen extends ConsumerWidget {
+  final String userId;
+  
+  const UserProfileScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(userProvider(userId));
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('User Profile')),
+      body: userState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (user) => Column(
+          children: [
+            Text('Name: ${user.name}'),
+            Text('Email: ${user.email}'),
+            Text('ID: ${user.id}'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Multiple Parameters
+
+Handle multiple parameters using a custom class or record:
+
+```dart
+// Using a custom class for multiple parameters
+class UserPostsParams {
+  final String userId;
+  final int page;
+  final int limit;
+  
+  UserPostsParams({
+    required this.userId,
+    required this.page,
+    required this.limit,
+  });
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserPostsParams &&
+          runtimeType == other.runtimeType &&
+          userId == other.userId &&
+          page == other.page &&
+          limit == other.limit;
+  
+  @override
+  int get hashCode => userId.hashCode ^ page.hashCode ^ limit.hashCode;
+}
+
+final userPostsProvider = queryProvider.family<List<Post>, UserPostsParams>(
+  (params) => 'posts:user:${params.userId}:page:${params.page}:limit:${params.limit}',
+  (params) => api.fetchUserPosts(params.userId, params.page, params.limit),
+);
+
+class UserPostsScreen extends ConsumerWidget {
+  final String userId;
+  final int page;
+  final int limit;
+  
+  const UserPostsScreen({
+    required this.userId,
+    this.page = 1,
+    this.limit = 10,
+  });
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final params = UserPostsParams(userId: userId, page: page, limit: limit);
+    final postsState = ref.watch(userPostsProvider(params));
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('User Posts')),
+      body: postsState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (posts) => ListView.builder(
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            final post = posts[index];
+            return ListTile(
+              title: Text(post.title),
+              subtitle: Text(post.content),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Family Mutation Provider
+
+Create parameterized mutations:
+
+```dart
+final updateUserProvider = mutationProvider.family<User, User>(
+  (user) => api.updateUser(user),
+  options: MutationOptions(
+    onSuccess: (updatedUser) {
+      // Invalidate the specific user query
+      ref.invalidate(userProvider(updatedUser.id));
+      // Also invalidate users list
+      ref.invalidate(usersProvider);
+    },
+  ),
+);
+
+class UpdateUserForm extends ConsumerStatefulWidget {
+  final User user;
+  
+  const UpdateUserForm({required this.user});
+  
+  @override
+  ConsumerState<UpdateUserForm> createState() => _UpdateUserFormState();
+}
+
+class _UpdateUserFormState extends ConsumerState<UpdateUserForm> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  
+  @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.user.name;
+    _emailController.text = widget.user.email;
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    final updateUser = ref.watch(updateUserProvider(widget.user));
+    
+    return Column(
+      children: [
+        TextField(
+          controller: _nameController,
+          decoration: InputDecoration(labelText: 'Name'),
+        ),
+        TextField(
+          controller: _emailController,
+          decoration: InputDecoration(labelText: 'Email'),
+        ),
+        ElevatedButton(
+          onPressed: updateUser.isLoading ? null : () {
+            final updatedUser = User(
+              id: widget.user.id,
+              name: _nameController.text,
+              email: _emailController.text,
+            );
+            updateUser.mutate(updatedUser);
+          },
+          child: updateUser.isLoading
+              ? CircularProgressIndicator()
+              : Text('Update User'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Conditional Family Providers
+
+Enable/disable family providers based on parameters:
+
+```dart
+final userProvider = queryProvider.family<User?, String>(
+  (userId) => 'user:$userId',
+  (userId) => api.fetchUser(userId),
+  options: QueryOptions(
+    enabled: (userId) => userId.isNotEmpty && userId.length >= 3,
+  ),
+);
+
+class ConditionalUserScreen extends ConsumerWidget {
+  final String? userId;
+  
+  const ConditionalUserScreen({this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (userId == null || userId!.isEmpty) {
+      return Center(child: Text('Please enter a user ID'));
+    }
+    
+    if (userId!.length < 3) {
+      return Center(child: Text('User ID must be at least 3 characters'));
+    }
+    
+    final userState = ref.watch(userProvider(userId!));
+    
+    return userState.when(
+      loading: () => Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (user) => user != null 
+        ? Text('User: ${user.name}')
+        : Text('User not found'),
+    );
+  }
+}
+```
+
+## Dependent Family Providers
+
+Create family providers that depend on other providers:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+final userPostsProvider = queryProvider.family<List<Post>, String>(
+  (userId) => 'posts:user:$userId',
+  (userId) => api.fetchUserPosts(userId),
+  options: QueryOptions(
+    enabled: (userId) {
+      // Only fetch posts when users are loaded
+      final usersState = ref.read(usersProvider);
+      return usersState.hasData;
+    },
+  ),
+);
+
+class UserPostsScreen extends ConsumerWidget {
+  final String userId;
+  
+  const UserPostsScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    final postsState = ref.watch(userPostsProvider(userId));
+    
+    if (usersState.isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+    
+    if (!usersState.hasData) {
+      return Center(child: Text('Users not loaded'));
+    }
+    
+    return postsState.when(
+      loading: () => Center(child: Text('Loading posts...')),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (posts) => ListView.builder(
+        itemCount: posts.length,
+        itemBuilder: (context, index) {
+          final post = posts[index];
+          return ListTile(title: Text(post.title));
+        },
+      ),
+    );
+  }
+}
+```
+
+## Pagination with Family Providers
+
+Implement pagination using family providers:
+
+```dart
+final postsProvider = queryProvider.family<List<Post>, int>(
+  (page) => 'posts:page:$page',
+  (page) => api.fetchPosts(page: page, limit: 10),
+);
+
+class PaginatedPostsScreen extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<PaginatedPostsScreen> createState() => _PaginatedPostsScreenState();
+}
+
+class _PaginatedPostsScreenState extends ConsumerState<PaginatedPostsScreen> {
+  int _currentPage = 1;
+  
+  @override
+  Widget build(BuildContext context) {
+    final postsState = ref.watch(postsProvider(_currentPage));
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Posts - Page $_currentPage')),
+      body: Column(
+        children: [
+          Expanded(
+            child: postsState.when(
+              loading: () => Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('Error: $error')),
+              data: (posts) => ListView.builder(
+                itemCount: posts.length,
+                itemBuilder: (context, index) {
+                  final post = posts[index];
+                  return ListTile(title: Text(post.title));
+                },
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(
+                onPressed: _currentPage > 1 ? () {
+                  setState(() => _currentPage--);
+                } : null,
+                child: Text('Previous'),
+              ),
+              Text('Page $_currentPage'),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => _currentPage++);
+                },
+                child: Text('Next'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Search with Family Providers
+
+Implement search functionality:
+
+```dart
+final searchResultsProvider = queryProvider.family<List<Post>, String>(
+  (query) => 'search:$query',
+  (query) => api.searchPosts(query),
+  options: QueryOptions(
+    enabled: (query) => query.isNotEmpty && query.length >= 2,
+    staleTime: Duration(minutes: 5), // Cache search results
+  ),
+);
+
+class SearchScreen extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends ConsumerState<SearchScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  
+  @override
+  Widget build(BuildContext context) {
+    final searchState = ref.watch(searchResultsProvider(_searchQuery));
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Search')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search posts',
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.search),
+                  onPressed: () {
+                    setState(() => _searchQuery = _searchController.text);
+                  },
+                ),
+              ),
+              onSubmitted: (value) {
+                setState(() => _searchQuery = value);
+              },
+            ),
+          ),
+          Expanded(
+            child: searchState.when(
+              idle: () => Center(child: Text('Enter a search term')),
+              loading: () => Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('Error: $error')),
+              data: (results) => results.isEmpty
+                  ? Center(child: Text('No results found'))
+                  : ListView.builder(
+                      itemCount: results.length,
+                      itemBuilder: (context, index) {
+                        final post = results[index];
+                        return ListTile(title: Text(post.title));
+                      },
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+// Type-safe family provider
+final userProvider = queryProvider.family<User, String>(
+  (userId) => 'user:$userId',
+  (userId) => api.fetchUser(userId),
+);
+
+class TypeSafeUserScreen extends ConsumerWidget {
+  final String userId;
+  
+  const TypeSafeUserScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(userProvider(userId));
+    
+    return userState.when(
+      loading: () => Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (user) {
+        // user is User type
+        return Column(
+          children: [
+            Text('Name: ${user.name}'), // Type-safe access
+            Text('Email: ${user.email}'),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+## Common Patterns
+
+### Dynamic Route Parameters
+
+```dart
+class UserDetailScreen extends ConsumerWidget {
+  final String userId;
+  
+  const UserDetailScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(userProvider(userId));
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('User Details')),
+      body: userState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (user) => Column(
+          children: [
+            Text('Name: ${user.name}'),
+            Text('Email: ${user.email}'),
+            ElevatedButton(
+              onPressed: () {
+                // Navigate to user posts
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserPostsScreen(userId: userId),
+                  ),
+                );
+              },
+              child: Text('View Posts'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Prefetching Family Providers
+
+```dart
+class UserListScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    return usersState.when(
+      loading: () => Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (users) => ListView.builder(
+        itemCount: users.length,
+        itemBuilder: (context, index) {
+          final user = users[index];
+          return ListTile(
+            title: Text(user.name),
+            onTap: () {
+              // Prefetch user details before navigation
+              ref.read(userProvider(user.id));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UserDetailScreen(userId: user.id),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Performance Tips
+
+1. **Use meaningful query keys** - Include all relevant parameters
+2. **Configure staleTime** - Cache results appropriately
+3. **Enable conditionally** - Only fetch when parameters are valid
+4. **Prefetch strategically** - Load data before it's needed
+5. **Use proper types** - Leverage compile-time safety
+
+## Next Steps
+
+- **[queryProvider](/docs/riverpod/query-provider)** - Learn about basic queries
+- **[mutationProvider](/docs/riverpod/mutation-provider)** - Learn about mutations
+- **[Riverpod Patterns](/docs/riverpod/riverpod-patterns)** - Best practices
+- **[Examples](/docs/riverpod/examples)** - Complete working examples

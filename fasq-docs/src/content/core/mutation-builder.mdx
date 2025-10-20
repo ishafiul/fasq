@@ -1,0 +1,419 @@
+# MutationBuilder
+
+The `MutationBuilder` widget is used for creating, updating, or deleting data. Unlike queries, mutations are manually triggered and don't cache results.
+
+## Basic Usage
+
+```dart
+import 'package:fasq/fasq.dart';
+
+MutationBuilder<User, String>(
+  mutationFn: (name) => api.createUser(name),
+  builder: (context, state, mutate) {
+    return Column(
+      children: [
+        TextField(
+          decoration: InputDecoration(labelText: 'User Name'),
+          onSubmitted: (name) {
+            if (name.isNotEmpty) {
+              mutate(name);
+            }
+          },
+        ),
+        ElevatedButton(
+          onPressed: state.isLoading ? null : () => mutate('John Doe'),
+          child: state.isLoading 
+            ? CircularProgressIndicator()
+            : Text('Create User'),
+        ),
+        if (state.hasError)
+          Text('Error: ${state.error}', style: TextStyle(color: Colors.red)),
+        if (state.hasData)
+          Text('Created: ${state.data!.name}'),
+      ],
+    );
+  },
+)
+```
+
+## Parameters
+
+### Required Parameters
+
+- **`mutationFn`** - Function that performs the mutation
+- **`builder`** - Function that builds UI from mutation state and mutate function
+
+### Optional Parameters
+
+- **`options`** - MutationOptions for callbacks and configuration
+
+## Mutation State
+
+The builder receives a `MutationState<TData>` object with these properties:
+
+```dart
+class MutationState<TData> {
+  final TData? data;       // The mutation result
+  final Object? error;      // The error if any
+  final StackTrace? stackTrace; // Stack trace for errors
+  final MutationStatus status; // Current status: idle, loading, success, or error
+  final bool isLoading;    // True when mutation is executing
+  final bool hasData;      // True when mutation succeeded
+  final bool hasError;     // True when mutation failed
+  final bool isSuccess;    // True when mutation completed successfully
+  final bool isIdle;       // True when not yet executed
+}
+```
+
+## Status Handling
+
+Handle different mutation statuses:
+
+```dart
+MutationBuilder<User, String>(
+  mutationFn: (name) => api.createUser(name),
+  builder: (context, state, mutate) {
+    switch (state.status) {
+      case MutationStatus.idle:
+        return ElevatedButton(
+          onPressed: () => mutate('John Doe'),
+          child: Text('Create User'),
+        );
+      case MutationStatus.loading:
+        return CircularProgressIndicator();
+      case MutationStatus.success:
+        return Text('Created: ${state.data!.name}');
+      case MutationStatus.error:
+        return Text('Error: ${state.error}');
+    }
+  },
+)
+```
+
+## Form Submission
+
+Handle form submissions with mutations:
+
+```dart
+class CreateUserForm extends StatefulWidget {
+  @override
+  _CreateUserFormState createState() => _CreateUserFormState();
+}
+
+class _CreateUserFormState extends State<CreateUserForm> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return MutationBuilder<User, Map<String, String>>(
+      mutationFn: (data) async {
+        final response = await http.post(
+          Uri.parse('https://api.example.com/users'),
+          body: json.encode(data),
+        );
+        return User.fromJson(json.decode(response.body));
+      },
+      options: MutationOptions(
+        onSuccess: (user) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User created: ${user.name}')),
+          );
+          _nameController.clear();
+          _emailController.clear();
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $error')),
+          );
+        },
+      ),
+      builder: (context, state, mutate) {
+        return Column(
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(labelText: 'Name'),
+            ),
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: state.isLoading
+                  ? null
+                  : () {
+                      mutate({
+                        'name': _nameController.text,
+                        'email': _emailController.text,
+                      });
+                    },
+              child: state.isLoading
+                  ? CircularProgressIndicator()
+                  : Text('Create User'),
+            ),
+            if (state.hasError)
+              Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  'Error: ${state.error}',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+## Cache Invalidation After Mutation
+
+After a mutation succeeds, invalidate related queries:
+
+```dart
+MutationBuilder<User, String>(
+  mutationFn: (userId) => api.deleteUser(userId),
+  options: MutationOptions(
+    onSuccess: (deletedUser) {
+      // Invalidate users query to refetch
+      QueryClient().invalidateQuery('users');
+      QueryClient().invalidateQuery('user:${deletedUser.id}');
+    },
+  ),
+  builder: (context, state, mutate) {
+    return IconButton(
+      icon: Icon(Icons.delete),
+      onPressed: state.isLoading ? null : () => mutate('user-123'),
+    );
+  },
+)
+```
+
+## Optimistic Updates
+
+Update the cache immediately for instant UX, then rollback on error:
+
+```dart
+MutationBuilder<User, User>(
+  mutationFn: (user) => api.updateUser(user),
+  options: MutationOptions(
+    onMutate: (updatedUser, _) {
+      // Optimistically update cache
+      final users = QueryClient().getQueryData<List<User>>('users');
+      final optimistic = users?.map((u) => 
+        u.id == updatedUser.id ? updatedUser : u
+      ).toList();
+      
+      QueryClient().setQueryData('users', optimistic);
+    },
+    onSuccess: (user) {
+      // Invalidate to get fresh data
+      QueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      // Rollback on error
+      QueryClient().invalidateQuery('users');
+    },
+  ),
+  builder: (context, state, mutate) {
+    return ElevatedButton(
+      onPressed: () => mutate(updatedUser),
+      child: Text('Update'),
+    );
+  },
+)
+```
+
+## Multiple Mutations
+
+Handle multiple mutations in one screen:
+
+```dart
+class UserActions extends StatelessWidget {
+  final User user;
+  
+  const UserActions({required this.user});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Edit mutation
+        MutationBuilder<User, User>(
+          mutationFn: (updatedUser) => api.updateUser(updatedUser),
+          builder: (context, state, mutate) {
+            return IconButton(
+              icon: Icon(Icons.edit),
+              onPressed: state.isLoading ? null : () => mutate(user),
+            );
+          },
+        ),
+        
+        // Delete mutation
+        MutationBuilder<void, String>(
+          mutationFn: (userId) => api.deleteUser(userId),
+          builder: (context, state, mutate) {
+            return IconButton(
+              icon: Icon(Icons.delete),
+              onPressed: state.isLoading ? null : () => mutate(user.id),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Error Handling
+
+Handle errors with retry functionality:
+
+```dart
+MutationBuilder<User, String>(
+  mutationFn: (name) => api.createUser(name),
+  builder: (context, state, mutate) {
+    if (state.hasError) {
+      return Column(
+        children: [
+          Text('Error: ${state.error}'),
+          ElevatedButton(
+            onPressed: () => mutate('John Doe'),
+            child: Text('Retry'),
+          ),
+        ],
+      );
+    }
+    
+    return ElevatedButton(
+      onPressed: state.isLoading ? null : () => mutate('John Doe'),
+      child: state.isLoading 
+        ? CircularProgressIndicator()
+        : Text('Create User'),
+    );
+  },
+)
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+MutationBuilder<User, CreateUserInput>(
+  mutationFn: (input) => api.createUser(input),
+  builder: (context, state, mutate) {
+    // state.data is User?
+    // state.error is Object?
+    // state.isLoading is bool
+    // mutate expects CreateUserInput
+    
+    return ElevatedButton(
+      onPressed: state.isLoading ? null : () {
+        mutate(CreateUserInput(
+          name: 'John Doe',
+          email: 'john@example.com',
+        ));
+      },
+      child: Text('Create User'),
+    );
+  },
+)
+```
+
+## Common Patterns
+
+### Loading Button
+
+```dart
+MutationBuilder<User, String>(
+  mutationFn: (name) => api.createUser(name),
+  builder: (context, state, mutate) {
+    return ElevatedButton(
+      onPressed: state.isLoading ? null : () => mutate('John Doe'),
+      child: state.isLoading
+          ? SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text('Create User'),
+    );
+  },
+)
+```
+
+### Success Feedback
+
+```dart
+MutationBuilder<User, String>(
+  mutationFn: (name) => api.createUser(name),
+  options: MutationOptions(
+    onSuccess: (user) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('User created: ${user.name}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    },
+  ),
+  builder: (context, state, mutate) {
+    return ElevatedButton(
+      onPressed: state.isLoading ? null : () => mutate('John Doe'),
+      child: Text('Create User'),
+    );
+  },
+)
+```
+
+### Form Validation
+
+```dart
+MutationBuilder<User, Map<String, String>>(
+  mutationFn: (data) => api.createUser(data),
+  builder: (context, state, mutate) {
+    return Form(
+      child: Column(
+        children: [
+          TextFormField(
+            decoration: InputDecoration(labelText: 'Name'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Name is required';
+              }
+              return null;
+            },
+          ),
+          ElevatedButton(
+            onPressed: state.isLoading ? null : () {
+              if (Form.of(context).validate()) {
+                mutate({'name': 'John Doe'});
+              }
+            },
+            child: Text('Create User'),
+          ),
+        ],
+      ),
+    );
+  },
+)
+```
+
+## Performance Tips
+
+1. **Use optimistic updates** - Provide instant feedback
+2. **Handle errors gracefully** - Don't leave users stuck
+3. **Invalidate related queries** - Keep data fresh
+4. **Use proper types** - Leverage compile-time safety
+5. **Provide loading states** - Show progress to users
+
+## Next Steps
+
+- **[QueryBuilder](/docs/core/query-builder)** - Learn about queries
+- **[QueryClient](/docs/core/query-client)** - Cache management
+- **[MutationState](/docs/core/mutation-state)** - Understanding mutation state
+- **[MutationOptions](/docs/core/mutation-options)** - Configuration options

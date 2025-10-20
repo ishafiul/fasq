@@ -1,0 +1,366 @@
+# useQuery
+
+The `useQuery` hook is the primary way to fetch data in the hooks adapter. It provides a declarative API for managing query state.
+
+## Basic Usage
+
+```dart
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+class UsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery('users', () => api.fetchUsers());
+    
+    if (usersState.isLoading) return CircularProgressIndicator();
+    if (usersState.hasError) return Text('Error: ${usersState.error}');
+    if (usersState.hasData) return UserList(users: usersState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+## Parameters
+
+### Required Parameters
+
+- **`key`** - Unique identifier for the query
+- **`queryFn`** - Async function that fetches the data
+
+### Optional Parameters
+
+- **`options`** - QueryOptions for configuration
+
+## Return Value
+
+Returns a `QueryState<T>` object with:
+
+```dart
+class QueryState<T> {
+  final T? data;           // The fetched data
+  final Object? error;      // The error if any
+  final StackTrace? stackTrace; // Stack trace for errors
+  final QueryStatus status; // Current status: idle, loading, success, or error
+  final bool isLoading;     // True when loading
+  final bool hasData;       // True when data is available
+  final bool hasError;      // True when error occurred
+  final bool isSuccess;     // True when successfully loaded
+  final bool isFetching;    // True when refetching in background
+}
+```
+
+## Configuration Options
+
+Configure query behavior with QueryOptions:
+
+```dart
+final usersState = useQuery(
+  'users',
+  () => api.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
+    cacheTime: Duration(minutes: 10), // Keep in cache for 10 minutes
+    enabled: true,                     // Whether to execute the query
+    onSuccess: (users) {
+      print('Users fetched: ${users.length}');
+    },
+    onError: (error) {
+      print('Error fetching users: $error');
+    },
+  ),
+);
+```
+
+## Conditional Queries
+
+Disable queries based on conditions:
+
+```dart
+class UserProfile extends HookWidget {
+  final String? userId;
+  
+  const UserProfile({this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    final userState = useQuery(
+      'user:$userId',
+      () => api.fetchUser(userId!),
+      options: QueryOptions(
+        enabled: userId != null, // Only fetch when userId is available
+      ),
+    );
+    
+    if (userId == null) {
+      return Text('Please select a user');
+    }
+    
+    if (userState.isLoading) return CircularProgressIndicator();
+    if (userState.hasData) return UserDetails(userState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+## Parameterized Queries
+
+Use dynamic query keys for parameterized queries:
+
+```dart
+class UserProfile extends HookWidget {
+  final String userId;
+  
+  const UserProfile({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    final userState = useQuery(
+      'user:$userId', // Include parameter in key
+      () => api.fetchUser(userId),
+    );
+    
+    if (userState.isLoading) return CircularProgressIndicator();
+    if (userState.hasData) return UserDetails(userState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+## Dependent Queries
+
+Create queries that depend on other queries:
+
+```dart
+class UserPosts extends HookWidget {
+  final String userId;
+  
+  const UserPosts({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    // First fetch user
+    final userState = useQuery(
+      'user:$userId',
+      () => api.fetchUser(userId),
+    );
+    
+    // Then fetch posts when user is available
+    final postsState = useQuery(
+      'posts:user:$userId',
+      () => api.fetchUserPosts(userId),
+      options: QueryOptions(
+        enabled: userState.hasData, // Only fetch when user is loaded
+      ),
+    );
+    
+    if (userState.isLoading) return CircularProgressIndicator();
+    if (!userState.hasData) return Text('User not found');
+    
+    if (postsState.isLoading) return Text('Loading posts...');
+    if (postsState.hasData) return PostsList(postsState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+## Manual Refetch
+
+Trigger manual refetches:
+
+```dart
+class UserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery('users', () => api.fetchUsers());
+    final queryClient = useQueryClient();
+    
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            // Manually refetch the query
+            queryClient.getQueryByKey<List<User>>('users')?.fetch();
+          },
+          child: Text('Refresh'),
+        ),
+        if (usersState.hasData) UserList(users: usersState.data!),
+      ],
+    );
+  }
+}
+```
+
+## Error Handling
+
+Handle errors with retry functionality:
+
+```dart
+class UsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery(
+      'users',
+      () => api.fetchUsers(),
+      options: QueryOptions(
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $error')),
+          );
+        },
+      ),
+    );
+    
+    if (usersState.hasError) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Error: ${usersState.error}'),
+          ElevatedButton(
+            onPressed: () {
+              // Retry the query
+              useQueryClient().getQueryByKey<List<User>>('users')?.fetch();
+            },
+            child: Text('Retry'),
+          ),
+        ],
+      );
+    }
+    
+    if (usersState.hasData) return UserList(users: usersState.data!);
+    return CircularProgressIndicator();
+  }
+}
+```
+
+## Background Refetching
+
+Handle background refetching with `isFetching`:
+
+```dart
+class UsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery('users', () => api.fetchUsers());
+    
+    return Column(
+      children: [
+        if (usersState.isFetching && !usersState.isLoading)
+          LinearProgressIndicator(), // Background refresh indicator
+        if (usersState.hasData)
+          Expanded(child: UserList(users: usersState.data!)),
+      ],
+    );
+  }
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+class UsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    // usersState.data is List<User>?
+    final usersState = useQuery<List<User>>('users', () => api.fetchUsers());
+    
+    if (usersState.hasData) {
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) {
+          final user = usersState.data![index]; // user is User
+          return UserTile(user);
+        },
+      );
+    }
+    
+    return CircularProgressIndicator();
+  }
+}
+```
+
+## Performance Tips
+
+1. **Use descriptive query keys** - Makes debugging easier
+2. **Include parameters in keys** - Enables proper caching
+3. **Configure staleTime** - Reduces unnecessary refetches
+4. **Handle loading states** - Provide good user experience
+5. **Use error boundaries** - Graceful error handling
+
+## Common Patterns
+
+### Loading Skeleton
+
+```dart
+class UsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery<List<User>>('users', () => api.fetchUsers());
+    
+    if (usersState.isLoading) {
+      return ListView.builder(
+        itemCount: 5,
+        itemBuilder: (context, index) => UserTileSkeleton(),
+      );
+    }
+    
+    if (usersState.hasData) {
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) => UserTile(usersState.data![index]),
+      );
+    }
+    
+    return SizedBox();
+  }
+}
+```
+
+### Empty State
+
+```dart
+class UsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery<List<User>>('users', () => api.fetchUsers());
+    
+    if (usersState.isLoading) return CircularProgressIndicator();
+    if (usersState.hasError) return Text('Error: ${usersState.error}');
+    
+    if (usersState.hasData) {
+      if (usersState.data!.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.people, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text('No users found'),
+            ],
+          ),
+        );
+      }
+      
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) => UserTile(usersState.data![index]),
+      );
+    }
+    
+    return SizedBox();
+  }
+}
+```
+
+## Next Steps
+
+- **[useMutation](/docs/hooks/use-mutation)** - Learn about mutations
+- **[useQueryClient](/docs/hooks/use-query-client)** - Cache management
+- **[Custom Hooks](/docs/hooks/custom-hooks)** - Creating reusable logic
+- **[Examples](/docs/hooks/examples)** - Complete working examples

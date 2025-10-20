@@ -1,0 +1,476 @@
+# Hooks Adapter
+
+The hooks adapter provides a declarative API for Fasq using `flutter_hooks`. Perfect for developers who prefer React-like hooks patterns.
+
+## Overview
+
+The hooks adapter provides:
+
+- **`useQuery`** - Hook for executing queries
+- **`useMutation`** - Hook for executing mutations
+- **`useQueryClient`** - Hook for accessing QueryClient
+- **Custom hooks** - Easy to create reusable query logic
+
+## When to Use Hooks Adapter
+
+Use the hooks adapter when:
+- You're already using `flutter_hooks`
+- You prefer declarative APIs
+- You want React-like patterns
+- You like composable logic
+
+## Installation
+
+```yaml
+dependencies:
+  fasq_hooks: ^0.1.0
+  flutter_hooks: ^0.20.0
+```
+
+## Basic Usage
+
+```dart
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+class UsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery('users', () => api.fetchUsers());
+    
+    if (usersState.isLoading) {
+      return CircularProgressIndicator();
+    }
+    
+    if (usersState.hasError) {
+      return Text('Error: ${usersState.error}');
+    }
+    
+    if (usersState.hasData) {
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) {
+          final user = usersState.data![index];
+          return ListTile(
+            title: Text(user.name),
+            subtitle: Text(user.email),
+          );
+        },
+      );
+    }
+    
+    return SizedBox();
+  }
+}
+```
+
+## Key Features
+
+### Declarative API
+
+Hooks provide a clean, declarative way to manage queries:
+
+```dart
+class UserProfile extends HookWidget {
+  final String userId;
+  
+  const UserProfile({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    final userState = useQuery(
+      'user:$userId',
+      () => api.fetchUser(userId),
+      options: QueryOptions(
+        staleTime: Duration(minutes: 5),
+      ),
+    );
+    
+    if (userState.isLoading) return CircularProgressIndicator();
+    if (userState.hasError) return Text('Error: ${userState.error}');
+    if (userState.hasData) return UserDetails(userState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+### Automatic Dependency Tracking
+
+Hooks automatically track dependencies and only refetch when they change:
+
+```dart
+class UserPosts extends HookWidget {
+  final String userId;
+  
+  const UserPosts({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    // This will automatically refetch when userId changes
+    final postsState = useQuery(
+      'posts:user:$userId',
+      () => api.fetchUserPosts(userId),
+    );
+    
+    return buildUI(postsState);
+  }
+}
+```
+
+### Composable Logic
+
+Create custom hooks for reusable query logic:
+
+```dart
+// Custom hook
+QueryState<User> useUser(String userId) {
+  return useQuery(
+    'user:$userId',
+    () => api.fetchUser(userId),
+    options: QueryOptions(
+      staleTime: Duration(minutes: 5),
+    ),
+  );
+}
+
+// Use the custom hook
+class UserProfile extends HookWidget {
+  final String userId;
+  
+  const UserProfile({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    final userState = useUser(userId);
+    
+    if (userState.isLoading) return CircularProgressIndicator();
+    if (userState.hasData) return UserDetails(userState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+### Mutations
+
+Use `useMutation` for creating, updating, or deleting data:
+
+```dart
+class CreateUserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+      options: MutationOptions(
+        onSuccess: (user) {
+          print('Created user: ${user.name}');
+          // Invalidate users query
+          useQueryClient().invalidateQuery('users');
+        },
+        onError: (error) {
+          print('Error: $error');
+        },
+      ),
+    );
+    
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: createUser.isLoading 
+            ? null 
+            : () => createUser.mutate('John Doe'),
+          child: createUser.isLoading
+            ? CircularProgressIndicator()
+            : Text('Create User'),
+        ),
+        if (createUser.hasError)
+          Text('Error: ${createUser.error}'),
+        if (createUser.hasData)
+          Text('Created: ${createUser.data!.name}'),
+      ],
+    );
+  }
+}
+```
+
+### QueryClient Access
+
+Access the QueryClient for manual operations:
+
+```dart
+class MyWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        // Invalidate specific query
+        queryClient.invalidateQuery('users');
+        
+        // Set query data manually
+        queryClient.setQueryData('user:1', User(id: 1, name: 'John'));
+        
+        // Get cache info
+        final info = queryClient.getCacheInfo();
+        print('Cache hit rate: ${info.metrics.hitRate}');
+      },
+      child: Text('Manage Cache'),
+    );
+  }
+}
+```
+
+## Advanced Patterns
+
+### Conditional Queries
+
+```dart
+class ConditionalQuery extends HookWidget {
+  final String? userId;
+  
+  const ConditionalQuery({this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    final userState = useQuery(
+      'user:$userId',
+      () => api.fetchUser(userId!),
+      options: QueryOptions(
+        enabled: userId != null, // Only fetch when userId is available
+      ),
+    );
+    
+    if (userId == null) {
+      return Text('Please select a user');
+    }
+    
+    if (userState.isLoading) return CircularProgressIndicator();
+    if (userState.hasData) return UserDetails(userState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+### Dependent Queries
+
+```dart
+class UserPosts extends HookWidget {
+  final String userId;
+  
+  const UserPosts({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    // First fetch user
+    final userState = useQuery(
+      'user:$userId',
+      () => api.fetchUser(userId),
+    );
+    
+    // Then fetch posts when user is available
+    final postsState = useQuery(
+      'posts:user:$userId',
+      () => api.fetchUserPosts(userId),
+      options: QueryOptions(
+        enabled: userState.hasData, // Only fetch when user is loaded
+      ),
+    );
+    
+    if (userState.isLoading) return CircularProgressIndicator();
+    if (!userState.hasData) return Text('User not found');
+    
+    if (postsState.isLoading) return Text('Loading posts...');
+    if (postsState.hasData) return PostsList(postsState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+### Form Handling
+
+```dart
+class CreateUserForm extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final nameController = useTextEditingController();
+    final emailController = useTextEditingController();
+    
+    final createUser = useMutation<User, Map<String, String>>(
+      (data) => api.createUser(data),
+      options: MutationOptions(
+        onSuccess: (user) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User created: ${user.name}')),
+          );
+          nameController.clear();
+          emailController.clear();
+        },
+      ),
+    );
+    
+    return Column(
+      children: [
+        TextField(
+          controller: nameController,
+          decoration: InputDecoration(labelText: 'Name'),
+        ),
+        TextField(
+          controller: emailController,
+          decoration: InputDecoration(labelText: 'Email'),
+        ),
+        ElevatedButton(
+          onPressed: createUser.isLoading
+              ? null
+              : () {
+                  createUser.mutate({
+                    'name': nameController.text,
+                    'email': emailController.text,
+                  });
+                },
+          child: createUser.isLoading
+              ? CircularProgressIndicator()
+              : Text('Create User'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Custom Hooks
+
+Create reusable query logic with custom hooks:
+
+```dart
+// Custom hook for user data
+QueryState<User> useUser(String userId) {
+  return useQuery(
+    'user:$userId',
+    () => api.fetchUser(userId),
+    options: QueryOptions(
+      staleTime: Duration(minutes: 5),
+    ),
+  );
+}
+
+// Custom hook for user posts
+QueryState<List<Post>> useUserPosts(String userId) {
+  return useQuery(
+    'posts:user:$userId',
+    () => api.fetchUserPosts(userId),
+    options: QueryOptions(
+      enabled: userId.isNotEmpty,
+    ),
+  );
+}
+
+// Custom hook for creating users
+MutationState<User, String> useCreateUser() {
+  return useMutation<User, String>(
+    (name) => api.createUser(name),
+    options: MutationOptions(
+      onSuccess: (user) {
+        useQueryClient().invalidateQuery('users');
+      },
+    ),
+  );
+}
+
+// Use custom hooks
+class UserDashboard extends HookWidget {
+  final String userId;
+  
+  const UserDashboard({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    final userState = useUser(userId);
+    final postsState = useUserPosts(userId);
+    final createPost = useCreateUser();
+    
+    return Column(
+      children: [
+        if (userState.hasData) UserHeader(userState.data!),
+        if (postsState.hasData) PostsList(postsState.data!),
+        ElevatedButton(
+          onPressed: () => createPost.mutate('New Post'),
+          child: Text('Create Post'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+class UserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    // usersState.data is List<User>?
+    final usersState = useQuery<List<User>>('users', () => api.fetchUsers());
+    
+    // createUser.mutate expects String
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+    );
+    
+    if (usersState.hasData) {
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) {
+          final user = usersState.data![index]; // user is User
+          return UserTile(user);
+        },
+      );
+    }
+    
+    return CircularProgressIndicator();
+  }
+}
+```
+
+## Performance Benefits
+
+- **Automatic dependency tracking** - Only refetches when dependencies change
+- **Composable logic** - Reusable custom hooks
+- **Memory efficient** - Automatic cleanup on unmount
+- **Type safe** - Full generic type support
+
+## Comparison with Core Package
+
+**Core Package (QueryBuilder):**
+```dart
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) {
+    if (state.isLoading) return Loading();
+    return UserList(state.data!);
+  },
+)
+```
+
+**Hooks Adapter (useQuery):**
+```dart
+final usersState = useQuery('users', () => api.fetchUsers());
+if (usersState.isLoading) return Loading();
+return UserList(usersState.data!);
+```
+
+Both approaches use the same underlying query engine and have identical performance.
+
+## Next Steps
+
+- **[useQuery](/docs/hooks/use-query)** - Deep dive into useQuery hook
+- **[useMutation](/docs/hooks/use-mutation)** - Learn about mutations
+- **[useQueryClient](/docs/hooks/use-query-client)** - Cache management
+- **[Custom Hooks](/docs/hooks/custom-hooks)** - Creating reusable logic
+- **[Examples](/docs/hooks/examples)** - Complete working examples

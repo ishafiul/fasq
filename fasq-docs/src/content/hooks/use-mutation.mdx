@@ -1,0 +1,453 @@
+# useMutation
+
+The `useMutation` hook is used for creating, updating, or deleting data. Unlike queries, mutations are manually triggered and don't cache results.
+
+## Basic Usage
+
+```dart
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+class CreateUserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+    );
+    
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: createUser.isLoading 
+            ? null 
+            : () => createUser.mutate('John Doe'),
+          child: createUser.isLoading
+            ? CircularProgressIndicator()
+            : Text('Create User'),
+        ),
+        if (createUser.hasError)
+          Text('Error: ${createUser.error}'),
+        if (createUser.hasData)
+          Text('Created: ${createUser.data!.name}'),
+      ],
+    );
+  }
+}
+```
+
+## Parameters
+
+### Required Parameters
+
+- **`mutationFn`** - Function that performs the mutation
+
+### Optional Parameters
+
+- **`options`** - MutationOptions for callbacks and configuration
+
+## Return Value
+
+Returns a `MutationState<TData, TVariables>` object with:
+
+```dart
+class MutationState<TData, TVariables> {
+  final TData? data;       // The mutation result
+  final Object? error;      // The error if any
+  final StackTrace? stackTrace; // Stack trace for errors
+  final MutationStatus status; // Current status: idle, loading, success, or error
+  final bool isLoading;    // True when mutation is executing
+  final bool hasData;      // True when mutation succeeded
+  final bool hasError;     // True when mutation failed
+  final bool isSuccess;    // True when mutation completed successfully
+  final bool isIdle;       // True when not yet executed
+  
+  // Methods
+  Future<void> mutate(TVariables variables); // Execute the mutation
+  void reset(); // Reset mutation state
+}
+```
+
+## Status Handling
+
+Handle different mutation statuses:
+
+```dart
+class CreateUserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+    );
+    
+    switch (createUser.status) {
+      case MutationStatus.idle:
+        return ElevatedButton(
+          onPressed: () => createUser.mutate('John Doe'),
+          child: Text('Create User'),
+        );
+      case MutationStatus.loading:
+        return CircularProgressIndicator();
+      case MutationStatus.success:
+        return Text('Created: ${createUser.data!.name}');
+      case MutationStatus.error:
+        return Text('Error: ${createUser.error}');
+    }
+  }
+}
+```
+
+## Configuration Options
+
+Configure mutation behavior with MutationOptions:
+
+```dart
+final createUser = useMutation<User, String>(
+  (name) => api.createUser(name),
+  options: MutationOptions(
+    onSuccess: (user) {
+      print('User created: ${user.name}');
+      // Invalidate users query to refetch
+      useQueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      print('Error creating user: $error');
+    },
+    onMutate: (name) {
+      print('About to create user: $name');
+    },
+  ),
+);
+```
+
+## Form Submission
+
+Handle form submissions with mutations:
+
+```dart
+class CreateUserForm extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final nameController = useTextEditingController();
+    final emailController = useTextEditingController();
+    
+    final createUser = useMutation<User, Map<String, String>>(
+      (data) => api.createUser(data),
+      options: MutationOptions(
+        onSuccess: (user) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User created: ${user.name}')),
+          );
+          nameController.clear();
+          emailController.clear();
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $error')),
+          );
+        },
+      ),
+    );
+    
+    return Column(
+      children: [
+        TextField(
+          controller: nameController,
+          decoration: InputDecoration(labelText: 'Name'),
+        ),
+        TextField(
+          controller: emailController,
+          decoration: InputDecoration(labelText: 'Email'),
+        ),
+        ElevatedButton(
+          onPressed: createUser.isLoading
+              ? null
+              : () {
+                  createUser.mutate({
+                    'name': nameController.text,
+                    'email': emailController.text,
+                  });
+                },
+          child: createUser.isLoading
+              ? CircularProgressIndicator()
+              : Text('Create User'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Cache Invalidation After Mutation
+
+After a mutation succeeds, invalidate related queries:
+
+```dart
+class DeleteUserButton extends HookWidget {
+  final String userId;
+  
+  const DeleteUserButton({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    final deleteUser = useMutation<void, String>(
+      (id) => api.deleteUser(id),
+      options: MutationOptions(
+        onSuccess: (_, id) {
+          // Invalidate users query to refetch
+          useQueryClient().invalidateQuery('users');
+          useQueryClient().invalidateQuery('user:$id');
+        },
+      ),
+    );
+    
+    return IconButton(
+      icon: Icon(Icons.delete),
+      onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(userId),
+    );
+  }
+}
+```
+
+## Optimistic Updates
+
+Update the cache immediately for instant UX, then rollback on error:
+
+```dart
+class UpdateUserButton extends HookWidget {
+  final User user;
+  
+  const UpdateUserButton({required this.user});
+  
+  @override
+  Widget build(BuildContext context) {
+    final updateUser = useMutation<User, User>(
+      (updatedUser) => api.updateUser(updatedUser),
+      options: MutationOptions(
+        onMutate: (updatedUser) {
+          // Optimistically update cache
+          final users = useQueryClient().getQueryData<List<User>>('users');
+          final optimistic = users?.map((u) => 
+            u.id == updatedUser.id ? updatedUser : u
+          ).toList();
+          
+          useQueryClient().setQueryData('users', optimistic);
+        },
+        onSuccess: (user) {
+          // Invalidate to get fresh data
+          useQueryClient().invalidateQuery('users');
+        },
+        onError: (error) {
+          // Rollback on error
+          useQueryClient().invalidateQuery('users');
+        },
+      ),
+    );
+    
+    return ElevatedButton(
+      onPressed: () => updateUser.mutate(user),
+      child: Text('Update'),
+    );
+  }
+}
+```
+
+## Multiple Mutations
+
+Handle multiple mutations in one screen:
+
+```dart
+class UserActions extends HookWidget {
+  final User user;
+  
+  const UserActions({required this.user});
+  
+  @override
+  Widget build(BuildContext context) {
+    final updateUser = useMutation<User, User>(
+      (updatedUser) => api.updateUser(updatedUser),
+    );
+    
+    final deleteUser = useMutation<void, String>(
+      (userId) => api.deleteUser(userId),
+    );
+    
+    return Row(
+      children: [
+        IconButton(
+          icon: Icon(Icons.edit),
+          onPressed: updateUser.isLoading ? null : () => updateUser.mutate(user),
+        ),
+        IconButton(
+          icon: Icon(Icons.delete),
+          onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(user.id),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Error Handling
+
+Handle errors with retry functionality:
+
+```dart
+class CreateUserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+    );
+    
+    if (createUser.hasError) {
+      return Column(
+        children: [
+          Text('Error: ${createUser.error}'),
+          ElevatedButton(
+            onPressed: () => createUser.mutate('John Doe'),
+            child: Text('Retry'),
+          ),
+        ],
+      );
+    }
+    
+    return ElevatedButton(
+      onPressed: createUser.isLoading ? null : () => createUser.mutate('John Doe'),
+      child: createUser.isLoading 
+        ? CircularProgressIndicator()
+        : Text('Create User'),
+    );
+  }
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+class CreateUserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    // createUser.mutate expects String
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+    );
+    
+    return ElevatedButton(
+      onPressed: createUser.isLoading ? null : () {
+        createUser.mutate('John Doe'); // Type-safe
+      },
+      child: Text('Create User'),
+    );
+  }
+}
+```
+
+## Common Patterns
+
+### Loading Button
+
+```dart
+class CreateUserButton extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+    );
+    
+    return ElevatedButton(
+      onPressed: createUser.isLoading ? null : () => createUser.mutate('John Doe'),
+      child: createUser.isLoading
+          ? SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text('Create User'),
+    );
+  }
+}
+```
+
+### Success Feedback
+
+```dart
+class CreateUserScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+      options: MutationOptions(
+        onSuccess: (user) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('User created: ${user.name}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+      ),
+    );
+    
+    return ElevatedButton(
+      onPressed: createUser.isLoading ? null : () => createUser.mutate('John Doe'),
+      child: Text('Create User'),
+    );
+  }
+}
+```
+
+### Form Validation
+
+```dart
+class CreateUserForm extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final nameController = useTextEditingController();
+    final createUser = useMutation<User, String>(
+      (name) => api.createUser(name),
+    );
+    
+    return Form(
+      child: Column(
+        children: [
+          TextFormField(
+            controller: nameController,
+            decoration: InputDecoration(labelText: 'Name'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Name is required';
+              }
+              return null;
+            },
+          ),
+          ElevatedButton(
+            onPressed: createUser.isLoading ? null : () {
+              if (Form.of(context).validate()) {
+                createUser.mutate(nameController.text);
+              }
+            },
+            child: Text('Create User'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Performance Tips
+
+1. **Use optimistic updates** - Provide instant feedback
+2. **Handle errors gracefully** - Don't leave users stuck
+3. **Invalidate related queries** - Keep data fresh
+4. **Use proper types** - Leverage compile-time safety
+5. **Provide loading states** - Show progress to users
+
+## Next Steps
+
+- **[useQuery](/docs/hooks/use-query)** - Learn about queries
+- **[useQueryClient](/docs/hooks/use-query-client)** - Cache management
+- **[Custom Hooks](/docs/hooks/custom-hooks)** - Creating reusable logic
+- **[Examples](/docs/hooks/examples)** - Complete working examples

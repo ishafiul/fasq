@@ -1,0 +1,297 @@
+# Examples
+
+Welcome to the Fasq Examples section! Here you'll find comprehensive, real-world examples that demonstrate how to use Fasq in various scenarios. Each example includes complete, working code that you can copy and adapt for your own projects.
+
+## What You'll Learn
+
+Our examples cover the most common patterns and use cases you'll encounter when building Flutter applications with Fasq:
+
+- **API Integration** - REST APIs, GraphQL, and authentication
+- **Data Management** - CRUD operations, real-time updates, and caching
+- **File Operations** - Upload, download, and image processing
+- **Database Integration** - SQLite, PostgreSQL, and MongoDB
+- **Advanced Patterns** - Optimistic updates, error handling, and performance
+
+## Example Categories
+
+### 🌐 **API Integration**
+
+#### [REST API](/docs/examples/rest-api)
+Complete examples of integrating with REST APIs using Fasq. Learn how to:
+- Set up HTTP clients and API services
+- Handle authentication and authorization
+- Implement CRUD operations
+- Manage loading states and error handling
+- Cache API responses effectively
+
+#### [GraphQL](/docs/examples/graphql)
+Comprehensive GraphQL integration examples. Learn how to:
+- Configure GraphQL clients
+- Write queries, mutations, and subscriptions
+- Handle GraphQL-specific errors
+- Use fragments and batch operations
+- Implement real-time updates
+
+#### [Authentication](/docs/examples/authentication)
+Complete authentication implementation patterns. Learn how to:
+- Implement login and logout flows
+- Manage tokens and refresh tokens
+- Create protected routes
+- Handle social authentication
+- Implement proper session management
+
+### 📊 **Data Management**
+
+#### [CRUD Operations](/docs/examples/crud-operations)
+Full-featured CRUD interface examples. Learn how to:
+- Build complete data management interfaces
+- Implement optimistic updates
+- Handle batch operations
+- Create responsive data tables
+- Manage complex data relationships
+
+#### [Real-time Data](/docs/examples/real-time-data)
+Real-time data synchronization examples. Learn how to:
+- Implement WebSocket connections
+- Use Server-Sent Events (SSE)
+- Set up polling for updates
+- Handle real-time notifications
+- Build collaborative features
+
+### 📁 **File Operations**
+
+#### [File Operations](/docs/examples/file-operations)
+Complete file handling examples. Learn how to:
+- Upload files and images
+- Download and manage files
+- Process and compress images
+- Implement file sharing
+- Handle file validation and security
+
+### 🗄️ **Database Integration**
+
+#### [Database Queries](/docs/examples/database-queries)
+Database integration examples. Learn how to:
+- Work with SQLite databases
+- Integrate with PostgreSQL
+- Use MongoDB for document storage
+- Implement database migrations
+- Handle transactions and data consistency
+
+## Getting Started
+
+Each example is designed to be:
+
+- **Complete** - Full, working code that you can run immediately
+- **Educational** - Clear explanations of concepts and patterns
+- **Practical** - Real-world scenarios you'll encounter in production
+- **Progressive** - Start simple and build up to complex features
+
+### Quick Start
+
+1. **Choose an example** that matches your use case
+2. **Copy the code** and adapt it to your project
+3. **Follow the patterns** to implement similar features
+4. **Customize** the examples to fit your specific needs
+
+## Example Structure
+
+Each example follows a consistent structure:
+
+```dart
+// 1. Service Layer - API calls and business logic
+class ExampleService {
+  static Future<Data> fetchData() async {
+    // Implementation
+  }
+}
+
+// 2. UI Components - Widgets and screens
+class ExampleScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<Data>(
+      queryKey: 'example-data',
+      queryFn: () => ExampleService.fetchData(),
+      builder: (context, state) {
+        return state.when(
+          loading: () => CircularProgressIndicator(),
+          error: (error, stack) => Text('Error: $error'),
+          data: (data) => DataWidget(data: data),
+        );
+      },
+    );
+  }
+}
+
+// 3. Data Models - Type-safe data structures
+class Data {
+  final String id;
+  final String name;
+  
+  Data({required this.id, required this.name});
+  
+  factory Data.fromJson(Map<String, dynamic> json) {
+    return Data(id: json['id'], name: json['name']);
+  }
+}
+```
+
+## Best Practices
+
+Throughout the examples, you'll see these best practices in action:
+
+### 🎯 **Query Management**
+- Use descriptive query keys
+- Implement proper error handling
+- Cache data appropriately
+- Invalidate queries when needed
+
+### 🔄 **State Management**
+- Use optimistic updates for better UX
+- Handle loading states gracefully
+- Implement proper error recovery
+- Manage complex state transitions
+
+### 🚀 **Performance**
+- Optimize API calls and caching
+- Implement efficient data structures
+- Use appropriate loading indicators
+- Minimize unnecessary re-renders
+
+### 🔒 **Security**
+- Validate all inputs
+- Handle authentication properly
+- Implement proper error messages
+- Use secure data storage
+
+## Common Patterns
+
+### Error Handling
+```dart
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => UserService.getUsers(),
+  builder: (context, state) {
+    return state.when(
+      loading: () => CircularProgressIndicator(),
+      error: (error, stack) => ErrorWidget(
+        error: error,
+        onRetry: () => QueryClient().invalidateQuery('users'),
+      ),
+      data: (users) => UserList(users: users),
+    );
+  },
+)
+```
+
+### Optimistic Updates
+```dart
+MutationBuilder<User, Map<String, String>>(
+  mutationFn: (data) => UserService.createUser(data),
+  options: MutationOptions(
+    onMutate: (data) {
+      // Optimistically update cache
+      final users = QueryClient().getQueryData<List<User>>('users');
+      if (users != null) {
+        final optimisticUser = User.fromJson(data);
+        QueryClient().setQueryData('users', [...users, optimisticUser]);
+      }
+    },
+    onSuccess: (user) {
+      // Invalidate to get fresh data
+      QueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      // Rollback on error
+      QueryClient().invalidateQuery('users');
+    },
+  ),
+  builder: (context, state) {
+    return ElevatedButton(
+      onPressed: state.isLoading ? null : () {
+        state.mutate({'name': 'John', 'email': 'john@example.com'});
+      },
+      child: state.isLoading ? CircularProgressIndicator() : Text('Create User'),
+    );
+  },
+)
+```
+
+### Real-time Updates
+```dart
+class RealTimeUsersScreen extends StatefulWidget {
+  @override
+  State<RealTimeUsersScreen> createState() => _RealTimeUsersScreenState();
+}
+
+class _RealTimeUsersScreenState extends State<RealTimeUsersScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WebSocketService.connect('ws://localhost:8080/ws');
+  }
+  
+  @override
+  void dispose() {
+    WebSocketService.disconnect();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => UserService.getUsers(),
+      builder: (context, state) {
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Error: $error')),
+          data: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return UserTile(user: user);
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+```
+
+## Next Steps
+
+Ready to dive in? Here are some recommended paths:
+
+### 🚀 **For Beginners**
+1. Start with [REST API](/docs/examples/rest-api) examples
+2. Learn [CRUD Operations](/docs/examples/crud-operations) patterns
+3. Explore [Authentication](/docs/examples/authentication) flows
+
+### 🔥 **For Intermediate Developers**
+1. Dive into [GraphQL](/docs/examples/graphql) integration
+2. Implement [Real-time Data](/docs/examples/real-time-data) features
+3. Add [File Operations](/docs/examples/file-operations) to your app
+
+### 🏆 **For Advanced Developers**
+1. Master [Database Queries](/docs/examples/database-queries) patterns
+2. Implement complex [CRUD Operations](/docs/examples/crud-operations) with transactions
+3. Build sophisticated [Real-time Data](/docs/examples/real-time-data) collaboration features
+
+## Contributing
+
+Found a bug or want to add an example? We'd love your contribution! Check out our [Contributing Guide](/docs/contributing) for details.
+
+## Support
+
+Need help with an example? Join our community:
+
+- **GitHub Discussions** - Ask questions and share solutions
+- **Discord** - Real-time chat with the community
+- **Stack Overflow** - Tag your questions with `fasq`
+
+---
+
+Happy coding! 🎉

@@ -1,0 +1,372 @@
+# Comparison
+
+How does Fasq compare to other state management solutions and approaches?
+
+## vs Vanilla Flutter
+
+### Without Fasq (Vanilla Approach)
+
+```dart
+class UserScreen extends StatefulWidget {
+  @override
+  _UserScreenState createState() => _UserScreenState();
+}
+
+class _UserScreenState extends State<UserScreen> {
+  List<User>? users;
+  bool isLoading = false;
+  String? error;
+  
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
+  
+  Future<void> _fetchUsers() async {
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+    
+    try {
+      final fetchedUsers = await api.fetchUsers();
+      setState(() {
+        users = fetchedUsers;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+        isLoading = false;
+      });
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) return CircularProgressIndicator();
+    if (error != null) return Text('Error: $error');
+    if (users == null) return SizedBox();
+    
+    return ListView.builder(
+      itemCount: users!.length,
+      itemBuilder: (context, index) => UserTile(users![index]),
+    );
+  }
+}
+```
+
+**Problems:**
+- 50+ lines of boilerplate per async operation
+- No caching - refetches on every screen visit
+- No request deduplication - multiple widgets = multiple requests
+- Manual error handling and retry logic
+- No background refetching
+- Difficult to share data between widgets
+
+### With Fasq
+
+```dart
+class UserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      builder: (context, state) {
+        if (state.isLoading) return CircularProgressIndicator();
+        if (state.hasError) return Text('Error: ${state.error}');
+        if (state.hasData) return UserList(users: state.data!);
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+**Benefits:**
+- 15 lines vs 50+ lines
+- Automatic caching and background refetching
+- Request deduplication
+- Built-in error handling
+- Easy data sharing between widgets
+
+## vs Provider
+
+### Provider Approach
+
+```dart
+class UserProvider extends ChangeNotifier {
+  List<User>? _users;
+  bool _isLoading = false;
+  String? _error;
+  
+  List<User>? get users => _users;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  
+  Future<void> fetchUsers() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    
+    try {
+      _users = await api.fetchUsers();
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+}
+
+class UserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<UserProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) return CircularProgressIndicator();
+        if (provider.error != null) return Text('Error: ${provider.error}');
+        if (provider.users == null) return SizedBox();
+        
+        return ListView.builder(
+          itemCount: provider.users!.length,
+          itemBuilder: (context, index) => UserTile(provider.users![index]),
+        );
+      },
+    );
+  }
+}
+```
+
+**Provider Limitations:**
+- Still requires manual state management
+- No automatic caching
+- No request deduplication
+- Manual error handling
+- No background refetching
+- Provider lifecycle tied to widget tree
+
+### Fasq + Provider
+
+```dart
+class UserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      builder: (context, state) {
+        if (state.isLoading) return CircularProgressIndicator();
+        if (state.hasError) return Text('Error: ${state.error}');
+        if (state.hasData) return UserList(users: state.data!);
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+**Benefits:**
+- Use Provider for local state (forms, UI toggles)
+- Use Fasq for server state (API calls, caching)
+- Best of both worlds
+
+## vs Bloc
+
+### Bloc Approach
+
+```dart
+abstract class UserEvent {}
+class FetchUsers extends UserEvent {}
+
+abstract class UserState {}
+class UserInitial extends UserState {}
+class UserLoading extends UserState {}
+class UserSuccess extends UserState {
+  final List<User> users;
+  UserSuccess(this.users);
+}
+class UserError extends UserState {
+  final String error;
+  UserError(this.error);
+}
+
+class UserBloc extends Bloc<UserEvent, UserState> {
+  UserBloc() : super(UserInitial()) {
+    on<FetchUsers>(_onFetchUsers);
+  }
+  
+  Future<void> _onFetchUsers(FetchUsers event, Emitter<UserState> emit) async {
+    emit(UserLoading());
+    try {
+      final users = await api.fetchUsers();
+      emit(UserSuccess(users));
+    } catch (e) {
+      emit(UserError(e.toString()));
+    }
+  }
+}
+
+class UserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<UserBloc, UserState>(
+      builder: (context, state) {
+        if (state is UserLoading) return CircularProgressIndicator();
+        if (state is UserError) return Text('Error: ${state.error}');
+        if (state is UserSuccess) return UserList(users: state.users);
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+**Bloc Limitations for Server State:**
+- Lots of boilerplate for simple data fetching
+- No automatic caching
+- No request deduplication
+- Manual error handling
+- No background refetching
+- Complex state management for simple operations
+
+### Fasq + Bloc
+
+```dart
+// Use Bloc for complex business logic
+class UserBloc extends Bloc<UserEvent, UserState> {
+  // Complex business logic here
+}
+
+// Use Fasq for data fetching
+class UserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      builder: (context, state) {
+        if (state.isLoading) return CircularProgressIndicator();
+        if (state.hasError) return Text('Error: ${state.error}');
+        if (state.hasData) return UserList(users: state.data!);
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+## vs Riverpod
+
+### Riverpod Approach
+
+```dart
+final userProvider = FutureProvider<List<User>>((ref) async {
+  return api.fetchUsers();
+});
+
+class UserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersAsync = ref.watch(userProvider);
+    
+    return usersAsync.when(
+      data: (users) => UserList(users: users),
+      loading: () => CircularProgressIndicator(),
+      error: (error, stack) => Text('Error: $error'),
+    );
+  }
+}
+```
+
+**Riverpod Limitations for Server State:**
+- No automatic caching between providers
+- No request deduplication
+- No background refetching
+- Manual cache invalidation
+- No stale-while-revalidate pattern
+
+### Fasq + Riverpod
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+class UserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    if (usersState.isLoading) return CircularProgressIndicator();
+    if (usersState.hasError) return Text('Error: ${usersState.error}');
+    if (usersState.hasData) return UserList(users: usersState.data!);
+    return SizedBox();
+  }
+}
+```
+
+## vs React Query (Inspiration)
+
+Fasq is inspired by React Query but adapted for Flutter:
+
+### Similarities
+- Query/Mutation pattern
+- Automatic caching
+- Background refetching
+- Request deduplication
+- Stale-while-revalidate
+- Type safety
+
+### Differences
+- Flutter-specific APIs (Widgets, Streams)
+- Multiple state management adapters
+- Dart/Flutter ecosystem integration
+- Platform-specific optimizations
+
+## Feature Comparison
+
+| Feature | Vanilla | Provider | Bloc | Riverpod | Fasq |
+|---------|---------|----------|------|----------|------|
+| Boilerplate | High | Medium | High | Low | Low |
+| Caching | None | Manual | Manual | Manual | Automatic |
+| Request Deduplication | None | None | None | None | Automatic |
+| Background Refetch | None | Manual | Manual | Manual | Automatic |
+| Error Handling | Manual | Manual | Manual | Built-in | Built-in |
+| Type Safety | Manual | Manual | Manual | Built-in | Built-in |
+| DevTools | None | Basic | Advanced | Advanced | Planned |
+
+## When to Use Fasq
+
+**Use Fasq when:**
+- You have multiple API calls
+- You need caching and background sync
+- You want to reduce boilerplate
+- You need request deduplication
+- You're building data-heavy applications
+
+**Don't use Fasq when:**
+- You only have simple local state
+- You're building simple CRUD apps without caching needs
+- You prefer manual control over all aspects
+
+## Migration Strategy
+
+You can adopt Fasq incrementally:
+
+1. **Start with new features** - Use Fasq for new API calls
+2. **Migrate high-traffic screens** - Replace manual state management
+3. **Keep existing patterns** - Use your current state management for local state
+4. **Gradual replacement** - Migrate screen by screen
+
+## Next Steps
+
+Ready to get started with Fasq?
+
+- **[Installation](/docs/installation)** - Add Fasq to your project
+- **[Quick Start](/docs/quick-start)** - Get up and running in 5 minutes
+- **[Choose Your Adapter](/docs/core)** - Pick the right approach for your app

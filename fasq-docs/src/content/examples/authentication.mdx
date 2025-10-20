@@ -1,0 +1,772 @@
+# Authentication
+
+Complete examples of implementing authentication with Fasq. Learn how to handle login, logout, token management, and protected routes.
+
+## Basic Authentication Setup
+
+### Authentication Service
+
+```dart
+class AuthService {
+  static const String _tokenKey = 'auth_token';
+  static const String _refreshTokenKey = 'refresh_token';
+  
+  // Get stored token
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_tokenKey);
+  }
+  
+  // Store token
+  static Future<void> setToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
+  }
+  
+  // Get refresh token
+  static Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshTokenKey);
+  }
+  
+  // Store refresh token
+  static Future<void> setRefreshToken(String refreshToken) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_refreshTokenKey, refreshToken);
+  }
+  
+  // Clear tokens
+  static Future<void> clearTokens() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_refreshTokenKey);
+  }
+  
+  // Check if user is authenticated
+  static Future<bool> isAuthenticated() async {
+    final token = await getToken();
+    return token != null && token.isNotEmpty;
+  }
+}
+
+// API service with authentication
+class AuthenticatedApiService {
+  static Future<Map<String, String>> _getHeaders() async {
+    final token = await AuthService.getToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+  
+  static Future<User> login(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('https://api.example.com/auth/login'),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+      }),
+    );
+    
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final user = User.fromJson(data['user']);
+      final token = data['token'];
+      final refreshToken = data['refreshToken'];
+      
+      await AuthService.setToken(token);
+      await AuthService.setRefreshToken(refreshToken);
+      
+      return user;
+    } else {
+      throw Exception('Login failed');
+    }
+  }
+  
+  static Future<void> logout() async {
+    final token = await AuthService.getToken();
+    if (token != null) {
+      await http.post(
+        Uri.parse('https://api.example.com/auth/logout'),
+        headers: await _getHeaders(),
+      );
+    }
+    
+    await AuthService.clearTokens();
+  }
+  
+  static Future<User> getCurrentUser() async {
+    final response = await http.get(
+      Uri.parse('https://api.example.com/auth/me'),
+      headers: await _getHeaders(),
+    );
+    
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return User.fromJson(data);
+    } else {
+      throw Exception('Failed to get current user');
+    }
+  }
+  
+  static Future<String> refreshToken() async {
+    final refreshToken = await AuthService.getRefreshToken();
+    if (refreshToken == null) {
+      throw Exception('No refresh token available');
+    }
+    
+    final response = await http.post(
+      Uri.parse('https://api.example.com/auth/refresh'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'refreshToken': refreshToken}),
+    );
+    
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final newToken = data['token'];
+      await AuthService.setToken(newToken);
+      return newToken;
+    } else {
+      throw Exception('Token refresh failed');
+    }
+  }
+}
+```
+
+## Authentication State Management
+
+### Auth State Cubit
+
+```dart
+class AuthState {
+  final User? user;
+  final bool isLoading;
+  final bool isAuthenticated;
+  final String? error;
+  
+  const AuthState({
+    this.user,
+    this.isLoading = false,
+    this.isAuthenticated = false,
+    this.error,
+  });
+  
+  AuthState copyWith({
+    User? user,
+    bool? isLoading,
+    bool? isAuthenticated,
+    String? error,
+  }) {
+    return AuthState(
+      user: user ?? this.user,
+      isLoading: isLoading ?? this.isLoading,
+      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      error: error,
+    );
+  }
+}
+
+class AuthCubit extends Cubit<AuthState> {
+  AuthCubit() : super(const AuthState());
+  
+  Future<void> checkAuthStatus() async {
+    emit(state.copyWith(isLoading: true, error: null));
+    
+    try {
+      final isAuthenticated = await AuthService.isAuthenticated();
+      if (isAuthenticated) {
+        final user = await AuthenticatedApiService.getCurrentUser();
+        emit(state.copyWith(
+          user: user,
+          isAuthenticated: true,
+          isLoading: false,
+        ));
+      } else {
+        emit(state.copyWith(
+          isAuthenticated: false,
+          isLoading: false,
+        ));
+      }
+    } catch (error) {
+      emit(state.copyWith(
+        error: error.toString(),
+        isLoading: false,
+      ));
+    }
+  }
+  
+  Future<void> login(String email, String password) async {
+    emit(state.copyWith(isLoading: true, error: null));
+    
+    try {
+      final user = await AuthenticatedApiService.login(email, password);
+      emit(state.copyWith(
+        user: user,
+        isAuthenticated: true,
+        isLoading: false,
+      ));
+    } catch (error) {
+      emit(state.copyWith(
+        error: error.toString(),
+        isLoading: false,
+      ));
+    }
+  }
+  
+  Future<void> logout() async {
+    emit(state.copyWith(isLoading: true, error: null));
+    
+    try {
+      await AuthenticatedApiService.logout();
+      emit(const AuthState());
+    } catch (error) {
+      emit(state.copyWith(
+        error: error.toString(),
+        isLoading: false,
+      ));
+    }
+  }
+}
+```
+
+## Login Screen
+
+### Login with Fasq
+
+```dart
+class LoginScreen extends StatefulWidget {
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Login')),
+      body: BlocProvider(
+        create: (context) => AuthCubit(),
+        child: BlocConsumer<AuthCubit, AuthState>(
+          listener: (context, state) {
+            if (state.isAuthenticated) {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          },
+          builder: (context, state) {
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _emailController,
+                    decoration: InputDecoration(labelText: 'Email'),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  SizedBox(height: 16),
+                  TextField(
+                    controller: _passwordController,
+                    decoration: InputDecoration(labelText: 'Password'),
+                    obscureText: true,
+                  ),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: state.isLoading ? null : () {
+                      context.read<AuthCubit>().login(
+                        _emailController.text,
+                        _passwordController.text,
+                      );
+                    },
+                    child: state.isLoading
+                        ? CircularProgressIndicator()
+                        : Text('Login'),
+                  ),
+                  if (state.error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: Text(
+                        state.error!,
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Protected Routes
+
+### Route Guard
+
+```dart
+class ProtectedRoute extends StatelessWidget {
+  final Widget child;
+  
+  const ProtectedRoute({required this.child});
+  
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => AuthCubit()..checkAuthStatus(),
+      child: BlocBuilder<AuthCubit, AuthState>(
+        builder: (context, state) {
+          if (state.isLoading) {
+            return Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          
+          if (!state.isAuthenticated) {
+            return LoginScreen();
+          }
+          
+          return child;
+        },
+      ),
+    );
+  }
+}
+
+// Usage in main app
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Fasq Auth App',
+      routes: {
+        '/login': (context) => LoginScreen(),
+        '/home': (context) => ProtectedRoute(child: HomeScreen()),
+        '/profile': (context) => ProtectedRoute(child: ProfileScreen()),
+      },
+      initialRoute: '/login',
+    );
+  }
+}
+```
+
+## Authenticated Queries
+
+### User Profile Query
+
+```dart
+class ProfileScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Profile'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () {
+              context.read<AuthCubit>().logout();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
+        ],
+      ),
+      body: QueryBuilder<User>(
+        queryKey: 'current-user',
+        queryFn: () => AuthenticatedApiService.getCurrentUser(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $error'),
+                  ElevatedButton(
+                    onPressed: () {
+                      QueryClient().invalidateQuery('current-user');
+                    },
+                    child: Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+            data: (user) => Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    child: Text(user.name[0].toUpperCase()),
+                  ),
+                  SizedBox(height: 16),
+                  Text('Name: ${user.name}'),
+                  Text('Email: ${user.email}'),
+                  Text('ID: ${user.id}'),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+### Authenticated Data Queries
+
+```dart
+class AuthenticatedDataScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Authenticated Data')),
+      body: QueryBuilder<List<Post>>(
+        queryKey: 'user-posts',
+        queryFn: () => _fetchUserPosts(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error: $error'),
+                  ElevatedButton(
+                    onPressed: () {
+                      QueryClient().invalidateQuery('user-posts');
+                    },
+                    child: Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+            data: (posts) => ListView.builder(
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final post = posts[index];
+                return Card(
+                  child: ListTile(
+                    title: Text(post.title),
+                    subtitle: Text(post.content),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Future<List<Post>> _fetchUserPosts() async {
+    final response = await http.get(
+      Uri.parse('https://api.example.com/posts/my'),
+      headers: await AuthenticatedApiService._getHeaders(),
+    );
+    
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data['posts'] as List)
+          .map((json) => Post.fromJson(json))
+          .toList();
+    } else {
+      throw Exception('Failed to fetch posts');
+    }
+  }
+}
+```
+
+## Token Refresh
+
+### Automatic Token Refresh
+
+```dart
+class TokenRefreshInterceptor {
+  static Future<http.Response> _interceptRequest(http.Request request) async {
+    // Add token to request
+    final token = await AuthService.getToken();
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    
+    // Make request
+    final response = await request.send();
+    
+    // Check if token expired
+    if (response.statusCode == 401) {
+      try {
+        // Try to refresh token
+        await AuthenticatedApiService.refreshToken();
+        
+        // Retry request with new token
+        final newToken = await AuthService.getToken();
+        if (newToken != null) {
+          request.headers['Authorization'] = 'Bearer $newToken';
+          return await request.send();
+        }
+      } catch (error) {
+        // Refresh failed, redirect to login
+        await AuthService.clearTokens();
+        // Navigate to login screen
+      }
+    }
+    
+    return response;
+  }
+}
+
+class AuthenticatedQueryBuilder<T> extends StatelessWidget {
+  final String queryKey;
+  final Future<T> Function() queryFn;
+  final Widget Function(BuildContext context, QueryState<T> state) builder;
+  
+  const AuthenticatedQueryBuilder({
+    required this.queryKey,
+    required this.queryFn,
+    required this.builder,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<T>(
+      queryKey: queryKey,
+      queryFn: () async {
+        try {
+          return await queryFn();
+        } catch (error) {
+          if (error.toString().contains('401')) {
+            // Token expired, try to refresh
+            try {
+              await AuthenticatedApiService.refreshToken();
+              return await queryFn(); // Retry with new token
+            } catch (refreshError) {
+              // Refresh failed, clear auth and redirect
+              await AuthService.clearTokens();
+              Navigator.pushReplacementNamed(context, '/login');
+              rethrow;
+            }
+          }
+          rethrow;
+        }
+      },
+      builder: builder,
+    );
+  }
+}
+```
+
+## Logout and Cleanup
+
+### Logout with Cache Cleanup
+
+```dart
+class LogoutButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (!state.isAuthenticated) {
+          // Clear all cached data on logout
+          QueryClient().clear();
+          Navigator.pushReplacementNamed(context, '/login');
+        }
+      },
+      builder: (context, state) {
+        return IconButton(
+          icon: Icon(Icons.logout),
+          onPressed: state.isLoading ? null : () {
+            _showLogoutDialog(context);
+          },
+        );
+      },
+    );
+  }
+  
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Logout'),
+        content: Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<AuthCubit>().logout();
+            },
+            child: Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Social Authentication
+
+### OAuth Integration
+
+```dart
+class SocialAuthService {
+  static Future<User> loginWithGoogle() async {
+    // Implement Google OAuth
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      throw Exception('Google sign in cancelled');
+    }
+    
+    final googleAuth = await googleUser.authentication;
+    final token = googleAuth.accessToken;
+    
+    if (token == null) {
+      throw Exception('Failed to get Google access token');
+    }
+    
+    // Send token to your backend
+    final response = await http.post(
+      Uri.parse('https://api.example.com/auth/google'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'token': token}),
+    );
+    
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final user = User.fromJson(data['user']);
+      final authToken = data['token'];
+      
+      await AuthService.setToken(authToken);
+      return user;
+    } else {
+      throw Exception('Google authentication failed');
+    }
+  }
+  
+  static Future<User> loginWithFacebook() async {
+    // Implement Facebook OAuth
+    final result = await FacebookAuth.instance.login();
+    
+    if (result.status == LoginStatus.success) {
+      final token = result.accessToken!.tokenString;
+      
+      // Send token to your backend
+      final response = await http.post(
+        Uri.parse('https://api.example.com/auth/facebook'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'token': token}),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final user = User.fromJson(data['user']);
+        final authToken = data['token'];
+        
+        await AuthService.setToken(authToken);
+        return user;
+      } else {
+        throw Exception('Facebook authentication failed');
+      }
+    } else {
+      throw Exception('Facebook sign in failed');
+    }
+  }
+}
+
+class SocialLoginScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Social Login')),
+      body: BlocProvider(
+        create: (context) => AuthCubit(),
+        child: BlocConsumer<AuthCubit, AuthState>(
+          listener: (context, state) {
+            if (state.isAuthenticated) {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          },
+          builder: (context, state) {
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  ElevatedButton(
+                    onPressed: state.isLoading ? null : () async {
+                      try {
+                        final user = await SocialAuthService.loginWithGoogle();
+                        context.read<AuthCubit>().emit(state.copyWith(
+                          user: user,
+                          isAuthenticated: true,
+                        ));
+                      } catch (error) {
+                        context.read<AuthCubit>().emit(state.copyWith(
+                          error: error.toString(),
+                        ));
+                      }
+                    },
+                    child: state.isLoading
+                        ? CircularProgressIndicator()
+                        : Text('Login with Google'),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: state.isLoading ? null : () async {
+                      try {
+                        final user = await SocialAuthService.loginWithFacebook();
+                        context.read<AuthCubit>().emit(state.copyWith(
+                          user: user,
+                          isAuthenticated: true,
+                        ));
+                      } catch (error) {
+                        context.read<AuthCubit>().emit(state.copyWith(
+                          error: error.toString(),
+                        ));
+                      }
+                    },
+                    child: state.isLoading
+                        ? CircularProgressIndicator()
+                        : Text('Login with Facebook'),
+                  ),
+                  if (state.error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: Text(
+                        state.error!,
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Best Practices
+
+1. **Secure token storage** - Use secure storage for sensitive data
+2. **Automatic token refresh** - Implement seamless token renewal
+3. **Protected routes** - Guard sensitive pages with authentication
+4. **Error handling** - Handle authentication errors gracefully
+5. **Cache cleanup** - Clear cached data on logout
+6. **Social auth** - Support multiple authentication providers
+7. **Session management** - Handle session expiration properly
+
+## Next Steps
+
+- **[CRUD Operations](/docs/examples/crud-operations)** - Learn about CRUD patterns
+- **[Real-time Data](/docs/examples/real-time-data)** - Learn about real-time patterns
+- **[File Operations](/docs/examples/file-operations)** - Learn about file handling

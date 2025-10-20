@@ -1,0 +1,478 @@
+# Bloc Adapter
+
+The Bloc adapter provides seamless integration with `flutter_bloc` through `QueryCubit` and `MutationCubit` classes.
+
+## Overview
+
+The Bloc adapter provides:
+
+- **QueryCubit** - Cubit wrapper for queries
+- **MutationCubit** - Cubit for server mutations
+- **BlocBuilder/BlocConsumer** - Standard Bloc widgets work as expected
+- **Bloc DevTools** - Full integration with Bloc DevTools
+
+## When to Use Bloc Adapter
+
+Use the Bloc adapter when:
+- You're already using `flutter_bloc`
+- You prefer structured state management
+- You want explicit state transitions
+- You need Bloc DevTools integration
+
+## Installation
+
+```yaml
+dependencies:
+  fasq_bloc: ^0.1.0
+  flutter_bloc: ^8.0.0
+```
+
+## Basic Usage
+
+```dart
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fasq_bloc/fasq_bloc.dart';
+
+class UsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => QueryCubit<List<User>>(
+        key: 'users',
+        queryFn: () => api.fetchUsers(),
+        options: QueryOptions(
+          staleTime: Duration(minutes: 5),
+        ),
+      ),
+      child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        builder: (context, state) {
+          if (state.isLoading) {
+            return CircularProgressIndicator();
+          }
+          
+          if (state.hasError) {
+            return Text('Error: ${state.error}');
+          }
+          
+          if (state.hasData) {
+            return ListView.builder(
+              itemCount: state.data!.length,
+              itemBuilder: (context, index) {
+                final user = state.data![index];
+                return ListTile(
+                  title: Text(user.name),
+                  subtitle: Text(user.email),
+                );
+              },
+            );
+          }
+          
+          return SizedBox();
+        },
+      ),
+    );
+  }
+}
+```
+
+## Key Features
+
+### Structured State Management
+
+QueryCubit provides explicit state management with clear state transitions:
+
+```dart
+class UserProfile extends StatelessWidget {
+  final String userId;
+  
+  const UserProfile({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => QueryCubit<User>(
+        key: 'user:$userId',
+        queryFn: () => api.fetchUser(userId),
+      ),
+      child: BlocBuilder<QueryCubit<User>, QueryState<User>>(
+        builder: (context, state) {
+          switch (state.status) {
+            case QueryStatus.idle:
+              return Text('Ready to fetch');
+            case QueryStatus.loading:
+              return CircularProgressIndicator();
+            case QueryStatus.success:
+              return UserDetails(state.data!);
+            case QueryStatus.error:
+              return Text('Error: ${state.error}');
+          }
+        },
+      ),
+    );
+  }
+}
+```
+
+### Manual Refetch
+
+Control when queries are refetched:
+
+```dart
+class UserList extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            // Refetch the query
+            context.read<QueryCubit<List<User>>>().refetch();
+          },
+          child: Text('Refresh'),
+        ),
+        BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+          builder: (context, state) => buildUI(state),
+        ),
+      ],
+    );
+  }
+}
+```
+
+### Mutations with MutationCubit
+
+Use MutationCubit for creating, updating, or deleting data:
+
+```dart
+class CreateUserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => MutationCubit<User, String>(
+        mutationFn: (name) => api.createUser(name),
+        onSuccessCallback: (user) {
+          print('Created user: ${user.name}');
+          // Invalidate users query
+          QueryClient().invalidateQuery('users');
+        },
+        onErrorCallback: (error) {
+          print('Error: $error');
+        },
+      ),
+      child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+        builder: (context, state) {
+          return Column(
+            children: [
+              if (state.isLoading)
+                CircularProgressIndicator(),
+              
+              if (state.hasError)
+                Text('Error: ${state.error}'),
+              
+              if (state.hasData)
+                Text('Created: ${state.data!.name}'),
+              
+              ElevatedButton(
+                onPressed: state.isLoading
+                    ? null
+                    : () {
+                        context
+                            .read<MutationCubit<User, String>>()
+                            .mutate('John Doe');
+                      },
+                child: Text('Create User'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+### Cache Invalidation
+
+Invalidate queries using Bloc context:
+
+```dart
+class MyWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () {
+        final cubit = context.read<QueryCubit<List<User>>>();
+        
+        // Invalidate and refetch this query
+        cubit.invalidate();
+        
+        // Or use QueryClient directly
+        QueryClient().invalidateQuery('users');
+        QueryClient().invalidateQueriesWithPrefix('user:');
+      },
+      child: Text('Invalidate Cache'),
+    );
+  }
+}
+```
+
+## Advanced Patterns
+
+### Using BlocConsumer for Side Effects
+
+```dart
+BlocConsumer<QueryCubit<User>, QueryState<User>>(
+  listener: (context, state) {
+    if (state.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${state.error}')),
+      );
+    }
+    
+    if (state.isFetching) {
+      print('Background refresh in progress...');
+    }
+  },
+  builder: (context, state) {
+    if (state.isLoading) return CircularProgressIndicator();
+    if (state.hasData) return UserDetails(state.data!);
+    return SizedBox();
+  },
+)
+```
+
+### Multiple Queries in One Screen
+
+```dart
+MultiBlocProvider(
+  providers: [
+    BlocProvider(
+      create: (_) => QueryCubit<List<User>>(
+        key: 'users',
+        queryFn: () => api.fetchUsers(),
+      ),
+    ),
+    BlocProvider(
+      create: (_) => QueryCubit<List<Post>>(
+        key: 'posts',
+        queryFn: () => api.fetchPosts(),
+      ),
+    ),
+  ],
+  child: MyScreen(),
+)
+```
+
+### Form Submission
+
+```dart
+class CreateUserForm extends StatefulWidget {
+  @override
+  _CreateUserFormState createState() => _CreateUserFormState();
+}
+
+class _CreateUserFormState extends State<CreateUserForm> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => MutationCubit<User, Map<String, String>>(
+        mutationFn: (data) => api.createUser(data),
+        onSuccessCallback: (user) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User created: ${user.name}')),
+          );
+          _nameController.clear();
+          _emailController.clear();
+        },
+      ),
+      child: BlocBuilder<MutationCubit<User, Map<String, String>>, MutationState<User>>(
+        builder: (context, state) {
+          return Column(
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(labelText: 'Name'),
+              ),
+              TextField(
+                controller: _emailController,
+                decoration: InputDecoration(labelText: 'Email'),
+              ),
+              ElevatedButton(
+                onPressed: state.isLoading
+                    ? null
+                    : () {
+                        context
+                            .read<MutationCubit<User, Map<String, String>>>()
+                            .mutate({
+                          'name': _nameController.text,
+                          'email': _emailController.text,
+                        });
+                      },
+                child: state.isLoading
+                    ? CircularProgressIndicator()
+                    : Text('Create User'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+### Background Refetch Indicator
+
+```dart
+BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+  builder: (context, state) {
+    return Column(
+      children: [
+        if (state.isFetching)
+          LinearProgressIndicator(), // Background refresh indicator
+        
+        if (state.hasData)
+          Expanded(
+            child: ListView.builder(
+              itemCount: state.data!.length,
+              itemBuilder: (context, index) => UserTile(state.data![index]),
+            ),
+          ),
+      ],
+    );
+  },
+)
+```
+
+## Testing
+
+Test QueryCubit and MutationCubit like any other Cubit:
+
+```dart
+void main() {
+  group('QueryCubit', () {
+    late QueryCubit<List<User>> cubit;
+    
+    setUp(() {
+      cubit = QueryCubit<List<User>>(
+        key: 'users',
+        queryFn: () => api.fetchUsers(),
+      );
+    });
+    
+    tearDown(() {
+      cubit.close();
+    });
+    
+    test('initial state is idle', () {
+      expect(cubit.state.status, QueryStatus.idle);
+    });
+    
+    test('emits loading then success when query succeeds', () async {
+      // Arrange
+      final users = [User(id: '1', name: 'John')];
+      when(() => api.fetchUsers()).thenAnswer((_) async => users);
+      
+      // Act
+      cubit.refetch();
+      
+      // Assert
+      await expectLater(
+        cubit.stream,
+        emitsInOrder([
+          predicate<QueryState<List<User>>>((state) => state.isLoading),
+          predicate<QueryState<List<User>>>((state) => 
+            state.hasData && state.data == users),
+        ]),
+      );
+    });
+  });
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+class UserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => QueryCubit<List<User>>(
+        key: 'users',
+        queryFn: () => api.fetchUsers(), // Returns Future<List<User>>
+      ),
+      child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        builder: (context, state) {
+          // state.data is List<User>?
+          // state.error is Object?
+          // state.isLoading is bool
+          
+          if (state.hasData) {
+            return ListView.builder(
+              itemCount: state.data!.length,
+              itemBuilder: (context, index) {
+                final user = state.data![index]; // user is User
+                return UserTile(user);
+              },
+            );
+          }
+          
+          return CircularProgressIndicator();
+        },
+      ),
+    );
+  }
+}
+```
+
+## Performance Benefits
+
+- **Explicit state management** - Clear state transitions
+- **Bloc DevTools integration** - Debug with familiar tools
+- **Testable** - Easy to test cubits
+- **Memory efficient** - Automatic cleanup on close
+
+## Comparison with Core Package
+
+**Core Package (QueryBuilder):**
+```dart
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) {
+    if (state.isLoading) return Loading();
+    return UserList(state.data!);
+  },
+)
+```
+
+**Bloc Adapter (QueryCubit):**
+```dart
+BlocProvider(
+  create: (_) => QueryCubit(
+    key: 'users',
+    queryFn: () => api.fetchUsers(),
+  ),
+  child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+    builder: (context, state) {
+      if (state.isLoading) return Loading();
+      return UserList(state.data!);
+    },
+  ),
+)
+```
+
+Both approaches use the same underlying query engine and have identical performance.
+
+## Next Steps
+
+- **[QueryCubit](/docs/bloc/query-cubit)** - Deep dive into QueryCubit
+- **[MutationCubit](/docs/bloc/mutation-cubit)** - Learn about mutations
+- **[Bloc Patterns](/docs/bloc/bloc-patterns)** - Advanced Bloc patterns
+- **[Testing](/docs/bloc/testing)** - Testing strategies
+- **[Examples](/docs/bloc/examples)** - Complete working examples

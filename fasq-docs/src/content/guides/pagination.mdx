@@ -1,0 +1,245 @@
+# Pagination
+
+Implement pagination with Fasq using query keys that include page parameters.
+
+## Basic Pagination
+
+Use page numbers in your query keys to enable pagination:
+
+```dart
+class PostsScreen extends StatefulWidget {
+  @override
+  _PostsScreenState createState() => _PostsScreenState();
+}
+
+class _PostsScreenState extends State<PostsScreen> {
+  int currentPage = 1;
+  final int pageSize = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<Post>>(
+      queryKey: 'posts:page:$currentPage:size:$pageSize',
+      queryFn: () => api.fetchPosts(page: currentPage, size: pageSize),
+      builder: (context, state) {
+        if (state.isLoading) return CircularProgressIndicator();
+        if (state.hasError) return Text('Error: ${state.error}');
+        if (state.hasData) {
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  itemCount: state.data!.length,
+                  itemBuilder: (context, index) => PostTile(state.data![index]),
+                ),
+              ),
+              PaginationControls(
+                currentPage: currentPage,
+                onPageChanged: (page) => setState(() => currentPage = page),
+              ),
+            ],
+          );
+        }
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+## Pagination Controls
+
+Create reusable pagination controls:
+
+```dart
+class PaginationControls extends StatelessWidget {
+  final int currentPage;
+  final Function(int) onPageChanged;
+  final bool hasNextPage;
+  final bool hasPreviousPage;
+
+  const PaginationControls({
+    required this.currentPage,
+    required this.onPageChanged,
+    this.hasNextPage = true,
+    this.hasPreviousPage = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          onPressed: hasPreviousPage ? () => onPageChanged(currentPage - 1) : null,
+          icon: Icon(Icons.chevron_left),
+        ),
+        Text('Page $currentPage'),
+        IconButton(
+          onPressed: hasNextPage ? () => onPageChanged(currentPage + 1) : null,
+          icon: Icon(Icons.chevron_right),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Prefetching Next Page
+
+Prefetch the next page for better user experience:
+
+```dart
+class PostsScreen extends StatefulWidget {
+  @override
+  _PostsScreenState createState() => _PostsScreenState();
+}
+
+class _PostsScreenState extends State<PostsScreen> {
+  int currentPage = 1;
+
+  void _prefetchNextPage() {
+    final nextPage = currentPage + 1;
+    QueryClient().prefetchQuery(
+      'posts:page:$nextPage:size:10',
+      () => api.fetchPosts(page: nextPage, size: 10),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<Post>>(
+      queryKey: 'posts:page:$currentPage:size:10',
+      queryFn: () => api.fetchPosts(page: currentPage, size: 10),
+      builder: (context, state) {
+        if (state.hasData) {
+          // Prefetch next page when current page loads
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _prefetchNextPage();
+          });
+        }
+        
+        return buildUI(state);
+      },
+    );
+  }
+}
+```
+
+## Using Hooks Adapter
+
+With the hooks adapter, pagination becomes more declarative:
+
+```dart
+class PostsScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final currentPage = useState(1);
+    final pageSize = 10;
+    
+    final postsState = useQuery(
+      'posts:page:${currentPage.value}:size:$pageSize',
+      () => api.fetchPosts(page: currentPage.value, size: pageSize),
+    );
+    
+    return Column(
+      children: [
+        if (postsState.isLoading) CircularProgressIndicator(),
+        if (postsState.hasData) PostsList(postsState.data!),
+        PaginationControls(
+          currentPage: currentPage.value,
+          onPageChanged: (page) => currentPage.value = page,
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Using Riverpod Adapter
+
+With Riverpod, create a family provider for pagination:
+
+```dart
+final postsProvider = queryProvider.family<List<Post>, int>(
+  (page) => 'posts:page:$page:size:10',
+  (page) => api.fetchPosts(page: page, size: 10),
+);
+
+class PostsScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentPage = useState(1);
+    final postsState = ref.watch(postsProvider(currentPage.value));
+    
+    return Column(
+      children: [
+        if (postsState.isLoading) CircularProgressIndicator(),
+        if (postsState.hasData) PostsList(postsState.data!),
+        PaginationControls(
+          currentPage: currentPage.value,
+          onPageChanged: (page) => currentPage.value = page,
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Cache Management
+
+Manage cache for paginated data:
+
+```dart
+class PostsScreen extends StatefulWidget {
+  @override
+  _PostsScreenState createState() => _PostsScreenState();
+}
+
+class _PostsScreenState extends State<PostsScreen> {
+  int currentPage = 1;
+
+  void _clearCache() {
+    // Clear all posts cache
+    QueryClient().invalidateQueriesWithPrefix('posts:');
+  }
+
+  void _prefetchPage(int page) {
+    QueryClient().prefetchQuery(
+      'posts:page:$page:size:10',
+      () => api.fetchPosts(page: page, size: 10),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: _clearCache,
+          child: Text('Clear Cache'),
+        ),
+        QueryBuilder<List<Post>>(
+          queryKey: 'posts:page:$currentPage:size:10',
+          queryFn: () => api.fetchPosts(page: currentPage, size: 10),
+          builder: (context, state) => buildUI(state),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Performance Tips
+
+1. **Use descriptive query keys** - Include page and size parameters
+2. **Prefetch adjacent pages** - Improve perceived performance
+3. **Configure cache time** - Keep frequently accessed pages cached
+4. **Invalidate on data changes** - Clear cache when data is updated
+5. **Use appropriate page sizes** - Balance between requests and memory
+
+## Next Steps
+
+- **[Infinite Scroll](/docs/guides/infinite-scroll)** - Load more data as user scrolls
+- **[Prefetching](/docs/guides/prefetching)** - Advanced prefetching strategies
+- **[Cache Invalidation](/docs/core/cache-invalidation)** - Managing cache lifecycle

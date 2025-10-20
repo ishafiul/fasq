@@ -1,0 +1,423 @@
+# useQueryClient
+
+The `useQueryClient` hook provides access to the global QueryClient instance for manual cache management and query operations.
+
+## Basic Usage
+
+```dart
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+class CacheManager extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            // Invalidate specific query
+            queryClient.invalidateQuery('users');
+          },
+          child: Text('Invalidate Users'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Set query data manually
+            queryClient.setQueryData('user:1', User(id: '1', name: 'John'));
+          },
+          child: Text('Set User Data'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Get cache info
+            final info = queryClient.getCacheInfo();
+            print('Cache entries: ${info.entryCount}');
+            print('Hit rate: ${info.metrics.hitRate * 100}%');
+          },
+          child: Text('Print Cache Info'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Cache Invalidation
+
+Invalidate queries to force refetch:
+
+```dart
+class RefreshButton extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        // Invalidate specific query
+        queryClient.invalidateQuery('users');
+        
+        // Invalidate multiple queries with prefix
+        queryClient.invalidateQueriesWithPrefix('user:');
+        
+        // Invalidate with custom logic
+        queryClient.invalidateQueriesWhere((key) => key.contains('stale'));
+      },
+      child: Text('Refresh All'),
+    );
+  }
+}
+```
+
+## Manual Cache Updates
+
+Set cache data manually for optimistic updates:
+
+```dart
+class OptimisticUpdate extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        // Get current data
+        final users = queryClient.getQueryData<List<User>>('users');
+        
+        // Create optimistic update
+        final optimisticUsers = [
+          ...users ?? [],
+          User(id: 'new', name: 'New User'),
+        ];
+        
+        // Set optimistic data
+        queryClient.setQueryData('users', optimisticUsers);
+        
+        // Make API call
+        api.createUser({'name': 'New User'}).then((newUser) {
+          // Update with real data
+          queryClient.setQueryData('users', [
+            ...users ?? [],
+            newUser,
+          ]);
+        }).catchError((error) {
+          // Rollback on error
+          queryClient.setQueryData('users', users);
+        });
+      },
+      child: Text('Add User Optimistically'),
+    );
+  }
+}
+```
+
+## Query Management
+
+Manage queries directly:
+
+```dart
+class QueryManager extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            // Get specific query
+            final query = queryClient.getQueryByKey<List<User>>('users');
+            query?.fetch(); // Manual refetch
+          },
+          child: Text('Refetch Users'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Check if query exists
+            final exists = queryClient.hasQuery('users');
+            print('Users query exists: $exists');
+          },
+          child: Text('Check Query Exists'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Remove specific query
+            queryClient.removeQuery('users');
+          },
+          child: Text('Remove Users Query'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Clear all queries
+            queryClient.clear();
+          },
+          child: Text('Clear All'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Cache Information
+
+Get detailed cache information:
+
+```dart
+class CacheInfo extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        final info = queryClient.getCacheInfo();
+        
+        print('Cache Statistics:');
+        print('- Total entries: ${info.entryCount}');
+        print('- Cache size: ${info.sizeBytes} bytes');
+        print('- Hit rate: ${(info.metrics.hitRate * 100).toStringAsFixed(1)}%');
+        print('- Hits: ${info.metrics.hits}');
+        print('- Misses: ${info.metrics.misses}');
+        
+        // Get specific query data
+        final users = queryClient.getQueryData<List<User>>('users');
+        if (users != null) {
+          print('- Users in cache: ${users.length}');
+        }
+      },
+      child: Text('Print Cache Stats'),
+    );
+  }
+}
+```
+
+## Prefetching
+
+Prefetch queries for better performance:
+
+```dart
+class PrefetchExample extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        // Prefetch users data
+        queryClient.prefetchQuery(
+          'users',
+          () => api.fetchUsers(),
+        );
+        
+        // Prefetch specific user
+        queryClient.prefetchQuery(
+          'user:123',
+          () => api.fetchUser('123'),
+        );
+      },
+      child: Text('Prefetch Data'),
+    );
+  }
+}
+```
+
+## Conditional Operations
+
+Perform operations based on cache state:
+
+```dart
+class ConditionalOperations extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        // Only invalidate if data exists
+        final users = queryClient.getQueryData<List<User>>('users');
+        if (users != null) {
+          queryClient.invalidateQuery('users');
+        }
+        
+        // Only prefetch if not already cached
+        if (!queryClient.hasQuery('posts')) {
+          queryClient.prefetchQuery('posts', () => api.fetchPosts());
+        }
+      },
+      child: Text('Conditional Operations'),
+    );
+  }
+}
+```
+
+## Error Recovery
+
+Handle cache errors and recovery:
+
+```dart
+class ErrorRecovery extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        try {
+          // Attempt to get cached data
+          final users = queryClient.getQueryData<List<User>>('users');
+          
+          if (users == null) {
+            // Data not in cache, fetch it
+            queryClient.prefetchQuery('users', () => api.fetchUsers());
+          }
+        } catch (error) {
+          // Handle cache errors
+          print('Cache error: $error');
+          
+          // Clear problematic cache
+          queryClient.removeQuery('users');
+          
+          // Refetch fresh data
+          queryClient.prefetchQuery('users', () => api.fetchUsers());
+        }
+      },
+      child: Text('Error Recovery'),
+    );
+  }
+}
+```
+
+## Performance Monitoring
+
+Monitor cache performance:
+
+```dart
+class PerformanceMonitor extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        final info = queryClient.getCacheInfo();
+        
+        // Check cache efficiency
+        if (info.metrics.hitRate < 0.5) {
+          print('Warning: Low cache hit rate (${(info.metrics.hitRate * 100).toStringAsFixed(1)}%)');
+        }
+        
+        // Check memory usage
+        if (info.sizeBytes > 10 * 1024 * 1024) { // 10MB
+          print('Warning: High cache memory usage (${info.sizeBytes} bytes)');
+        }
+        
+        // Log performance metrics
+        print('Cache Performance:');
+        print('- Hit rate: ${(info.metrics.hitRate * 100).toStringAsFixed(1)}%');
+        print('- Memory usage: ${(info.sizeBytes / 1024 / 1024).toStringAsFixed(1)}MB');
+        print('- Active queries: ${info.entryCount}');
+      },
+      child: Text('Monitor Performance'),
+    );
+  }
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+class TypeSafeOperations extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    return ElevatedButton(
+      onPressed: () {
+        // Type-safe data access
+        final users = queryClient.getQueryData<List<User>>('users');
+        // users is List<User>?
+        
+        // Type-safe data setting
+        queryClient.setQueryData<List<User>>('users', [
+          User(id: '1', name: 'John'),
+          User(id: '2', name: 'Jane'),
+        ]);
+        
+        // Type-safe query access
+        final query = queryClient.getQueryByKey<List<User>>('users');
+        // query is Query<List<User>>?
+      },
+      child: Text('Type Safe Operations'),
+    );
+  }
+}
+```
+
+## Common Patterns
+
+### Cache Warming
+
+```dart
+class CacheWarmer extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    useEffect(() {
+      // Warm cache on mount
+      queryClient.prefetchQuery('users', () => api.fetchUsers());
+      queryClient.prefetchQuery('posts', () => api.fetchPosts());
+      
+      return null;
+    }, []);
+    
+    return Text('Cache warming...');
+  }
+}
+```
+
+### Cache Cleanup
+
+```dart
+class CacheCleanup extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queryClient = useQueryClient();
+    
+    useEffect(() {
+      return () {
+        // Cleanup on unmount
+        queryClient.invalidateQueriesWithPrefix('temp:');
+      };
+    }, []);
+    
+    return ElevatedButton(
+      onPressed: () {
+        // Create temporary data
+        queryClient.setQueryData('temp:data', {'temp': true});
+      },
+      child: Text('Create Temp Data'),
+    );
+  }
+}
+```
+
+## Performance Tips
+
+1. **Use prefetching** - Load data before it's needed
+2. **Monitor cache performance** - Track hit rates and memory usage
+3. **Invalidate strategically** - Only invalidate what's necessary
+4. **Use type-safe operations** - Leverage compile-time safety
+5. **Handle errors gracefully** - Implement proper error recovery
+
+## Next Steps
+
+- **[useQuery](/docs/hooks/use-query)** - Learn about queries
+- **[useMutation](/docs/hooks/use-mutation)** - Learn about mutations
+- **[Custom Hooks](/docs/hooks/custom-hooks)** - Creating reusable logic
+- **[Examples](/docs/hooks/examples)** - Complete working examples

@@ -1,0 +1,789 @@
+# File Operations
+
+Complete examples of implementing file operations with Fasq. Learn how to handle file uploads, downloads, image processing, and file management.
+
+## File Upload
+
+### Basic File Upload
+
+```dart
+class FileUploadService {
+  static Future<String> uploadFile(File file, String fileName) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('https://api.example.com/upload'),
+    );
+    
+    request.files.add(
+      await http.MultipartFile.fromPath('file', file.path),
+    );
+    
+    request.fields['fileName'] = fileName;
+    
+    final response = await request.send();
+    
+    if (response.statusCode == 200) {
+      final responseBody = await response.stream.bytesToString();
+      final data = jsonDecode(responseBody);
+      return data['fileUrl'];
+    } else {
+      throw Exception('File upload failed');
+    }
+  }
+  
+  static Future<List<String>> uploadMultipleFiles(List<File> files) async {
+    final futures = files.map((file) => uploadFile(file, file.path.split('/').last));
+    return await Future.wait(futures);
+  }
+}
+
+class FileUploadScreen extends StatefulWidget {
+  @override
+  State<FileUploadScreen> createState() => _FileUploadScreenState();
+}
+
+class _FileUploadScreenState extends State<FileUploadScreen> {
+  File? _selectedFile;
+  String? _uploadedFileUrl;
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('File Upload')),
+      body: MutationBuilder<String, File>(
+        mutationFn: (file) => FileUploadService.uploadFile(file, file.path.split('/').last),
+        options: MutationOptions(
+          onSuccess: (fileUrl) {
+            setState(() {
+              _uploadedFileUrl = fileUrl;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('File uploaded successfully')),
+            );
+          },
+          onError: (error) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: $error')),
+            );
+          },
+        ),
+        builder: (context, state) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // File selection
+                ElevatedButton(
+                  onPressed: () => _selectFile(),
+                  child: Text('Select File'),
+                ),
+                SizedBox(height: 16),
+                
+                // Show selected file
+                if (_selectedFile != null) ...[
+                  Text('Selected: ${_selectedFile!.path.split('/').last}'),
+                  SizedBox(height: 16),
+                  
+                  // Upload button
+                  ElevatedButton(
+                    onPressed: state.isLoading ? null : () {
+                      state.mutate(_selectedFile!);
+                    },
+                    child: state.isLoading
+                        ? CircularProgressIndicator()
+                        : Text('Upload File'),
+                  ),
+                ],
+                
+                // Show uploaded file URL
+                if (_uploadedFileUrl != null) ...[
+                  SizedBox(height: 16),
+                  Text('Uploaded URL: $_uploadedFileUrl'),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Future<void> _selectFile() async {
+    final result = await FilePicker.platform.pickFiles();
+    if (result != null) {
+      setState(() {
+        _selectedFile = File(result.files.single.path!);
+      });
+    }
+  }
+}
+```
+
+### Image Upload with Preview
+
+```dart
+class ImageUploadScreen extends StatefulWidget {
+  @override
+  State<ImageUploadScreen> createState() => _ImageUploadScreenState();
+}
+
+class _ImageUploadScreenState extends State<ImageUploadScreen> {
+  File? _selectedImage;
+  String? _uploadedImageUrl;
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Image Upload')),
+      body: MutationBuilder<String, File>(
+        mutationFn: (image) => FileUploadService.uploadFile(image, 'image.jpg'),
+        options: MutationOptions(
+          onSuccess: (imageUrl) {
+            setState(() {
+              _uploadedImageUrl = imageUrl;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Image uploaded successfully')),
+            );
+          },
+          onError: (error) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: $error')),
+            );
+          },
+        ),
+        builder: (context, state) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // Image selection
+                ElevatedButton(
+                  onPressed: () => _selectImage(),
+                  child: Text('Select Image'),
+                ),
+                SizedBox(height: 16),
+                
+                // Show selected image
+                if (_selectedImage != null) ...[
+                  Container(
+                    height: 200,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Image.file(
+                      _selectedImage!,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  
+                  // Upload button
+                  ElevatedButton(
+                    onPressed: state.isLoading ? null : () {
+                      state.mutate(_selectedImage!);
+                    },
+                    child: state.isLoading
+                        ? CircularProgressIndicator()
+                        : Text('Upload Image'),
+                  ),
+                ],
+                
+                // Show uploaded image
+                if (_uploadedImageUrl != null) ...[
+                  SizedBox(height: 16),
+                  Container(
+                    height: 200,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Image.network(
+                      _uploadedImageUrl!,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Future<void> _selectImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
+}
+```
+
+## File Download
+
+### File Download Service
+
+```dart
+class FileDownloadService {
+  static Future<File> downloadFile(String url, String fileName) async {
+    final response = await http.get(Uri.parse(url));
+    
+    if (response.statusCode == 200) {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/$fileName');
+      
+      await file.writeAsBytes(response.bodyBytes);
+      return file;
+    } else {
+      throw Exception('File download failed');
+    }
+  }
+  
+  static Future<List<File>> downloadMultipleFiles(List<String> urls) async {
+    final futures = urls.asMap().entries.map((entry) {
+      final index = entry.key;
+      final url = entry.value;
+      final fileName = 'file_$index';
+      return downloadFile(url, fileName);
+    });
+    
+    return await Future.wait(futures);
+  }
+}
+
+class FileDownloadScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('File Download')),
+      body: QueryBuilder<List<FileInfo>>(
+        queryKey: 'files',
+        queryFn: () => _fetchFiles(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(child: Text('Error: $error')),
+            data: (files) => ListView.builder(
+              itemCount: files.length,
+              itemBuilder: (context, index) {
+                final file = files[index];
+                return FileDownloadTile(file: file);
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Future<List<FileInfo>> _fetchFiles() async {
+    final response = await http.get(Uri.parse('https://api.example.com/files'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data['files'] as List)
+          .map((json) => FileInfo.fromJson(json))
+          .toList();
+    } else {
+      throw Exception('Failed to fetch files');
+    }
+  }
+}
+
+class FileInfo {
+  final String id;
+  final String name;
+  final String url;
+  final int size;
+  final String type;
+  
+  FileInfo({
+    required this.id,
+    required this.name,
+    required this.url,
+    required this.size,
+    required this.type,
+  });
+  
+  factory FileInfo.fromJson(Map<String, dynamic> json) {
+    return FileInfo(
+      id: json['id'],
+      name: json['name'],
+      url: json['url'],
+      size: json['size'],
+      type: json['type'],
+    );
+  }
+}
+
+class FileDownloadTile extends StatelessWidget {
+  final FileInfo file;
+  
+  const FileDownloadTile({required this.file});
+  
+  @override
+  Widget build(BuildContext context) {
+    return MutationBuilder<File, String>(
+      mutationFn: (url) => FileDownloadService.downloadFile(url, file.name),
+      options: MutationOptions(
+        onSuccess: (downloadedFile) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File downloaded: ${downloadedFile.path}')),
+          );
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Download failed: $error')),
+          );
+        },
+      ),
+      builder: (context, state) {
+        return Card(
+          child: ListTile(
+            leading: Icon(_getFileIcon(file.type)),
+            title: Text(file.name),
+            subtitle: Text('${_formatFileSize(file.size)} - ${file.type}'),
+            trailing: ElevatedButton(
+              onPressed: state.isLoading ? null : () {
+                state.mutate(file.url);
+              },
+              child: state.isLoading
+                  ? CircularProgressIndicator()
+                  : Text('Download'),
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  IconData _getFileIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'image':
+        return Icons.image;
+      case 'video':
+        return Icons.video_file;
+      case 'audio':
+        return Icons.audio_file;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+  
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+}
+```
+
+## Image Processing
+
+### Image Processing Service
+
+```dart
+class ImageProcessingService {
+  static Future<File> resizeImage(File imageFile, int width, int height) async {
+    final image = await decodeImageFromList(await imageFile.readAsBytes());
+    final resizedImage = await resize(image, width: width, height: height);
+    
+    final directory = await getApplicationDocumentsDirectory();
+    final resizedFile = File('${directory.path}/resized_${imageFile.path.split('/').last}');
+    
+    await resizedFile.writeAsBytes(await encodeJpg(resizedImage));
+    return resizedFile;
+  }
+  
+  static Future<File> compressImage(File imageFile, int quality) async {
+    final image = await decodeImageFromList(await imageFile.readAsBytes());
+    final compressedImage = await encodeJpg(image, quality: quality);
+    
+    final directory = await getApplicationDocumentsDirectory();
+    final compressedFile = File('${directory.path}/compressed_${imageFile.path.split('/').last}');
+    
+    await compressedFile.writeAsBytes(compressedImage);
+    return compressedFile;
+  }
+  
+  static Future<File> cropImage(File imageFile, Rect cropRect) async {
+    final image = await decodeImageFromList(await imageFile.readAsBytes());
+    final croppedImage = await copyCrop(image, cropRect);
+    
+    final directory = await getApplicationDocumentsDirectory();
+    final croppedFile = File('${directory.path}/cropped_${imageFile.path.split('/').last}');
+    
+    await croppedFile.writeAsBytes(await encodeJpg(croppedImage));
+    return croppedFile;
+  }
+}
+
+class ImageProcessingScreen extends StatefulWidget {
+  @override
+  State<ImageProcessingScreen> createState() => _ImageProcessingScreenState();
+}
+
+class _ImageProcessingScreenState extends State<ImageProcessingScreen> {
+  File? _selectedImage;
+  File? _processedImage;
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Image Processing')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // Image selection
+            ElevatedButton(
+              onPressed: () => _selectImage(),
+              child: Text('Select Image'),
+            ),
+            SizedBox(height: 16),
+            
+            // Show selected image
+            if (_selectedImage != null) ...[
+              Container(
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Image.file(
+                  _selectedImage!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              SizedBox(height: 16),
+              
+              // Processing buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => _resizeImage(),
+                    child: Text('Resize'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _compressImage(),
+                    child: Text('Compress'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _cropImage(),
+                    child: Text('Crop'),
+                  ),
+                ],
+              ),
+            ],
+            
+            // Show processed image
+            if (_processedImage != null) ...[
+              SizedBox(height: 16),
+              Text('Processed Image:'),
+              Container(
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Image.file(
+                  _processedImage!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _selectImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+        _processedImage = null;
+      });
+    }
+  }
+  
+  Future<void> _resizeImage() async {
+    if (_selectedImage != null) {
+      final resizedImage = await ImageProcessingService.resizeImage(_selectedImage!, 300, 300);
+      setState(() {
+        _processedImage = resizedImage;
+      });
+    }
+  }
+  
+  Future<void> _compressImage() async {
+    if (_selectedImage != null) {
+      final compressedImage = await ImageProcessingService.compressImage(_selectedImage!, 80);
+      setState(() {
+        _processedImage = compressedImage;
+      });
+    }
+  }
+  
+  Future<void> _cropImage() async {
+    if (_selectedImage != null) {
+      final cropRect = Rect.fromLTWH(50, 50, 200, 200);
+      final croppedImage = await ImageProcessingService.cropImage(_selectedImage!, cropRect);
+      setState(() {
+        _processedImage = croppedImage;
+      });
+    }
+  }
+}
+```
+
+## File Management
+
+### File Manager Screen
+
+```dart
+class FileManagerScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('File Manager')),
+      body: QueryBuilder<List<FileInfo>>(
+        queryKey: 'files',
+        queryFn: () => _fetchFiles(),
+        builder: (context, state) {
+          return state.when(
+            loading: () => Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(child: Text('Error: $error')),
+            data: (files) => ListView.builder(
+              itemCount: files.length,
+              itemBuilder: (context, index) {
+                final file = files[index];
+                return FileManagerTile(file: file);
+              },
+            ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FileUploadScreen(),
+            ),
+          );
+        },
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+  
+  Future<List<FileInfo>> _fetchFiles() async {
+    final response = await http.get(Uri.parse('https://api.example.com/files'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data['files'] as List)
+          .map((json) => FileInfo.fromJson(json))
+          .toList();
+    } else {
+      throw Exception('Failed to fetch files');
+    }
+  }
+}
+
+class FileManagerTile extends StatelessWidget {
+  final FileInfo file;
+  
+  const FileManagerTile({required this.file});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: Icon(_getFileIcon(file.type)),
+        title: Text(file.name),
+        subtitle: Text('${_formatFileSize(file.size)} - ${file.type}'),
+        trailing: PopupMenuButton(
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'download',
+              child: Row(
+                children: [
+                  Icon(Icons.download),
+                  SizedBox(width: 8),
+                  Text('Download'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'share',
+              child: Row(
+                children: [
+                  Icon(Icons.share),
+                  SizedBox(width: 8),
+                  Text('Share'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Delete', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+          onSelected: (value) {
+            switch (value) {
+              case 'download':
+                _downloadFile(context);
+                break;
+              case 'share':
+                _shareFile(context);
+                break;
+              case 'delete':
+                _showDeleteDialog(context);
+                break;
+            }
+          },
+        ),
+      ),
+    );
+  }
+  
+  void _downloadFile(BuildContext context) {
+    MutationBuilder<File, String>(
+      mutationFn: (url) => FileDownloadService.downloadFile(url, file.name),
+      options: MutationOptions(
+        onSuccess: (downloadedFile) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File downloaded: ${downloadedFile.path}')),
+          );
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Download failed: $error')),
+          );
+        },
+      ),
+      builder: (context, state) {
+        return state.mutate(file.url);
+      },
+    );
+  }
+  
+  void _shareFile(BuildContext context) {
+    Share.share(file.url);
+  }
+  
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete File'),
+        content: Text('Are you sure you want to delete "${file.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteFile(context);
+            },
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _deleteFile(BuildContext context) {
+    MutationBuilder<void, String>(
+      mutationFn: (id) => _deleteFileFromServer(id),
+      options: MutationOptions(
+        onSuccess: (_, id) {
+          QueryClient().invalidateQuery('files');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('File deleted successfully')),
+          );
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete file: $error')),
+          );
+        },
+      ),
+      builder: (context, state) {
+        return state.mutate(file.id);
+      },
+    );
+  }
+  
+  Future<void> _deleteFileFromServer(String id) async {
+    final response = await http.delete(Uri.parse('https://api.example.com/files/$id'));
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete file');
+    }
+  }
+  
+  IconData _getFileIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'image':
+        return Icons.image;
+      case 'video':
+        return Icons.video_file;
+      case 'audio':
+        return Icons.audio_file;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+  
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+}
+```
+
+## Best Practices
+
+1. **Validate file types** - Check file extensions and MIME types
+2. **Handle large files** - Implement progress indicators and chunked uploads
+3. **Compress images** - Reduce file sizes for better performance
+4. **Cache downloaded files** - Store files locally for offline access
+5. **Handle errors gracefully** - Provide meaningful error messages
+6. **Implement file sharing** - Allow users to share files
+7. **Secure file operations** - Validate permissions and sanitize inputs
+
+## Next Steps
+
+- **[Database Queries](/docs/examples/database-queries)** - Learn about database patterns
+- **[Authentication](/docs/examples/authentication)** - Learn about authentication patterns
+- **[CRUD Operations](/docs/examples/crud-operations)** - Learn about CRUD patterns

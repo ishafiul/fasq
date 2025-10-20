@@ -1,0 +1,109 @@
+# Installation
+
+Add Fasq to your Flutter project. Choose the packages that match your state management approach.
+
+## Core Package
+
+The core package provides the `QueryBuilder` widget and all underlying functionality.
+
+```yaml
+dependencies:
+  fasq: ^0.1.0
+```
+
+## State Management Adapters
+
+Choose one or more adapters based on your state management solution:
+
+### Hooks Adapter
+
+For apps using `flutter_hooks`:
+
+```yaml
+dependencies:
+  fasq_hooks: ^0.1.0
+  flutter_hooks: ^0.20.0
+```
+
+### Bloc Adapter
+
+For apps using `flutter_bloc`:
+
+```yaml
+dependencies:
+  fasq_bloc: ^0.1.0
+  flutter_bloc: ^8.0.0
+```
+
+### Riverpod Adapter
+
+For apps using `flutter_riverpod`:
+
+```yaml
+dependencies:
+  fasq_riverpod: ^0.1.0
+  flutter_riverpod: ^2.0.0
+```
+
+## Complete Example
+
+Here's a typical `pubspec.yaml` for a project using multiple adapters:
+
+```yaml
+name: my_app
+description: A Flutter app using Fasq
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Core Fasq package
+  fasq: ^0.1.0
+  
+  # Choose your state management adapters
+  fasq_hooks: ^0.1.0
+  fasq_bloc: ^0.1.0
+  fasq_riverpod: ^0.1.0
+  
+  # State management dependencies
+  flutter_hooks: ^0.20.0
+  flutter_bloc: ^8.0.0
+  flutter_riverpod: ^2.0.0
+  
+  # Other dependencies
+  http: ^1.1.0
+  dio: ^5.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+```
+
+## Installation Steps
+
+1. **Add dependencies** to your `pubspec.yaml`
+2. **Run** `flutter pub get`
+3. **Import** the packages you need:
+
+```dart
+// Core package
+import 'package:fasq/fasq.dart';
+
+// Adapters (choose based on your needs)
+import 'package:fasq_hooks/fasq_hooks.dart';
+import 'package:fasq_bloc/fasq_bloc.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+```
+
+## Version Compatibility
+
+Fasq requires:
+- **Flutter**: 3.0.0 or higher
+- **Dart**: 3.0.0 or higher
+
+## Next Steps
+
+- **[Quick Start](/docs/quick-start)** - Get your first query running
+- **[Core Concepts](/docs/core-concepts)** - Understand the fundamentals
+- **[Choose Your Adapter](/docs/core)** - Pick the right approach for your app

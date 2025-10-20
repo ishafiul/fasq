@@ -1,0 +1,817 @@
+# Error Handling
+
+Comprehensive error handling strategies for Fasq queries and mutations. Learn how to handle errors gracefully, implement retry logic, and provide better user experiences.
+
+## Basic Error Handling
+
+### Error State Management
+
+```dart
+class BasicErrorHandlingExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      builder: (context, state) {
+        if (state.hasError) {
+          return ErrorWidget(
+            error: state.error!,
+            stackTrace: state.stackTrace,
+            onRetry: () {
+              QueryClient().invalidateQuery('users');
+            },
+          );
+        }
+        
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          data: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(title: Text(user.name));
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ErrorWidget extends StatelessWidget {
+  final Object error;
+  final StackTrace? stackTrace;
+  final VoidCallback onRetry;
+  
+  const ErrorWidget({
+    required this.error,
+    this.stackTrace,
+    required this.onRetry,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error, size: 64, color: Colors.red),
+          SizedBox(height: 16),
+          Text('Something went wrong'),
+          SizedBox(height: 8),
+          Text('$error'),
+          if (stackTrace != null) ...[
+            SizedBox(height: 8),
+            Text('Stack Trace: $stackTrace'),
+          ],
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            child: Text('Try Again'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Error Types
+
+```dart
+class ErrorTypesExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      builder: (context, state) {
+        if (state.hasError) {
+          return _buildErrorWidget(state.error!, state.stackTrace);
+        }
+        
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          data: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(title: Text(user.name));
+            },
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildErrorWidget(Object error, StackTrace? stackTrace) {
+    if (error is NetworkException) {
+      return _buildNetworkErrorWidget(error);
+    } else if (error is AuthenticationException) {
+      return _buildAuthErrorWidget(error);
+    } else if (error is ValidationException) {
+      return _buildValidationErrorWidget(error);
+    } else {
+      return _buildGenericErrorWidget(error, stackTrace);
+    }
+  }
+  
+  Widget _buildNetworkErrorWidget(NetworkException error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.wifi_off, size: 64, color: Colors.orange),
+          SizedBox(height: 16),
+          Text('Network Error'),
+          SizedBox(height: 8),
+          Text('${error.message}'),
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              QueryClient().invalidateQuery('users');
+            },
+            child: Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildAuthErrorWidget(AuthenticationException error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.lock, size: 64, color: Colors.red),
+          SizedBox(height: 16),
+          Text('Authentication Error'),
+          SizedBox(height: 8),
+          Text('${error.message}'),
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              // Navigate to login
+              Navigator.pushNamed(context, '/login');
+            },
+            child: Text('Login'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildValidationErrorWidget(ValidationException error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.warning, size: 64, color: Colors.orange),
+          SizedBox(height: 16),
+          Text('Validation Error'),
+          SizedBox(height: 8),
+          Text('${error.message}'),
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              QueryClient().invalidateQuery('users');
+            },
+            child: Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildGenericErrorWidget(Object error, StackTrace? stackTrace) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error, size: 64, color: Colors.red),
+          SizedBox(height: 16),
+          Text('Error'),
+          SizedBox(height: 8),
+          Text('$error'),
+          if (stackTrace != null) ...[
+            SizedBox(height: 8),
+            Text('Stack Trace: $stackTrace'),
+          ],
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              QueryClient().invalidateQuery('users');
+            },
+            child: Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Mock exception classes
+class NetworkException implements Exception {
+  final String message;
+  NetworkException(this.message);
+}
+
+class AuthenticationException implements Exception {
+  final String message;
+  AuthenticationException(this.message);
+}
+
+class ValidationException implements Exception {
+  final String message;
+  ValidationException(this.message);
+}
+```
+
+## Retry Logic
+
+### Basic Retry
+
+```dart
+class BasicRetryExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      options: QueryOptions(
+        retryCount: 3,
+        retryDelay: Duration(seconds: 2),
+        onError: (error) {
+          print('Query failed, will retry: $error');
+        },
+      ),
+      builder: (context, state) {
+        if (state.hasError) {
+          return RetryWidget(
+            error: state.error!,
+            retryCount: state.fetchCount,
+            onRetry: () {
+              QueryClient().invalidateQuery('users');
+            },
+          );
+        }
+        
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          data: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(title: Text(user.name));
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class RetryWidget extends StatelessWidget {
+  final Object error;
+  final int retryCount;
+  final VoidCallback onRetry;
+  
+  const RetryWidget({
+    required this.error,
+    required this.retryCount,
+    required this.onRetry,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.refresh, size: 64, color: Colors.orange),
+          SizedBox(height: 16),
+          Text('Retry Attempt $retryCount'),
+          SizedBox(height: 8),
+          Text('$error'),
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            child: Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Exponential Backoff
+
+```dart
+class ExponentialBackoffExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      options: QueryOptions(
+        retryCount: 5,
+        retryDelay: Duration(seconds: 1),
+        onError: (error) {
+          print('Query failed, will retry with exponential backoff: $error');
+        },
+      ),
+      builder: (context, state) {
+        if (state.hasError) {
+          return ExponentialBackoffWidget(
+            error: state.error!,
+            retryCount: state.fetchCount,
+            onRetry: () {
+              QueryClient().invalidateQuery('users');
+            },
+          );
+        }
+        
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          data: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(title: Text(user.name));
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ExponentialBackoffWidget extends StatelessWidget {
+  final Object error;
+  final int retryCount;
+  final VoidCallback onRetry;
+  
+  const ExponentialBackoffWidget({
+    required this.error,
+    required this.retryCount,
+    required this.onRetry,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    final delay = Duration(seconds: math.pow(2, retryCount).toInt());
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.schedule, size: 64, color: Colors.orange),
+          SizedBox(height: 16),
+          Text('Retry Attempt $retryCount'),
+          SizedBox(height: 8),
+          Text('Next retry in ${delay.inSeconds} seconds'),
+          SizedBox(height: 8),
+          Text('$error'),
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            child: Text('Retry Now'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Error Boundaries
+
+### Global Error Boundary
+
+```dart
+class GlobalErrorBoundary extends StatefulWidget {
+  final Widget child;
+  
+  const GlobalErrorBoundary({required this.child});
+  
+  @override
+  State<GlobalErrorBoundary> createState() => _GlobalErrorBoundaryState();
+}
+
+class _GlobalErrorBoundaryState extends State<GlobalErrorBoundary> {
+  Object? _error;
+  StackTrace? _stackTrace;
+  
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return ErrorBoundaryWidget(
+        error: _error!,
+        stackTrace: _stackTrace,
+        onRetry: () {
+          setState(() {
+            _error = null;
+            _stackTrace = null;
+          });
+        },
+      );
+    }
+    
+    return widget.child;
+  }
+  
+  void _handleError(Object error, StackTrace stackTrace) {
+    setState(() {
+      _error = error;
+      _stackTrace = stackTrace;
+    });
+  }
+}
+
+class ErrorBoundaryWidget extends StatelessWidget {
+  final Object error;
+  final StackTrace? stackTrace;
+  final VoidCallback onRetry;
+  
+  const ErrorBoundaryWidget({
+    required this.error,
+    this.stackTrace,
+    required this.onRetry,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text('Something went wrong'),
+            SizedBox(height: 8),
+            Text('$error'),
+            if (stackTrace != null) ...[
+              SizedBox(height: 8),
+              Text('Stack Trace: $stackTrace'),
+            ],
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: Text('Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Component Error Boundary
+
+```dart
+class ComponentErrorBoundary extends StatefulWidget {
+  final Widget child;
+  final Widget Function(Object error, StackTrace? stackTrace)? errorBuilder;
+  
+  const ComponentErrorBoundary({
+    required this.child,
+    this.errorBuilder,
+  });
+  
+  @override
+  State<ComponentErrorBoundary> createState() => _ComponentErrorBoundaryState();
+}
+
+class _ComponentErrorBoundaryState extends State<ComponentErrorBoundary> {
+  Object? _error;
+  StackTrace? _stackTrace;
+  
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      if (widget.errorBuilder != null) {
+        return widget.errorBuilder!(_error!, _stackTrace);
+      }
+      
+      return Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          border: Border.all(color: Colors.red),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error, color: Colors.red),
+            SizedBox(height: 8),
+            Text('Component Error'),
+            SizedBox(height: 4),
+            Text('$error'),
+            SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _error = null;
+                  _stackTrace = null;
+                });
+              },
+              child: Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return widget.child;
+  }
+}
+```
+
+## Error Recovery
+
+### Automatic Recovery
+
+```dart
+class AutomaticRecoveryExample extends StatefulWidget {
+  @override
+  State<AutomaticRecoveryExample> createState() => _AutomaticRecoveryExampleState();
+}
+
+class _AutomaticRecoveryExampleState extends State<AutomaticRecoveryExample> {
+  Timer? _recoveryTimer;
+  
+  @override
+  void initState() {
+    super.initState();
+    _setupAutomaticRecovery();
+  }
+  
+  void _setupAutomaticRecovery() {
+    _recoveryTimer = Timer.periodic(Duration(minutes: 5), (timer) {
+      _attemptRecovery();
+    });
+  }
+  
+  void _attemptRecovery() {
+    final queryClient = QueryClient();
+    
+    // Check for failed queries
+    final failedQueries = queryClient.getAllQueries()
+        .where((query) => query.state.hasError)
+        .toList();
+    
+    if (failedQueries.isNotEmpty) {
+      print('Attempting recovery for ${failedQueries.length} failed queries');
+      
+      failedQueries.forEach((query) {
+        queryClient.invalidateQuery(query.queryKey);
+      });
+    }
+  }
+  
+  @override
+  void dispose() {
+    _recoveryTimer?.cancel();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Automatic Recovery')),
+      body: Column(
+        children: [
+          Text('Automatic Recovery'),
+          Text('Recovery attempts every 5 minutes'),
+          ElevatedButton(
+            onPressed: () {
+              _attemptRecovery();
+            },
+            child: Text('Manual Recovery'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Manual Recovery
+
+```dart
+class ManualRecoveryExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Manual Recovery')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              _recoverFailedQueries();
+            },
+            child: Text('Recover Failed Queries'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _recoverSpecificQuery();
+            },
+            child: Text('Recover Specific Query'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _clearAllErrors();
+            },
+            child: Text('Clear All Errors'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _recoverFailedQueries() {
+    final queryClient = QueryClient();
+    
+    // Find all failed queries
+    final failedQueries = queryClient.getAllQueries()
+        .where((query) => query.state.hasError)
+        .toList();
+    
+    if (failedQueries.isNotEmpty) {
+      print('Recovering ${failedQueries.length} failed queries');
+      
+      failedQueries.forEach((query) {
+        queryClient.invalidateQuery(query.queryKey);
+      });
+    } else {
+      print('No failed queries to recover');
+    }
+  }
+  
+  void _recoverSpecificQuery() {
+    final queryClient = QueryClient();
+    
+    // Recover specific query
+    if (queryClient.hasQuery('users')) {
+      queryClient.invalidateQuery('users');
+      print('Users query recovered');
+    } else {
+      print('Users query not found');
+    }
+  }
+  
+  void _clearAllErrors() {
+    final queryClient = QueryClient();
+    
+    // Clear all errors by invalidating all queries
+    queryClient.clear();
+    print('All errors cleared');
+  }
+}
+```
+
+## Error Logging
+
+### Error Logging Service
+
+```dart
+class ErrorLoggingService {
+  static void logError(Object error, StackTrace? stackTrace, {String? context}) {
+    // Log error to console
+    print('Error logged: $error');
+    if (stackTrace != null) {
+      print('Stack trace: $stackTrace');
+    }
+    if (context != null) {
+      print('Context: $context');
+    }
+    
+    // Log error to external service
+    _logToExternalService(error, stackTrace, context);
+  }
+  
+  static void _logToExternalService(Object error, StackTrace? stackTrace, String? context) {
+    // Implement external logging (e.g., Sentry, Crashlytics)
+    // This is a mock implementation
+    print('Logged to external service: $error');
+  }
+}
+
+class ErrorLoggingExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      options: QueryOptions(
+        onError: (error) {
+          ErrorLoggingService.logError(
+            error,
+            null,
+            context: 'Users query',
+          );
+        },
+      ),
+      builder: (context, state) {
+        if (state.hasError) {
+          return ErrorWidget(
+            error: state.error!,
+            stackTrace: state.stackTrace,
+            onRetry: () {
+              QueryClient().invalidateQuery('users');
+            },
+          );
+        }
+        
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          data: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(title: Text(user.name));
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+```
+
+## Best Practices
+
+### Error Handling Patterns
+
+```dart
+class ErrorHandlingPatternsExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Error Handling Patterns')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              _demonstrateErrorPatterns();
+            },
+            child: Text('Demonstrate Patterns'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _demonstrateErrorPatterns() {
+    // Pattern 1: Graceful degradation
+    _gracefulDegradation();
+    
+    // Pattern 2: Retry with backoff
+    _retryWithBackoff();
+    
+    // Pattern 3: Fallback data
+    _fallbackData();
+    
+    // Pattern 4: Error boundaries
+    _errorBoundaries();
+  }
+  
+  void _gracefulDegradation() {
+    print('Graceful degradation: Show cached data when network fails');
+  }
+  
+  void _retryWithBackoff() {
+    print('Retry with backoff: Exponential delay between retries');
+  }
+  
+  void _fallbackData() {
+    print('Fallback data: Show default data when query fails');
+  }
+  
+  void _errorBoundaries() {
+    print('Error boundaries: Isolate errors to specific components');
+  }
+}
+```
+
+## Performance Tips
+
+1. **Handle errors gracefully** - Provide fallback UI and retry mechanisms
+2. **Use appropriate retry strategies** - Implement exponential backoff
+3. **Log errors properly** - Include context and stack traces
+4. **Implement error boundaries** - Isolate errors to specific components
+5. **Provide user feedback** - Show clear error messages and recovery options
+6. **Monitor error rates** - Track and analyze error patterns
+7. **Test error scenarios** - Ensure error handling works in all cases
+
+## Next Steps
+
+- **[QueryClient](/docs/core/query-client)** - Learn about cache management
+- **[QueryOptions](/docs/core/query-options)** - Learn about configuration options
+- **[Cache Configuration](/docs/core/cache-configuration)** - Learn about cache policies
+- **[Cache Invalidation](/docs/core/cache-invalidation)** - Learn about invalidation strategies

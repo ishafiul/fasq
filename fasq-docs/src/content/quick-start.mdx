@@ -1,0 +1,337 @@
+# Quick Start
+
+Get up and running with Fasq in 5 minutes. This guide shows you the basics with a simple user list example.
+
+## 1. Basic Query
+
+Let's fetch a list of users and display them. Here's how it looks with each adapter:
+
+### Core Package (QueryBuilder)
+
+```dart
+import 'package:fasq/fasq.dart';
+
+class UsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      builder: (context, state) {
+        if (state.isLoading) {
+          return CircularProgressIndicator();
+        }
+        
+        if (state.hasError) {
+          return Text('Error: ${state.error}');
+        }
+        
+        if (state.hasData) {
+          return ListView.builder(
+            itemCount: state.data!.length,
+            itemBuilder: (context, index) {
+              final user = state.data![index];
+              return ListTile(
+                title: Text(user.name),
+                subtitle: Text(user.email),
+              );
+            },
+          );
+        }
+        
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+### Hooks Adapter
+
+```dart
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+class UsersScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery('users', () => api.fetchUsers());
+    
+    if (usersState.isLoading) {
+      return CircularProgressIndicator();
+    }
+    
+    if (usersState.hasError) {
+      return Text('Error: ${usersState.error}');
+    }
+    
+    if (usersState.hasData) {
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) {
+          final user = usersState.data![index];
+          return ListTile(
+            title: Text(user.name),
+            subtitle: Text(user.email),
+          );
+        },
+      );
+    }
+    
+    return SizedBox();
+  }
+}
+```
+
+### Bloc Adapter
+
+```dart
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fasq_bloc/fasq_bloc.dart';
+
+class UsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => QueryCubit<List<User>>(
+        key: 'users',
+        queryFn: () => api.fetchUsers(),
+      ),
+      child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        builder: (context, state) {
+          if (state.isLoading) {
+            return CircularProgressIndicator();
+          }
+          
+          if (state.hasError) {
+            return Text('Error: ${state.error}');
+          }
+          
+          if (state.hasData) {
+            return ListView.builder(
+              itemCount: state.data!.length,
+              itemBuilder: (context, index) {
+                final user = state.data![index];
+                return ListTile(
+                  title: Text(user.name),
+                  subtitle: Text(user.email),
+                );
+              },
+            );
+          }
+          
+          return SizedBox();
+        },
+      ),
+    );
+  }
+}
+```
+
+### Riverpod Adapter
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+class UsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    if (usersState.isLoading) {
+      return CircularProgressIndicator();
+    }
+    
+    if (usersState.hasError) {
+      return Text('Error: ${usersState.error}');
+    }
+    
+    if (usersState.hasData) {
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) {
+          final user = usersState.data![index];
+          return ListTile(
+            title: Text(user.name),
+            subtitle: Text(user.email),
+          );
+        },
+      );
+    }
+    
+    return SizedBox();
+  }
+}
+```
+
+## 2. Add Error Handling
+
+Let's improve our error handling with a retry button:
+
+```dart
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) {
+    if (state.isLoading) {
+      return CircularProgressIndicator();
+    }
+    
+    if (state.hasError) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Error: ${state.error}'),
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              // Retry the query
+              QueryClient().getQueryByKey<List<User>>('users')?.fetch();
+            },
+            child: Text('Retry'),
+          ),
+        ],
+      );
+    }
+    
+    if (state.hasData) {
+      return UserList(users: state.data!);
+    }
+    
+    return SizedBox();
+  },
+)
+```
+
+## 3. Configure Caching
+
+Add caching configuration to improve performance:
+
+```dart
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),  // Data fresh for 5 minutes
+    cacheTime: Duration(minutes: 10), // Keep in cache for 10 minutes
+  ),
+  builder: (context, state) => buildUI(state),
+)
+```
+
+## 4. Add a Mutation
+
+Let's add the ability to create new users:
+
+```dart
+class CreateUserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MutationBuilder<User, String>(
+      mutationFn: (name) => api.createUser(name),
+      options: MutationOptions(
+        onSuccess: (user) {
+          // Invalidate users query to refetch
+          QueryClient().invalidateQuery('users');
+          Navigator.pop(context);
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $error')),
+          );
+        },
+      ),
+      builder: (context, state, mutate) {
+        return Column(
+          children: [
+            TextField(
+              decoration: InputDecoration(labelText: 'User Name'),
+              onSubmitted: (name) {
+                if (name.isNotEmpty) {
+                  mutate(name);
+                }
+              },
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: state.isLoading ? null : () {
+                // Get name from TextField and mutate
+                mutate('John Doe');
+              },
+              child: state.isLoading 
+                ? CircularProgressIndicator()
+                : Text('Create User'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+## 5. Share Queries Across Widgets
+
+Multiple widgets can share the same query by using the same `queryKey`:
+
+```dart
+// Widget A
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) => UserList(users: state.data ?? []),
+)
+
+// Widget B (shares the same query!)
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) => UserStats(count: state.data?.length ?? 0),
+)
+```
+
+Only ONE network request happens, both widgets receive the same state.
+
+## What's Next?
+
+You've learned the basics! Here's what to explore next:
+
+- **[Core Concepts](/docs/core-concepts)** - Deep dive into queries, mutations, and caching
+- **[Choose Your Adapter](/docs/core)** - Detailed guides for each state management approach
+- **[Guides](/docs/guides)** - Advanced patterns like pagination, optimistic updates, and forms
+- **[Examples](/docs/examples)** - Real-world examples and use cases
+
+## Common Patterns
+
+### Loading States
+```dart
+if (state.isLoading) return CircularProgressIndicator();
+if (state.isFetching) return LinearProgressIndicator(); // Background refresh
+```
+
+### Error States
+```dart
+if (state.hasError) {
+  return Text('Error: ${state.error}');
+}
+```
+
+### Empty States
+```dart
+if (state.hasData && state.data!.isEmpty) {
+  return Text('No data available');
+}
+```
+
+### Success States
+```dart
+if (state.hasData) {
+  return YourDataWidget(data: state.data!);
+}
+```

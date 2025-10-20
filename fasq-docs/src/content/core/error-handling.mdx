@@ -1,0 +1,750 @@
+# Cache Invalidation
+
+Cache invalidation is a crucial aspect of data management in Fasq. Learn how to invalidate queries, manage cache updates, and implement smart invalidation strategies.
+
+## Basic Invalidation
+
+### Invalidate Specific Queries
+
+```dart
+class BasicInvalidationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Basic Invalidation')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              
+              // Invalidate specific query
+              queryClient.invalidateQuery('users');
+              print('Users query invalidated');
+            },
+            child: Text('Invalidate Users'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              
+              // Invalidate multiple queries
+              queryClient.invalidateQuery('users');
+              queryClient.invalidateQuery('posts');
+              queryClient.invalidateQuery('comments');
+              print('Multiple queries invalidated');
+            },
+            child: Text('Invalidate Multiple'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Invalidate with Prefix
+
+```dart
+class PrefixInvalidationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Prefix Invalidation')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              
+              // Invalidate all user-related queries
+              queryClient.invalidateQueriesWithPrefix('user:');
+              print('All user queries invalidated');
+            },
+            child: Text('Invalidate User Queries'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              
+              // Invalidate all post-related queries
+              queryClient.invalidateQueriesWithPrefix('post:');
+              print('All post queries invalidated');
+            },
+            child: Text('Invalidate Post Queries'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Conditional Invalidation
+
+### Invalidate Based on Conditions
+
+```dart
+class ConditionalInvalidationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Conditional Invalidation')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              
+              // Only invalidate if data exists
+              final users = queryClient.getQueryData<List<User>>('users');
+              if (users != null) {
+                queryClient.invalidateQuery('users');
+                print('Users invalidated (data existed)');
+              } else {
+                print('No users data to invalidate');
+              }
+            },
+            child: Text('Conditional Invalidate'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              
+              // Invalidate based on data age
+              final query = queryClient.getQueryByKey<List<User>>('users');
+              if (query != null) {
+                final age = DateTime.now().difference(query.lastUpdated);
+                if (age.inMinutes > 5) {
+                  queryClient.invalidateQuery('users');
+                  print('Users invalidated (data was stale)');
+                } else {
+                  print('Users data is still fresh');
+                }
+              }
+            },
+            child: Text('Age-based Invalidate'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Invalidate with Custom Logic
+
+```dart
+class CustomLogicInvalidationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Custom Logic Invalidation')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              
+              // Invalidate queries with custom logic
+              queryClient.invalidateQueriesWhere((key) {
+                return key.contains('stale') || key.contains('old');
+              });
+              print('Stale queries invalidated');
+            },
+            child: Text('Invalidate Stale Queries'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final queryClient = QueryClient();
+              
+              // Invalidate queries based on data content
+              queryClient.invalidateQueriesWhere((key) {
+                final query = queryClient.getQueryByKey(key);
+                if (query != null && query.state.hasData) {
+                  // Invalidate if data is older than 10 minutes
+                  final age = DateTime.now().difference(query.lastUpdated);
+                  return age.inMinutes > 10;
+                }
+                return false;
+              });
+              print('Old data queries invalidated');
+            },
+            child: Text('Invalidate Old Data'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Mutation-based Invalidation
+
+### Invalidate After Mutations
+
+```dart
+class MutationInvalidationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Mutation Invalidation')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              // Simulate user creation
+              _createUser();
+            },
+            child: Text('Create User'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Simulate user update
+              _updateUser();
+            },
+            child: Text('Update User'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Simulate user deletion
+              _deleteUser();
+            },
+            child: Text('Delete User'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _createUser() async {
+    // Create user
+    await api.createUser({'name': 'New User'});
+    
+    // Invalidate users list to refetch
+    QueryClient().invalidateQuery('users');
+    print('User created, users list invalidated');
+  }
+  
+  void _updateUser() async {
+    // Update user
+    await api.updateUser('1', {'name': 'Updated User'});
+    
+    // Invalidate specific user and users list
+    QueryClient().invalidateQuery('user:1');
+    QueryClient().invalidateQuery('users');
+    print('User updated, related queries invalidated');
+  }
+  
+  void _deleteUser() async {
+    // Delete user
+    await api.deleteUser('1');
+    
+    // Invalidate specific user and users list
+    QueryClient().invalidateQuery('user:1');
+    QueryClient().invalidateQuery('users');
+    print('User deleted, related queries invalidated');
+  }
+}
+```
+
+### Smart Invalidation
+
+```dart
+class SmartInvalidationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Smart Invalidation')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              _smartCreateUser();
+            },
+            child: Text('Smart Create User'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _smartUpdateUser();
+            },
+            child: Text('Smart Update User'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _smartCreateUser() async {
+    final queryClient = QueryClient();
+    
+    // Create user
+    final newUser = await api.createUser({'name': 'New User'});
+    
+    // Optimistically update cache
+    final users = queryClient.getQueryData<List<User>>('users');
+    if (users != null) {
+      queryClient.setQueryData('users', [...users, newUser]);
+    }
+    
+    // Invalidate to get fresh data
+    queryClient.invalidateQuery('users');
+    print('User created with smart invalidation');
+  }
+  
+  void _smartUpdateUser() async {
+    final queryClient = QueryClient();
+    
+    // Update user
+    final updatedUser = await api.updateUser('1', {'name': 'Updated User'});
+    
+    // Update specific user in cache
+    queryClient.setQueryData('user:1', updatedUser);
+    
+    // Update user in users list
+    final users = queryClient.getQueryData<List<User>>('users');
+    if (users != null) {
+      final updatedUsers = users.map((user) => 
+        user.id == '1' ? updatedUser : user
+      ).toList();
+      queryClient.setQueryData('users', updatedUsers);
+    }
+    
+    print('User updated with smart invalidation');
+  }
+}
+```
+
+## Time-based Invalidation
+
+### Automatic Invalidation
+
+```dart
+class TimeBasedInvalidationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Time-based Invalidation')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              _setupTimeBasedInvalidation();
+            },
+            child: Text('Setup Time-based Invalidation'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _checkStaleData();
+            },
+            child: Text('Check Stale Data'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _setupTimeBasedInvalidation() {
+    // Set up timer to check for stale data
+    Timer.periodic(Duration(minutes: 5), (timer) {
+      final queryClient = QueryClient();
+      
+      // Invalidate queries older than 10 minutes
+      queryClient.invalidateQueriesWhere((key) {
+        final query = queryClient.getQueryByKey(key);
+        if (query != null) {
+          final age = DateTime.now().difference(query.lastUpdated);
+          return age.inMinutes > 10;
+        }
+        return false;
+      });
+      
+      print('Time-based invalidation completed');
+    });
+    
+    print('Time-based invalidation setup');
+  }
+  
+  void _checkStaleData() {
+    final queryClient = QueryClient();
+    
+    // Check for stale data
+    final staleQueries = <String>[];
+    queryClient.getAllQueries().forEach((query) {
+      final age = DateTime.now().difference(query.lastUpdated);
+      if (age.inMinutes > 5) {
+        staleQueries.add(query.queryKey);
+      }
+    });
+    
+    if (staleQueries.isNotEmpty) {
+      print('Stale queries found: $staleQueries');
+      staleQueries.forEach((key) {
+        queryClient.invalidateQuery(key);
+      });
+    } else {
+      print('No stale queries found');
+    }
+  }
+}
+```
+
+## Event-based Invalidation
+
+### Invalidate on Events
+
+```dart
+class EventBasedInvalidationExample extends StatefulWidget {
+  @override
+  State<EventBasedInvalidationExample> createState() => _EventBasedInvalidationExampleState();
+}
+
+class _EventBasedInvalidationExampleState extends State<EventBasedInvalidationExample> {
+  late StreamSubscription _userEventsSubscription;
+  
+  @override
+  void initState() {
+    super.initState();
+    _setupEventListeners();
+  }
+  
+  void _setupEventListeners() {
+    // Listen to user events
+    _userEventsSubscription = userEventStream.listen((event) {
+      final queryClient = QueryClient();
+      
+      switch (event.type) {
+        case 'user_created':
+          queryClient.invalidateQuery('users');
+          print('User created event - users list invalidated');
+          break;
+        case 'user_updated':
+          queryClient.invalidateQuery('user:${event.userId}');
+          queryClient.invalidateQuery('users');
+          print('User updated event - related queries invalidated');
+          break;
+        case 'user_deleted':
+          queryClient.invalidateQuery('user:${event.userId}');
+          queryClient.invalidateQuery('users');
+          print('User deleted event - related queries invalidated');
+          break;
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _userEventsSubscription.cancel();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Event-based Invalidation')),
+      body: Column(
+        children: [
+          Text('Event-based Invalidation'),
+          Text('Listening to user events'),
+          ElevatedButton(
+            onPressed: () {
+              // Simulate user event
+              userEventStream.add(UserEvent(type: 'user_created', userId: '1'));
+            },
+            child: Text('Simulate User Created'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class UserEvent {
+  final String type;
+  final String userId;
+  
+  UserEvent({required this.type, required this.userId});
+}
+
+// Mock event stream
+final userEventStream = StreamController<UserEvent>.broadcast();
+```
+
+## Cache Update Strategies
+
+### Optimistic Updates
+
+```dart
+class OptimisticUpdateExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Optimistic Updates')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              _optimisticUpdateUser();
+            },
+            child: Text('Optimistic Update User'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _optimisticCreateUser();
+            },
+            child: Text('Optimistic Create User'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _optimisticUpdateUser() async {
+    final queryClient = QueryClient();
+    
+    // Get current data
+    final users = queryClient.getQueryData<List<User>>('users');
+    if (users == null) return;
+    
+    // Create optimistic update
+    final updatedUsers = users.map((user) => 
+      user.id == '1' ? user.copyWith(name: 'Updated User') : user
+    ).toList();
+    
+    // Apply optimistic update
+    queryClient.setQueryData('users', updatedUsers);
+    
+    try {
+      // Make API call
+      await api.updateUser('1', {'name': 'Updated User'});
+      
+      // Invalidate to get fresh data
+      queryClient.invalidateQuery('users');
+      print('Optimistic update successful');
+    } catch (error) {
+      // Rollback on error
+      queryClient.setQueryData('users', users);
+      print('Optimistic update failed, rolled back');
+    }
+  }
+  
+  void _optimisticCreateUser() async {
+    final queryClient = QueryClient();
+    
+    // Get current data
+    final users = queryClient.getQueryData<List<User>>('users');
+    if (users == null) return;
+    
+    // Create optimistic user
+    final optimisticUser = User(
+      id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+      name: 'New User',
+      email: 'new@example.com',
+    );
+    
+    // Apply optimistic update
+    queryClient.setQueryData('users', [...users, optimisticUser]);
+    
+    try {
+      // Make API call
+      final newUser = await api.createUser({'name': 'New User'});
+      
+      // Replace optimistic user with real user
+      final updatedUsers = users.map((user) => 
+        user.id == optimisticUser.id ? newUser : user
+      ).toList();
+      
+      queryClient.setQueryData('users', updatedUsers);
+      print('Optimistic create successful');
+    } catch (error) {
+      // Rollback on error
+      queryClient.setQueryData('users', users);
+      print('Optimistic create failed, rolled back');
+    }
+  }
+}
+```
+
+### Pessimistic Updates
+
+```dart
+class PessimisticUpdateExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Pessimistic Updates')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              _pessimisticUpdateUser();
+            },
+            child: Text('Pessimistic Update User'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _pessimisticCreateUser();
+            },
+            child: Text('Pessimistic Create User'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _pessimisticUpdateUser() async {
+    final queryClient = QueryClient();
+    
+    try {
+      // Make API call first
+      await api.updateUser('1', {'name': 'Updated User'});
+      
+      // Invalidate to get fresh data
+      queryClient.invalidateQuery('users');
+      queryClient.invalidateQuery('user:1');
+      print('Pessimistic update successful');
+    } catch (error) {
+      print('Pessimistic update failed: $error');
+    }
+  }
+  
+  void _pessimisticCreateUser() async {
+    final queryClient = QueryClient();
+    
+    try {
+      // Make API call first
+      await api.createUser({'name': 'New User'});
+      
+      // Invalidate to get fresh data
+      queryClient.invalidateQuery('users');
+      print('Pessimistic create successful');
+    } catch (error) {
+      print('Pessimistic create failed: $error');
+    }
+  }
+}
+```
+
+## Performance Optimization
+
+### Batch Invalidation
+
+```dart
+class BatchInvalidationExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Batch Invalidation')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              _batchInvalidate();
+            },
+            child: Text('Batch Invalidate'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _smartBatchInvalidate();
+            },
+            child: Text('Smart Batch Invalidate'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _batchInvalidate() {
+    final queryClient = QueryClient();
+    
+    // Batch invalidate multiple queries
+    final queriesToInvalidate = ['users', 'posts', 'comments'];
+    
+    queriesToInvalidate.forEach((key) {
+      queryClient.invalidateQuery(key);
+    });
+    
+    print('Batch invalidation completed');
+  }
+  
+  void _smartBatchInvalidate() {
+    final queryClient = QueryClient();
+    
+    // Smart batch invalidation - only invalidate if data exists
+    final queriesToInvalidate = ['users', 'posts', 'comments'];
+    
+    queriesToInvalidate.forEach((key) {
+      if (queryClient.hasQuery(key)) {
+        queryClient.invalidateQuery(key);
+      }
+    });
+    
+    print('Smart batch invalidation completed');
+  }
+}
+```
+
+## Best Practices
+
+### Invalidation Patterns
+
+```dart
+class InvalidationPatternsExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Invalidation Patterns')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              _followInvalidationPatterns();
+            },
+            child: Text('Follow Patterns'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _followInvalidationPatterns() {
+    final queryClient = QueryClient();
+    
+    // Pattern 1: Invalidate related queries
+    queryClient.invalidateQuery('users');
+    queryClient.invalidateQueriesWithPrefix('user:');
+    
+    // Pattern 2: Use conditional invalidation
+    if (queryClient.hasQuery('users')) {
+      queryClient.invalidateQuery('users');
+    }
+    
+    // Pattern 3: Batch invalidation for performance
+    final relatedQueries = ['users', 'user:1', 'user:2'];
+    relatedQueries.forEach((key) {
+      if (queryClient.hasQuery(key)) {
+        queryClient.invalidateQuery(key);
+      }
+    });
+    
+    print('Invalidation patterns applied');
+  }
+}
+```
+
+## Performance Tips
+
+1. **Use selective invalidation** - Only invalidate what's necessary
+2. **Batch invalidation operations** - Group related invalidations
+3. **Use conditional invalidation** - Check if data exists before invalidating
+4. **Implement smart invalidation** - Use optimistic updates when appropriate
+5. **Monitor invalidation frequency** - Avoid excessive invalidation
+6. **Use event-driven invalidation** - Invalidate based on real events
+7. **Optimize invalidation timing** - Invalidate at appropriate times
+
+## Next Steps
+
+- **[Error Handling](/docs/core/error-handling)** - Learn about error handling patterns
+- **[QueryClient](/docs/core/query-client)** - Learn about cache management
+- **[QueryOptions](/docs/core/query-options)** - Learn about configuration options
+- **[Cache Configuration](/docs/core/cache-configuration)** - Learn about cache policies

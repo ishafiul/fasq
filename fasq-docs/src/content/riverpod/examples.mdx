@@ -1,0 +1,701 @@
+# Examples
+
+Complete working examples using the Fasq Riverpod adapter.
+
+## Basic User Management
+
+A complete example showing user listing, creation, and deletion:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+class User {
+  final String id;
+  final String name;
+  final String email;
+  
+  User({required this.id, required this.name, required this.email});
+  
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+    );
+  }
+}
+
+class ApiService {
+  Future<List<User>> fetchUsers() async {
+    await Future.delayed(Duration(seconds: 1)); // Simulate network
+    return [
+      User(id: '1', name: 'Alice', email: 'alice@example.com'),
+      User(id: '2', name: 'Bob', email: 'bob@example.com'),
+    ];
+  }
+  
+  Future<User> createUser(Map<String, String> data) async {
+    await Future.delayed(Duration(seconds: 1));
+    return User(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: data['name']!,
+      email: data['email']!,
+    );
+  }
+  
+  Future<void> deleteUser(String id) async {
+    await Future.delayed(Duration(seconds: 1));
+  }
+}
+
+final api = ApiService();
+
+// Providers
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+final createUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => api.createUser(data),
+  options: MutationOptions(
+    onSuccess: (user) {
+      // Invalidate users query to refetch
+      ref.invalidate(usersProvider);
+    },
+  ),
+);
+
+final deleteUserProvider = mutationProvider<void, String>(
+  (id) => api.deleteUser(id),
+  options: MutationOptions(
+    onSuccess: (_, id) {
+      // Invalidate users query to refetch
+      ref.invalidate(usersProvider);
+    },
+  ),
+);
+
+class UserManagementScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    final createUser = ref.watch(createUserProvider);
+    final deleteUser = ref.watch(deleteUserProvider);
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('User Management')),
+      body: Column(
+        children: [
+          Expanded(
+            child: usersState.when(
+              idle: () => Center(child: Text('Ready to load users')),
+              loading: () => Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Error: $error'),
+                    ElevatedButton(
+                      onPressed: () => ref.invalidate(usersProvider),
+                      child: Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+              data: (users) => ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return ListTile(
+                    title: Text(user.name),
+                    subtitle: Text(user.email),
+                    trailing: IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(user.id),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: createUser.isLoading ? null : () => _showCreateUserDialog(context, ref),
+              child: createUser.isLoading
+                  ? CircularProgressIndicator()
+                  : Text('Add User'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showCreateUserDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => CreateUserDialog(),
+    );
+  }
+}
+
+class CreateUserDialog extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<CreateUserDialog> createState() => _CreateUserDialogState();
+}
+
+class _CreateUserDialogState extends ConsumerState<CreateUserDialog> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  
+  @override
+  Widget build(BuildContext context) {
+    final createUser = ref.watch(createUserProvider);
+    
+    return AlertDialog(
+      title: Text('Create User'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameController,
+            decoration: InputDecoration(labelText: 'Name'),
+          ),
+          TextField(
+            controller: _emailController,
+            decoration: InputDecoration(labelText: 'Email'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: createUser.isLoading ? null : () {
+            createUser.mutate({
+              'name': _nameController.text,
+              'email': _emailController.text,
+            });
+            Navigator.pop(context);
+          },
+          child: createUser.isLoading
+              ? CircularProgressIndicator()
+              : Text('Create'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Pagination Example
+
+Implementing pagination with family providers:
+
+```dart
+final paginatedUsersProvider = queryProvider.family<List<User>, int>(
+  (page) => 'users:page:$page',
+  (page) => api.fetchUsersPage(page: page, limit: 10),
+);
+
+class PaginatedUsersScreen extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<PaginatedUsersScreen> createState() => _PaginatedUsersScreenState();
+}
+
+class _PaginatedUsersScreenState extends ConsumerState<PaginatedUsersScreen> {
+  int _currentPage = 1;
+  
+  @override
+  Widget build(BuildContext context) {
+    final usersState = ref.watch(paginatedUsersProvider(_currentPage));
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Paginated Users')),
+      body: Column(
+        children: [
+          Expanded(
+            child: usersState.when(
+              loading: () => Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('Error: $error')),
+              data: (users) => ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return ListTile(
+                    title: Text(user.name),
+                    subtitle: Text(user.email),
+                  );
+                },
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(
+                onPressed: _currentPage > 1 ? () {
+                  setState(() => _currentPage--);
+                } : null,
+                child: Text('Previous'),
+              ),
+              Text('Page $_currentPage'),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => _currentPage++);
+                },
+                child: Text('Next'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Real-time Updates
+
+Simulating real-time updates with polling:
+
+```dart
+final realtimeUsersProvider = queryProvider<List<User>>(
+  'users:realtime',
+  () => api.fetchUsers(),
+  options: QueryOptions(
+    refetchInterval: Duration(seconds: 30), // Poll every 30 seconds
+    refetchOnWindowFocus: true, // Refetch when app regains focus
+  ),
+);
+
+class RealTimeUsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(realtimeUsersProvider);
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Real-time Users'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () => ref.invalidate(realtimeUsersProvider),
+          ),
+        ],
+      ),
+      body: usersState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (users) => Column(
+          children: [
+            if (usersState.isFetching && !usersState.isLoading)
+              LinearProgressIndicator(),
+            Expanded(
+              child: ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return ListTile(
+                    title: Text(user.name),
+                    subtitle: Text(user.email),
+                    trailing: Text('Updated: ${DateTime.now().toString().substring(11, 19)}'),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Optimistic Updates
+
+Implementing optimistic updates for instant feedback:
+
+```dart
+final updateUserProvider = mutationProvider.family<User, User>(
+  (user) => api.updateUser(user),
+  options: MutationOptions(
+    onMutate: (updatedUser) {
+      // Optimistically update cache
+      final users = ref.read(usersProvider).data;
+      if (users != null) {
+        final optimistic = users.map((u) => 
+          u.id == updatedUser.id ? updatedUser : u
+        ).toList();
+        
+        ref.read(usersProvider.notifier).setData(optimistic);
+      }
+    },
+    onSuccess: (user) {
+      // Invalidate to get fresh data
+      ref.invalidate(usersProvider);
+    },
+    onError: (error) {
+      // Rollback on error
+      ref.invalidate(usersProvider);
+    },
+  ),
+);
+
+class OptimisticUserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    final updateUser = ref.watch(updateUserProvider);
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Optimistic Updates')),
+      body: usersState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (users) => ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(
+              title: Text(user.name),
+              subtitle: Text(user.email),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.edit),
+                    onPressed: updateUser.isLoading ? null : () {
+                      final updatedUser = User(
+                        id: user.id,
+                        name: '${user.name} (Updated)',
+                        email: user.email,
+                      );
+                      updateUser.mutate(updatedUser);
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Search Functionality
+
+Implementing search with debouncing:
+
+```dart
+final searchQueryProvider = StateProvider<String>((ref) => '');
+
+final searchResultsProvider = queryProvider.family<List<User>, String>(
+  (query) => 'search:$query',
+  (query) => api.searchUsers(query),
+  options: QueryOptions(
+    enabled: (query) => query.isNotEmpty && query.length >= 2,
+    staleTime: Duration(minutes: 5), // Cache search results
+  ),
+);
+
+class SearchScreen extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends ConsumerState<SearchScreen> {
+  final _searchController = TextEditingController();
+  Timer? _debounceTimer;
+  
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+  
+  void _onSearchChanged(String query) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(Duration(milliseconds: 500), () {
+      ref.read(searchQueryProvider.notifier).state = query;
+    });
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    final searchQuery = ref.watch(searchQueryProvider);
+    final searchState = ref.watch(searchResultsProvider(searchQuery));
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Search Users')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search users',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: _onSearchChanged,
+            ),
+          ),
+          Expanded(
+            child: searchState.when(
+              idle: () => Center(child: Text('Enter a search term')),
+              loading: () => Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('Error: $error')),
+              data: (results) => results.isEmpty
+                  ? Center(child: Text('No results found'))
+                  : ListView.builder(
+                      itemCount: results.length,
+                      itemBuilder: (context, index) {
+                        final user = results[index];
+                        return ListTile(
+                          title: Text(user.name),
+                          subtitle: Text(user.email),
+                        );
+                      },
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Form Handling
+
+Complete form handling with validation:
+
+```dart
+final createUserFormProvider = StateNotifierProvider<CreateUserFormNotifier, CreateUserFormState>((ref) {
+  return CreateUserFormNotifier();
+});
+
+class CreateUserFormState {
+  final String name;
+  final String email;
+  final bool isValid;
+  final String? nameError;
+  final String? emailError;
+  
+  CreateUserFormState({
+    this.name = '',
+    this.email = '',
+    this.isValid = false,
+    this.nameError,
+    this.emailError,
+  });
+  
+  CreateUserFormState copyWith({
+    String? name,
+    String? email,
+    bool? isValid,
+    String? nameError,
+    String? emailError,
+  }) {
+    return CreateUserFormState(
+      name: name ?? this.name,
+      email: email ?? this.email,
+      isValid: isValid ?? this.isValid,
+      nameError: nameError,
+      emailError: emailError,
+    );
+  }
+}
+
+class CreateUserFormNotifier extends StateNotifier<CreateUserFormState> {
+  CreateUserFormNotifier() : super(CreateUserFormState());
+  
+  void updateName(String name) {
+    final isValid = name.isNotEmpty && state.email.isNotEmpty;
+    state = state.copyWith(
+      name: name,
+      isValid: isValid,
+      nameError: name.isEmpty ? 'Name is required' : null,
+    );
+  }
+  
+  void updateEmail(String email) {
+    final isValid = state.name.isNotEmpty && email.isNotEmpty;
+    state = state.copyWith(
+      email: email,
+      isValid: isValid,
+      emailError: email.isEmpty ? 'Email is required' : null,
+    );
+  }
+  
+  void reset() {
+    state = CreateUserFormState();
+  }
+}
+
+class CreateUserForm extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final formState = ref.watch(createUserFormProvider);
+    final createUser = ref.watch(createUserProvider);
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Create User')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          child: Column(
+            children: [
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Name'),
+                onChanged: (value) {
+                  ref.read(createUserFormProvider.notifier).updateName(value);
+                },
+                validator: (value) => formState.nameError,
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Email'),
+                onChanged: (value) {
+                  ref.read(createUserFormProvider.notifier).updateEmail(value);
+                },
+                validator: (value) => formState.emailError,
+              ),
+              SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: formState.isValid && !createUser.isLoading
+                    ? () {
+                        createUser.mutate({
+                          'name': formState.name,
+                          'email': formState.email,
+                        });
+                        ref.read(createUserFormProvider.notifier).reset();
+                      }
+                    : null,
+                child: createUser.isLoading
+                    ? CircularProgressIndicator()
+                    : Text('Create User'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Error Boundary
+
+Implementing error boundaries with Riverpod:
+
+```dart
+final errorProvider = StateProvider<Object?>((ref) => null);
+
+class ErrorBoundary extends ConsumerWidget {
+  final Widget child;
+  final Widget Function(Object error)? errorBuilder;
+  
+  const ErrorBoundary({
+    required this.child,
+    this.errorBuilder,
+  });
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final error = ref.watch(errorProvider);
+    
+    if (error != null) {
+      return errorBuilder?.call(error) ?? 
+        Center(child: Text('Error: $error'));
+    }
+    
+    return child;
+  }
+}
+
+class UsersScreenWithErrorBoundary extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ErrorBoundary(
+      errorBuilder: (error) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text('Something went wrong'),
+            SizedBox(height: 8),
+            Text('$error'),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+      child: UserManagementScreen(),
+    );
+  }
+}
+```
+
+## Performance Optimization
+
+Optimizing performance with proper cache configuration:
+
+```dart
+final optimizedUsersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 10), // Keep fresh for 10 minutes
+    cacheTime: Duration(minutes: 30), // Keep in cache for 30 minutes
+    refetchOnWindowFocus: false, // Don't refetch on focus
+    refetchOnMount: false, // Don't refetch on mount if data exists
+  ),
+);
+
+class OptimizedUsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(optimizedUsersProvider);
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Optimized Users')),
+      body: usersState.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+        data: (users) => ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(
+              title: Text(user.name),
+              subtitle: Text(user.email),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Next Steps
+
+- **[queryProvider](/docs/riverpod/query-provider)** - Learn about the queryProvider
+- **[mutationProvider](/docs/riverpod/mutation-provider)** - Learn about the mutationProvider
+- **[Family Providers](/docs/riverpod/family-providers)** - Parameterized queries and mutations
+- **[Riverpod Patterns](/docs/riverpod/riverpod-patterns)** - Best practices and patterns

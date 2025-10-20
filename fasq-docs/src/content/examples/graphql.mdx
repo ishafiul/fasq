@@ -1,0 +1,808 @@
+# GraphQL
+
+Complete examples of using Fasq with GraphQL APIs. Learn how to integrate GraphQL queries, mutations, and subscriptions with Fasq's caching and state management.
+
+## Basic GraphQL Setup
+
+### GraphQL Client Configuration
+
+```dart
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:fasq/fasq.dart';
+
+class GraphQLService {
+  static final HttpLink _httpLink = HttpLink('https://api.example.com/graphql');
+  static final AuthLink _authLink = AuthLink(
+    getToken: () async => 'Bearer ${await getToken()}',
+  );
+  static final Link _link = _authLink.concat(_httpLink);
+  
+  static final GraphQLClient _client = GraphQLClient(
+    link: _link,
+    cache: GraphQLCache(store: InMemoryStore()),
+  );
+  
+  static GraphQLClient get client => _client;
+}
+
+// GraphQL queries
+const String getUsersQuery = '''
+  query GetUsers {
+    users {
+      id
+      name
+      email
+      posts {
+        id
+        title
+        content
+      }
+    }
+  }
+''';
+
+const String getUserQuery = '''
+  query GetUser(\$id: ID!) {
+    user(id: \$id) {
+      id
+      name
+      email
+      posts {
+        id
+        title
+        content
+      }
+    }
+  }
+''';
+
+const String createUserMutation = '''
+  mutation CreateUser(\$input: CreateUserInput!) {
+    createUser(input: \$input) {
+      id
+      name
+      email
+    }
+  }
+''';
+
+const String updateUserMutation = '''
+  mutation UpdateUser(\$id: ID!, \$input: UpdateUserInput!) {
+    updateUser(id: \$id, input: \$input) {
+      id
+      name
+      email
+    }
+  }
+''';
+
+const String deleteUserMutation = '''
+  mutation DeleteUser(\$id: ID!) {
+    deleteUser(id: \$id)
+  }
+''';
+```
+
+## GraphQL Queries
+
+### Basic GraphQL Query
+
+```dart
+class GraphQLUsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'graphql-users',
+      queryFn: () => _fetchUsers(),
+      builder: (context, state) {
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Error: $error')),
+          data: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(
+                title: Text(user.name),
+                subtitle: Text(user.email),
+                trailing: Text('${user.posts.length} posts'),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+  
+  Future<List<User>> _fetchUsers() async {
+    final result = await GraphQLService.client.query(
+      QueryOptions(
+        document: gql(getUsersQuery),
+      ),
+    );
+    
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    final usersData = result.data?['users'] as List<dynamic>?;
+    return usersData?.map((json) => User.fromJson(json)).toList() ?? [];
+  }
+}
+```
+
+### Parameterized GraphQL Query
+
+```dart
+class GraphQLUserDetailScreen extends StatelessWidget {
+  final String userId;
+  
+  const GraphQLUserDetailScreen({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<User>(
+      queryKey: 'graphql-user:$userId',
+      queryFn: () => _fetchUser(userId),
+      builder: (context, state) {
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Error: $error')),
+          data: (user) => Column(
+            children: [
+              Text('Name: ${user.name}'),
+              Text('Email: ${user.email}'),
+              Text('Posts: ${user.posts.length}'),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: user.posts.length,
+                  itemBuilder: (context, index) {
+                    final post = user.posts[index];
+                    return ListTile(
+                      title: Text(post.title),
+                      subtitle: Text(post.content),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Future<User> _fetchUser(String userId) async {
+    final result = await GraphQLService.client.query(
+      QueryOptions(
+        document: gql(getUserQuery),
+        variables: {'id': userId},
+      ),
+    );
+    
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    final userData = result.data?['user'];
+    if (userData == null) {
+      throw Exception('User not found');
+    }
+    
+    return User.fromJson(userData);
+  }
+}
+```
+
+## GraphQL Mutations
+
+### Create User Mutation
+
+```dart
+class GraphQLCreateUserScreen extends StatefulWidget {
+  @override
+  State<GraphQLCreateUserScreen> createState() => _GraphQLCreateUserScreenState();
+}
+
+class _GraphQLCreateUserScreenState extends State<GraphQLCreateUserScreen> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Create User (GraphQL)')),
+      body: MutationBuilder<User, Map<String, String>>(
+        mutationFn: (data) => _createUser(data),
+        options: MutationOptions(
+          onSuccess: (user) {
+            // Invalidate users query to refetch
+            QueryClient().invalidateQuery('graphql-users');
+            Navigator.pop(context);
+          },
+        ),
+        builder: (context, state) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: 'Name'),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(labelText: 'Email'),
+                ),
+                SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: state.isLoading ? null : () {
+                    if (_nameController.text.isNotEmpty && 
+                        _emailController.text.isNotEmpty) {
+                      state.mutate({
+                        'name': _nameController.text,
+                        'email': _emailController.text,
+                      });
+                    }
+                  },
+                  child: state.isLoading
+                      ? CircularProgressIndicator()
+                      : Text('Create User'),
+                ),
+                if (state.hasError)
+                  Text('Error: ${state.error}'),
+                if (state.hasData)
+                  Text('Created: ${state.data!.name}'),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Future<User> _createUser(Map<String, String> data) async {
+    final result = await GraphQLService.client.mutate(
+      MutationOptions(
+        document: gql(createUserMutation),
+        variables: {
+          'input': {
+            'name': data['name'],
+            'email': data['email'],
+          },
+        },
+      ),
+    );
+    
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    final userData = result.data?['createUser'];
+    if (userData == null) {
+      throw Exception('Failed to create user');
+    }
+    
+    return User.fromJson(userData);
+  }
+}
+```
+
+### Update User Mutation
+
+```dart
+class GraphQLUpdateUserScreen extends StatefulWidget {
+  final User user;
+  
+  const GraphQLUpdateUserScreen({required this.user});
+  
+  @override
+  State<GraphQLUpdateUserScreen> createState() => _GraphQLUpdateUserScreenState();
+}
+
+class _GraphQLUpdateUserScreenState extends State<GraphQLUpdateUserScreen> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.user.name);
+    _emailController = TextEditingController(text: widget.user.email);
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Update User (GraphQL)')),
+      body: MutationBuilder<User, Map<String, String>>(
+        mutationFn: (data) => _updateUser(data),
+        options: MutationOptions(
+          onSuccess: (user) {
+            // Invalidate related queries
+            QueryClient().invalidateQuery('graphql-users');
+            QueryClient().invalidateQuery('graphql-user:${widget.user.id}');
+            Navigator.pop(context);
+          },
+        ),
+        builder: (context, state) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: 'Name'),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(labelText: 'Email'),
+                ),
+                SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: state.isLoading ? null : () {
+                    state.mutate({
+                      'name': _nameController.text,
+                      'email': _emailController.text,
+                    });
+                  },
+                  child: state.isLoading
+                      ? CircularProgressIndicator()
+                      : Text('Update User'),
+                ),
+                if (state.hasError)
+                  Text('Error: ${state.error}'),
+                if (state.hasData)
+                  Text('Updated: ${state.data!.name}'),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Future<User> _updateUser(Map<String, String> data) async {
+    final result = await GraphQLService.client.mutate(
+      MutationOptions(
+        document: gql(updateUserMutation),
+        variables: {
+          'id': widget.user.id,
+          'input': {
+            'name': data['name'],
+            'email': data['email'],
+          },
+        },
+      ),
+    );
+    
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    final userData = result.data?['updateUser'];
+    if (userData == null) {
+      throw Exception('Failed to update user');
+    }
+    
+    return User.fromJson(userData);
+  }
+}
+```
+
+## GraphQL Subscriptions
+
+### Real-time Updates
+
+```dart
+class GraphQLSubscriptionExample extends StatefulWidget {
+  @override
+  State<GraphQLSubscriptionExample> createState() => _GraphQLSubscriptionExampleState();
+}
+
+class _GraphQLSubscriptionExampleState extends State<GraphQLSubscriptionExample> {
+  late StreamSubscription _subscription;
+  List<User> _users = [];
+  
+  @override
+  void initState() {
+    super.initState();
+    _setupSubscription();
+  }
+  
+  void _setupSubscription() {
+    _subscription = GraphQLService.client.subscribe(
+      SubscriptionOptions(
+        document: gql('''
+          subscription UserUpdates {
+            userUpdates {
+              type
+              user {
+                id
+                name
+                email
+              }
+            }
+          }
+        '''),
+      ),
+    ).listen((result) {
+      if (result.hasException) {
+        print('Subscription error: ${result.exception}');
+        return;
+      }
+      
+      final data = result.data?['userUpdates'];
+      if (data != null) {
+        final type = data['type'] as String;
+        final userData = data['user'] as Map<String, dynamic>;
+        final user = User.fromJson(userData);
+        
+        setState(() {
+          switch (type) {
+            case 'CREATED':
+              _users.add(user);
+              break;
+            case 'UPDATED':
+              final index = _users.indexWhere((u) => u.id == user.id);
+              if (index != -1) {
+                _users[index] = user;
+              }
+              break;
+            case 'DELETED':
+              _users.removeWhere((u) => u.id == user.id);
+              break;
+          }
+        });
+        
+        // Invalidate cache to sync with server
+        QueryClient().invalidateQuery('graphql-users');
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Real-time Users (GraphQL)')),
+      body: ListView.builder(
+        itemCount: _users.length,
+        itemBuilder: (context, index) {
+          final user = _users[index];
+          return ListTile(
+            title: Text(user.name),
+            subtitle: Text(user.email),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Advanced GraphQL Patterns
+
+### Fragment Usage
+
+```dart
+const String userFragment = '''
+  fragment UserFragment on User {
+    id
+    name
+    email
+    createdAt
+    updatedAt
+  }
+''';
+
+const String postFragment = '''
+  fragment PostFragment on Post {
+    id
+    title
+    content
+    author {
+      ...UserFragment
+    }
+  }
+''';
+
+const String getPostsWithUsersQuery = '''
+  query GetPostsWithUsers {
+    posts {
+      ...PostFragment
+    }
+  }
+  $postFragment
+  $userFragment
+''';
+
+class GraphQLPostsWithUsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<Post>>(
+      queryKey: 'graphql-posts-with-users',
+      queryFn: () => _fetchPostsWithUsers(),
+      builder: (context, state) {
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Error: $error')),
+          data: (posts) => ListView.builder(
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              final post = posts[index];
+              return Card(
+                child: ListTile(
+                  title: Text(post.title),
+                  subtitle: Text(post.content),
+                  trailing: Text('By: ${post.author.name}'),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+  
+  Future<List<Post>> _fetchPostsWithUsers() async {
+    final result = await GraphQLService.client.query(
+      QueryOptions(
+        document: gql(getPostsWithUsersQuery),
+      ),
+    );
+    
+    if (result.hasException) {
+      throw Exception(result.exception.toString());
+    }
+    
+    final postsData = result.data?['posts'] as List<dynamic>?;
+    return postsData?.map((json) => Post.fromJson(json)).toList() ?? [];
+  }
+}
+```
+
+### Batch Operations
+
+```dart
+class GraphQLBatchOperationsScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Batch Operations (GraphQL)')),
+      body: Column(
+        children: [
+          ElevatedButton(
+            onPressed: () => _batchCreateUsers(),
+            child: Text('Batch Create Users'),
+          ),
+          ElevatedButton(
+            onPressed: () => _batchUpdateUsers(),
+            child: Text('Batch Update Users'),
+          ),
+          ElevatedButton(
+            onPressed: () => _batchDeleteUsers(),
+            child: Text('Batch Delete Users'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _batchCreateUsers() async {
+    final users = [
+      {'name': 'User 1', 'email': 'user1@example.com'},
+      {'name': 'User 2', 'email': 'user2@example.com'},
+      {'name': 'User 3', 'email': 'user3@example.com'},
+    ];
+    
+    final futures = users.map((userData) => 
+      GraphQLService.client.mutate(
+        MutationOptions(
+          document: gql(createUserMutation),
+          variables: {'input': userData},
+        ),
+      ),
+    );
+    
+    try {
+      await Future.wait(futures);
+      QueryClient().invalidateQuery('graphql-users');
+      print('Batch create completed');
+    } catch (error) {
+      print('Batch create failed: $error');
+    }
+  }
+  
+  Future<void> _batchUpdateUsers() async {
+    final updates = [
+      {'id': '1', 'name': 'Updated User 1'},
+      {'id': '2', 'name': 'Updated User 2'},
+      {'id': '3', 'name': 'Updated User 3'},
+    ];
+    
+    final futures = updates.map((updateData) => 
+      GraphQLService.client.mutate(
+        MutationOptions(
+          document: gql(updateUserMutation),
+          variables: {
+            'id': updateData['id'],
+            'input': {'name': updateData['name']},
+          },
+        ),
+      ),
+    );
+    
+    try {
+      await Future.wait(futures);
+      QueryClient().invalidateQuery('graphql-users');
+      print('Batch update completed');
+    } catch (error) {
+      print('Batch update failed: $error');
+    }
+  }
+  
+  Future<void> _batchDeleteUsers() async {
+    final userIds = ['1', '2', '3'];
+    
+    final futures = userIds.map((userId) => 
+      GraphQLService.client.mutate(
+        MutationOptions(
+          document: gql(deleteUserMutation),
+          variables: {'id': userId},
+        ),
+      ),
+    );
+    
+    try {
+      await Future.wait(futures);
+      QueryClient().invalidateQuery('graphql-users');
+      print('Batch delete completed');
+    } catch (error) {
+      print('Batch delete failed: $error');
+    }
+  }
+}
+```
+
+## Error Handling
+
+### GraphQL Error Handling
+
+```dart
+class GraphQLErrorHandlingExample extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'graphql-users-with-error-handling',
+      queryFn: () => _fetchUsersWithErrorHandling(),
+      builder: (context, state) {
+        if (state.hasError) {
+          return _buildErrorWidget(state.error!);
+        }
+        
+        return state.when(
+          loading: () => Center(child: CircularProgressIndicator()),
+          data: (users) => ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(title: Text(user.name));
+            },
+          ),
+        );
+      },
+    );
+  }
+  
+  Future<List<User>> _fetchUsersWithErrorHandling() async {
+    try {
+      final result = await GraphQLService.client.query(
+        QueryOptions(
+          document: gql(getUsersQuery),
+        ),
+      );
+      
+      if (result.hasException) {
+        final exception = result.exception;
+        
+        if (exception is OperationException) {
+          // Handle GraphQL errors
+          final errors = exception.graphqlErrors;
+          if (errors.isNotEmpty) {
+            throw GraphQLError(errors.first.message);
+          }
+        }
+        
+        throw Exception('GraphQL operation failed');
+      }
+      
+      final usersData = result.data?['users'] as List<dynamic>?;
+      return usersData?.map((json) => User.fromJson(json)).toList() ?? [];
+    } catch (error) {
+      if (error is GraphQLError) {
+        rethrow;
+      }
+      
+      // Handle network errors
+      throw NetworkError('Failed to fetch users: $error');
+    }
+  }
+  
+  Widget _buildErrorWidget(Object error) {
+    if (error is GraphQLError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text('GraphQL Error'),
+            SizedBox(height: 8),
+            Text(error.message),
+          ],
+        ),
+      );
+    } else if (error is NetworkError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.wifi_off, size: 64, color: Colors.orange),
+            SizedBox(height: 16),
+            Text('Network Error'),
+            SizedBox(height: 8),
+            Text(error.message),
+          ],
+        ),
+      );
+    } else {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text('Error'),
+            SizedBox(height: 8),
+            Text('$error'),
+          ],
+        ),
+      );
+    }
+  }
+}
+
+class GraphQLError implements Exception {
+  final String message;
+  GraphQLError(this.message);
+}
+
+class NetworkError implements Exception {
+  final String message;
+  NetworkError(this.message);
+}
+```
+
+## Performance Tips
+
+1. **Use fragments** - Reuse common field selections
+2. **Batch operations** - Combine multiple operations when possible
+3. **Implement subscriptions** - Use real-time updates for live data
+4. **Handle errors gracefully** - Provide specific error messages
+5. **Cache GraphQL results** - Leverage Fasq's caching for GraphQL data
+6. **Optimize queries** - Only request needed fields
+7. **Use variables** - Parameterize queries for reusability
+
+## Next Steps
+
+- **[Authentication](/docs/examples/authentication)** - Learn about authentication patterns
+- **[CRUD Operations](/docs/examples/crud-operations)** - Learn about CRUD patterns
+- **[Real-time Data](/docs/examples/real-time-data)** - Learn about real-time patterns

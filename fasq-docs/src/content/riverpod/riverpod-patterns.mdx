@@ -1,0 +1,543 @@
+# Riverpod Patterns
+
+Best practices and common patterns for using Fasq with Riverpod. These patterns will help you build maintainable and performant applications.
+
+## Provider Organization
+
+### Group Related Providers
+
+Organize providers by feature or domain:
+
+```dart
+// user_providers.dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+);
+
+final userProvider = queryProvider.family<User, String>(
+  (userId) => 'user:$userId',
+  (userId) => api.fetchUser(userId),
+);
+
+final createUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => api.createUser(data),
+);
+
+final updateUserProvider = mutationProvider.family<User, User>(
+  (user) => api.updateUser(user),
+);
+
+final deleteUserProvider = mutationProvider<void, String>(
+  (userId) => api.deleteUser(userId),
+);
+```
+
+### Provider Dependencies
+
+Create providers that depend on other providers:
+
+```dart
+final authProvider = queryProvider<User?>('auth', () => api.getCurrentUser());
+
+final userPostsProvider = queryProvider.family<List<Post>, String>(
+  (userId) => 'posts:user:$userId',
+  (userId) => api.fetchUserPosts(userId),
+  options: QueryOptions(
+    enabled: (userId) {
+      // Only fetch posts when user is authenticated
+      final authState = ref.read(authProvider);
+      return authState.hasData && authState.data != null;
+    },
+  ),
+);
+```
+
+## State Management Patterns
+
+### Combining Multiple Providers
+
+Combine data from multiple providers:
+
+```dart
+final usersProvider = queryProvider<List<User>>('users', () => api.fetchUsers());
+final postsProvider = queryProvider<List<Post>>('posts', () => api.fetchPosts());
+
+final dashboardDataProvider = Provider<DashboardData>((ref) {
+  final usersState = ref.watch(usersProvider);
+  final postsState = ref.watch(postsProvider);
+  
+  return DashboardData(
+    users: usersState.data ?? [],
+    posts: postsState.data ?? [],
+    isLoading: usersState.isLoading || postsState.isLoading,
+    hasError: usersState.hasError || postsState.hasError,
+  );
+});
+
+class DashboardData {
+  final List<User> users;
+  final List<Post> posts;
+  final bool isLoading;
+  final bool hasError;
+  
+  DashboardData({
+    required this.users,
+    required this.posts,
+    required this.isLoading,
+    required this.hasError,
+  });
+}
+```
+
+### Derived State
+
+Create computed state from other providers:
+
+```dart
+final usersProvider = queryProvider<List<User>>('users', () => api.fetchUsers());
+
+final activeUsersProvider = Provider<List<User>>((ref) {
+  final usersState = ref.watch(usersProvider);
+  return usersState.data?.where((user) => user.isActive).toList() ?? [];
+});
+
+final userCountProvider = Provider<int>((ref) {
+  final usersState = ref.watch(usersProvider);
+  return usersState.data?.length ?? 0;
+});
+```
+
+## Error Handling Patterns
+
+### Global Error Handler
+
+Create a global error handler for mutations:
+
+```dart
+final globalErrorHandlerProvider = Provider<void Function(Object error)>((ref) {
+  return (error) {
+    // Log error
+    print('Global error: $error');
+    
+    // Show error snackbar
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('An error occurred: $error'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  };
+});
+
+final createUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => api.createUser(data),
+  options: MutationOptions(
+    onError: (error) {
+      ref.read(globalErrorHandlerProvider)(error);
+    },
+  ),
+);
+```
+
+### Retry Logic
+
+Implement retry logic for failed queries:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+  options: QueryOptions(
+    onError: (error) {
+      // Implement retry logic
+      Future.delayed(Duration(seconds: 2), () {
+        ref.invalidate(usersProvider);
+      });
+    },
+  ),
+);
+```
+
+## Cache Management Patterns
+
+### Cache Warming
+
+Preload data for better performance:
+
+```dart
+final cacheWarmerProvider = Provider<void>((ref) {
+  // Warm cache on app start
+  ref.read(usersProvider);
+  ref.read(postsProvider);
+});
+
+class AppInitializer extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Initialize cache warming
+    ref.read(cacheWarmerProvider);
+    
+    return MaterialApp(
+      home: HomeScreen(),
+    );
+  }
+}
+```
+
+### Cache Invalidation Strategies
+
+Implement smart cache invalidation:
+
+```dart
+final invalidateUserCacheProvider = Provider<void Function(String userId)>((ref) {
+  return (userId) {
+    // Invalidate specific user
+    ref.invalidate(userProvider(userId));
+    
+    // Invalidate user list if it might be affected
+    ref.invalidate(usersProvider);
+    
+    // Invalidate user posts
+    ref.invalidate(userPostsProvider(userId));
+  };
+});
+
+final updateUserProvider = mutationProvider.family<User, User>(
+  (user) => api.updateUser(user),
+  options: MutationOptions(
+    onSuccess: (updatedUser) {
+      ref.read(invalidateUserCacheProvider)(updatedUser.id);
+    },
+  ),
+);
+```
+
+## Form Handling Patterns
+
+### Form State Management
+
+Manage form state with Riverpod:
+
+```dart
+final createUserFormProvider = StateNotifierProvider<CreateUserFormNotifier, CreateUserFormState>((ref) {
+  return CreateUserFormNotifier();
+});
+
+class CreateUserFormState {
+  final String name;
+  final String email;
+  final bool isValid;
+  final String? nameError;
+  final String? emailError;
+  
+  CreateUserFormState({
+    this.name = '',
+    this.email = '',
+    this.isValid = false,
+    this.nameError,
+    this.emailError,
+  });
+  
+  CreateUserFormState copyWith({
+    String? name,
+    String? email,
+    bool? isValid,
+    String? nameError,
+    String? emailError,
+  }) {
+    return CreateUserFormState(
+      name: name ?? this.name,
+      email: email ?? this.email,
+      isValid: isValid ?? this.isValid,
+      nameError: nameError,
+      emailError: emailError,
+    );
+  }
+}
+
+class CreateUserFormNotifier extends StateNotifier<CreateUserFormState> {
+  CreateUserFormNotifier() : super(CreateUserFormState());
+  
+  void updateName(String name) {
+    final isValid = name.isNotEmpty && state.email.isNotEmpty;
+    state = state.copyWith(
+      name: name,
+      isValid: isValid,
+      nameError: name.isEmpty ? 'Name is required' : null,
+    );
+  }
+  
+  void updateEmail(String email) {
+    final isValid = state.name.isNotEmpty && email.isNotEmpty;
+    state = state.copyWith(
+      email: email,
+      isValid: isValid,
+      emailError: email.isEmpty ? 'Email is required' : null,
+    );
+  }
+  
+  void reset() {
+    state = CreateUserFormState();
+  }
+}
+```
+
+### Form Submission with Validation
+
+```dart
+class CreateUserForm extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final formState = ref.watch(createUserFormProvider);
+    final createUser = ref.watch(createUserProvider);
+    
+    return Form(
+      child: Column(
+        children: [
+          TextFormField(
+            decoration: InputDecoration(labelText: 'Name'),
+            onChanged: (value) {
+              ref.read(createUserFormProvider.notifier).updateName(value);
+            },
+            validator: (value) => formState.nameError,
+          ),
+          TextFormField(
+            decoration: InputDecoration(labelText: 'Email'),
+            onChanged: (value) {
+              ref.read(createUserFormProvider.notifier).updateEmail(value);
+            },
+            validator: (value) => formState.emailError,
+          ),
+          ElevatedButton(
+            onPressed: formState.isValid && !createUser.isLoading
+                ? () {
+                    createUser.mutate({
+                      'name': formState.name,
+                      'email': formState.email,
+                    });
+                  }
+                : null,
+            child: createUser.isLoading
+                ? CircularProgressIndicator()
+                : Text('Create User'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Navigation Patterns
+
+### Route-Based Data Loading
+
+Load data based on route parameters:
+
+```dart
+final routeProvider = Provider<RouteInformation>((ref) {
+  // Get current route information
+  return ref.read(routerProvider).routeInformation;
+});
+
+final currentUserProvider = Provider<User?>((ref) {
+  final route = ref.watch(routeProvider);
+  final userId = route.uri.pathSegments.last;
+  
+  if (userId.isNotEmpty) {
+    final userState = ref.watch(userProvider(userId));
+    return userState.data;
+  }
+  
+  return null;
+});
+```
+
+### Deep Linking Support
+
+Handle deep links with proper data loading:
+
+```dart
+final deepLinkProvider = Provider<void Function(String path)>((ref) {
+  return (path) {
+    final segments = path.split('/');
+    
+    if (segments.length >= 2) {
+      final resource = segments[1];
+      final id = segments.length >= 3 ? segments[2] : null;
+      
+      switch (resource) {
+        case 'users':
+          if (id != null) {
+            ref.read(userProvider(id));
+          } else {
+            ref.read(usersProvider);
+          }
+          break;
+        case 'posts':
+          if (id != null) {
+            ref.read(postProvider(id));
+          } else {
+            ref.read(postsProvider);
+          }
+          break;
+      }
+    }
+  };
+});
+```
+
+## Testing Patterns
+
+### Mock Providers for Testing
+
+Create mock providers for testing:
+
+```dart
+// test_helpers.dart
+final mockUsersProvider = queryProvider<List<User>>(
+  'users',
+  () => Future.value([
+    User(id: '1', name: 'Test User 1'),
+    User(id: '2', name: 'Test User 2'),
+  ]),
+);
+
+final mockCreateUserProvider = mutationProvider<User, Map<String, String>>(
+  (data) => Future.value(User(
+    id: '3',
+    name: data['name']!,
+    email: data['email']!,
+  )),
+);
+
+// In your test
+void main() {
+  testWidgets('should display users', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          usersProvider.overrideWith((ref) => mockUsersProvider),
+        ],
+        child: MaterialApp(home: UsersScreen()),
+      ),
+    );
+    
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Test User 1'), findsOneWidget);
+    expect(find.text('Test User 2'), findsOneWidget);
+  });
+}
+```
+
+### Provider Testing Utilities
+
+Create utilities for testing providers:
+
+```dart
+class ProviderTestHelper {
+  static ProviderContainer createContainer({
+    List<Override> overrides = const [],
+  }) {
+    return ProviderContainer(
+      overrides: overrides,
+    );
+  }
+  
+  static Future<T> waitForProvider<T>(
+    ProviderContainer container,
+    ProviderBase<T> provider,
+  ) async {
+    return container.read(provider);
+  }
+}
+
+// Usage in tests
+void main() {
+  test('should create user successfully', () async {
+    final container = ProviderTestHelper.createContainer(
+      overrides: [
+        createUserProvider.overrideWith((ref) => mockCreateUserProvider),
+      ],
+    );
+    
+    final createUser = container.read(createUserProvider);
+    await createUser.mutate({'name': 'Test', 'email': 'test@example.com'});
+    
+    expect(createUser.isSuccess, isTrue);
+    expect(createUser.data?.name, equals('Test'));
+  });
+}
+```
+
+## Performance Optimization Patterns
+
+### Lazy Loading
+
+Implement lazy loading for large datasets:
+
+```dart
+final paginatedUsersProvider = queryProvider.family<List<User>, int>(
+  (page) => 'users:page:$page',
+  (page) => api.fetchUsers(page: page, limit: 20),
+);
+
+final allUsersProvider = Provider<List<User>>((ref) {
+  final List<User> allUsers = [];
+  int currentPage = 1;
+  
+  while (true) {
+    final pageState = ref.watch(paginatedUsersProvider(currentPage));
+    if (pageState.hasData) {
+      allUsers.addAll(pageState.data!);
+      if (pageState.data!.length < 20) break; // Last page
+      currentPage++;
+    } else {
+      break;
+    }
+  }
+  
+  return allUsers;
+});
+```
+
+### Debounced Search
+
+Implement debounced search to avoid excessive API calls:
+
+```dart
+final searchQueryProvider = StateProvider<String>((ref) => '');
+
+final debouncedSearchProvider = Provider<String>((ref) {
+  final query = ref.watch(searchQueryProvider);
+  // Implement debouncing logic here
+  return query;
+});
+
+final searchResultsProvider = queryProvider.family<List<Post>, String>(
+  (query) => 'search:$query',
+  (query) => api.searchPosts(query),
+  options: QueryOptions(
+    enabled: (query) => query.isNotEmpty && query.length >= 2,
+  ),
+);
+```
+
+## Best Practices
+
+1. **Organize providers by feature** - Keep related providers together
+2. **Use meaningful names** - Make provider names descriptive
+3. **Handle errors gracefully** - Implement proper error handling
+4. **Optimize cache usage** - Use appropriate staleTime and cacheTime
+5. **Test thoroughly** - Create comprehensive tests for providers
+6. **Use type safety** - Leverage generic types for compile-time safety
+7. **Document complex logic** - Add comments for complex provider logic
+
+## Next Steps
+
+- **[queryProvider](/docs/riverpod/query-provider)** - Learn about basic queries
+- **[mutationProvider](/docs/riverpod/mutation-provider)** - Learn about mutations
+- **[Family Providers](/docs/riverpod/family-providers)** - Parameterized queries
+- **[Examples](/docs/riverpod/examples)** - Complete working examples

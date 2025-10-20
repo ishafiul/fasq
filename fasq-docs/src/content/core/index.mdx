@@ -1,0 +1,296 @@
+# Core Package
+
+The core package provides the foundation for all Fasq functionality through the `QueryBuilder` and `MutationBuilder` widgets.
+
+## Overview
+
+The core package is the foundation of Fasq. It provides:
+
+- **QueryBuilder** - Widget for executing queries and building UI
+- **MutationBuilder** - Widget for executing mutations
+- **QueryClient** - Global query registry and cache management
+- **QueryState** - Immutable state representation
+- **QueryOptions** - Configuration options
+
+## When to Use Core Package
+
+Use the core package when:
+- You prefer widget-based APIs
+- You want maximum control over query lifecycle
+- You're not using a specific state management solution
+- You want to integrate with custom state management
+
+## Basic Usage
+
+```dart
+import 'package:fasq/fasq.dart';
+
+class UserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      builder: (context, state) {
+        if (state.isLoading) {
+          return CircularProgressIndicator();
+        }
+        
+        if (state.hasError) {
+          return Text('Error: ${state.error}');
+        }
+        
+        if (state.hasData) {
+          return ListView.builder(
+            itemCount: state.data!.length,
+            itemBuilder: (context, index) {
+              final user = state.data![index];
+              return ListTile(
+                title: Text(user.name),
+                subtitle: Text(user.email),
+              );
+            },
+          );
+        }
+        
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+## Key Features
+
+### Automatic State Management
+
+QueryBuilder automatically manages loading, error, and success states:
+
+```dart
+QueryBuilder<User>(
+  queryKey: 'user:123',
+  queryFn: () => api.fetchUser('123'),
+  builder: (context, state) {
+    // state.isLoading - true when fetching for first time
+    // state.isFetching - true when refetching in background
+    // state.hasData - true when data is available
+    // state.hasError - true when an error occurred
+    // state.data - the fetched data
+    // state.error - the error object
+    
+    return YourWidget(state);
+  },
+)
+```
+
+### Intelligent Caching
+
+Configure caching behavior with QueryOptions:
+
+```dart
+QueryBuilder<User>(
+  queryKey: 'user:123',
+  queryFn: () => api.fetchUser('123'),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
+    cacheTime: Duration(minutes: 10), // Keep in cache for 10 minutes
+  ),
+  builder: (context, state) => buildUI(state),
+)
+```
+
+### Request Deduplication
+
+Multiple widgets with the same queryKey share the same query:
+
+```dart
+// Widget A
+QueryBuilder<User>(
+  queryKey: 'user:123',
+  queryFn: () => api.fetchUser('123'),
+  builder: (context, state) => UserAvatar(state.data),
+)
+
+// Widget B (shares the same query!)
+QueryBuilder<User>(
+  queryKey: 'user:123',
+  queryFn: () => api.fetchUser('123'),
+  builder: (context, state) => UserProfile(state.data),
+)
+```
+
+Only ONE network request happens.
+
+### Background Refetching
+
+Stale data is served instantly while fresh data loads in the background:
+
+```dart
+QueryBuilder<Data>(
+  queryKey: 'data',
+  queryFn: () => fetchData(),
+  options: QueryOptions(staleTime: Duration(minutes: 5)),
+  builder: (context, state) {
+    return Column(
+      children: [
+        if (state.isFetching)
+          LinearProgressIndicator(), // Background refresh indicator
+        if (state.hasData)
+          DataWidget(state.data!),
+      ],
+    );
+  },
+)
+```
+
+## Mutations
+
+Use MutationBuilder for creating, updating, or deleting data:
+
+```dart
+MutationBuilder<User, String>(
+  mutationFn: (name) => api.createUser(name),
+  options: MutationOptions(
+    onSuccess: (user) {
+      // Invalidate users query to refetch
+      QueryClient().invalidateQuery('users');
+      Navigator.pop(context);
+    },
+    onError: (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $error')),
+      );
+    },
+  ),
+  builder: (context, state, mutate) {
+    return Column(
+      children: [
+        TextField(
+          decoration: InputDecoration(labelText: 'User Name'),
+          onSubmitted: (name) {
+            if (name.isNotEmpty) {
+              mutate(name);
+            }
+          },
+        ),
+        ElevatedButton(
+          onPressed: state.isLoading ? null : () => mutate('John Doe'),
+          child: state.isLoading 
+            ? CircularProgressIndicator()
+            : Text('Create User'),
+        ),
+      ],
+    );
+  },
+)
+```
+
+## Cache Management
+
+Access the global QueryClient for manual cache operations:
+
+```dart
+// Invalidate specific query
+QueryClient().invalidateQuery('users');
+
+// Invalidate multiple queries
+QueryClient().invalidateQueriesWithPrefix('user:');
+
+// Set cache data manually
+QueryClient().setQueryData('user:123', updatedUser);
+
+// Get cached data
+final cachedUser = QueryClient().getQueryData<User>('user:123');
+
+// Get cache info
+final info = QueryClient().getCacheInfo();
+print('Cache entries: ${info.entryCount}');
+print('Hit rate: ${info.metrics.hitRate * 100}%');
+```
+
+## Error Handling
+
+Handle errors at multiple levels:
+
+```dart
+QueryBuilder<Data>(
+  queryKey: 'data',
+  queryFn: () => fetchData(),
+  options: QueryOptions(
+    onError: (error) {
+      // Global error handler
+      print('Query failed: $error');
+    },
+  ),
+  builder: (context, state) {
+    if (state.hasError) {
+      return ErrorWidget(
+        error: state.error!,
+        onRetry: () {
+          // Retry the query
+          QueryClient().getQueryByKey<Data>('data')?.fetch();
+        },
+      );
+    }
+    
+    return DataWidget(state.data!);
+  },
+)
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(), // Returns Future<List<User>>
+  builder: (context, state) {
+    // state.data is List<User>?
+    // state.error is Object?
+    // state.isLoading is bool
+    
+    if (state.hasData) {
+      return ListView.builder(
+        itemCount: state.data!.length,
+        itemBuilder: (context, index) {
+          final user = state.data![index]; // user is User
+          return UserTile(user);
+        },
+      );
+    }
+    
+    return SizedBox();
+  },
+)
+```
+
+## Performance
+
+The core package is optimized for performance:
+
+- **Efficient Rebuilds** - Only rebuilds when state actually changes
+- **Memory Management** - Automatic cleanup of unused queries
+- **Request Deduplication** - Prevents duplicate network requests
+- **Background Processing** - Non-blocking background refetches
+
+## Next Steps
+
+- **[QueryBuilder](/docs/core/query-builder)** - Deep dive into QueryBuilder widget
+- **[MutationBuilder](/docs/core/mutation-builder)** - Learn about mutations
+- **[QueryClient](/docs/core/query-client)** - Cache management and API
+- **[QueryState](/docs/core/query-state)** - Understanding query state
+- **[QueryOptions](/docs/core/query-options)** - Configuration options
+
+## Comparison with Adapters
+
+The core package provides the same functionality as the adapters, but with a widget-based API:
+
+| Feature | Core Package | Adapters |
+|---------|-------------|----------|
+| API Style | Widget-based | Hook/Provider/Cubit |
+| Boilerplate | Medium | Low |
+| Integration | Manual | Automatic |
+| Flexibility | High | Medium |
+| Learning Curve | Medium | Low |

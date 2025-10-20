@@ -1,0 +1,451 @@
+# REST API Integration
+
+Complete guide for integrating Fasq with REST APIs, including authentication, error handling, and real-world patterns.
+
+## Basic API Setup
+
+Start with a simple API service:
+
+```dart
+class ApiService {
+  static const String baseUrl = 'https://api.example.com';
+  final http.Client _client = http.Client();
+
+  Future<List<User>> fetchUsers() async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/users'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => User.fromJson(json)).toList();
+    } else {
+      throw ApiException('Failed to fetch users: ${response.statusCode}');
+    }
+  }
+
+  Future<User> fetchUser(String id) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/users/$id'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    
+    if (response.statusCode == 200) {
+      return User.fromJson(json.decode(response.body));
+    } else if (response.statusCode == 404) {
+      throw UserNotFoundException('User not found');
+    } else {
+      throw ApiException('Failed to fetch user: ${response.statusCode}');
+    }
+  }
+
+  Future<User> createUser(Map<String, dynamic> userData) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/users'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(userData),
+    );
+    
+    if (response.statusCode == 201) {
+      return User.fromJson(json.decode(response.body));
+    } else {
+      throw ApiException('Failed to create user: ${response.statusCode}');
+    }
+  }
+}
+
+class ApiException implements Exception {
+  final String message;
+  ApiException(this.message);
+  
+  @override
+  String toString() => 'ApiException: $message';
+}
+
+class UserNotFoundException extends ApiException {
+  UserNotFoundException(String message) : super(message);
+}
+```
+
+## Using with Fasq
+
+### Core Package
+
+```dart
+class UsersScreen extends StatelessWidget {
+  final ApiService api = ApiService();
+
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      options: QueryOptions(
+        staleTime: Duration(minutes: 5),
+        onError: (error) {
+          if (error is ApiException) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(error.message)),
+            );
+          }
+        },
+      ),
+      builder: (context, state) {
+        if (state.isLoading) return CircularProgressIndicator();
+        if (state.hasError) return ErrorWidget(error: state.error!);
+        if (state.hasData) return UserList(users: state.data!);
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+### Hooks Adapter
+
+```dart
+class UsersScreen extends HookWidget {
+  final ApiService api = ApiService();
+
+  @override
+  Widget build(BuildContext context) {
+    final usersState = useQuery(
+      'users',
+      () => api.fetchUsers(),
+      options: QueryOptions(
+        staleTime: Duration(minutes: 5),
+        onError: (error) {
+          if (error is ApiException) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(error.message)),
+            );
+          }
+        },
+      ),
+    );
+
+    if (usersState.isLoading) return CircularProgressIndicator();
+    if (usersState.hasError) return ErrorWidget(error: usersState.error!);
+    if (usersState.hasData) return UserList(users: usersState.data!);
+    return SizedBox();
+  }
+}
+```
+
+## Authentication
+
+Handle authentication with interceptors:
+
+```dart
+class AuthenticatedApiService {
+  static const String baseUrl = 'https://api.example.com';
+  final http.Client _client = http.Client();
+  String? _authToken;
+
+  void setAuthToken(String token) {
+    _authToken = token;
+  }
+
+  Map<String, String> get _headers {
+    final headers = {'Content-Type': 'application/json'};
+    if (_authToken != null) {
+      headers['Authorization'] = 'Bearer $_authToken';
+    }
+    return headers;
+  }
+
+  Future<List<User>> fetchUsers() async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/users'),
+      headers: _headers,
+    );
+    
+    if (response.statusCode == 401) {
+      throw UnauthorizedException('Authentication required');
+    }
+    
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => User.fromJson(json)).toList();
+    } else {
+      throw ApiException('Failed to fetch users: ${response.statusCode}');
+    }
+  }
+}
+
+class UnauthorizedException extends ApiException {
+  UnauthorizedException(String message) : super(message);
+}
+```
+
+## Error Handling
+
+Create comprehensive error handling:
+
+```dart
+class ErrorWidget extends StatelessWidget {
+  final Object error;
+  final VoidCallback? onRetry;
+
+  const ErrorWidget({required this.error, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    String message;
+    IconData icon;
+    Color color;
+
+    if (error is UnauthorizedException) {
+      message = 'Please log in to continue';
+      icon = Icons.lock;
+      color = Colors.orange;
+    } else if (error is UserNotFoundException) {
+      message = 'User not found';
+      icon = Icons.person_off;
+      color = Colors.blue;
+    } else if (error is ApiException) {
+      message = error.toString();
+      icon = Icons.error;
+      color = Colors.red;
+    } else {
+      message = 'An unexpected error occurred';
+      icon = Icons.error_outline;
+      color = Colors.grey;
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 64, color: color),
+          SizedBox(height: 16),
+          Text(message, style: TextStyle(fontSize: 16)),
+          if (onRetry != null) ...[
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: Text('Retry'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+```
+
+## CRUD Operations
+
+Complete CRUD example with mutations:
+
+```dart
+class UserManagementScreen extends StatelessWidget {
+  final ApiService api = ApiService();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Create User
+        MutationBuilder<User, Map<String, dynamic>>(
+          mutationFn: (userData) => api.createUser(userData),
+          options: MutationOptions(
+            onSuccess: (user) {
+              QueryClient().invalidateQuery('users');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('User created: ${user.name}')),
+              );
+            },
+            onError: (error) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error: $error')),
+              );
+            },
+          ),
+          builder: (context, state, mutate) {
+            return CreateUserForm(
+              onSubmit: (userData) => mutate(userData),
+              isLoading: state.isLoading,
+            );
+          },
+        ),
+        
+        // Users List
+        QueryBuilder<List<User>>(
+          queryKey: 'users',
+          queryFn: () => api.fetchUsers(),
+          builder: (context, state) {
+            if (state.isLoading) return CircularProgressIndicator();
+            if (state.hasError) return ErrorWidget(error: state.error!);
+            if (state.hasData) return UserList(users: state.data!);
+            return SizedBox();
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class CreateUserForm extends StatefulWidget {
+  final Function(Map<String, dynamic>) onSubmit;
+  final bool isLoading;
+
+  const CreateUserForm({
+    required this.onSubmit,
+    required this.isLoading,
+  });
+
+  @override
+  _CreateUserFormState createState() => _CreateUserFormState();
+}
+
+class _CreateUserFormState extends State<CreateUserForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _nameController,
+            decoration: InputDecoration(labelText: 'Name'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Name is required';
+              }
+              return null;
+            },
+          ),
+          TextFormField(
+            controller: _emailController,
+            decoration: InputDecoration(labelText: 'Email'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Email is required';
+              }
+              if (!value.contains('@')) {
+                return 'Invalid email format';
+              }
+              return null;
+            },
+          ),
+          ElevatedButton(
+            onPressed: widget.isLoading ? null : _submitForm,
+            child: widget.isLoading
+                ? CircularProgressIndicator()
+                : Text('Create User'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      widget.onSubmit({
+        'name': _nameController.text,
+        'email': _emailController.text,
+      });
+    }
+  }
+}
+```
+
+## Using Dio
+
+For more advanced HTTP features, use Dio:
+
+```dart
+class DioApiService {
+  late final Dio _dio;
+
+  DioApiService() {
+    _dio = Dio(BaseOptions(
+      baseUrl: 'https://api.example.com',
+      connectTimeout: Duration(seconds: 5),
+      receiveTimeout: Duration(seconds: 3),
+    ));
+
+    // Add interceptors
+    _dio.interceptors.add(LogInterceptor());
+    _dio.interceptors.add(AuthInterceptor());
+  }
+
+  Future<List<User>> fetchUsers() async {
+    try {
+      final response = await _dio.get('/users');
+      final List<dynamic> data = response.data;
+      return data.map((json) => User.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  ApiException _handleDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return ApiException('Connection timeout');
+      case DioExceptionType.receiveTimeout:
+        return ApiException('Receive timeout');
+      case DioExceptionType.badResponse:
+        return ApiException('Server error: ${e.response?.statusCode}');
+      default:
+        return ApiException('Network error');
+    }
+  }
+}
+
+class AuthInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    // Add auth token to requests
+    final token = getAuthToken();
+    if (token != null) {
+      options.headers['Authorization'] = 'Bearer $token';
+    }
+    handler.next(options);
+  }
+}
+```
+
+## Performance Optimization
+
+Optimize API calls with Fasq:
+
+```dart
+class OptimizedUsersScreen extends StatelessWidget {
+  final ApiService api = ApiService();
+
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: 'users',
+      queryFn: () => api.fetchUsers(),
+      options: QueryOptions(
+        staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
+        cacheTime: Duration(minutes: 30), // Keep in cache for 30 minutes
+        retry: 3,                         // Retry failed requests 3 times
+        retryDelay: Duration(seconds: 1), // Wait 1 second between retries
+      ),
+      builder: (context, state) {
+        if (state.isLoading) return CircularProgressIndicator();
+        if (state.hasError) return ErrorWidget(error: state.error!);
+        if (state.hasData) return UserList(users: state.data!);
+        return SizedBox();
+      },
+    );
+  }
+}
+```
+
+## Next Steps
+
+- **[Authentication](/docs/examples/authentication)** - Complete auth flow
+- **[CRUD Operations](/docs/examples/crud-operations)** - Full CRUD example
+- **[Error Handling](/docs/core/error-handling)** - Advanced error patterns
+- **[Performance](/docs/advanced/performance)** - Optimization strategies

@@ -1,0 +1,476 @@
+# Riverpod Adapter
+
+The Riverpod adapter provides compile-safe providers for Fasq using `flutter_riverpod`. Perfect for developers who want type-safe, dependency-injected state management.
+
+## Overview
+
+The Riverpod adapter provides:
+
+- **queryProvider** - Provider factory for queries
+- **mutationProvider** - Provider for server mutations
+- **Family providers** - Parameterized queries with Riverpod families
+- **Auto-dispose** - Automatic cleanup when providers are no longer used
+
+## When to Use Riverpod Adapter
+
+Use the Riverpod adapter when:
+- You're already using `flutter_riverpod`
+- You want compile-time safety
+- You prefer dependency injection
+- You need auto-dispose functionality
+
+## Installation
+
+```yaml
+dependencies:
+  fasq_riverpod: ^0.1.0
+  flutter_riverpod: ^2.0.0
+```
+
+## Basic Usage
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),
+  ),
+);
+
+class UsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    if (usersState.isLoading) {
+      return CircularProgressIndicator();
+    }
+    
+    if (usersState.hasError) {
+      return Text('Error: ${usersState.error}');
+    }
+    
+    if (usersState.hasData) {
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) {
+          final user = usersState.data![index];
+          return ListTile(
+            title: Text(user.name),
+            subtitle: Text(user.email),
+          );
+        },
+      );
+    }
+    
+    return SizedBox();
+  }
+}
+```
+
+## Key Features
+
+### Compile-Safe Providers
+
+Riverpod provides compile-time safety for your queries:
+
+```dart
+final userProvider = queryProvider<User>(
+  'user:123',
+  () => api.fetchUser('123'),
+);
+
+class UserProfile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(userProvider);
+    
+    if (userState.isLoading) return CircularProgressIndicator();
+    if (userState.hasData) return UserDetails(userState.data!);
+    
+    return SizedBox();
+  }
+}
+```
+
+### Family Providers for Parameterized Queries
+
+Use Riverpod families for dynamic queries:
+
+```dart
+final userProvider = queryProvider.family<User, String>(
+  (id) => 'user:$id',
+  (id) => api.fetchUser(id),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),
+  ),
+);
+
+class UserProfile extends ConsumerWidget {
+  final String userId;
+  
+  const UserProfile({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(userProvider(userId));
+    
+    if (userState.hasData) {
+      return Text('User: ${userState.data!.name}');
+    }
+    
+    return CircularProgressIndicator();
+  }
+}
+```
+
+### Manual Refetch
+
+Control when queries are refetched:
+
+```dart
+class UserList extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            // Refetch the query
+            ref.read(usersProvider.notifier).refetch();
+          },
+          child: Text('Refresh'),
+        ),
+        Consumer(
+          builder: (context, ref, child) {
+            final usersState = ref.watch(usersProvider);
+            return buildUI(usersState);
+          },
+        ),
+      ],
+    );
+  }
+}
+```
+
+### Cache Invalidation
+
+Invalidate queries using Riverpod ref:
+
+```dart
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ElevatedButton(
+      onPressed: () {
+        // Invalidate specific query
+        ref.read(usersProvider.notifier).invalidate();
+        
+        // Or use QueryClient directly
+        QueryClient().invalidateQuery('users');
+        QueryClient().invalidateQueriesWithPrefix('user:');
+      },
+      child: Text('Invalidate Cache'),
+    );
+  }
+}
+```
+
+### Mutations
+
+Use mutationProvider for creating, updating, or deleting data:
+
+```dart
+final createUserProvider = mutationProvider<User, String>(
+  (name) => api.createUser(name),
+  options: MutationOptions(
+    onSuccess: (user) {
+      // Invalidate users query to refetch
+      QueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      print('Error creating user: $error');
+    },
+  ),
+);
+
+class CreateUserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mutation = ref.watch(createUserProvider);
+    
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: mutation.isLoading
+              ? null
+              : () => ref.read(createUserProvider.notifier).mutate('John Doe'),
+          child: mutation.isLoading
+              ? CircularProgressIndicator()
+              : Text('Create User'),
+        ),
+        
+        if (mutation.hasError)
+          Text('Error: ${mutation.error}', style: TextStyle(color: Colors.red)),
+        
+        if (mutation.hasData)
+          Text('Created: ${mutation.data!.name}'),
+      ],
+    );
+  }
+}
+```
+
+## Advanced Patterns
+
+### Form Submission
+
+```dart
+class CreateUserForm extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<CreateUserForm> createState() => _CreateUserFormState();
+}
+
+class _CreateUserFormState extends ConsumerState<CreateUserForm> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  
+  late final createUserProvider;
+  
+  @override
+  void initState() {
+    super.initState();
+    createUserProvider = mutationProvider<User, Map<String, String>>(
+      (data) => api.createUser(data['name']!, data['email']!),
+      options: MutationOptions(
+        onSuccess: (user) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User created: ${user.name}')),
+          );
+          _nameController.clear();
+          _emailController.clear();
+        },
+      ),
+    );
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    final mutation = ref.watch(createUserProvider);
+    
+    return Column(
+      children: [
+        TextField(
+          controller: _nameController,
+          decoration: InputDecoration(labelText: 'Name'),
+        ),
+        TextField(
+          controller: _emailController,
+          decoration: InputDecoration(labelText: 'Email'),
+        ),
+        
+        ElevatedButton(
+          onPressed: mutation.isLoading
+              ? null
+              : () {
+                  ref.read(createUserProvider.notifier).mutate({
+                    'name': _nameController.text,
+                    'email': _emailController.text,
+                  });
+                },
+          child: mutation.isLoading
+              ? CircularProgressIndicator()
+              : Text('Create User'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+### Background Refetch Indicator
+
+```dart
+class UsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    return Column(
+      children: [
+        if (usersState.isFetching)
+          LinearProgressIndicator(), // Background refresh indicator
+        
+        if (usersState.hasData)
+          Expanded(
+            child: ListView.builder(
+              itemCount: usersState.data!.length,
+              itemBuilder: (context, index) => UserTile(usersState.data![index]),
+            ),
+          ),
+      ],
+    );
+  }
+}
+```
+
+### Combining Multiple Queries
+
+```dart
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final users = ref.watch(usersProvider);
+    final posts = ref.watch(postsProvider);
+    final stats = ref.watch(statsProvider);
+    
+    return Column(
+      children: [
+        UserSection(users),
+        PostSection(posts),
+        StatsSection(stats),
+      ],
+    );
+  }
+}
+```
+
+### Conditional Queries
+
+```dart
+final conditionalQueryProvider = queryProvider<Data>(
+  'conditional',
+  () => api.fetchData(),
+  options: QueryOptions(
+    enabled: someCondition, // Only fetches when true
+  ),
+);
+```
+
+### Using ref.listen for Side Effects
+
+```dart
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(usersProvider, (previous, next) {
+      if (next.hasError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${next.error}')),
+        );
+      }
+    });
+    
+    final usersState = ref.watch(usersProvider);
+    return buildUI(usersState);
+  }
+}
+```
+
+## Testing
+
+Test providers like any other Riverpod provider:
+
+```dart
+void main() {
+  group('usersProvider', () {
+    test('provides users data', () async {
+      // Arrange
+      final container = ProviderContainer();
+      final users = [User(id: '1', name: 'John')];
+      when(() => api.fetchUsers()).thenAnswer((_) async => users);
+      
+      // Act
+      final state = container.read(usersProvider);
+      
+      // Assert
+      expect(state.hasData, true);
+      expect(state.data, users);
+    });
+  });
+}
+```
+
+## Type Safety
+
+Full generic type support ensures compile-time safety:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users',
+  () => api.fetchUsers(), // Returns Future<List<User>>
+);
+
+class UsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersState = ref.watch(usersProvider);
+    
+    // usersState.data is List<User>?
+    // usersState.error is Object?
+    // usersState.isLoading is bool
+    
+    if (usersState.hasData) {
+      return ListView.builder(
+        itemCount: usersState.data!.length,
+        itemBuilder: (context, index) {
+          final user = usersState.data![index]; // user is User
+          return UserTile(user);
+        },
+      );
+    }
+    
+    return CircularProgressIndicator();
+  }
+}
+```
+
+## Performance Benefits
+
+- **Compile-time safety** - Type errors caught at compile time
+- **Auto-dispose** - Automatic cleanup when providers are unused
+- **Dependency injection** - Easy to test and mock
+- **Riverpod DevTools** - Debug with familiar tools
+
+## Comparison with Core Package
+
+**Core Package (QueryBuilder):**
+```dart
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) {
+    if (state.isLoading) return Loading();
+    return UserList(state.data!);
+  },
+)
+```
+
+**Riverpod Adapter (queryProvider):**
+```dart
+final usersProvider = queryProvider('users', () => api.fetchUsers());
+
+class UsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(usersProvider);
+    if (state.isLoading) return Loading();
+    return UserList(state.data!);
+  }
+}
+```
+
+Both approaches use the same underlying query engine and have identical performance.
+
+## Next Steps
+
+- **[queryProvider](/docs/riverpod/query-provider)** - Deep dive into queryProvider
+- **[mutationProvider](/docs/riverpod/mutation-provider)** - Learn about mutations
+- **[Family Providers](/docs/riverpod/family-providers)** - Parameterized queries
+- **[Riverpod Patterns](/docs/riverpod/riverpod-patterns)** - Advanced Riverpod patterns
+- **[Testing](/docs/riverpod/testing)** - Testing strategies
+- **[Examples](/docs/riverpod/examples)** - Complete working examples
