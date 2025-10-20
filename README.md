@@ -161,9 +161,8 @@ See the [PRD folder](./prd/) for comprehensive product requirements and implemen
 
 - ✅ **Infinite Queries** - Pagination and infinite scroll with memory management
 - ✅ **Dependent Queries** - Chain queries using enabled gating
-- 🔄 **Dependent Queries** - Type-safe query dependencies and chaining
+- ✅ **Offline Mutation Queue** - Persist mutations offline and sync when online
 - 🔄 **Optimistic Updates** - Advanced optimistic UI with automatic rollback
-- 🔄 **Offline Mutation Queue** - Persist mutations offline and sync when online
 - 🔄 **Parallel Queries** - Batch multiple queries with coordinated loading states
 
 **Phase 5 - Production Hardening:**
@@ -199,6 +198,8 @@ you can already build:
 
 **New in Phase 4:**
 - Infinite scroll (social feeds, product catalogs)
+- Dependent queries (user → posts, category → products)
+- Offline mutation queue (queue actions when offline, sync when online)
 
 ### Infinite Queries (overview)
 
@@ -222,6 +223,51 @@ final cubit = InfiniteQueryCubit<List<Post>, int>(
 final provider = infiniteQueryProvider<List<Post>, int>(
   'posts',
   (page) => api.fetchPosts(page: page),
+);
+```
+
+### Dependent Queries (overview)
+
+```dart
+// Hooks
+final userQuery = useQuery<User>('user-1', () => api.fetchUser(1));
+final postsQuery = useQuery<List<Post>>(
+  'posts-${userQuery.data?.id}',
+  () => api.fetchUserPosts(userQuery.data!.id),
+  QueryOptions(enabled: userQuery.hasData),
+);
+
+// Bloc
+final userCubit = QueryCubit<User>('user-1', () => api.fetchUser(1));
+final postsCubit = QueryCubit<List<Post>>(
+  'posts-${userCubit.state.data?.id}',
+  () => api.fetchUserPosts(userCubit.state.data!.id),
+  QueryOptions(enabled: userCubit.state.hasData),
+);
+```
+
+### Offline Mutation Queue (overview)
+
+```dart
+// Hooks
+final mutation = useMutation<String, String>(
+  mutationFn: (data) => api.createPost(data),
+  options: const MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+  ),
+);
+
+// Bloc
+final mutationCubit = MutationCubit<String, String>(
+  mutationFn: (data) => api.createPost(data),
+  options: const MutationOptions(queueWhenOffline: true),
+);
+
+// Riverpod
+final mutationProvider = mutationProvider<String, String>(
+  mutationFn: (data) => api.createPost(data),
+  options: const MutationOptions(queueWhenOffline: true),
 );
 ```
 
