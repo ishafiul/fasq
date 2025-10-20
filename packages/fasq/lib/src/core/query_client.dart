@@ -3,6 +3,8 @@ import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
 import 'query.dart';
 import 'query_options.dart';
+import 'infinite_query.dart';
+import 'infinite_query_options.dart';
 
 /// Global registry for all queries in the application.
 ///
@@ -33,6 +35,7 @@ class QueryClient {
       : _cache = QueryCache(config: config);
 
   final Map<String, Query> _queries = {};
+  final Map<String, InfiniteQuery> _infiniteQueries = {};
   final QueryCache _cache;
 
   /// Gets an existing query or creates a new one.
@@ -79,6 +82,31 @@ class QueryClient {
     return query;
   }
 
+  InfiniteQuery<TData, TParam> getInfiniteQuery<TData, TParam>(
+    String key,
+    Future<TData> Function(TParam param) queryFn, {
+    InfiniteQueryOptions<TData, TParam>? options,
+  }) {
+    if (_infiniteQueries.containsKey(key)) {
+      final existing = _infiniteQueries[key]! as InfiniteQuery<TData, TParam>;
+      if (!existing.isDisposed) {
+        return existing;
+      }
+      _infiniteQueries.remove(key);
+    }
+
+    final infinite = InfiniteQuery<TData, TParam>(
+      key: key,
+      queryFn: queryFn,
+      options: options,
+      cache: _cache,
+      onDispose: () => _infiniteQueries.remove(key),
+    );
+
+    _infiniteQueries[key] = infinite;
+    return infinite;
+  }
+
   /// Retrieves an existing query by its key, or null if not found.
   ///
   /// Unlike [getQuery], this does not create a new query if one doesn't exist.
@@ -94,11 +122,21 @@ class QueryClient {
     return _queries[key] as Query<T>?;
   }
 
+  InfiniteQuery<TData, TParam>? getInfiniteQueryByKey<TData, TParam>(
+      String key) {
+    return _infiniteQueries[key] as InfiniteQuery<TData, TParam>?;
+  }
+
   /// Removes and disposes a query by its key.
   ///
   /// The query is immediately disposed and removed from the registry.
   void removeQuery(String key) {
     final query = _queries.remove(key);
+    query?.dispose();
+  }
+
+  void removeInfiniteQuery(String key) {
+    final query = _infiniteQueries.remove(key);
     query?.dispose();
   }
 
@@ -108,9 +146,14 @@ class QueryClient {
   /// Useful for cleanup or testing.
   void clear() {
     final queriesToDispose = _queries.values.toList();
+    final infiniteToDispose = _infiniteQueries.values.toList();
     _queries.clear();
+    _infiniteQueries.clear();
     for (final query in queriesToDispose) {
       query.dispose();
+    }
+    for (final iq in infiniteToDispose) {
+      iq.dispose();
     }
     _cache.clear();
   }
@@ -146,9 +189,8 @@ class QueryClient {
   void invalidateQueriesWithPrefix(String prefix) {
     _cache.invalidateWithPrefix(prefix);
 
-    final affectedKeys = _queries.keys
-        .where((key) => key.startsWith(prefix))
-        .toList();
+    final affectedKeys =
+        _queries.keys.where((key) => key.startsWith(prefix)).toList();
 
     for (final key in affectedKeys) {
       final query = _queries[key];
@@ -217,4 +259,3 @@ class QueryClient {
     _instance = null;
   }
 }
-
