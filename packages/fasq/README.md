@@ -671,6 +671,19 @@ final query = QueryClient().getInfiniteQuery<List<Item>, int>(
 await query.fetchNextPage(1);
 ```
 
+### Dependent Queries
+
+Use `enabled` to gate a query on another query’s success and include dependency values in the key:
+
+```dart
+final user = QueryClient().getQuery<User>('user', fetchUser);
+final posts = QueryClient().getQuery<List<Post>>(
+  'posts:user:${user.state.data?.id}',
+  () => fetchPosts(user.state.data!.id),
+  options: QueryOptions(enabled: user.state.isSuccess),
+);
+```
+
 ## Examples
 
 See the [example app](../../examples/fasq_example) for complete working examples:

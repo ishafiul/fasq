@@ -1,0 +1,13 @@
+# Dependent Queries (Bloc)
+
+```dart
+final userCubit = QueryCubit<User>(key: 'user', queryFn: fetchUser);
+final postsCubit = QueryCubit<List<Post>>(
+  key: 'posts:
+',
+  queryFn: () => fetchPosts(userCubit.state.data!.id),
+  options: QueryOptions(enabled: userCubit.state.isSuccess),
+);
+```
+
+

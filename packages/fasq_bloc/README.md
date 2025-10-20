@@ -41,6 +41,22 @@ BlocProvider(
 )
 ```
 
+### Dependent Queries
+
+```dart
+final userCubit = QueryCubit<User>(key: 'user', queryFn: fetchUser);
+final postsCubit = QueryCubit<List<Post>>(
+  key: 'posts:user:${userCubit.state.data?.id}',
+  queryFn: () => fetchPosts(userCubit.state.data!.id),
+  options: const QueryOptions(enabled: false),
+);
+
+// Enable when user loaded
+if (userCubit.state.isSuccess) {
+  // You can recreate with enabled true or structure initialization post user
+}
+```
+
 ### Basic Query with QueryCubit
 
 ```dart

@@ -1,0 +1,13 @@
+# Dependent Queries (Riverpod)
+
+```dart
+final userProvider = queryProvider<User>('user', () => fetchUser());
+
+final postsProvider = queryProvider<List<Post>>(
+  'posts',
+  () => fetchPosts(ref.read(userProvider).data!.id),
+  options: QueryOptions(enabled: ref.read(userProvider).isSuccess),
+);
+```
+
+

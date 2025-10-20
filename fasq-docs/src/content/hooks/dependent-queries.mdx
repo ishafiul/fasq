@@ -1,0 +1,12 @@
+# Dependent Queries (Hooks)
+
+```dart
+final user = useQuery('user', () => fetchUser());
+final posts = useQuery(
+  'posts:${user.data?.id}',
+  () => fetchPosts(user.data!.id),
+  options: QueryOptions(enabled: user.isSuccess),
+);
+```
+
+
