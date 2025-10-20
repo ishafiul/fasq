@@ -1,0 +1,17 @@
+# InfiniteQueryCubit
+
+```dart
+final cubit = InfiniteQueryCubit<List<Post>, int>(
+  key: 'posts',
+  queryFn: (page) => api.fetchPosts(page: page),
+  options: InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  ),
+);
+
+cubit.fetchNextPage();
+cubit.fetchPreviousPage();
+cubit.refetchPage(0);
+```
+
+

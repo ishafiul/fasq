@@ -1,0 +1,20 @@
+# infiniteQueryProvider
+
+```dart
+final provider = infiniteQueryProvider<List<Post>, int>(
+  'posts',
+  (page) => api.fetchPosts(page: page),
+  options: InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  ),
+);
+
+final state = ref.watch(provider);
+final notifier = ref.read(provider.notifier);
+
+if (state.hasNextPage) {
+  await notifier.fetchNextPage();
+}
+```
+
+

@@ -1,0 +1,16 @@
+# useInfiniteQuery
+
+```dart
+final state = useInfiniteQuery<List<Post>, int>(
+  'posts',
+  (page) => api.fetchPosts(page: page),
+  InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  ),
+);
+
+if (state.isFetchingNextPage) { /* show spinner */ }
+if (state.hasNextPage) { /* show Load More */ }
+```
+
+
