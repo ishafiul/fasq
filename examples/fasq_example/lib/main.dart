@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'infinite_list_page_number.dart';
 import 'infinite_list_cursor.dart';
 import 'infinite_list_load_more.dart';
+import 'dependent_queries_user_posts.dart';
 
 void main() {
   runApp(const MyApp());
@@ -181,6 +182,29 @@ class ExampleHomePage extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const InfiniteListLoadMorePage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Dependent Queries',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'User → Posts with enabled gating',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          _buildExampleCard(
+            context,
+            'User → Posts',
+            'Chained queries with enabled flag',
+            Icons.account_tree,
+            Colors.cyan,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const DependentQueriesUserPostsPage()),
             ),
           ),
         ],

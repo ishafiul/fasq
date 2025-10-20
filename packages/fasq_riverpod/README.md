@@ -49,6 +49,18 @@ class Posts extends ConsumerWidget {
 }
 ```
 
+### Dependent Queries
+
+```dart
+final userProvider = queryProvider<User>('user', () => fetchUser());
+
+final postsProvider = queryProvider<List<Post>>(
+  'posts:user',
+  () => fetchPosts(ref.read(userProvider).data!.id),
+  options: QueryOptions(enabled: ref.read(userProvider).isSuccess),
+);
+```
+
 ### Basic Query with queryProvider
 
 ```dart

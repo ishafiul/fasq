@@ -35,6 +35,17 @@ if (posts.hasNextPage) {
 }
 ```
 
+### Dependent Queries
+
+```dart
+final user = useQuery('user', () => fetchUser());
+final posts2 = useQuery(
+  'posts:${user.data?.id}',
+  () => fetchPosts(user.data!.id),
+  options: QueryOptions(enabled: user.isSuccess),
+);
+```
+
 ### Basic Query
 
 ```dart

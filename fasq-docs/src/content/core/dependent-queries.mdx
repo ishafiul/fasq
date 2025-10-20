@@ -1,0 +1,19 @@
+# Dependent Queries
+
+Dependent queries wait for prerequisite data before fetching. Use `QueryOptions.enabled` and include dependency values in the dependent key.
+
+```dart
+final user = useQuery('user', () => fetchUser());
+final posts = useQuery(
+  'posts:${user.data?.id}',
+  () => fetchPosts(user.data!.id),
+  options: QueryOptions(enabled: user.isSuccess),
+);
+```
+
+Tips:
+- Keep keys stable and include parameters
+- Use `enabled` to guard against nulls
+- Only dependency shows errors when it fails
+
+

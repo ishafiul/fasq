@@ -157,9 +157,10 @@ See the [PRD folder](./prd/) for comprehensive product requirements and implemen
 
 ## 🔄 Features (Phases 4-5)
 
-**Phase 4 - Advanced Features:**
+- **Phase 4 - Advanced Features:**
 
 - ✅ **Infinite Queries** - Pagination and infinite scroll with memory management
+- ✅ **Dependent Queries** - Chain queries using enabled gating
 - 🔄 **Dependent Queries** - Type-safe query dependencies and chaining
 - 🔄 **Optimistic Updates** - Advanced optimistic UI with automatic rollback
 - 🔄 **Offline Mutation Queue** - Persist mutations offline and sync when online

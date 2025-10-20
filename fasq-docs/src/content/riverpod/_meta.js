@@ -2,6 +2,7 @@ const meta = {
   index: 'Overview',
   'query-provider': 'queryProvider',
   'infinite-query-provider': 'infiniteQueryProvider',
+  'dependent-queries': 'Dependent Queries',
   'mutation-provider': 'mutationProvider',
   'family-providers': 'Family Providers',
   'riverpod-patterns': 'Riverpod Patterns',
