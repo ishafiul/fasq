@@ -1,0 +1,115 @@
+# Offline Queue with Hooks
+
+Use `useMutation` with offline queuing capabilities.
+
+## Basic Usage
+
+```dart
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+Widget MyComponent() {
+  final mutation = useMutation<String, String>(
+    mutationFn: (String data) async {
+      return await api.createPost(data);
+    },
+    options: const MutationOptions(
+      queueWhenOffline: true,
+      maxRetries: 3,
+    ),
+  );
+
+  return Column(
+    children: [
+      if (mutation.state.isQueued)
+        Text('Queued for sync'),
+      if (mutation.state.isLoading)
+        CircularProgressIndicator(),
+      ElevatedButton(
+        onPressed: () => mutation.mutate('Hello'),
+        child: Text('Submit'),
+      ),
+    ],
+  );
+}
+```
+
+## Queue Status
+
+Monitor the offline queue:
+
+```dart
+Widget QueueStatus() {
+  final queryClient = useQueryClient();
+  final queueLength = queryClient.offlineQueue.length;
+  
+  return Badge(
+    label: Text('$queueLength'),
+    child: Icon(Icons.queue),
+  );
+}
+```
+
+## Network Status
+
+```dart
+Widget NetworkIndicator() {
+  final isOnline = useNetworkStatus();
+  
+  return Container(
+    color: isOnline ? Colors.green : Colors.red,
+    child: Text(isOnline ? 'Online' : 'Offline'),
+  );
+}
+```
+
+## Complete Example
+
+```dart
+Widget OfflineTodoApp() {
+  final mutation = useMutation<String, String>(
+    mutationFn: (String todo) async {
+      await Future.delayed(Duration(milliseconds: 500));
+      return 'Added: $todo';
+    },
+    options: const MutationOptions(
+      queueWhenOffline: true,
+      onQueued: (variables) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Queued: $variables')),
+        );
+      },
+    ),
+  );
+
+  final isOnline = useNetworkStatus();
+  final queueLength = useQueryClient().offlineQueue.length;
+
+  return Scaffold(
+    appBar: AppBar(
+      title: Text('Offline Todos'),
+      actions: [
+        if (queueLength > 0)
+          Badge(
+            label: Text('$queueLength'),
+            child: Icon(Icons.queue),
+          ),
+        Switch(
+          value: isOnline,
+          onChanged: (value) {
+            NetworkStatus.instance.setOnline(value);
+          },
+        ),
+      ],
+    ),
+    body: Column(
+      children: [
+        Container(
+          color: isOnline ? Colors.green.shade100 : Colors.red.shade100,
+          child: Text(isOnline ? 'Online' : 'Offline'),
+        ),
+        // Your form and todo list here
+      ],
+    ),
+  );
+}
+```

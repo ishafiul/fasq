@@ -4,6 +4,7 @@ const meta = {
   'infinite-query-cubit': 'InfiniteQueryCubit',
   'dependent-queries': 'Dependent Queries',
   'mutation-cubit': 'MutationCubit',
+  'offline-queue': 'Offline Queue',
   'bloc-patterns': 'Bloc Patterns',
   examples: 'Examples',
 }
