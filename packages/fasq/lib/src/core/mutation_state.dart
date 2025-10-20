@@ -5,37 +5,50 @@ class MutationState<T> {
   final T? data;
   final Object? error;
   final StackTrace? stackTrace;
+  final bool isQueued;
 
   const MutationState._({
     required this.status,
     this.data,
     this.error,
     this.stackTrace,
+    this.isQueued = false,
   });
 
   const MutationState.idle()
       : status = MutationStatus.idle,
         data = null,
         error = null,
-        stackTrace = null;
+        stackTrace = null,
+        isQueued = false;
 
   const MutationState.loading()
       : status = MutationStatus.loading,
         data = null,
         error = null,
-        stackTrace = null;
+        stackTrace = null,
+        isQueued = false;
 
   const MutationState.success(T data)
       : status = MutationStatus.success,
         data = data,
         error = null,
-        stackTrace = null;
+        stackTrace = null,
+        isQueued = false;
 
   const MutationState.error(Object error, [StackTrace? stackTrace])
       : status = MutationStatus.error,
         data = null,
         error = error,
-        stackTrace = stackTrace;
+        stackTrace = stackTrace,
+        isQueued = false;
+
+  const MutationState.queued()
+      : status = MutationStatus.idle,
+        data = null,
+        error = null,
+        stackTrace = null,
+        isQueued = true;
 
   bool get isIdle => status == MutationStatus.idle;
   bool get isLoading => status == MutationStatus.loading;
@@ -49,12 +62,14 @@ class MutationState<T> {
     T? data,
     Object? error,
     StackTrace? stackTrace,
+    bool? isQueued,
   }) {
     return MutationState._(
       status: status ?? this.status,
       data: data ?? this.data,
       error: error ?? this.error,
       stackTrace: stackTrace ?? this.stackTrace,
+      isQueued: isQueued ?? this.isQueued,
     );
   }
 
@@ -82,4 +97,3 @@ class MutationState<T> {
     return 'MutationState<$T>(status: $status, data: $data, error: $error)';
   }
 }
-

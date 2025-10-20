@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'mutation_options.dart';
 import 'mutation_state.dart';
+import 'network_status.dart';
+import 'offline_queue.dart';
 
 class Mutation<T, TVariables> {
   final Future<T> Function(TVariables variables) mutationFn;
@@ -27,6 +29,25 @@ class Mutation<T, TVariables> {
   Future<void> mutate(TVariables variables) async {
     if (_isDisposed) return;
 
+    final isOffline = !NetworkStatus.instance.isOnline;
+    final shouldQueue = isOffline && (options?.queueWhenOffline ?? false);
+
+    if (shouldQueue) {
+      final queueManager = OfflineQueueManager.instance;
+      final mutationType = _getMutationType();
+
+      await queueManager.enqueue(
+        'mutation_${DateTime.now().millisecondsSinceEpoch}',
+        mutationType,
+        variables,
+        priority: options?.priority ?? 0,
+      );
+
+      _updateState(const MutationState.queued());
+      options?.onQueued?.call(variables);
+      return;
+    }
+
     _updateState(const MutationState.loading());
 
     try {
@@ -43,6 +64,12 @@ class Mutation<T, TVariables> {
         options?.onError?.call(error);
       }
     }
+  }
+
+  String _getMutationType() {
+    // Generate a unique mutation type based on the mutation function
+    // In a real app, you'd want to register these explicitly
+    return 'mutation_${mutationFn.hashCode}';
   }
 
   void reset() {
@@ -64,4 +91,3 @@ class Mutation<T, TVariables> {
     _controller.close();
   }
 }
-

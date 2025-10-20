@@ -1,0 +1,216 @@
+# Offline Queue with Riverpod
+
+Use `mutationProvider` with offline queuing capabilities.
+
+## Basic Usage
+
+```dart
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+final todoMutationProvider = mutationProvider<String, String>(
+  mutationFn: (String todo) async {
+    return await api.createPost(todo);
+  },
+  options: const MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+  ),
+);
+
+Widget MyWidget() {
+  return Consumer(
+    builder: (context, ref, child) {
+      final mutation = ref.watch(todoMutationProvider);
+      
+      return Column(
+        children: [
+          if (mutation.state.isQueued)
+            Text('Queued for sync'),
+          if (mutation.state.isLoading)
+            CircularProgressIndicator(),
+          ElevatedButton(
+            onPressed: () => mutation.mutate('Hello'),
+            child: Text('Submit'),
+          ),
+        ],
+      );
+    },
+  );
+}
+```
+
+## Queue Status
+
+```dart
+final queueLengthProvider = StreamProvider<int>((ref) {
+  return OfflineQueueManager.instance.stream
+      .map((entries) => entries.length);
+});
+
+Widget QueueBadge() {
+  return Consumer(
+    builder: (context, ref, child) {
+      final queueLength = ref.watch(queueLengthProvider).value ?? 0;
+      
+      if (queueLength > 0) {
+        return Badge(
+          label: Text('$queueLength'),
+          child: Icon(Icons.queue),
+        );
+      }
+      return SizedBox.shrink();
+    },
+  );
+}
+```
+
+## Network Status
+
+```dart
+final networkStatusProvider = StreamProvider<bool>((ref) {
+  return NetworkStatus.instance.stream;
+});
+
+Widget NetworkIndicator() {
+  return Consumer(
+    builder: (context, ref, child) {
+      final isOnline = ref.watch(networkStatusProvider).value ?? true;
+      
+      return Container(
+        color: isOnline ? Colors.green : Colors.red,
+        child: Text(isOnline ? 'Online' : 'Offline'),
+      );
+    },
+  );
+}
+```
+
+## Complete Example
+
+```dart
+final todoMutationProvider = mutationProvider<String, String>(
+  mutationFn: (String todo) async {
+    await Future.delayed(Duration(milliseconds: 500));
+    return 'Added: $todo';
+  },
+  options: const MutationOptions(
+    queueWhenOffline: true,
+    onQueued: (variables) {
+      // Show snackbar or update UI
+    },
+  ),
+);
+
+final queueLengthProvider = StreamProvider<int>((ref) {
+  return OfflineQueueManager.instance.stream
+      .map((entries) => entries.length);
+});
+
+final networkStatusProvider = StreamProvider<bool>((ref) {
+  return NetworkStatus.instance.stream;
+});
+
+class OfflineTodoPage extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mutation = ref.watch(todoMutationProvider);
+    final queueLength = ref.watch(queueLengthProvider).value ?? 0;
+    final isOnline = ref.watch(networkStatusProvider).value ?? true;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Offline Todos'),
+        actions: [
+          if (queueLength > 0)
+            Badge(
+              label: Text('$queueLength'),
+              child: Icon(Icons.queue),
+            ),
+          Switch(
+            value: isOnline,
+            onChanged: (value) {
+              NetworkStatus.instance.setOnline(value);
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Container(
+            color: isOnline ? Colors.green.shade100 : Colors.red.shade100,
+            child: Text(isOnline ? 'Online' : 'Offline'),
+          ),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (mutation.state.isQueued)
+                    Text('Mutation queued for sync'),
+                  if (mutation.state.isLoading)
+                    CircularProgressIndicator(),
+                  if (mutation.state.isSuccess)
+                    Text('Success: ${mutation.state.data}'),
+                  ElevatedButton(
+                    onPressed: () => mutation.mutate('New Todo'),
+                    child: Text('Add Todo'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Advanced Usage
+
+```dart
+// Custom mutation notifier with offline handling
+class OfflineTodoNotifier extends MutationNotifier<String, String> {
+  OfflineTodoNotifier() : super(
+    mutationFn: (String todo) async {
+      return await api.createPost(todo);
+    },
+    options: const MutationOptions(
+      queueWhenOffline: true,
+      maxRetries: 5,
+      onQueued: (variables) {
+        // Custom queued handling
+      },
+    ),
+  );
+
+  void addTodo(String todo) {
+    mutate(todo);
+  }
+}
+
+final offlineTodoNotifierProvider = 
+    NotifierProvider<OfflineTodoNotifier, MutationState<String>>(
+  () => OfflineTodoNotifier(),
+);
+
+Widget AdvancedTodoWidget() {
+  return Consumer(
+    builder: (context, ref, child) {
+      final state = ref.watch(offlineTodoNotifierProvider);
+      final notifier = ref.read(offlineTodoNotifierProvider.notifier);
+      
+      return Column(
+        children: [
+          if (state.isQueued)
+            Text('Queued for sync'),
+          ElevatedButton(
+            onPressed: () => notifier.addTodo('New Todo'),
+            child: Text('Add Todo'),
+          ),
+        ],
+      );
+    },
+  );
+}
+```

@@ -4,6 +4,7 @@ const meta = {
   'infinite-query-provider': 'infiniteQueryProvider',
   'dependent-queries': 'Dependent Queries',
   'mutation-provider': 'mutationProvider',
+  'offline-queue': 'Offline Queue',
   'family-providers': 'Family Providers',
   'riverpod-patterns': 'Riverpod Patterns',
   examples: 'Examples',

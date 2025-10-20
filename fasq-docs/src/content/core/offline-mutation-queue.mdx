@@ -1,0 +1,344 @@
+# Offline Mutation Queue
+
+Queue mutations when offline and process them when connectivity is restored.
+
+## Overview
+
+The offline mutation queue allows your app to continue functioning even when network connectivity is unavailable. Mutations are queued locally and automatically processed when the device comes back online.
+
+## Basic Usage
+
+```dart
+import 'package:fasq/fasq.dart';
+
+final mutation = Mutation<String, String>(
+  mutationFn: (String data) async {
+    // Your API call
+    return await api.createPost(data);
+  },
+  options: const MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+    onQueued: (variables) {
+      print('Mutation queued: $variables');
+    },
+  ),
+);
+
+// This will queue if offline, execute immediately if online
+mutation.mutate('Hello World');
+```
+
+## Network Status
+
+Monitor connectivity status:
+
+```dart
+// Check if online
+bool isOnline = NetworkStatus.instance.isOnline;
+
+// Listen to connectivity changes
+NetworkStatus.instance.stream.listen((isOnline) {
+  if (isOnline) {
+    print('Back online - processing queued mutations');
+  } else {
+    print('Gone offline - mutations will be queued');
+  }
+});
+
+// Manually set status (for testing)
+NetworkStatus.instance.setOnline(false);
+```
+
+## Multi-API Queue Processing
+
+For real-world applications, you'll have multiple different API mutations. The offline queue supports this through a **registry pattern**:
+
+### 1. Register Mutation Types
+
+```dart
+// Register different API mutations
+MutationTypeRegistry.register<String, String>(
+  'createPost',
+  (String content) => api.createPost(content),
+);
+
+MutationTypeRegistry.register<String, Map<String, String>>(
+  'updateUser',
+  (Map<String, String> data) => api.updateUser(
+    data['userId']!,
+    data['name']!,
+  ),
+);
+
+MutationTypeRegistry.register<String, String>(
+  'deleteComment',
+  (String commentId) => api.deleteComment(commentId),
+);
+```
+
+### 2. Use Mutation Types in Mutations
+
+```dart
+final createPostMutation = Mutation<String, String>(
+  mutationFn: (String content) => api.createPost(content),
+  options: const MutationOptions(
+    queueWhenOffline: true,
+    priority: 1, // Lower priority
+  ),
+);
+
+final updateUserMutation = Mutation<String, Map<String, String>>(
+  mutationFn: (Map<String, String> data) => api.updateUser(
+    data['userId']!,
+    data['name']!,
+  ),
+  options: const MutationOptions(
+    queueWhenOffline: true,
+    priority: 3, // Higher priority
+  ),
+);
+```
+
+### 3. Process All Queued Mutations
+
+```dart
+// Process all queued mutations when online
+NetworkStatus.instance.stream.listen((isOnline) {
+  if (isOnline) {
+    OfflineQueueManager.instance.processQueue();
+  }
+});
+```
+
+### 4. Priority-Based Processing
+
+Mutations are processed by priority (higher first), then by creation time:
+
+```dart
+// Priority levels
+const MutationOptions(
+  priority: 4, // Highest priority (likes, reactions)
+  queueWhenOffline: true,
+);
+
+const MutationOptions(
+  priority: 3, // High priority (user updates)
+  queueWhenOffline: true,
+);
+
+const MutationOptions(
+  priority: 2, // Medium priority (comments)
+  queueWhenOffline: true,
+);
+
+const MutationOptions(
+  priority: 1, // Low priority (posts)
+  queueWhenOffline: true,
+);
+```
+
+### 5. Queue Statistics and Monitoring
+
+```dart
+// Get queue statistics by mutation type
+final stats = OfflineQueueManager.instance.getQueueStats();
+// Returns: {'createPost': 3, 'updateUser': 1, 'deleteComment': 2}
+
+// Get entries by specific type
+final postMutations = OfflineQueueManager.instance.getEntriesByType('createPost');
+
+// Process specific mutation type only
+await OfflineQueueManager.instance.processQueueByType('createPost');
+```
+
+### 6. Complete Setup Example
+
+```dart
+class OfflineQueueService {
+  static void initialize() {
+    // Register all mutation types
+    _registerMutationTypes();
+    
+    // Listen for connectivity changes
+    NetworkStatus.instance.stream.listen((isOnline) {
+      if (isOnline) {
+        _processAllQueues();
+      }
+    });
+  }
+  
+  static void _registerMutationTypes() {
+    MutationTypeRegistry.register<String, String>(
+      'createPost',
+      (String content) => api.createPost(content),
+    );
+    
+    MutationTypeRegistry.register<String, Map<String, String>>(
+      'updateUser',
+      (Map<String, String> data) => api.updateUser(
+        data['userId']!,
+        data['name']!,
+      ),
+    );
+    
+    MutationTypeRegistry.register<String, String>(
+      'deleteComment',
+      (String commentId) => api.deleteComment(commentId),
+    );
+    
+    MutationTypeRegistry.register<String, String>(
+      'likePost',
+      (String postId) => api.likePost(postId),
+    );
+  }
+  
+  static Future<void> _processAllQueues() async {
+    await OfflineQueueManager.instance.processQueue();
+  }
+}
+
+// Initialize in your app
+void main() {
+  OfflineQueueService.initialize();
+  runApp(MyApp());
+}
+```
+
+## Queue Monitoring
+
+Monitor what's in the queue:
+
+```dart
+// Get queue length
+int pendingCount = OfflineQueueManager.instance.length;
+
+// Get all queued entries
+List<OfflineMutationEntry> entries = OfflineQueueManager.instance.entries;
+
+// Listen to queue changes
+OfflineQueueManager.instance.stream.listen((entries) {
+  print('Queue updated: ${entries.length} pending');
+  
+  // Show details of each queued mutation
+  for (final entry in entries) {
+    print('Queued: ${entry.variables}');
+    print('Attempts: ${entry.attempts}');
+    print('Last Error: ${entry.lastError}');
+    print('Created: ${entry.createdAt}');
+  }
+});
+```
+
+## Queue Entry Details
+
+Each queued mutation contains:
+
+```dart
+class OfflineMutationEntry {
+  final String id;           // Unique identifier
+  final String key;          // Mutation key
+  final dynamic variables;   // Variables passed to mutation
+  final DateTime createdAt;  // When queued
+  final int attempts;        // Number of retry attempts
+  final String? lastError;   // Last error message
+}
+```
+
+## Automatic Processing
+
+For automatic processing, set up a network listener:
+
+```dart
+class OfflineQueueService {
+  static void initialize() {
+    NetworkStatus.instance.stream.listen((isOnline) {
+      if (isOnline) {
+        _processAllQueues();
+      }
+    });
+  }
+  
+  static Future<void> _processAllQueues() async {
+    // Process different types of mutations
+    await OfflineQueueManager.instance.processQueue<String, String>(
+      (String data) => api.createPost(data),
+    );
+    
+    await OfflineQueueManager.instance.processQueue<User, User>(
+      (User user) => api.updateUser(user),
+    );
+  }
+}
+
+// Initialize in your app
+void main() {
+  OfflineQueueService.initialize();
+  runApp(MyApp());
+}
+```
+
+## Mutation State
+
+Check if a mutation is queued:
+
+```dart
+StreamBuilder<MutationState<String>>(
+  stream: mutation.stream,
+  builder: (context, snapshot) {
+    final state = snapshot.data ?? mutation.state;
+    
+    if (state.isQueued) {
+      return Text('Queued for when online');
+    }
+    
+    if (state.isLoading) {
+      return CircularProgressIndicator();
+    }
+    
+    if (state.isSuccess) {
+      return Text('Success: ${state.data}');
+    }
+    
+    return Text('Ready');
+  },
+)
+```
+
+## Configuration Options
+
+```dart
+const MutationOptions(
+  queueWhenOffline: true,        // Enable offline queuing
+  maxRetries: 5,                 // Max retry attempts
+  onQueued: (variables) {        // Called when queued
+    showSnackBar('Queued for sync');
+  },
+  onSuccess: (data) {            // Called on success
+    showSnackBar('Synced!');
+  },
+  onError: (error) {             // Called on error
+    showSnackBar('Sync failed');
+  },
+)
+```
+
+## Platform Support
+
+- **Mobile/Desktop**: Full support with persistent storage
+- **Web**: Limited support (in-memory only, no persistence)
+
+## Best Practices
+
+1. **Enable queuing selectively**: Only queue mutations that make sense offline
+2. **Handle queued state**: Show users when mutations are queued
+3. **Retry logic**: Use appropriate retry counts for your use case
+4. **Data validation**: Validate data before queuing to avoid sync issues
+5. **User feedback**: Inform users about offline status and queued operations
+
+## Limitations
+
+- Web platform has no persistent storage
+- Large mutations may impact performance
+- No automatic conflict resolution
+- Requires manual network status management

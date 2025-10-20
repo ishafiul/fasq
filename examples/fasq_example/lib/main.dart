@@ -7,6 +7,8 @@ import 'infinite_list_page_number.dart';
 import 'infinite_list_cursor.dart';
 import 'infinite_list_load_more.dart';
 import 'dependent_queries_user_posts.dart';
+import 'offline_queue_todos.dart';
+import 'multi_api_offline_queue.dart';
 
 void main() {
   runApp(const MyApp());
@@ -205,6 +207,41 @@ class ExampleHomePage extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const DependentQueriesUserPostsPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Offline Mutation Queue',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Queue mutations when offline, process when online',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          _buildExampleCard(
+            context,
+            'Offline Todos',
+            'Add todos offline, sync when online',
+            Icons.cloud_off,
+            Colors.deepOrange,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OfflineQueueTodosPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildExampleCard(
+            context,
+            'Multi-API Queue',
+            'Multiple API types with priority processing',
+            Icons.api,
+            Colors.indigo,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const MultiApiOfflineQueuePage()),
             ),
           ),
         ],

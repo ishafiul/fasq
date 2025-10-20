@@ -7,6 +7,7 @@ export default {
   'query-options': 'QueryOptions',
   'infinite-queries': 'Infinite Queries',
   'dependent-queries': 'Dependent Queries',
+  'offline-mutation-queue': 'Offline Mutation Queue',
   'cache-configuration': 'Cache Configuration',
   'cache-invalidation': 'Cache Invalidation',
   'error-handling': 'Error Handling',

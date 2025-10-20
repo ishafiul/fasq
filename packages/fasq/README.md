@@ -18,7 +18,9 @@ A powerful async state management library for Flutter. Handles API calls, databa
 - ✅ **Type Safe** - Full generic type support for your data
 - ✅ **Thread Safe** - Concurrent access protection with async locks
 - ✅ **Production Ready** - Comprehensive testing and error handling
-- ✅ **State Management Adapters** - Hooks, Bloc, Riverpod
+- ✅ **Infinite Queries** - Pagination and infinite scroll with memory management
+- ✅ **Dependent Queries** - Chain queries using enabled gating
+- ✅ **Offline Mutation Queue** - Persist mutations offline and sync when online
 - 🔄 **Offline Support** - Coming in Phase 5
 
 ## Installation
@@ -671,17 +673,48 @@ final query = QueryClient().getInfiniteQuery<List<Item>, int>(
 await query.fetchNextPage(1);
 ```
 
-### Dependent Queries
+### Offline Mutation Queue
 
-Use `enabled` to gate a query on another query’s success and include dependency values in the key:
+Queue mutations when offline and process them when connectivity is restored:
 
 ```dart
-final user = QueryClient().getQuery<User>('user', fetchUser);
-final posts = QueryClient().getQuery<List<Post>>(
-  'posts:user:${user.state.data?.id}',
-  () => fetchPosts(user.state.data!.id),
-  options: QueryOptions(enabled: user.state.isSuccess),
-);
+MutationBuilder<String, String>(
+  mutationFn: (data) => api.createPost(data),
+  options: const MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+    onQueued: (variables) {
+      print('Queued for sync: $variables');
+    },
+  ),
+  builder: (context, state, mutate) {
+    if (state.isQueued) {
+      return Text('Queued for when online');
+    }
+    
+    return ElevatedButton(
+      onPressed: () => mutate('Hello World'),
+      child: Text('Submit'),
+    );
+  },
+)
+```
+
+Monitor network status and queue:
+
+```dart
+// Check connectivity
+bool isOnline = NetworkStatus.instance.isOnline;
+
+// Listen to changes
+NetworkStatus.instance.stream.listen((online) {
+  if (online) {
+    print('Back online - processing queue');
+  }
+});
+
+// Get queue status
+int pendingCount = OfflineQueueManager.instance.length;
 ```
 
 ## Examples
@@ -745,10 +778,10 @@ QueryBuilder<Data>(
 
 Phase 2 caching layer is complete! The following features will be added in future phases:
 
-- **Phase 3:** State management adapters (Hooks, Bloc, Riverpod)
-- **Phase 4:** Infinite queries for pagination
-- **Phase 4:** Mutations with optimistic updates
-- **Phase 4:** Offline mutation queue
+- **Phase 3:** State management adapters (Hooks, Bloc, Riverpod) ✅
+- **Phase 4:** Infinite queries for pagination ✅
+- **Phase 4:** Dependent queries ✅
+- **Phase 4:** Offline mutation queue ✅
 - **Phase 5:** Production hardening (security, DevTools, testing utilities)
 
 ## Architecture

@@ -1,0 +1,181 @@
+# Offline Queue with Bloc
+
+Use `MutationCubit` with offline queuing capabilities.
+
+## Basic Usage
+
+```dart
+import 'package:fasq_bloc/fasq_bloc.dart';
+
+class TodoCubit extends MutationCubit<String, String> {
+  TodoCubit() : super(
+    mutationFn: (String todo) async {
+      return await api.createPost(todo);
+    },
+    options: const MutationOptions(
+      queueWhenOffline: true,
+      maxRetries: 3,
+    ),
+  );
+}
+
+Widget MyWidget() {
+  return BlocProvider(
+    create: (context) => TodoCubit(),
+    child: BlocBuilder<TodoCubit, MutationState<String>>(
+      builder: (context, state) {
+        return Column(
+          children: [
+            if (state.isQueued)
+              Text('Queued for sync'),
+            if (state.isLoading)
+              CircularProgressIndicator(),
+            ElevatedButton(
+              onPressed: () => context.read<TodoCubit>().mutate('Hello'),
+              child: Text('Submit'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+```
+
+## Queue Status
+
+```dart
+class QueueStatusCubit extends Cubit<int> {
+  QueueStatusCubit() : super(0) {
+    OfflineQueueManager.instance.stream.listen((entries) {
+      emit(entries.length);
+    });
+  }
+}
+
+Widget QueueBadge() {
+  return BlocBuilder<QueueStatusCubit, int>(
+    builder: (context, queueLength) {
+      if (queueLength > 0) {
+        return Badge(
+          label: Text('$queueLength'),
+          child: Icon(Icons.queue),
+        );
+      }
+      return SizedBox.shrink();
+    },
+  );
+}
+```
+
+## Network Status
+
+```dart
+class NetworkStatusCubit extends Cubit<bool> {
+  NetworkStatusCubit() : super(true) {
+    NetworkStatus.instance.stream.listen((isOnline) {
+      emit(isOnline);
+    });
+  }
+}
+
+Widget NetworkIndicator() {
+  return BlocBuilder<NetworkStatusCubit, bool>(
+    builder: (context, isOnline) {
+      return Container(
+        color: isOnline ? Colors.green : Colors.red,
+        child: Text(isOnline ? 'Online' : 'Offline'),
+      );
+    },
+  );
+}
+```
+
+## Complete Example
+
+```dart
+class OfflineTodoPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => TodoCubit()),
+        BlocProvider(create: (context) => QueueStatusCubit()),
+        BlocProvider(create: (context) => NetworkStatusCubit()),
+      ],
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Offline Todos'),
+          actions: [
+            BlocBuilder<QueueStatusCubit, int>(
+              builder: (context, queueLength) {
+                if (queueLength > 0) {
+                  return Badge(
+                    label: Text('$queueLength'),
+                    child: Icon(Icons.queue),
+                  );
+                }
+                return SizedBox.shrink();
+              },
+            ),
+            BlocBuilder<NetworkStatusCubit, bool>(
+              builder: (context, isOnline) {
+                return Switch(
+                  value: isOnline,
+                  onChanged: (value) {
+                    NetworkStatus.instance.setOnline(value);
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            BlocBuilder<NetworkStatusCubit, bool>(
+              builder: (context, isOnline) {
+                return Container(
+                  color: isOnline ? Colors.green.shade100 : Colors.red.shade100,
+                  child: Text(isOnline ? 'Online' : 'Offline'),
+                );
+              },
+            ),
+            Expanded(
+              child: BlocBuilder<TodoCubit, MutationState<String>>(
+                builder: (context, state) {
+                  if (state.isQueued) {
+                    return Center(
+                      child: Text('Mutation queued for sync'),
+                    );
+                  }
+                  
+                  if (state.isLoading) {
+                    return Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+                  
+                  if (state.isSuccess) {
+                    return Center(
+                      child: Text('Success: ${state.data}'),
+                    );
+                  }
+                  
+                  return Center(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        context.read<TodoCubit>().mutate('New Todo');
+                      },
+                      child: Text('Add Todo'),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```

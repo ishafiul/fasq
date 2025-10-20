@@ -16,6 +16,8 @@ export 'src/core/infinite_query.dart';
 export 'src/core/infinite_query_state.dart';
 export 'src/core/infinite_query_options.dart';
 export 'src/core/dependent.dart';
+export 'src/core/network_status.dart';
+export 'src/core/offline_queue.dart';
 export 'src/pagination/page_number_pagination.dart';
 export 'src/pagination/cursor_pagination.dart';
 export 'src/widgets/mutation_builder.dart';

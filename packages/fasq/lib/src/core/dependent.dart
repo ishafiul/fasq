@@ -16,3 +16,4 @@ R? whenReady<T, R>(QueryState<T> state, R Function(T value) selector) {
   }
   return null;
 }
+
