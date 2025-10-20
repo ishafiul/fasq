@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'infinite_list_page_number.dart';
+import 'infinite_list_cursor.dart';
+import 'infinite_list_load_more.dart';
 
 void main() {
   runApp(const MyApp());
@@ -130,6 +133,54 @@ class ExampleHomePage extends StatelessWidget {
             () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MutationExamplePage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Phase 4: Infinite Queries',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Cursor, page-number, and load-more patterns',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          _buildExampleCard(
+            context,
+            'Infinite - Page Number',
+            'Scroll + load more (page index based)',
+            Icons.format_list_numbered,
+            Colors.blueGrey,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const InfiniteListPageNumberPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildExampleCard(
+            context,
+            'Infinite - Cursor',
+            'Cursor-based pagination demo',
+            Icons.swap_horiz,
+            Colors.deepPurple,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const InfiniteListCursorPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildExampleCard(
+            context,
+            'Load More Button',
+            'Manual load more UX',
+            Icons.add_circle_outline,
+            Colors.brown,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const InfiniteListLoadMorePage()),
             ),
           ),
         ],

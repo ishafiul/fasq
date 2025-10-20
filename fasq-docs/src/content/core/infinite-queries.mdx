@@ -1,0 +1,64 @@
+import { Tabs, Tab } from 'nextra/components'
+
+# Infinite Queries
+
+Infinite queries manage a list of pages with next/previous fetching, per-page errors, and memory caps.
+
+## API
+
+```ts
+InfiniteQueryOptions<TData, TParam> {
+  getNextPageParam?: (pages, lastPageData) => TParam | null
+  getPreviousPageParam?: (pages, firstPageData) => TParam | null
+  maxPages?: number
+}
+```
+
+## Pagination Strategies
+
+- Page-number: `PageNumberPagination(startAt, pageSize)` → `getNextPageParam`
+- Cursor: `CursorPagination(nextSelector, prevSelector?)`
+
+## Examples
+
+<Tabs items={['Hooks', 'Bloc', 'Riverpod']}>
+  <Tab>
+
+```dart
+final state = useInfiniteQuery<List<Post>, int>(
+  'posts',
+  (page) => api.fetchPosts(page: page),
+  InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+    maxPages: 5,
+  ),
+);
+```
+  </Tab>
+  <Tab>
+
+```dart
+final cubit = InfiniteQueryCubit<List<Post>, int>(
+  key: 'posts',
+  queryFn: (page) => api.fetchPosts(page: page),
+  options: InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  ),
+);
+```
+  </Tab>
+  <Tab>
+
+```dart
+final provider = infiniteQueryProvider<List<Post>, int>(
+  'posts',
+  (page) => api.fetchPosts(page: page),
+  options: InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  ),
+);
+```
+  </Tab>
+</Tabs>
+
+

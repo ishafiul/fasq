@@ -5,6 +5,7 @@ export default {
   'query-client': 'QueryClient',
   'query-state': 'QueryState',
   'query-options': 'QueryOptions',
+  'infinite-queries': 'Infinite Queries',
   'cache-configuration': 'Cache Configuration',
   'cache-invalidation': 'Cache Invalidation',
   'error-handling': 'Error Handling',

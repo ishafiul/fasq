@@ -18,7 +18,7 @@ This monorepo contains the following packages:
 - **[fasq_riverpod](./packages/fasq_riverpod/)** - Riverpod adapter (queryProvider, mutationProvider)
 
 ### Examples
-- **[fasq_example](./examples/fasq_example/)** - Comprehensive examples with caching, mutations, and forms
+- **[fasq_example](./examples/fasq_example/)** - Comprehensive examples with caching, mutations, forms, and infinite queries
 
 ## 🚀 Getting Started
 
@@ -155,11 +155,11 @@ See the [PRD folder](./prd/) for comprehensive product requirements and implemen
 - ✅ **Thread Safe** - Concurrent access protection with async locks
 - ✅ **Type Safe** - Full generic type support
 
-## 🔄 Features (Planned - Phases 4-5)
+## 🔄 Features (Phases 4-5)
 
 **Phase 4 - Advanced Features:**
 
-- 🔄 **Infinite Queries** - Pagination and infinite scroll with memory management
+- ✅ **Infinite Queries** - Pagination and infinite scroll with memory management
 - 🔄 **Dependent Queries** - Type-safe query dependencies and chaining
 - 🔄 **Optimistic Updates** - Advanced optimistic UI with automatic rollback
 - 🔄 **Offline Mutation Queue** - Persist mutations offline and sync when online
@@ -196,11 +196,33 @@ you can already build:
 - Migrate between adapters incrementally
 - Share query state across architecture boundaries
 
-**🔄 Coming in Phase 4:**
+**New in Phase 4:**
 - Infinite scroll (social feeds, product catalogs)
-- Offline-first with mutation queues
-- Complex query dependencies
-- Advanced optimistic updates
+
+### Infinite Queries (overview)
+
+```dart
+// Hooks
+final state = useInfiniteQuery<List<Post>, int>(
+  'posts',
+  (page) => api.fetchPosts(page: page),
+  InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  ),
+);
+
+// Bloc
+final cubit = InfiniteQueryCubit<List<Post>, int>(
+  key: 'posts',
+  queryFn: (page) => api.fetchPosts(page: page),
+);
+
+// Riverpod
+final provider = infiniteQueryProvider<List<Post>, int>(
+  'posts',
+  (page) => api.fetchPosts(page: page),
+);
+```
 
 ## 🤝 Contributing
 
