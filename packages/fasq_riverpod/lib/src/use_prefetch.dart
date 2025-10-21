@@ -11,14 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///     ref.prefetchQueries([
 ///       PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
 ///     ]);
-///     
+///
 ///     return YourWidget();
 ///   }
 /// }
 /// ```
 void usePrefetch(WidgetRef ref, List<PrefetchConfig> configs) {
   final client = QueryClient();
-  
+
   // Use a simple approach without hooks since hooks_riverpod isn't available
   client.prefetchQueries(configs);
 }

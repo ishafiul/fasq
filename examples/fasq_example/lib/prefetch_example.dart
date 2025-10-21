@@ -45,7 +45,8 @@ class _PrefetchExampleState extends State<PrefetchExample> {
                       children: [
                         const Text(
                           'Users (Hover to Prefetch)',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 12),
                         Expanded(
@@ -72,7 +73,8 @@ class _PrefetchExampleState extends State<PrefetchExample> {
                       children: [
                         const Text(
                           'Prefetch Status',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 12),
                         Expanded(
@@ -87,12 +89,14 @@ class _PrefetchExampleState extends State<PrefetchExample> {
                               children: [
                                 Text(
                                   'Selected User: ${_selectedUser ?? 'None'}',
-                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w500),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Prefetched Data: ${_prefetchedData ?? 'None'}',
-                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w500),
                                 ),
                                 const SizedBox(height: 16),
                                 const Text(
@@ -141,7 +145,7 @@ class _PrefetchExampleState extends State<PrefetchExample> {
           staleTime: Duration(seconds: 30),
         ),
       );
-      
+
       if (mounted) {
         setState(() {
           _prefetchedData = 'User $userId data prefetched';
@@ -160,7 +164,7 @@ class _PrefetchExampleState extends State<PrefetchExample> {
     setState(() {
       _selectedUser = userId;
     });
-    
+
     // Show a dialog to simulate navigation
     showDialog(
       context: context,
@@ -242,7 +246,8 @@ class _UserCardState extends State<_UserCard> {
                       Text(
                         _isHovered ? 'Prefetching...' : 'Hover to prefetch',
                         style: TextStyle(
-                          color: _isHovered ? Colors.blue[600] : Colors.grey[600],
+                          color:
+                              _isHovered ? Colors.blue[600] : Colors.grey[600],
                           fontSize: 12,
                         ),
                       ),
@@ -360,7 +365,7 @@ class _CacheStatusState extends State<_CacheStatus> {
       builder: (context, snapshot) {
         final cache = widget.client.cache;
         final entries = <String, dynamic>{};
-        
+
         // Get cache entries (this is a simplified view)
         for (int i = 1; i <= 5; i++) {
           final key = 'user-user-$i';
@@ -386,7 +391,7 @@ class _CacheStatusState extends State<_CacheStatus> {
           itemBuilder: (context, index) {
             final entry = entries.entries.elementAt(index);
             final data = entry.value;
-            
+
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(8),
@@ -411,7 +416,9 @@ class _CacheStatusState extends State<_CacheStatus> {
                   Text(
                     'Status: ${data['isStale'] ? 'Stale' : 'Fresh'}',
                     style: TextStyle(
-                      color: data['isStale'] ? Colors.orange[700] : Colors.green[700],
+                      color: data['isStale']
+                          ? Colors.orange[700]
+                          : Colors.green[700],
                       fontSize: 10,
                     ),
                   ),
