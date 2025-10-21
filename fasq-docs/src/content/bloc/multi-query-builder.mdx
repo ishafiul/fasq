@@ -1,0 +1,447 @@
+# MultiQueryBuilder Widget
+
+Execute multiple queries in parallel with the Bloc adapter using a single widget.
+
+## Basic Usage
+
+```dart
+import 'package:fasq_bloc/fasq_bloc.dart';
+
+class Dashboard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiQueryBuilder(
+      configs: [
+        MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
+        MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+        MultiQueryConfig(key: 'comments', queryFn: () => api.fetchComments()),
+      ],
+      builder: (context, state) {
+        return Column(
+          children: [
+            UsersList(state.getState<List<User>>(0)),
+            PostsList(state.getState<List<Post>>(1)),
+            CommentsList(state.getState<List<Comment>>(2)),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+## API Reference
+
+### MultiQueryBuilder
+
+```dart
+class MultiQueryBuilder extends StatefulWidget {
+  final List<MultiQueryConfig> configs;
+  final Widget Function(BuildContext context, MultiQueryState state) builder;
+  
+  const MultiQueryBuilder({
+    super.key,
+    required this.configs,
+    required this.builder,
+  });
+}
+```
+
+**Parameters:**
+- `configs`: List of query configurations
+- `builder`: Function that receives the combined state and returns a widget
+
+### MultiQueryConfig
+
+```dart
+class MultiQueryConfig {
+  final String key;
+  final Future<dynamic> Function() queryFn;
+  final QueryOptions? options;
+  
+  const MultiQueryConfig({
+    required this.key,
+    required this.queryFn,
+    this.options,
+  });
+}
+```
+
+**Parameters:**
+- `key`: Unique identifier for the query
+- `queryFn`: Function that returns a Future with the data
+- `options`: Optional query configuration
+
+### MultiQueryState
+
+```dart
+class MultiQueryState {
+  final List<QueryState<dynamic>> states;
+  
+  // Helper methods
+  bool get isAllLoading;
+  bool get isAnyLoading;
+  bool get isAllSuccess;
+  bool get hasAnyError;
+  bool get isAllData;
+  
+  QueryState<T> getState<T>(int index);
+  int get length;
+}
+```
+
+## State Management
+
+### Built-in Helper Methods
+
+```dart
+MultiQueryBuilder(
+  builder: (context, state) {
+    // Check if all queries are loading
+    if (state.isAllLoading) {
+      return const CircularProgressIndicator();
+    }
+    
+    // Check if any query is loading
+    if (state.isAnyLoading) {
+      return const PartialLoadingWidget();
+    }
+    
+    // Check if all queries succeeded
+    if (state.isAllSuccess) {
+      return const SuccessWidget();
+    }
+    
+    // Check if any query has error
+    if (state.hasAnyError) {
+      return const ErrorWidget();
+    }
+    
+    // Check if all queries have data
+    if (state.isAllData) {
+      return const DataWidget();
+    }
+    
+    return const SizedBox();
+  },
+)
+```
+
+### Accessing Individual States
+
+```dart
+MultiQueryBuilder(
+  configs: configs,
+  builder: (context, state) {
+    // Access by index with type safety
+    final userState = state.getState<List<User>>(0);
+    final postState = state.getState<List<Post>>(1);
+    final commentState = state.getState<List<Comment>>(2);
+    
+    return Column(
+      children: [
+        UserList(userState),
+        PostList(postState),
+        CommentList(commentState),
+      ],
+    );
+  },
+)
+```
+
+## Advanced Patterns
+
+### Conditional Queries
+
+```dart
+class ConditionalDashboard extends StatelessWidget {
+  final bool loadComments;
+  
+  const ConditionalDashboard({required this.loadComments});
+  
+  @override
+  Widget build(BuildContext context) {
+    final configs = [
+      MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
+      MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+      if (loadComments)
+        MultiQueryConfig(key: 'comments', queryFn: () => api.fetchComments()),
+    ];
+    
+    return MultiQueryBuilder(
+      configs: configs,
+      builder: (context, state) {
+        return Column(
+          children: [
+            UserList(state.getState<List<User>>(0)),
+            PostList(state.getState<List<Post>>(1)),
+            if (loadComments) 
+              CommentList(state.getState<List<Comment>>(2)),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+### Error Handling
+
+```dart
+class ErrorHandlingDashboard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiQueryBuilder(
+      configs: [
+        MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
+        MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+        MultiQueryConfig(key: 'comments', queryFn: () => api.fetchComments()),
+      ],
+      builder: (context, state) {
+        return Column(
+          children: [
+            // Show error banner if any query failed
+            if (state.hasAnyError)
+              ErrorBanner(
+                onRetry: () {
+                  // Retry all failed queries
+                  for (int i = 0; i < state.length; i++) {
+                    final queryState = state.getState(i);
+                    if (queryState.hasError) {
+                      queryState.refetch();
+                    }
+                  }
+                },
+              ),
+            
+            // Show loading indicator if any query is loading
+            if (state.isAnyLoading) const LinearProgressIndicator(),
+            
+            // Show data for successful queries
+            if (state.getState<List<User>>(0).hasData)
+              UserList(state.getState<List<User>>(0)),
+            if (state.getState<List<Post>>(1).hasData)
+              PostList(state.getState<List<Post>>(1)),
+            if (state.getState<List<Comment>>(2).hasData)
+              CommentList(state.getState<List<Comment>>(2)),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+### Partial Loading States
+
+```dart
+class PartialLoadingDashboard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiQueryBuilder(
+      configs: [
+        MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
+        MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+        MultiQueryConfig(key: 'comments', queryFn: () => api.fetchComments()),
+      ],
+      builder: (context, state) {
+        return Column(
+          children: [
+            // Show individual loading states
+            UserSection(
+              state: state.getState<List<User>>(0),
+              isLoading: state.getState<List<User>>(0).isLoading,
+            ),
+            PostSection(
+              state: state.getState<List<Post>>(1),
+              isLoading: state.getState<List<Post>>(1).isLoading,
+            ),
+            CommentSection(
+              state: state.getState<List<Comment>>(2),
+              isLoading: state.getState<List<Comment>>(2).isLoading,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+## Performance Tips
+
+### Stable Config Lists
+
+```dart
+class Dashboard extends StatelessWidget {
+  // ✅ Good: Static config list
+  static const _configs = [
+    MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
+    MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+  ];
+  
+  @override
+  Widget build(BuildContext context) {
+    return MultiQueryBuilder(
+      configs: _configs,
+      builder: (context, state) => DataWidget(state),
+    );
+  }
+}
+
+// ❌ Avoid: Creating new list on each build
+class Dashboard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiQueryBuilder(
+      configs: [
+        MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
+        MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+      ],
+      builder: (context, state) => DataWidget(state),
+    );
+  }
+}
+```
+
+### Memoized Configs
+
+```dart
+class DynamicDashboard extends StatefulWidget {
+  final List<String> userIds;
+  
+  const DynamicDashboard({required this.userIds});
+  
+  @override
+  State<DynamicDashboard> createState() => _DynamicDashboardState();
+}
+
+class _DynamicDashboardState extends State<DynamicDashboard> {
+  late final List<MultiQueryConfig> _configs;
+  
+  @override
+  void initState() {
+    super.initState();
+    _configs = widget.userIds.map((id) => 
+      MultiQueryConfig(key: 'user-$id', queryFn: () => api.fetchUser(id))
+    ).toList();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return MultiQueryBuilder(
+      configs: _configs,
+      builder: (context, state) {
+        return Column(
+          children: widget.userIds.asMap().entries.map((entry) {
+            final index = entry.key;
+            final userId = entry.value;
+            final userState = state.getState<User>(index);
+            
+            return UserCard(
+              userId: userId,
+              state: userState,
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+```
+
+## Testing
+
+```dart
+testWidgets('MultiQueryBuilder executes all queries', (tester) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      home: MultiQueryBuilder(
+        configs: [
+          MultiQueryConfig(key: 'query1', queryFn: () => Future.value('data1')),
+          MultiQueryConfig(key: 'query2', queryFn: () => Future.value('data2')),
+        ],
+        builder: (context, state) {
+          return Column(
+            children: [
+              Text(state.getState<String>(0).data ?? 'loading'),
+              Text(state.getState<String>(1).data ?? 'loading'),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+  
+  await tester.pumpAndSettle();
+  
+  expect(find.text('data1'), findsOneWidget);
+  expect(find.text('data2'), findsOneWidget);
+});
+```
+
+## Common Pitfalls
+
+### 1. Index Out of Bounds
+
+```dart
+// ❌ Bad: Assumes index exists
+MultiQueryBuilder(
+  configs: configs,
+  builder: (context, state) {
+    return Text(state.getState<String>(5).data ?? 'loading'); // Could crash
+  },
+)
+
+// ✅ Good: Check bounds
+MultiQueryBuilder(
+  configs: configs,
+  builder: (context, state) {
+    if (state.length <= 5) return const SizedBox();
+    return Text(state.getState<String>(5).data ?? 'loading');
+  },
+)
+```
+
+### 2. Not Handling Empty Configs
+
+```dart
+// ❌ Bad: No handling for empty configs
+MultiQueryBuilder(
+  configs: [],
+  builder: (context, state) {
+    return DataWidget(state.getState(0)); // Will crash
+  },
+)
+
+// ✅ Good: Handle empty configs
+MultiQueryBuilder(
+  configs: configs,
+  builder: (context, state) {
+    if (state.length == 0) return const SizedBox();
+    return DataWidget(state.getState(0));
+  },
+)
+```
+
+### 3. Ignoring State Helpers
+
+```dart
+// ❌ Bad: Manual state checking
+MultiQueryBuilder(
+  builder: (context, state) {
+    final allLoading = state.states.every((s) => s.isLoading);
+    final anyError = state.states.any((s) => s.hasError);
+    // ... manual checks
+  },
+)
+
+// ✅ Good: Use built-in helpers
+MultiQueryBuilder(
+  builder: (context, state) {
+    if (state.isAllLoading) return CircularProgressIndicator();
+    if (state.hasAnyError) return ErrorWidget();
+    // ... use helpers
+  },
+)
+```

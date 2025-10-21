@@ -2,6 +2,7 @@ const meta = {
   index: 'Overview',
   'query-provider': 'queryProvider',
   'infinite-query-provider': 'infiniteQueryProvider',
+  'combining-queries': 'Combining Queries',
   'dependent-queries': 'Dependent Queries',
   'mutation-provider': 'mutationProvider',
   'offline-queue': 'Offline Queue',

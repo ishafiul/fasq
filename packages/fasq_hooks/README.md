@@ -7,6 +7,7 @@ Flutter Hooks adapter for FASQ (Flutter Async State Query) - bringing powerful a
 - 🎣 **`useQuery`** - Declarative data fetching with hooks
 - ♾️ **`useInfiniteQuery`** - Infinite queries for pagination and load-more
 - 🔄 **`useMutation`** - Server mutations made simple
+- 🔀 **`useQueries`** - Execute multiple queries in parallel
 - 🚀 **Automatic caching** - Built on FASQ's production-ready cache
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
 - 🎯 **Type-safe** - Full TypeScript-like type safety
@@ -33,6 +34,29 @@ final posts = useInfiniteQuery<List<Post>, int>(
 if (posts.hasNextPage) {
   // trigger load more
 }
+```
+
+### Parallel Queries
+
+```dart
+final queries = useQueries([
+  QueryConfig('users', () => api.fetchUsers()),
+  QueryConfig('posts', () => api.fetchPosts()),
+  QueryConfig('comments', () => api.fetchComments()),
+]);
+
+final allLoaded = queries.every((q) => q.hasData);
+final anyError = queries.any((q) => q.hasError);
+
+return Column(
+  children: [
+    if (!allLoaded) LinearProgressIndicator(),
+    if (anyError) ErrorBanner(),
+    UsersList(queries[0]),
+    PostsList(queries[1]),
+    CommentsList(queries[2]),
+  ],
+);
 ```
 
 ### Dependent Queries

@@ -1,0 +1,329 @@
+# useQueries Hook
+
+Execute multiple queries in parallel with the Hooks adapter.
+
+## Basic Usage
+
+```dart
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+class Dashboard extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queries = useQueries([
+      QueryConfig('users', () => api.fetchUsers()),
+      QueryConfig('posts', () => api.fetchPosts()),
+      QueryConfig('comments', () => api.fetchComments()),
+    ]);
+    
+    return Column(
+      children: [
+        UsersList(queries[0]),
+        PostsList(queries[1]),
+        CommentsList(queries[2]),
+      ],
+    );
+  }
+}
+```
+
+## API Reference
+
+### useQueries
+
+```dart
+List<QueryState<dynamic>> useQueries(List<QueryConfig> configs)
+```
+
+**Parameters:**
+- `configs`: List of query configurations
+
+**Returns:**
+- `List<QueryState<dynamic>>`: Array of query states corresponding to each config
+
+### QueryConfig
+
+```dart
+class QueryConfig<T> {
+  final String key;
+  final Future<T> Function() queryFn;
+  final QueryOptions? options;
+  
+  const QueryConfig(this.key, this.queryFn, {this.options});
+}
+```
+
+**Parameters:**
+- `key`: Unique identifier for the query
+- `queryFn`: Function that returns a Future with the data
+- `options`: Optional query configuration
+
+## State Management
+
+### Checking Aggregate States
+
+```dart
+final queries = useQueries(configs);
+
+// All queries have data
+final allLoaded = queries.every((q) => q.hasData);
+
+// Any query is loading
+final anyLoading = queries.any((q) => q.isLoading);
+
+// Any query has error
+final hasError = queries.any((q) => q.hasError);
+
+// All queries successful
+final allSuccess = queries.every((q) => q.isSuccess);
+```
+
+### Accessing Individual States
+
+```dart
+final queries = useQueries(configs);
+
+// Access by index
+final userState = queries[0];
+final postState = queries[1];
+final commentState = queries[2];
+
+// Type-safe access
+final userState = queries[0] as QueryState<List<User>>;
+final postState = queries[1] as QueryState<List<Post>>;
+```
+
+## Advanced Patterns
+
+### Conditional Queries
+
+```dart
+class ConditionalDashboard extends HookWidget {
+  final bool loadComments;
+  
+  const ConditionalDashboard({required this.loadComments});
+  
+  @override
+  Widget build(BuildContext context) {
+    final configs = [
+      QueryConfig('users', () => api.fetchUsers()),
+      QueryConfig('posts', () => api.fetchPosts()),
+      if (loadComments)
+        QueryConfig('comments', () => api.fetchComments()),
+    ];
+    
+    final queries = useQueries(configs);
+    
+    return Column(
+      children: [
+        UsersList(queries[0]),
+        PostsList(queries[1]),
+        if (loadComments) CommentsList(queries[2]),
+      ],
+    );
+  }
+}
+```
+
+### Dynamic Query Lists
+
+```dart
+class DynamicDashboard extends HookWidget {
+  final List<String> userIds;
+  
+  const DynamicDashboard({required this.userIds});
+  
+  @override
+  Widget build(BuildContext context) {
+    final configs = userIds.map((id) => 
+      QueryConfig('user-$id', () => api.fetchUser(id))
+    ).toList();
+    
+    final queries = useQueries(configs);
+    
+    return Column(
+      children: queries.asMap().entries.map((entry) {
+        final index = entry.key;
+        final state = entry.value;
+        final userId = userIds[index];
+        
+        return UserCard(
+          userId: userId,
+          state: state,
+        );
+      }).toList(),
+    );
+  }
+}
+```
+
+### Error Handling
+
+```dart
+class ErrorHandlingDashboard extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queries = useQueries([
+      QueryConfig('users', () => api.fetchUsers()),
+      QueryConfig('posts', () => api.fetchPosts()),
+      QueryConfig('comments', () => api.fetchComments()),
+    ]);
+    
+    final hasError = queries.any((q) => q.hasError);
+    final errorQueries = queries.where((q) => q.hasError).toList();
+    
+    return Column(
+      children: [
+        if (hasError) 
+          ErrorBanner(
+            errors: errorQueries.map((q) => q.error).toList(),
+            onRetry: () {
+              for (final query in errorQueries) {
+                query.refetch();
+              }
+            },
+          ),
+        
+        // Show successful queries
+        ...queries.where((q) => q.hasData).map((q) => 
+          DataWidget(state: q)
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Performance Tips
+
+### Stable Query Keys
+
+```dart
+// ✅ Good: Stable keys
+final queries = useQueries([
+  QueryConfig('users', () => api.fetchUsers()),
+  QueryConfig('posts', () => api.fetchPosts()),
+]);
+
+// ❌ Avoid: Dynamic keys that change on each render
+final queries = useQueries([
+  QueryConfig('users-${DateTime.now()}', () => api.fetchUsers()),
+  QueryConfig('posts-${DateTime.now()}', () => api.fetchPosts()),
+]);
+```
+
+### Memoized Configs
+
+```dart
+class MemoizedDashboard extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    // Memoize configs to prevent unnecessary re-execution
+    final configs = useMemoized(() => [
+      QueryConfig('users', () => api.fetchUsers()),
+      QueryConfig('posts', () => api.fetchPosts()),
+    ], []);
+    
+    final queries = useQueries(configs);
+    
+    return Column(
+      children: [
+        UsersList(queries[0]),
+        PostsList(queries[1]),
+      ],
+    );
+  }
+}
+```
+
+## Testing
+
+```dart
+testWidgets('useQueries executes all queries', (tester) async {
+  await tester.pumpWidget(
+    HookBuilder(
+      builder: (context) {
+        final queries = useQueries([
+          QueryConfig('query1', () => Future.value('data1')),
+          QueryConfig('query2', () => Future.value('data2')),
+        ]);
+        
+        return Column(
+          children: queries.map((q) => 
+            Text(q.data?.toString() ?? 'loading')
+          ).toList(),
+        );
+      },
+    ),
+  );
+  
+  await tester.pumpAndSettle();
+  
+  expect(find.text('data1'), findsOneWidget);
+  expect(find.text('data2'), findsOneWidget);
+});
+```
+
+## Common Pitfalls
+
+### 1. Changing Config Array Reference
+```dart
+// ❌ Bad: Creates new array on each render
+Widget build(BuildContext context) {
+  final queries = useQueries([
+    QueryConfig('users', () => api.fetchUsers()),
+    QueryConfig('posts', () => api.fetchPosts()),
+  ]);
+}
+
+// ✅ Good: Stable array reference
+class Dashboard extends HookWidget {
+  static const _configs = [
+    QueryConfig('users', () => api.fetchUsers()),
+    QueryConfig('posts', () => api.fetchPosts()),
+  ];
+  
+  @override
+  Widget build(BuildContext context) {
+    final queries = useQueries(_configs);
+  }
+}
+```
+
+### 2. Not Handling Empty States
+```dart
+// ❌ Bad: Assumes queries always exist
+Widget build(BuildContext context) {
+  final queries = useQueries(configs);
+  return UsersList(queries[0]); // Could crash if configs is empty
+}
+
+// ✅ Good: Handle empty states
+Widget build(BuildContext context) {
+  final queries = useQueries(configs);
+  if (queries.isEmpty) return const SizedBox();
+  return UsersList(queries[0]);
+}
+```
+
+### 3. Ignoring Loading States
+```dart
+// ❌ Bad: No loading indication
+Widget build(BuildContext context) {
+  final queries = useQueries(configs);
+  return Column(
+    children: queries.map((q) => DataWidget(q)).toList(),
+  );
+}
+
+// ✅ Good: Show loading states
+Widget build(BuildContext context) {
+  final queries = useQueries(configs);
+  return Column(
+    children: [
+      if (queries.any((q) => q.isLoading)) LinearProgressIndicator(),
+      ...queries.map((q) => DataWidget(q)),
+    ],
+  );
+}
+```

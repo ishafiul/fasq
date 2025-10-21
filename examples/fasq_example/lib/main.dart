@@ -9,6 +9,7 @@ import 'infinite_list_load_more.dart';
 import 'dependent_queries_user_posts.dart';
 import 'offline_queue_todos.dart';
 import 'multi_api_offline_queue.dart';
+import 'parallel_queries_dashboard.dart';
 
 void main() {
   runApp(const MyApp());
@@ -207,6 +208,29 @@ class ExampleHomePage extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const DependentQueriesUserPostsPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Parallel Queries',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Execute multiple queries simultaneously across all adapters',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          _buildExampleCard(
+            context,
+            'Parallel Queries Dashboard',
+            'Users, posts, comments loading in parallel',
+            Icons.dashboard,
+            Colors.indigo,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const ParallelQueriesDashboardPage()),
             ),
           ),
           const SizedBox(height: 12),
