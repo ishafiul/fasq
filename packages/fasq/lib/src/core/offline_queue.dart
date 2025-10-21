@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 class OfflineMutationEntry {
   final String id;

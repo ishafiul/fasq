@@ -240,9 +240,104 @@ class SecureTokenWidget extends ConsumerWidget {
 }
 ```
 
-## Best Practices
+## Encryption Key Rotation
 
-### 1. Use Secure Entries for Sensitive Data
+For enhanced security, you can rotate encryption keys to re-encrypt all cached data with a new key:
+
+```dart
+// Get the persister from your QueryClient
+final persister = queryClient.persister as EncryptedCachePersister;
+
+// Update encryption key with progress tracking
+await persister.updateEncryptionKey(
+  newEncryptionKey,
+  onProgress: (current, total) {
+    print('Re-encrypting: $current/$total');
+    // Update UI progress indicator
+  },
+);
+```
+
+### Key Rotation Process
+
+The key rotation process is atomic and safe:
+
+1. **Validates new key** - Ensures the new key format is correct
+2. **Retrieves all cached data** - Gets all existing encrypted entries
+3. **Re-encrypts data** - Decrypts with old key, encrypts with new key
+4. **Updates stored key** - Only after successful re-encryption
+5. **Persists new data** - Writes all re-encrypted data
+6. **Cleans up failures** - Removes any data that couldn't be re-encrypted
+
+### Safety Features
+
+- ✅ **Atomic operation** - Key only updated after successful re-encryption
+- ✅ **Rollback on failure** - Old key restored if process fails
+- ✅ **Graceful degradation** - Continues if individual entries fail
+- ✅ **Progress tracking** - Optional callback for UI feedback
+- ✅ **Early exit** - No operation if key hasn't changed
+
+### When to Rotate Keys
+
+Rotate encryption keys:
+- **Regular intervals** - Monthly or quarterly for high-security apps
+- **Security incidents** - After suspected data breaches
+- **Key compromise** - If encryption key is exposed
+- **Policy changes** - When security requirements change
+
+### Best Practices for Key Rotation
+
+```dart
+// ✅ Good - Rotate during maintenance window
+Future<void> rotateEncryptionKey() async {
+  try {
+    // Show loading indicator
+    showLoadingDialog('Rotating encryption key...');
+    
+    await persister.updateEncryptionKey(
+      generateNewEncryptionKey(),
+      onProgress: (current, total) {
+        updateProgressDialog(current, total);
+      },
+    );
+    
+    // Success
+    showSuccessMessage('Encryption key rotated successfully');
+  } catch (e) {
+    // Handle failure
+    showErrorMessage('Failed to rotate key: $e');
+  } finally {
+    hideLoadingDialog();
+  }
+}
+
+// ❌ Bad - Don't rotate during active usage
+Future<void> badKeyRotation() async {
+  // This could cause data loss if app terminates during rotation
+  await persister.updateEncryptionKey(newKey);
+}
+```
+
+### Important Warnings
+
+⚠️ **Process Duration**: Key rotation can take time for large datasets
+⚠️ **App Termination**: Don't terminate the app during key rotation
+⚠️ **Network Impact**: Cache may be temporarily unavailable during rotation
+⚠️ **Maintenance Window**: Consider rotating during low-usage periods
+
+### Error Handling
+
+```dart
+try {
+  await persister.updateEncryptionKey(newKey);
+} on EncryptionException catch (e) {
+  // Invalid key format
+  print('Invalid key: $e');
+} on PersistenceException catch (e) {
+  // Re-encryption failed, old key restored
+  print('Rotation failed: $e');
+}
+```
 
 Always mark sensitive data as secure:
 
