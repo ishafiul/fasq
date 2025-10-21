@@ -38,7 +38,10 @@ if (posts.hasNextPage) {
 
 ### Parallel Queries
 
+Execute multiple queries in parallel using `useQueries` or `useNamedQueries`:
+
 ```dart
+// Index-based access
 final queries = useQueries([
   QueryConfig('users', () => api.fetchUsers()),
   QueryConfig('posts', () => api.fetchPosts()),
@@ -55,6 +58,26 @@ return Column(
     UsersList(queries[0]),
     PostsList(queries[1]),
     CommentsList(queries[2]),
+  ],
+);
+
+// Named access (better DX)
+final queries = useNamedQueries([
+  NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
+  NamedQueryConfig(name: 'posts', key: 'posts', queryFn: () => api.fetchPosts()),
+  NamedQueryConfig(name: 'comments', key: 'comments', queryFn: () => api.fetchComments()),
+]);
+
+final allLoaded = queries.values.every((q) => q.hasData);
+final anyError = queries.values.any((q) => q.hasError);
+
+return Column(
+  children: [
+    if (!allLoaded) LinearProgressIndicator(),
+    if (anyError) ErrorBanner(),
+    UsersList(queries['users']!),
+    PostsList(queries['posts']!),
+    CommentsList(queries['comments']!),
   ],
 );
 ```
