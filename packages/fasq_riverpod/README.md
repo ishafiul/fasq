@@ -52,27 +52,51 @@ class Posts extends ConsumerWidget {
 
 ### Parallel Queries with combineQueries
 
+Execute multiple queries in parallel using `combineQueries` or `combineNamedQueries`:
+
 ```dart
-// Define individual providers
+// Index-based access
 final usersProvider = queryProvider('users', () => api.fetchUsers());
 final postsProvider = queryProvider('posts', () => api.fetchPosts());
 final commentsProvider = queryProvider('comments', () => api.fetchComments());
-
-// Combine providers
-final dashboardProvider = combineQueries3(usersProvider, postsProvider, commentsProvider);
+final dashboardProvider = combineQueries([usersProvider, postsProvider, commentsProvider]);
 
 class Dashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final combined = ref.watch(dashboardProvider);
-    
+
     return Column(
       children: [
         if (!combined.isAllSuccess) LinearProgressIndicator(),
         if (combined.hasAnyError) ErrorBanner(),
-        UsersList(combined.state1),
-        PostsList(combined.state2),
-        CommentsList(combined.state3),
+        UsersList(combined.getState<List<User>>(0)),
+        PostsList(combined.getState<List<Post>>(1)),
+        CommentsList(combined.getState<List<Comment>>(2)),
+      ],
+    );
+  }
+}
+
+// Named access (better DX)
+final dashboardProvider = combineNamedQueries({
+  'users': usersProvider,
+  'posts': postsProvider,
+  'comments': commentsProvider,
+});
+
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(dashboardProvider);
+
+    return Column(
+      children: [
+        if (!combined.isAllSuccess) LinearProgressIndicator(),
+        if (combined.hasAnyError) ErrorBanner(),
+        UsersList(combined.getState<List<User>>('users')),
+        PostsList(combined.getState<List<Post>>('posts')),
+        CommentsList(combined.getState<List<Comment>>('comments')),
       ],
     );
   }
