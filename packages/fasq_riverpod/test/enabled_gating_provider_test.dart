@@ -13,7 +13,7 @@ void main() {
         calls++;
         return 'ok';
       },
-      options: const QueryOptions(enabled: false),
+      options: QueryOptions(enabled: false),
     );
 
     final container = ProviderContainer();
@@ -23,4 +23,3 @@ void main() {
     expect(calls, 0);
   });
 }
-
