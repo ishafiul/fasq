@@ -1,11 +1,17 @@
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
+
 import '../cache/cache_config.dart';
 import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
+import '../persistence/persistence_options.dart';
 import 'query.dart';
 import 'query_options.dart';
 import 'infinite_query.dart';
 import 'infinite_query_options.dart';
 import 'prefetch_config.dart';
+import 'validation/input_validator.dart';
 
 /// Global registry for all queries in the application.
 ///
@@ -23,17 +29,30 @@ import 'prefetch_config.dart';
 /// // Later, retrieve the same query
 /// final sameQuery = client.getQueryByKey<User>('user');
 /// ```
-class QueryClient {
+class QueryClient with WidgetsBindingObserver {
   static QueryClient? _instance;
 
   /// Returns the singleton instance of [QueryClient].
-  factory QueryClient({CacheConfig? config}) {
-    _instance ??= QueryClient._internal(config: config);
+  factory QueryClient({
+    CacheConfig? config,
+    PersistenceOptions? persistenceOptions,
+  }) {
+    _instance ??= QueryClient._internal(
+      config: config,
+      persistenceOptions: persistenceOptions,
+    );
     return _instance!;
   }
 
-  QueryClient._internal({CacheConfig? config})
-      : _cache = QueryCache(config: config);
+  QueryClient._internal({
+    CacheConfig? config,
+    PersistenceOptions? persistenceOptions,
+  }) : _cache = QueryCache(
+          config: config,
+          persistenceOptions: persistenceOptions,
+        ) {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   final Map<String, Query> _queries = {};
   final Map<String, InfiniteQuery> _infiniteQueries = {};
@@ -60,6 +79,11 @@ class QueryClient {
     Future<T> Function() queryFn, {
     QueryOptions? options,
   }) {
+    InputValidator.validateQueryKey(key);
+    if (options != null) {
+      InputValidator.validateOptions(options);
+    }
+
     if (_queries.containsKey(key)) {
       final existing = _queries[key]! as Query<T>;
       if (!existing.isDisposed) {
@@ -120,6 +144,7 @@ class QueryClient {
   /// }
   /// ```
   Query<T>? getQueryByKey<T>(String key) {
+    InputValidator.validateQueryKey(key);
     return _queries[key] as Query<T>?;
   }
 
@@ -132,6 +157,7 @@ class QueryClient {
   ///
   /// The query is immediately disposed and removed from the registry.
   void removeQuery(String key) {
+    InputValidator.validateQueryKey(key);
     final query = _queries.remove(key);
     query?.dispose();
   }
@@ -174,6 +200,7 @@ class QueryClient {
   ///
   /// Removes the cache entry and triggers refetch if the query is active.
   void invalidateQuery(String key) {
+    InputValidator.validateQueryKey(key);
     _cache.invalidate(key);
     final query = _queries[key];
     if (query != null && query.referenceCount > 0) {
@@ -290,8 +317,15 @@ class QueryClient {
   /// Manually sets data in the cache.
   ///
   /// Useful for optimistic updates or pre-populating cache.
-  void setQueryData<T>(String key, T data) {
-    _cache.setData<T>(key, data);
+  void setQueryData<T>(String key, T data,
+      {bool isSecure = false, Duration? maxAge}) {
+    InputValidator.validateQueryKey(key);
+    InputValidator.validateCacheData(data);
+    if (maxAge != null) {
+      InputValidator.validateDuration(maxAge, 'maxAge');
+    }
+
+    _cache.setData<T>(key, data, isSecure: isSecure, maxAge: maxAge);
 
     final query = _queries[key];
     if (query != null) {
@@ -316,8 +350,33 @@ class QueryClient {
     return _cache.getCacheKeys();
   }
 
+  /// Clears all secure cache entries.
+  ///
+  /// Removes only entries marked as secure, leaving non-secure entries intact.
+  /// Useful for security-sensitive scenarios like logout or app backgrounding.
+  void clearSecureCache() {
+    _cache.clearSecureEntries();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        // Clear secure entries when app goes to background or is terminated
+        clearSecureCache();
+        break;
+      case AppLifecycleState.resumed:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        // No action needed for these states
+        break;
+    }
+  }
+
   /// Disposes the query client and cache.
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     clear();
     _cache.dispose();
   }
