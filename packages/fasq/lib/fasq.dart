@@ -21,6 +21,7 @@ export 'src/core/network_status.dart';
 export 'src/core/offline_queue.dart';
 export 'src/pagination/page_number_pagination.dart';
 export 'src/pagination/cursor_pagination.dart';
+export 'src/persistence/persistence_options.dart';
 export 'src/widgets/mutation_builder.dart';
 export 'src/widgets/query_builder.dart';
 export 'src/widgets/query_client_provider.dart';
