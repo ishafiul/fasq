@@ -93,6 +93,58 @@ final userState = queries[0] as QueryState<List<User>>;
 final postState = queries[1] as QueryState<List<Post>>;
 ```
 
+## Named Queries with useNamedQueries
+
+For better developer experience, you can use named queries with map-based access:
+
+```dart
+import 'package:fasq_hooks/fasq_hooks.dart';
+
+class Dashboard extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final queries = useNamedQueries([
+      NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
+      NamedQueryConfig(name: 'posts', key: 'posts', queryFn: () => api.fetchPosts()),
+      NamedQueryConfig(name: 'comments', key: 'comments', queryFn: () => api.fetchComments()),
+    ]);
+
+    final allLoaded = queries.values.every((q) => q.hasData);
+    final anyError = queries.values.any((q) => q.hasError);
+
+    return Column(
+      children: [
+        if (!allLoaded) LinearProgressIndicator(),
+        if (anyError) ErrorBanner(),
+        UsersList(queries['users']!),
+        PostsList(queries['posts']!),
+        CommentsList(queries['comments']!),
+      ],
+    );
+  }
+}
+```
+
+### NamedQueryConfig
+
+The `NamedQueryConfig` class provides configuration for named queries:
+
+```dart
+class NamedQueryConfig<T> {
+  final String name;        // Name identifier for this query
+  final String key;         // Unique identifier for this query
+  final Future<T> Function() queryFn;  // Function that returns a Future with the data
+  final QueryOptions? options;         // Optional configuration for this query
+}
+```
+
+### Benefits of Named Access
+
+- **Better DX**: Access queries by meaningful names instead of indices
+- **Type Safety**: Compile-time checking for query names
+- **Self-Documenting**: Code is more readable and maintainable
+- **Refactoring Safe**: Renaming queries updates all references
+
 ## Advanced Patterns
 
 ### Conditional Queries
