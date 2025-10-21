@@ -44,7 +44,10 @@ BlocProvider(
 
 ### Parallel Queries with MultiQueryBuilder
 
+Execute multiple queries in parallel using `MultiQueryBuilder` or `NamedMultiQueryBuilder`:
+
 ```dart
+// Index-based access
 MultiQueryBuilder(
   configs: [
     MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
@@ -59,6 +62,26 @@ MultiQueryBuilder(
         UsersList(state.getState<List<User>>(0)),
         PostsList(state.getState<List<Post>>(1)),
         CommentsList(state.getState<List<Comment>>(2)),
+      ],
+    );
+  },
+)
+
+// Named access (better DX)
+NamedMultiQueryBuilder(
+  configs: [
+    NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
+    NamedQueryConfig(name: 'posts', key: 'posts', queryFn: () => api.fetchPosts()),
+    NamedQueryConfig(name: 'comments', key: 'comments', queryFn: () => api.fetchComments()),
+  ],
+  builder: (context, state) {
+    return Column(
+      children: [
+        if (!state.isAllSuccess) LinearProgressIndicator(),
+        if (state.hasAnyError) ErrorBanner(),
+        UsersList(state.getState<List<User>>('users')),
+        PostsList(state.getState<List<Post>>('posts')),
+        CommentsList(state.getState<List<Comment>>('comments')),
       ],
     );
   },

@@ -2,138 +2,119 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fasq_riverpod/fasq_riverpod.dart';
 import 'package:fasq/fasq.dart';
 
-/// Combined state for two queries with helper methods.
-class CombinedQueryState2<T1, T2> {
-  /// State of the first query.
-  final QueryState<T1> state1;
+/// Combined state for multiple queries with helper methods.
+class CombinedQueriesState {
+  /// List of individual query states.
+  final List<QueryState<dynamic>> states;
 
-  /// State of the second query.
-  final QueryState<T2> state2;
+  const CombinedQueriesState(this.states);
 
-  const CombinedQueryState2(this.state1, this.state2);
-
-  /// True if both queries are currently loading.
-  bool get isAllLoading => state1.isLoading && state2.isLoading;
+  /// True if all queries are currently loading.
+  bool get isAllLoading => states.every((s) => s.isLoading);
 
   /// True if any query is currently loading.
-  bool get isAnyLoading => state1.isLoading || state2.isLoading;
+  bool get isAnyLoading => states.any((s) => s.isLoading);
 
-  /// True if both queries have completed successfully.
-  bool get isAllSuccess => state1.isSuccess && state2.isSuccess;
+  /// True if all queries have completed successfully.
+  bool get isAllSuccess => states.every((s) => s.isSuccess);
 
   /// True if any query has an error.
-  bool get hasAnyError => state1.hasError || state2.hasError;
+  bool get hasAnyError => states.any((s) => s.hasError);
 
-  /// True if both queries have data.
-  bool get isAllData => state1.hasData && state2.hasData;
+  /// True if all queries have data.
+  bool get isAllData => states.every((s) => s.hasData);
+
+  /// Gets the state for a specific query by index.
+  QueryState<T> getState<T>(int index) => states[index] as QueryState<T>;
+
+  /// Gets the number of queries.
+  int get length => states.length;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CombinedQueryState2<T1, T2> &&
-        other.state1 == state1 &&
-        other.state2 == state2;
+    return other is CombinedQueriesState &&
+        other.states.length == states.length &&
+        _listEquals(other.states, states);
   }
 
   @override
-  int get hashCode => Object.hash(state1, state2);
+  int get hashCode => states.hashCode;
+
+  bool _listEquals<T>(List<T> a, List<T> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 }
 
-/// Combined state for three queries with helper methods.
-class CombinedQueryState3<T1, T2, T3> {
-  /// State of the first query.
-  final QueryState<T1> state1;
+/// Named combined state for multiple queries with helper methods.
+class NamedQueriesState {
+  /// Map of query states by name.
+  final Map<String, QueryState<dynamic>> states;
 
-  /// State of the second query.
-  final QueryState<T2> state2;
+  const NamedQueriesState(this.states);
 
-  /// State of the third query.
-  final QueryState<T3> state3;
-
-  const CombinedQueryState3(this.state1, this.state2, this.state3);
-
-  /// True if all three queries are currently loading.
-  bool get isAllLoading =>
-      state1.isLoading && state2.isLoading && state3.isLoading;
+  /// True if all queries are currently loading.
+  bool get isAllLoading => states.values.every((s) => s.isLoading);
 
   /// True if any query is currently loading.
-  bool get isAnyLoading =>
-      state1.isLoading || state2.isLoading || state3.isLoading;
+  bool get isAnyLoading => states.values.any((s) => s.isLoading);
 
-  /// True if all three queries have completed successfully.
-  bool get isAllSuccess =>
-      state1.isSuccess && state2.isSuccess && state3.isSuccess;
+  /// True if all queries have completed successfully.
+  bool get isAllSuccess => states.values.every((s) => s.isSuccess);
 
   /// True if any query has an error.
-  bool get hasAnyError => state1.hasError || state2.hasError || state3.hasError;
+  bool get hasAnyError => states.values.any((s) => s.hasError);
 
-  /// True if all three queries have data.
-  bool get isAllData => state1.hasData && state2.hasData && state3.hasData;
+  /// True if all queries have data.
+  bool get isAllData => states.values.every((s) => s.hasData);
+
+  /// Gets the state for a specific query by name.
+  QueryState<T> getState<T>(String name) => states[name] as QueryState<T>;
+
+  /// Checks if a specific query is loading.
+  bool isLoading(String name) => states[name]?.isLoading ?? false;
+
+  /// Checks if a specific query has an error.
+  bool hasError(String name) => states[name]?.hasError ?? false;
+
+  /// Gets the number of queries.
+  int get length => states.length;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CombinedQueryState3<T1, T2, T3> &&
-        other.state1 == state1 &&
-        other.state2 == state2 &&
-        other.state3 == state3;
+    return other is NamedQueriesState &&
+        other.states.length == states.length &&
+        _mapEquals(other.states, states);
   }
 
   @override
-  int get hashCode => Object.hash(state1, state2, state3);
+  int get hashCode => states.hashCode;
+
+  bool _mapEquals<K, V>(Map<K, V> a, Map<K, V> b) {
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (!b.containsKey(key) || a[key] != b[key]) return false;
+    }
+    return true;
+  }
 }
 
-/// Helper to combine two query providers into a single provider.
+/// Helper to combine multiple query providers into a single provider.
 ///
-/// Returns a provider that watches both query providers and provides
-/// a CombinedQueryState2 with helper methods for checking aggregate states.
-///
-/// Example:
-/// ```dart
-/// final usersProvider = queryProvider('users', () => api.fetchUsers());
-/// final postsProvider = queryProvider('posts', () => api.fetchPosts());
-/// final combinedProvider = combineQueries2(usersProvider, postsProvider);
-///
-/// class MyWidget extends ConsumerWidget {
-///   @override
-///   Widget build(BuildContext context, WidgetRef ref) {
-///     final combined = ref.watch(combinedProvider);
-///
-///     if (combined.isAllLoading) return CircularProgressIndicator();
-///     if (combined.hasAnyError) return ErrorWidget();
-///
-///     return Column(
-///       children: [
-///         UsersList(combined.state1),
-///         PostsList(combined.state2),
-///       ],
-///     );
-///   }
-/// }
-/// ```
-Provider<CombinedQueryState2<T1, T2>> combineQueries2<T1, T2>(
-  StateNotifierProvider<QueryNotifier<T1>, QueryState<T1>> provider1,
-  StateNotifierProvider<QueryNotifier<T2>, QueryState<T2>> provider2,
-) {
-  return Provider<CombinedQueryState2<T1, T2>>((ref) {
-    return CombinedQueryState2(
-      ref.watch(provider1),
-      ref.watch(provider2),
-    );
-  });
-}
-
-/// Helper to combine three query providers into a single provider.
-///
-/// Returns a provider that watches all three query providers and provides
-/// a CombinedQueryState3 with helper methods for checking aggregate states.
+/// Returns a provider that watches all query providers and provides
+/// a CombinedQueriesState with helper methods for checking aggregate states.
 ///
 /// Example:
 /// ```dart
 /// final usersProvider = queryProvider('users', () => api.fetchUsers());
 /// final postsProvider = queryProvider('posts', () => api.fetchPosts());
 /// final commentsProvider = queryProvider('comments', () => api.fetchComments());
-/// final combinedProvider = combineQueries3(usersProvider, postsProvider, commentsProvider);
+/// final combinedProvider = combineQueries([usersProvider, postsProvider, commentsProvider]);
 ///
 /// class Dashboard extends ConsumerWidget {
 ///   @override
@@ -145,24 +126,68 @@ Provider<CombinedQueryState2<T1, T2>> combineQueries2<T1, T2>(
 ///
 ///     return Column(
 ///       children: [
-///         UsersList(combined.state1),
-///         PostsList(combined.state2),
-///         CommentsList(combined.state3),
+///         UsersList(combined.getState<List<User>>(0)),
+///         PostsList(combined.getState<List<Post>>(1)),
+///         CommentsList(combined.getState<List<Comment>>(2)),
 ///       ],
 ///     );
 ///   }
 /// }
 /// ```
-Provider<CombinedQueryState3<T1, T2, T3>> combineQueries3<T1, T2, T3>(
-  StateNotifierProvider<QueryNotifier<T1>, QueryState<T1>> provider1,
-  StateNotifierProvider<QueryNotifier<T2>, QueryState<T2>> provider2,
-  StateNotifierProvider<QueryNotifier<T3>, QueryState<T3>> provider3,
+Provider<CombinedQueriesState> combineQueries(
+  List<StateNotifierProvider<QueryNotifier<dynamic>, QueryState<dynamic>>>
+      providers,
 ) {
-  return Provider<CombinedQueryState3<T1, T2, T3>>((ref) {
-    return CombinedQueryState3(
-      ref.watch(provider1),
-      ref.watch(provider2),
-      ref.watch(provider3),
-    );
+  return Provider<CombinedQueriesState>((ref) {
+    final states = providers.map((provider) => ref.watch(provider)).toList();
+    return CombinedQueriesState(states);
+  });
+}
+
+/// Helper to combine multiple named query providers into a single provider.
+///
+/// Returns a provider that watches all query providers and provides
+/// a NamedQueriesState with helper methods for checking aggregate states.
+///
+/// Example:
+/// ```dart
+/// final usersProvider = queryProvider('users', () => api.fetchUsers());
+/// final postsProvider = queryProvider('posts', () => api.fetchPosts());
+/// final commentsProvider = queryProvider('comments', () => api.fetchComments());
+/// final combinedProvider = combineNamedQueries({
+///   'users': usersProvider,
+///   'posts': postsProvider,
+///   'comments': commentsProvider,
+/// });
+///
+/// class Dashboard extends ConsumerWidget {
+///   @override
+///   Widget build(BuildContext context, WidgetRef ref) {
+///     final combined = ref.watch(combinedProvider);
+///
+///     if (combined.isAllLoading) return CircularProgressIndicator();
+///     if (combined.hasAnyError) return ErrorWidget();
+///
+///     return Column(
+///       children: [
+///         UsersList(combined.getState<List<User>>('users')),
+///         PostsList(combined.getState<List<Post>>('posts')),
+///         CommentsList(combined.getState<List<Comment>>('comments')),
+///       ],
+///     );
+///   }
+/// }
+/// ```
+Provider<NamedQueriesState> combineNamedQueries(
+  Map<String,
+          StateNotifierProvider<QueryNotifier<dynamic>, QueryState<dynamic>>>
+      providers,
+) {
+  return Provider<NamedQueriesState>((ref) {
+    final states = <String, QueryState<dynamic>>{};
+    providers.forEach((name, provider) {
+      states[name] = ref.watch(provider);
+    });
+    return NamedQueriesState(states);
   });
 }

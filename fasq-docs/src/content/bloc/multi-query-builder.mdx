@@ -149,6 +149,79 @@ MultiQueryBuilder(
 )
 ```
 
+## Named Queries with NamedMultiQueryBuilder
+
+For better developer experience, you can use named queries with map-based access:
+
+```dart
+import 'package:fasq_bloc/fasq_bloc.dart';
+
+class Dashboard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return NamedMultiQueryBuilder(
+      configs: [
+        NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
+        NamedQueryConfig(name: 'posts', key: 'posts', queryFn: () => api.fetchPosts()),
+        NamedQueryConfig(name: 'comments', key: 'comments', queryFn: () => api.fetchComments()),
+      ],
+      builder: (context, state) {
+        return Column(
+          children: [
+            if (!state.isAllSuccess) LinearProgressIndicator(),
+            if (state.hasAnyError) ErrorBanner(),
+            UsersList(state.getState<List<User>>('users')),
+            PostsList(state.getState<List<Post>>('posts')),
+            CommentsList(state.getState<List<Comment>>('comments')),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+### NamedQueryConfig
+
+The `NamedQueryConfig` class provides configuration for named queries:
+
+```dart
+class NamedQueryConfig {
+  final String name;        // Name identifier for this query
+  final String key;         // Unique identifier for this query
+  final Future<dynamic> Function() queryFn;  // Function that returns a Future with the data
+  final QueryOptions? options;               // Optional configuration for this query
+}
+```
+
+### NamedQueryState
+
+The `NamedQueryState` class provides helper methods for named queries:
+
+```dart
+class NamedQueryState {
+  // Aggregate state helpers
+  bool get isAllLoading;    // True if all queries are loading
+  bool get isAnyLoading;    // True if any query is loading
+  bool get isAllSuccess;    // True if all queries succeeded
+  bool get hasAnyError;     // True if any query has error
+  bool get isAllData;       // True if all queries have data
+  
+  // Named access methods
+  QueryState<T> getState<T>(String name);  // Get state by name
+  bool isLoading(String name);            // Check if specific query is loading
+  bool hasError(String name);             // Check if specific query has error
+  int get length;                          // Number of queries
+}
+```
+
+### Benefits of Named Access
+
+- **Better DX**: Access queries by meaningful names instead of indices
+- **Type Safety**: Compile-time checking for query names
+- **Self-Documenting**: Code is more readable and maintainable
+- **Refactoring Safe**: Renaming queries updates all references
+
 ## Advanced Patterns
 
 ### Conditional Queries

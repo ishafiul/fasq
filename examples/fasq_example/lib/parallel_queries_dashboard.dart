@@ -246,7 +246,11 @@ class ParallelQueriesDashboardCore extends StatelessWidget {
             child: Text(
               'This dashboard demonstrates parallel queries using the core package. '
               'All three data sources (users, posts, comments) load independently '
-              'and update the UI as they complete.',
+              'and update the UI as they complete.\n\n'
+              'In adapter packages, you would use:\n'
+              '• Hooks: useQueries() / useNamedQueries()\n'
+              '• Bloc: MultiQueryBuilder / NamedMultiQueryBuilder\n'
+              '• Riverpod: combineQueries() / combineNamedQueries()',
               style: TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),
@@ -295,7 +299,10 @@ class ParallelQueriesDashboardHooks extends StatelessWidget {
       body: const Center(
         child: Text(
           'Hooks adapter not available in this example.\n'
-          'Use the core package example instead.',
+          'Use the core package example instead.\n\n'
+          'In a real app, you would use:\n'
+          '• useQueries() for index-based access\n'
+          '• useNamedQueries() for named access',
           textAlign: TextAlign.center,
         ),
       ),
@@ -318,7 +325,10 @@ class ParallelQueriesDashboardBloc extends StatelessWidget {
       body: const Center(
         child: Text(
           'Bloc adapter not available in this example.\n'
-          'Use the core package example instead.',
+          'Use the core package example instead.\n\n'
+          'In a real app, you would use:\n'
+          '• MultiQueryBuilder for index-based access\n'
+          '• NamedMultiQueryBuilder for named access',
           textAlign: TextAlign.center,
         ),
       ),
@@ -341,7 +351,13 @@ class ParallelQueriesDashboardRiverpod extends StatelessWidget {
       body: const Center(
         child: Text(
           'Riverpod adapter not available in this example.\n'
-          'Use the core package example instead.',
+          'Use the core package example instead.\n\n'
+          'In a real app, you would use:\n'
+          '• combineQueries() for index-based access\n'
+          '• combineNamedQueries() for named access\n\n'
+          'Migration from combineQueries2/3:\n'
+          '• Old: combined.state1, combined.state2\n'
+          '• New: combined.getState<T>(0), combined.getState<T>(1)',
           textAlign: TextAlign.center,
         ),
       ),

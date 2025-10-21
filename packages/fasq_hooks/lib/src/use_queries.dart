@@ -74,3 +74,78 @@ List<QueryState<dynamic>> useQueries(List<QueryConfig> configs) {
 
   return states.value;
 }
+
+/// Named configuration for queries
+class NamedQueryConfig<T> {
+  /// Name identifier for this query.
+  final String name;
+
+  /// Unique identifier for this query.
+  final String key;
+
+  /// Function that returns a Future with the data.
+  final Future<T> Function() queryFn;
+
+  /// Optional configuration for this query.
+  final QueryOptions? options;
+
+  const NamedQueryConfig({
+    required this.name,
+    required this.key,
+    required this.queryFn,
+    this.options,
+  });
+}
+
+/// Hook for named queries with map-based access
+///
+/// Each query executes independently and updates its state asynchronously.
+/// The hook returns a map of QueryState objects keyed by query name.
+///
+/// Example:
+/// ```dart
+/// final queries = useNamedQueries([
+///   NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
+///   NamedQueryConfig(name: 'posts', key: 'posts', queryFn: () => api.fetchPosts()),
+///   NamedQueryConfig(name: 'comments', key: 'comments', queryFn: () => api.fetchComments()),
+/// ]);
+///
+/// final allLoaded = queries.values.every((q) => q.hasData);
+/// final anyError = queries.values.any((q) => q.hasError);
+/// ```
+Map<String, QueryState<dynamic>> useNamedQueries(
+    List<NamedQueryConfig> configs) {
+  final client = QueryClient();
+  final states = useState<Map<String, QueryState<dynamic>>>({});
+
+  useEffect(() {
+    final queries = <String, Query>{};
+    for (final config in configs) {
+      queries[config.name] =
+          client.getQuery(config.key, config.queryFn, options: config.options);
+      queries[config.name]!.addListener();
+    }
+
+    final subscriptions = <StreamSubscription>[];
+    queries.forEach((name, query) {
+      subscriptions.add(query.stream.listen((newState) {
+        final newStates = Map<String, QueryState<dynamic>>.from(states.value);
+        newStates[name] = newState;
+        states.value = newStates;
+      }));
+    });
+
+    states.value = queries.map((name, query) => MapEntry(name, query.state));
+
+    return () {
+      for (final sub in subscriptions) {
+        sub.cancel();
+      }
+      for (final query in queries.values) {
+        query.removeListener();
+      }
+    };
+  }, [configs.length]);
+
+  return states.value;
+}

@@ -81,6 +81,8 @@ class DashboardBloc extends StatelessWidget {
 
 ### Riverpod Adapter
 
+#### Index-based Access
+
 ```dart
 import 'package:fasq_riverpod/fasq_riverpod.dart';
 
@@ -88,7 +90,7 @@ import 'package:fasq_riverpod/fasq_riverpod.dart';
 final usersProvider = queryProvider('users', () => api.fetchUsers());
 final postsProvider = queryProvider('posts', () => api.fetchPosts());
 final commentsProvider = queryProvider('comments', () => api.fetchComments());
-final dashboardProvider = combineQueries3(usersProvider, postsProvider, commentsProvider);
+final dashboardProvider = combineQueries([usersProvider, postsProvider, commentsProvider]);
 
 class DashboardRiverpod extends ConsumerWidget {
   @override
@@ -99,9 +101,42 @@ class DashboardRiverpod extends ConsumerWidget {
       children: [
         if (!combined.isAllSuccess) LinearProgressIndicator(),
         if (combined.hasAnyError) ErrorBanner(),
-        UsersList(combined.state1),
-        PostsList(combined.state2),
-        CommentsList(combined.state3),
+        UsersList(combined.getState<List<User>>(0)),
+        PostsList(combined.getState<List<Post>>(1)),
+        CommentsList(combined.getState<List<Comment>>(2)),
+      ],
+    );
+  }
+}
+```
+
+#### Named Access
+
+```dart
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// Define providers
+final usersProvider = queryProvider('users', () => api.fetchUsers());
+final postsProvider = queryProvider('posts', () => api.fetchPosts());
+final commentsProvider = queryProvider('comments', () => api.fetchComments());
+final dashboardProvider = combineNamedQueries({
+  'users': usersProvider,
+  'posts': postsProvider,
+  'comments': commentsProvider,
+});
+
+class DashboardRiverpod extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(dashboardProvider);
+    
+    return Column(
+      children: [
+        if (!combined.isAllSuccess) LinearProgressIndicator(),
+        if (combined.hasAnyError) ErrorBanner(),
+        UsersList(combined.getState<List<User>>('users')),
+        PostsList(combined.getState<List<Post>>('posts')),
+        CommentsList(combined.getState<List<Comment>>('comments')),
       ],
     );
   }
@@ -140,6 +175,8 @@ MultiQueryBuilder(
 ```
 
 ### Riverpod Adapter
+
+#### Index-based Access
 ```dart
 final combined = ref.watch(dashboardProvider);
 
@@ -149,9 +186,28 @@ if (combined.isAnyLoading) return PartialLoadingWidget();
 if (combined.isAllSuccess) return SuccessWidget();
 if (combined.hasAnyError) return ErrorWidget();
 
-// Access individual states
-final userState = combined.state1;
-final postState = combined.state2;
+// Access individual states by index
+final userState = combined.getState<List<User>>(0);
+final postState = combined.getState<List<Post>>(1);
+```
+
+#### Named Access
+```dart
+final combined = ref.watch(dashboardProvider);
+
+// Built-in helpers
+if (combined.isAllLoading) return CircularProgressIndicator();
+if (combined.isAnyLoading) return PartialLoadingWidget();
+if (combined.isAllSuccess) return SuccessWidget();
+if (combined.hasAnyError) return ErrorWidget();
+
+// Access individual states by name
+final userState = combined.getState<List<User>>('users');
+final postState = combined.getState<List<Post>>('posts');
+
+// Check specific query states
+if (combined.isLoading('users')) return UserSkeleton();
+if (combined.hasError('posts')) return PostErrorWidget();
 ```
 
 ## Performance Characteristics
