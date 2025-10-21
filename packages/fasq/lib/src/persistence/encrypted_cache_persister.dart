@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'encryption_service.dart';
 import 'secure_storage.dart';
 
@@ -12,12 +14,16 @@ class EncryptedCachePersister {
   final EncryptionService _encryptionService;
   final SecureStorage _secureStorage;
   String? _encryptionKey;
+  SharedPreferences? _prefs;
+  static const String _keyPrefix = 'fasq_cache_';
 
   EncryptedCachePersister({
     EncryptionService? encryptionService,
     SecureStorage? secureStorage,
+    SharedPreferences? sharedPreferences,
   })  : _encryptionService = encryptionService ?? EncryptionService(),
-        _secureStorage = secureStorage ?? SecureStorage();
+        _secureStorage = secureStorage ?? SecureStorage(),
+        _prefs = sharedPreferences;
 
   /// Initializes the persister and ensures an encryption key is available.
   ///
@@ -26,6 +32,9 @@ class EncryptedCachePersister {
     if (!_secureStorage.isSupported) {
       throw UnsupportedError('Secure storage not supported on this platform');
     }
+
+    // Initialize SharedPreferences if not provided
+    _prefs ??= await SharedPreferences.getInstance();
 
     _encryptionKey = await _secureStorage.getEncryptionKey();
     if (_encryptionKey == null) {
@@ -126,60 +135,188 @@ class EncryptedCachePersister {
 
   /// Updates the encryption key.
   ///
-  /// This would require re-encrypting all existing data with the new key.
-  Future<void> updateEncryptionKey(String newKey) async {
+  /// This re-encrypts all existing data with the new key to ensure data
+  /// remains accessible after the key change. The process is atomic - if
+  /// re-encryption fails, the old key is restored.
+  ///
+  /// [newKey] The new encryption key to use
+  /// [onProgress] Optional callback for progress tracking during re-encryption
+  Future<void> updateEncryptionKey(
+    String newKey, {
+    void Function(int current, int total)? onProgress,
+  }) async {
     if (!_encryptionService.isValidKey(newKey)) {
       throw EncryptionException('Invalid encryption key format');
     }
 
-    // In a real implementation, this would:
-    // 1. Retrieve all existing data
-    // 2. Decrypt with old key
-    // 3. Encrypt with new key
-    // 4. Store encrypted data
-    // 5. Update stored key
+    final oldKey = _encryptionKey;
+    if (oldKey == newKey) {
+      return; // No change needed
+    }
 
-    await _secureStorage.setEncryptionKey(newKey);
-    _encryptionKey = newKey;
+    if (oldKey == null) {
+      throw EncryptionException('Encryption key not initialized');
+    }
+
+    try {
+      // 1. Get all existing persisted keys
+      final existingKeys = await _getAllPersistedKeys();
+      onProgress?.call(0, existingKeys.length);
+
+      // 2. Create temporary storage for re-encrypted data
+      final reEncryptedData = <String, List<int>>{};
+      int processedCount = 0;
+
+      // 3. Re-encrypt all existing data
+      for (final key in existingKeys) {
+        try {
+          // Retrieve encrypted data with old key
+          final encryptedData = await _retrieveEncryptedData(key);
+          if (encryptedData != null) {
+            // Decrypt with old key
+            final decryptedData =
+                await _encryptionService.decrypt(encryptedData, oldKey);
+
+            // Encrypt with new key
+            final newEncryptedData =
+                await _encryptionService.encrypt(decryptedData, newKey);
+
+            // Store in temporary map
+            reEncryptedData[key] = newEncryptedData;
+          }
+        } catch (e) {
+          // Log warning but continue with other keys
+          print('Warning: Failed to re-encrypt key $key: $e');
+        }
+
+        processedCount++;
+        onProgress?.call(processedCount, existingKeys.length);
+      }
+
+      // 4. Update the stored encryption key first
+      await _secureStorage.setEncryptionKey(newKey);
+      _encryptionKey = newKey;
+
+      // 5. Persist all re-encrypted data
+      for (final entry in reEncryptedData.entries) {
+        await _persistEncryptedData(entry.key, entry.value);
+      }
+
+      // 6. Clean up any failed re-encryptions by removing old data
+      for (final key in existingKeys) {
+        if (!reEncryptedData.containsKey(key)) {
+          await _removePersistedData(key);
+        }
+      }
+    } catch (e) {
+      // Rollback: restore old key if something went wrong
+      try {
+        await _secureStorage.setEncryptionKey(oldKey);
+        _encryptionKey = oldKey;
+      } catch (rollbackError) {
+        // Log critical error - data may be in inconsistent state
+        print('Critical: Failed to rollback encryption key: $rollbackError');
+      }
+
+      throw PersistenceException('Failed to update encryption key: $e');
+    }
   }
 
-  /// Placeholder methods that would integrate with actual persistence layer
-  /// In a real implementation, these would use SharedPreferences, SQLite, etc.
+  /// Real persistence methods that integrate with SharedPreferences
 
   Future<void> _persistEncryptedData(
       String key, List<int> encryptedData) async {
-    // This would integrate with actual persistence layer
-    // For now, we'll just simulate the operation
-    await Future.delayed(Duration(milliseconds: 1));
+    if (_prefs == null) {
+      throw PersistenceException('SharedPreferences not initialized');
+    }
+
+    try {
+      // Convert encrypted bytes to base64 string for storage
+      final base64Data = base64Encode(encryptedData);
+      final storageKey = '$_keyPrefix$key';
+
+      await _prefs!.setString(storageKey, base64Data);
+    } catch (e) {
+      throw PersistenceException('Failed to persist encrypted data: $e');
+    }
   }
 
   Future<List<int>?> _retrieveEncryptedData(String key) async {
-    // This would integrate with actual persistence layer
-    // For now, we'll just simulate the operation
-    await Future.delayed(Duration(milliseconds: 1));
-    return null;
+    if (_prefs == null) {
+      throw PersistenceException('SharedPreferences not initialized');
+    }
+
+    try {
+      final storageKey = '$_keyPrefix$key';
+      final base64Data = _prefs!.getString(storageKey);
+
+      if (base64Data == null) {
+        return null;
+      }
+
+      return base64Decode(base64Data);
+    } catch (e) {
+      throw PersistenceException('Failed to retrieve encrypted data: $e');
+    }
   }
 
   Future<void> _removePersistedData(String key) async {
-    // This would integrate with actual persistence layer
-    await Future.delayed(Duration(milliseconds: 1));
+    if (_prefs == null) {
+      throw PersistenceException('SharedPreferences not initialized');
+    }
+
+    try {
+      final storageKey = '$_keyPrefix$key';
+      await _prefs!.remove(storageKey);
+    } catch (e) {
+      throw PersistenceException('Failed to remove persisted data: $e');
+    }
   }
 
   Future<void> _clearAllPersistedData() async {
-    // This would integrate with actual persistence layer
-    await Future.delayed(Duration(milliseconds: 1));
+    if (_prefs == null) {
+      throw PersistenceException('SharedPreferences not initialized');
+    }
+
+    try {
+      final keys = _prefs!.getKeys();
+      final cacheKeys = keys.where((key) => key.startsWith(_keyPrefix));
+
+      for (final key in cacheKeys) {
+        await _prefs!.remove(key);
+      }
+    } catch (e) {
+      throw PersistenceException('Failed to clear persisted data: $e');
+    }
   }
 
   Future<bool> _persistedDataExists(String key) async {
-    // This would integrate with actual persistence layer
-    await Future.delayed(Duration(milliseconds: 1));
-    return false;
+    if (_prefs == null) {
+      return false;
+    }
+
+    try {
+      final storageKey = '$_keyPrefix$key';
+      return _prefs!.containsKey(storageKey);
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<List<String>> _getAllPersistedKeys() async {
-    // This would integrate with actual persistence layer
-    await Future.delayed(Duration(milliseconds: 1));
-    return [];
+    if (_prefs == null) {
+      return [];
+    }
+
+    try {
+      final keys = _prefs!.getKeys();
+      return keys
+          .where((key) => key.startsWith(_keyPrefix))
+          .map((key) => key.substring(_keyPrefix.length))
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 }
 
