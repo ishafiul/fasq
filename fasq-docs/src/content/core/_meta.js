@@ -13,5 +13,6 @@ export default {
   'cache-configuration': 'Cache Configuration',
   'cache-invalidation': 'Cache Invalidation',
   'error-handling': 'Error Handling',
+  security: 'Security Features',
   examples: 'Examples',
 }

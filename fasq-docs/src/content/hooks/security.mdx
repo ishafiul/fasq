@@ -1,0 +1,503 @@
+# Security Features with fasq_hooks 🔒
+
+fasq_hooks supports all FASQ security features through QueryClient configuration, enabling secure data handling in your hooks-based applications.
+
+## Overview
+
+Security features in fasq_hooks include:
+
+- **Secure cache entries** with automatic cleanup
+- **Encrypted persistence** for sensitive data
+- **Input validation** preventing injection attacks
+- **Platform-specific secure key storage**
+
+## Secure Queries with useQuery
+
+Mark sensitive data to prevent persistence and enable automatic cleanup:
+
+```dart
+class SecureDataWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient;
+    
+    final secureQuery = useQuery<String>(
+      'auth-token',
+      () => api.getAuthToken(),
+      options: QueryOptions(
+        isSecure: true,                    // Mark as secure
+        maxAge: Duration(minutes: 15),     // Required TTL
+        staleTime: Duration(minutes: 5),
+      ),
+      client: client,                      // Use configured client
+    );
+    
+    if (secureQuery.isLoading) return CircularProgressIndicator();
+    if (secureQuery.hasError) return Text('Error: ${secureQuery.error}');
+    
+    // Secure data never persisted, cleared on app background
+    return Text('Token: ${secureQuery.data}');
+  }
+}
+```
+
+### Security Benefits
+
+- ✅ **Never persisted to disk** - Secure entries are memory-only
+- ✅ **Automatic cleanup** - Cleared on app background/termination
+- ✅ **Strict TTL enforcement** - Expired secure entries are immediately removed
+- ✅ **Not exposed in DevTools** - Secure data is hidden from debugging tools
+
+## Secure Mutations with useMutation
+
+Handle sensitive mutations with security features:
+
+```dart
+class SecureMutationWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient;
+    
+    final mutation = useMutation<String, String>(
+      mutationFn: (data) => api.secureMutation(data),
+      options: MutationOptions(
+        queueWhenOffline: true,
+        maxRetries: 3,
+      ),
+      client: client,                      // Use configured client
+    );
+    
+    return ElevatedButton(
+      onPressed: mutation.isLoading
+          ? null
+          : () => mutation.mutate('secure-data'),
+      child: mutation.isLoading
+          ? CircularProgressIndicator()
+          : Text('Secure Mutation'),
+    );
+  }
+}
+```
+
+## Global Security Configuration
+
+Configure security features globally using `QueryClientProvider`:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MaterialApp(
+    home: MyApp(),
+  ),
+)
+```
+
+### Accessing Configured Client
+
+Use the configured QueryClient in your hooks:
+
+```dart
+class MyWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient;
+    
+    // Use configured client in hooks
+    final secureQuery = useQuery<String>(
+      'secure-data',
+      () => fetchSecureData(),
+      options: QueryOptions(
+        isSecure: true,
+        maxAge: Duration(minutes: 30),
+      ),
+      client: client,
+    );
+    
+    final mutation = useMutation<String, String>(
+      mutationFn: (data) => secureMutation(data),
+      client: client,
+    );
+    
+    return Column(
+      children: [
+        Text('Data: ${secureQuery.data}'),
+        ElevatedButton(
+          onPressed: () => mutation.mutate('data'),
+          child: Text('Mutate'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Complete Security Example
+
+Here's a complete example showing security features in a hooks-based app:
+
+```dart
+class SecureApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      config: CacheConfig(
+        defaultStaleTime: Duration(minutes: 5),
+        defaultCacheTime: Duration(minutes: 10),
+      ),
+      persistenceOptions: PersistenceOptions(
+        enabled: true,
+        encryptionKey: 'your-secure-encryption-key',
+      ),
+      child: MaterialApp(
+        home: SecureHomeScreen(),
+      ),
+    );
+  }
+}
+
+class SecureHomeScreen extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient;
+    
+    // Secure authentication token
+    final authToken = useQuery<String>(
+      'auth-token',
+      () => api.getAuthToken(),
+      options: QueryOptions(
+        isSecure: true,
+        maxAge: Duration(minutes: 15),
+        staleTime: Duration(minutes: 5),
+      ),
+      client: client,
+    );
+    
+    // Secure user profile
+    final userProfile = useQuery<User>(
+      'user-profile',
+      () => api.getUserProfile(),
+      options: QueryOptions(
+        isSecure: true,
+        maxAge: Duration(minutes: 30),
+        staleTime: Duration(minutes: 10),
+      ),
+      client: client,
+    );
+    
+    // Secure mutation for updating profile
+    final updateProfile = useMutation<User, User>(
+      mutationFn: (user) => api.updateUserProfile(user),
+      options: MutationOptions(
+        queueWhenOffline: true,
+        maxRetries: 3,
+        onSuccess: (user) {
+          // Invalidate user profile query
+          client.invalidateQuery('user-profile');
+        },
+      ),
+      client: client,
+    );
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Secure App')),
+      body: Column(
+        children: [
+          // Display auth token
+          if (authToken.isLoading)
+            CircularProgressIndicator()
+          else if (authToken.hasError)
+            Text('Error: ${authToken.error}')
+          else
+            Text('Token: ${authToken.data}'),
+          
+          SizedBox(height: 20),
+          
+          // Display user profile
+          if (userProfile.isLoading)
+            CircularProgressIndicator()
+          else if (userProfile.hasError)
+            Text('Error: ${userProfile.error}')
+          else
+            Text('User: ${userProfile.data?.name}'),
+          
+          SizedBox(height: 20),
+          
+          // Update profile button
+          ElevatedButton(
+            onPressed: updateProfile.isLoading
+                ? null
+                : () => updateProfile.mutate(
+                      User(name: 'Updated Name'),
+                    ),
+            child: updateProfile.isLoading
+                ? CircularProgressIndicator()
+                : Text('Update Profile'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Custom Security Hooks
+
+Create custom hooks for common security patterns:
+
+```dart
+// Custom hook for secure authentication
+QueryState<String> useSecureAuth() {
+  final client = useQueryClient();
+  
+  return useQuery<String>(
+    'auth-token',
+    () => api.getAuthToken(),
+    options: QueryOptions(
+      isSecure: true,
+      maxAge: Duration(minutes: 15),
+      staleTime: Duration(minutes: 5),
+    ),
+    client: client,
+  );
+}
+
+// Custom hook for secure user profile
+QueryState<User> useSecureUserProfile() {
+  final client = useQueryClient();
+  
+  return useQuery<User>(
+    'user-profile',
+    () => api.getUserProfile(),
+    options: QueryOptions(
+      isSecure: true,
+      maxAge: Duration(minutes: 30),
+      staleTime: Duration(minutes: 10),
+    ),
+    client: client,
+  );
+}
+
+// Custom hook for secure profile update
+MutationState<User> useSecureProfileUpdate() {
+  final client = useQueryClient();
+  
+  return useMutation<User, User>(
+    mutationFn: (user) => api.updateUserProfile(user),
+    options: MutationOptions(
+      queueWhenOffline: true,
+      maxRetries: 3,
+      onSuccess: (user) {
+        client.invalidateQuery('user-profile');
+      },
+    ),
+    client: client,
+  );
+}
+
+// Usage in widgets
+class MyWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final auth = useSecureAuth();
+    final profile = useSecureUserProfile();
+    final updateProfile = useSecureProfileUpdate();
+    
+    return Column(
+      children: [
+        Text('Token: ${auth.data}'),
+        Text('User: ${profile.data?.name}'),
+        ElevatedButton(
+          onPressed: () => updateProfile.mutate(User(name: 'New Name')),
+          child: Text('Update'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Security Best Practices
+
+### 1. Always Use Configured Client
+
+```dart
+// ✅ Good - Use configured client
+final client = useQueryClient();
+final query = useQuery<String>(
+  'secure-data',
+  () => fetchData(),
+  client: client,
+)
+
+// ❌ Bad - Using default client without security config
+final query = useQuery<String>(
+  'secure-data',
+  () => fetchData(),
+  // Missing client parameter
+)
+```
+
+### 2. Mark Sensitive Data as Secure
+
+```dart
+// ✅ Good - Sensitive data marked as secure
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(minutes: 15),
+)
+
+// ❌ Bad - Sensitive data not marked as secure
+QueryOptions(
+  isSecure: false, // Sensitive data could be persisted
+)
+```
+
+### 3. Use Appropriate TTL Values
+
+```dart
+// ✅ Good - Short TTL for sensitive data
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(minutes: 15), // Short-lived tokens
+)
+
+// ❌ Bad - Too long TTL for sensitive data
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(hours: 24), // Too long for sensitive data
+)
+```
+
+### 4. Handle Security Errors Gracefully
+
+```dart
+class SecureWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = useQueryClient();
+    
+    final query = useQuery<String>(
+      'secure-data',
+      () => fetchData(),
+      client: client,
+    );
+    
+    // Handle security-related errors
+    useEffect(() {
+      if (query.hasError) {
+        if (query.error.toString().contains('validation')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Invalid input detected')),
+          );
+        }
+      }
+      return null;
+    }, [query.hasError]);
+    
+    return Text('${query.data}');
+  }
+}
+```
+
+## Migration Guide
+
+### Enabling Security in Existing Apps
+
+1. **Add security dependencies** to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  fasq_hooks: ^0.2.0
+  encrypt: ^5.0.3
+  flutter_secure_storage: ^9.0.0
+```
+
+2. **Wrap your app** with `QueryClientProvider`:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MaterialApp(
+    home: MyApp(),
+  ),
+)
+```
+
+3. **Update existing useQuery calls**:
+
+```dart
+// Before
+final query = useQuery<String>(
+  'auth-token',
+  () => api.getAuthToken(),
+)
+
+// After
+final client = useQueryClient();
+final query = useQuery<String>(
+  'auth-token',
+  () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 15),
+  ),
+  client: client,
+)
+```
+
+4. **Update existing useMutation calls**:
+
+```dart
+// Before
+final mutation = useMutation<String, String>(
+  mutationFn: (data) => api.mutate(data),
+)
+
+// After
+final client = useQueryClient();
+final mutation = useMutation<String, String>(
+  mutationFn: (data) => api.mutate(data),
+  client: client,
+)
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Client not found:**
+- Ensure `QueryClientProvider` wraps your app
+- Use `useQueryClient()` hook to access the configured client
+
+**Security validation errors:**
+- Check query key format (alphanumeric, colon, hyphen, underscore only)
+- Ensure durations are non-negative
+- Verify cache data doesn't contain functions
+
+**Performance issues:**
+- Large data (>50KB) is automatically encrypted in isolates
+- Consider reducing cache size for better performance
+- Use appropriate TTL values to prevent memory bloat
+
+### Error Messages
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Query key must contain only alphanumeric, colon, hyphen, underscore" | Invalid query key format | Use valid characters only |
+| "Secure queries must specify maxAge for TTL enforcement" | Missing maxAge for secure query | Add maxAge to QueryOptions |
+| "staleTime must be non-negative" | Negative duration | Use positive or zero duration |
+| "Cache data cannot be a function or closure" | Function in cache data | Remove functions from cached data |

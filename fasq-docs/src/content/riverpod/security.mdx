@@ -1,0 +1,531 @@
+# Security Features with fasq_riverpod 🔒
+
+fasq_riverpod supports all FASQ security features through QueryClient configuration, enabling secure data handling in your Riverpod-based applications.
+
+## Overview
+
+Security features in fasq_riverpod include:
+
+- **Secure cache entries** with automatic cleanup
+- **Encrypted persistence** for sensitive data
+- **Input validation** preventing injection attacks
+- **Platform-specific secure key storage**
+
+## Secure Queries with queryProvider
+
+Mark sensitive data to prevent persistence and enable automatic cleanup:
+
+```dart
+final secureTokenProvider = queryProvider<String>(
+  'auth-token',
+  () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,                    // Mark as secure
+    maxAge: Duration(minutes: 15),     // Required TTL
+    staleTime: Duration(minutes: 5),
+  ),
+  client: context.queryClient,         // Use configured client
+);
+
+class SecureTokenWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(secureTokenProvider);
+    
+    if (state.isLoading) return CircularProgressIndicator();
+    if (state.hasError) return Text('Error: ${state.error}');
+    
+    // Secure data never persisted, cleared on app background
+    return Text('Token: ${state.data}');
+  }
+}
+```
+
+### Security Benefits
+
+- ✅ **Never persisted to disk** - Secure entries are memory-only
+- ✅ **Automatic cleanup** - Cleared on app background/termination
+- ✅ **Strict TTL enforcement** - Expired secure entries are immediately removed
+- ✅ **Not exposed in DevTools** - Secure data is hidden from debugging tools
+
+## Secure Mutations with mutationProvider
+
+Handle sensitive mutations with security features:
+
+```dart
+final secureMutationProvider = mutationProvider<String, String>(
+  (data) => api.secureMutation(data),
+  options: MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+  ),
+  client: context.queryClient,         // Use configured client
+);
+
+class SecureMutationWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mutation = ref.watch(secureMutationProvider);
+    
+    return ElevatedButton(
+      onPressed: mutation.isLoading
+          ? null
+          : () => ref.read(secureMutationProvider.notifier).mutate('secure-data'),
+      child: mutation.isLoading
+          ? CircularProgressIndicator()
+          : Text('Secure Mutation'),
+    );
+  }
+}
+```
+
+## Global Security Configuration
+
+Configure security features globally using `QueryClientProvider`:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MaterialApp(
+    home: MyApp(),
+  ),
+)
+```
+
+### Accessing Configured Client
+
+Use the configured QueryClient in your providers:
+
+```dart
+// Create providers with configured client
+final secureDataProvider = queryProvider<String>(
+  'secure-data',
+  () => fetchSecureData(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 30),
+  ),
+  client: context.queryClient,
+);
+
+final secureMutationProvider = mutationProvider<String, String>(
+  mutationFn: (data) => secureMutation(data),
+  client: context.queryClient,
+);
+
+// Use in widgets
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(secureDataProvider);
+    final mutation = ref.watch(secureMutationProvider);
+    
+    return Column(
+      children: [
+        Text('Data: ${data.data}'),
+        ElevatedButton(
+          onPressed: () => ref.read(secureMutationProvider.notifier).mutate('data'),
+          child: Text('Mutate'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Complete Security Example
+
+Here's a complete example showing security features in a Riverpod-based app:
+
+```dart
+class SecureApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      config: CacheConfig(
+        defaultStaleTime: Duration(minutes: 5),
+        defaultCacheTime: Duration(minutes: 10),
+      ),
+      persistenceOptions: PersistenceOptions(
+        enabled: true,
+        encryptionKey: 'your-secure-encryption-key',
+      ),
+      child: MaterialApp(
+        home: SecureHomeScreen(),
+      ),
+    );
+  }
+}
+
+// Secure providers
+final secureAuthTokenProvider = queryProvider<String>(
+  'auth-token',
+  () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 15),
+    staleTime: Duration(minutes: 5),
+  ),
+  client: context.queryClient,
+);
+
+final secureUserProfileProvider = queryProvider<User>(
+  'user-profile',
+  () => api.getUserProfile(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 30),
+    staleTime: Duration(minutes: 10),
+  ),
+  client: context.queryClient,
+);
+
+final secureProfileUpdateProvider = mutationProvider<User, User>(
+  mutationFn: (user) => api.updateUserProfile(user),
+  options: MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+    onSuccess: (user) {
+      // Invalidate user profile query
+      context.queryClient?.invalidateQuery('user-profile');
+    },
+  ),
+  client: context.queryClient,
+);
+
+class SecureHomeScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authToken = ref.watch(secureAuthTokenProvider);
+    final userProfile = ref.watch(secureUserProfileProvider);
+    final updateProfile = ref.watch(secureProfileUpdateProvider);
+    
+    return Scaffold(
+      appBar: AppBar(title: Text('Secure App')),
+      body: Column(
+        children: [
+          // Display auth token
+          if (authToken.isLoading)
+            CircularProgressIndicator()
+          else if (authToken.hasError)
+            Text('Error: ${authToken.error}')
+          else
+            Text('Token: ${authToken.data}'),
+          
+          SizedBox(height: 20),
+          
+          // Display user profile
+          if (userProfile.isLoading)
+            CircularProgressIndicator()
+          else if (userProfile.hasError)
+            Text('Error: ${userProfile.error}')
+          else
+            Text('User: ${userProfile.data?.name}'),
+          
+          SizedBox(height: 20),
+          
+          // Update profile button
+          ElevatedButton(
+            onPressed: updateProfile.isLoading
+                ? null
+                : () => ref.read(secureProfileUpdateProvider.notifier).mutate(
+                      User(name: 'Updated Name'),
+                    ),
+            child: updateProfile.isLoading
+                ? CircularProgressIndicator()
+                : Text('Update Profile'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Family Providers with Security
+
+Create secure family providers for dynamic data:
+
+```dart
+// Secure user profile family provider
+final secureUserProfileFamilyProvider = queryProvider.family<User, String>(
+  (userId) => 'user-profile-$userId',
+  (userId) => api.getUserProfile(userId),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 30),
+    staleTime: Duration(minutes: 10),
+  ),
+  client: context.queryClient,
+);
+
+// Secure user update family provider
+final secureUserUpdateFamilyProvider = mutationProvider.family<User, String>(
+  (userId) => api.updateUserProfile(userId),
+  options: MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+    onSuccess: (user, userId) {
+      // Invalidate specific user profile
+      context.queryClient?.invalidateQuery('user-profile-$userId');
+    },
+  ),
+  client: context.queryClient,
+);
+
+// Usage in widgets
+class UserProfileWidget extends ConsumerWidget {
+  final String userId;
+  
+  const UserProfileWidget({required this.userId, super.key});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(secureUserProfileFamilyProvider(userId));
+    final updateProfile = ref.watch(secureUserUpdateFamilyProvider(userId));
+    
+    return Column(
+      children: [
+        Text('User: ${profile.data?.name}'),
+        ElevatedButton(
+          onPressed: () => ref.read(secureUserUpdateFamilyProvider(userId).notifier).mutate('data'),
+          child: Text('Update'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Combining Secure Queries
+
+Combine multiple secure queries using `combineQueries`:
+
+```dart
+// Secure providers
+final secureAuthProvider = queryProvider<String>(
+  'auth-token',
+  () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 15),
+  ),
+  client: context.queryClient,
+);
+
+final secureUserProvider = queryProvider<User>(
+  'user-profile',
+  () => api.getUserProfile(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 30),
+  ),
+  client: context.queryClient,
+);
+
+// Combined secure provider
+final secureDashboardProvider = combineQueries2(
+  secureAuthProvider,
+  secureUserProvider,
+  (auth, user) => DashboardData(
+    token: auth.data,
+    user: user.data,
+    isLoading: auth.isLoading || user.isLoading,
+    hasError: auth.hasError || user.hasError,
+  ),
+);
+
+// Usage in widgets
+class SecureDashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboard = ref.watch(secureDashboardProvider);
+    
+    if (dashboard.isLoading) return CircularProgressIndicator();
+    if (dashboard.hasError) return Text('Error: ${dashboard.error}');
+    
+    return Column(
+      children: [
+        Text('Token: ${dashboard.token}'),
+        Text('User: ${dashboard.user?.name}'),
+      ],
+    );
+  }
+}
+```
+
+## Security Best Practices
+
+### 1. Always Use Configured Client
+
+```dart
+// ✅ Good - Use configured client
+final provider = queryProvider<String>(
+  'secure-data',
+  () => fetchData(),
+  client: context.queryClient,
+)
+
+// ❌ Bad - Using default client without security config
+final provider = queryProvider<String>(
+  'secure-data',
+  () => fetchData(),
+  // Missing client parameter
+)
+```
+
+### 2. Mark Sensitive Data as Secure
+
+```dart
+// ✅ Good - Sensitive data marked as secure
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(minutes: 15),
+)
+
+// ❌ Bad - Sensitive data not marked as secure
+QueryOptions(
+  isSecure: false, // Sensitive data could be persisted
+)
+```
+
+### 3. Use Appropriate TTL Values
+
+```dart
+// ✅ Good - Short TTL for sensitive data
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(minutes: 15), // Short-lived tokens
+)
+
+// ❌ Bad - Too long TTL for sensitive data
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(hours: 24), // Too long for sensitive data
+)
+```
+
+### 4. Handle Security Errors Gracefully
+
+```dart
+class SecureWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(secureDataProvider);
+    
+    // Handle security-related errors
+    ref.listen(secureDataProvider, (previous, next) {
+      if (next.hasError) {
+        if (next.error.toString().contains('validation')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Invalid input detected')),
+          );
+        }
+      }
+    });
+    
+    return Text('${state.data}');
+  }
+}
+```
+
+## Migration Guide
+
+### Enabling Security in Existing Apps
+
+1. **Add security dependencies** to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  fasq_riverpod: ^0.2.0
+  encrypt: ^5.0.3
+  flutter_secure_storage: ^9.0.0
+```
+
+2. **Wrap your app** with `QueryClientProvider`:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MaterialApp(
+    home: MyApp(),
+  ),
+)
+```
+
+3. **Update existing queryProvider calls**:
+
+```dart
+// Before
+final provider = queryProvider<String>(
+  'auth-token',
+  () => api.getAuthToken(),
+)
+
+// After
+final provider = queryProvider<String>(
+  'auth-token',
+  () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 15),
+  ),
+  client: context.queryClient,
+)
+```
+
+4. **Update existing mutationProvider calls**:
+
+```dart
+// Before
+final provider = mutationProvider<String, String>(
+  mutationFn: (data) => api.mutate(data),
+)
+
+// After
+final provider = mutationProvider<String, String>(
+  mutationFn: (data) => api.mutate(data),
+  client: context.queryClient,
+)
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Client not found:**
+- Ensure `QueryClientProvider` wraps your app
+- Use `context.queryClient` to access the configured client
+
+**Security validation errors:**
+- Check query key format (alphanumeric, colon, hyphen, underscore only)
+- Ensure durations are non-negative
+- Verify cache data doesn't contain functions
+
+**Performance issues:**
+- Large data (>50KB) is automatically encrypted in isolates
+- Consider reducing cache size for better performance
+- Use appropriate TTL values to prevent memory bloat
+
+### Error Messages
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Query key must contain only alphanumeric, colon, hyphen, underscore" | Invalid query key format | Use valid characters only |
+| "Secure queries must specify maxAge for TTL enforcement" | Missing maxAge for secure query | Add maxAge to QueryOptions |
+| "staleTime must be non-negative" | Negative duration | Use positive or zero duration |
+| "Cache data cannot be a function or closure" | Function in cache data | Remove functions from cached data |

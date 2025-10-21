@@ -9,6 +9,7 @@ const meta = {
   'offline-queue': 'Offline Queue',
   'use-query-client': 'useQueryClient',
   'custom-hooks': 'Custom Hooks',
+  security: 'Security Features',
   examples: 'Examples',
 }
 

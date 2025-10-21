@@ -261,6 +261,91 @@ QueryClient useQueryClient()
 
 Returns the global `QueryClient` instance for manual cache management.
 
+## Security Features 🔒
+
+fasq_hooks supports all FASQ security features through QueryClient configuration:
+
+### Secure Queries with useQuery
+
+```dart
+class SecureDataWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient;
+    
+    final secureQuery = useQuery<String>(
+      'auth-token',
+      () => api.getAuthToken(),
+      options: QueryOptions(
+        isSecure: true,                    // Mark as secure
+        maxAge: Duration(minutes: 15),     // Required TTL
+        staleTime: Duration(minutes: 5),
+      ),
+      client: client,                      // Use configured client
+    );
+    
+    if (secureQuery.isLoading) return CircularProgressIndicator();
+    if (secureQuery.hasError) return Text('Error: ${secureQuery.error}');
+    
+    // Secure data never persisted, cleared on app background
+    return Text('Token: ${secureQuery.data}');
+  }
+}
+```
+
+### Secure Mutations with useMutation
+
+```dart
+class SecureMutationWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient;
+    
+    final mutation = useMutation<String, String>(
+      mutationFn: (data) => api.secureMutation(data),
+      options: MutationOptions(
+        queueWhenOffline: true,
+        maxRetries: 3,
+      ),
+      client: client,                      // Use configured client
+    );
+    
+    return ElevatedButton(
+      onPressed: mutation.isLoading
+          ? null
+          : () => mutation.mutate('secure-data'),
+      child: mutation.isLoading
+          ? CircularProgressIndicator()
+          : Text('Secure Mutation'),
+    );
+  }
+}
+```
+
+### Global Security Configuration
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MaterialApp(
+    home: MyApp(),
+  ),
+)
+```
+
+**Security Benefits:**
+- ✅ Secure cache entries with automatic cleanup
+- ✅ Encrypted persistence for sensitive data
+- ✅ Input validation preventing injection attacks
+- ✅ Platform-specific secure key storage
+
 ## Why Hooks?
 
 If you're already using `flutter_hooks`, this adapter provides the most natural integration with Flutter Query. The hooks API is:
