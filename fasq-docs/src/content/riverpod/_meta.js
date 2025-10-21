@@ -9,6 +9,7 @@ const meta = {
   'offline-queue': 'Offline Queue',
   'family-providers': 'Family Providers',
   'riverpod-patterns': 'Riverpod Patterns',
+  security: 'Security Features',
   examples: 'Examples',
 }
 

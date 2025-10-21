@@ -9,6 +9,7 @@ class MutationNotifier<T, TVariables> extends StateNotifier<MutationState<T>> {
   MutationNotifier({
     required Future<T> Function(TVariables variables) mutationFn,
     MutationOptions<T, TVariables>? options,
+    QueryClient? client,
   }) : super(const MutationState.idle()) {
     _mutation = Mutation<T, TVariables>(
       mutationFn: mutationFn,

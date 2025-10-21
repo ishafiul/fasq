@@ -390,6 +390,84 @@ MultiBlocProvider(
 )
 ```
 
+## Security Features 🔒
+
+fasq_bloc supports all FASQ security features through QueryClient configuration:
+
+### Secure Queries with QueryCubit
+
+```dart
+BlocProvider(
+  create: (_) => QueryCubit<String>(
+    key: 'auth-token',
+    queryFn: () => api.getAuthToken(),
+    options: QueryOptions(
+      isSecure: true,                    // Mark as secure
+      maxAge: Duration(minutes: 15),     // Required TTL
+      staleTime: Duration(minutes: 5),
+    ),
+    client: context.queryClient,         // Use configured client
+  ),
+  child: BlocBuilder<QueryCubit<String>, QueryState<String>>(
+    builder: (context, state) {
+      // Secure data never persisted, cleared on app background
+      return Text('Token: ${state.data}');
+    },
+  ),
+)
+```
+
+### Secure Mutations with MutationCubit
+
+```dart
+BlocProvider(
+  create: (_) => MutationCubit<String, String>(
+    mutationFn: (data) => api.secureMutation(data),
+    options: MutationOptions(
+      queueWhenOffline: true,
+      maxRetries: 3,
+    ),
+    client: context.queryClient,         // Use configured client
+  ),
+  child: BlocBuilder<MutationCubit<String, String>, MutationState<String>>(
+    builder: (context, state) {
+      return ElevatedButton(
+        onPressed: state.isLoading
+            ? null
+            : () => context.read<MutationCubit<String, String>>().mutate('secure-data'),
+        child: state.isLoading
+            ? CircularProgressIndicator()
+            : Text('Secure Mutation'),
+      );
+    },
+  ),
+)
+```
+
+### Global Security Configuration
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MaterialApp(
+    home: MyApp(),
+  ),
+)
+```
+
+**Security Benefits:**
+- ✅ Secure cache entries with automatic cleanup
+- ✅ Encrypted persistence for sensitive data
+- ✅ Input validation preventing injection attacks
+- ✅ Platform-specific secure key storage
+
 ## Learn More
 
 - [FASQ Documentation](../fasq/README.md)

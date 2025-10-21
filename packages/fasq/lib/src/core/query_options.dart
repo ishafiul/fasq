@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'validation/input_validator.dart';
 
 /// Configuration options for a query.
 ///
@@ -51,13 +52,42 @@ class QueryOptions {
   /// Callback invoked when the query fails with an error.
   final void Function(Object error)? onError;
 
-  const QueryOptions({
+  /// Whether this query contains sensitive data that should be secured.
+  ///
+  /// Secure queries:
+  /// - Never persisted to disk (even if persistence enabled)
+  /// - Excluded from logs in production
+  /// - Redacted in DevTools unless explicitly enabled
+  /// - Auto-cleared on app background/terminate
+  /// - Enforced TTL (can't disable)
+  final bool isSecure;
+
+  /// Maximum age for secure entries (enforced TTL).
+  ///
+  /// Secure entries are automatically removed after this duration,
+  /// regardless of cache settings. Required when isSecure is true.
+  final Duration? maxAge;
+
+  QueryOptions({
     this.enabled = true,
     this.staleTime,
     this.cacheTime,
     this.refetchOnMount = false,
     this.onSuccess,
     this.onError,
-  });
-}
+    this.isSecure = false,
+    this.maxAge,
+  }) {
+    // Validate durations
+    InputValidator.validateDuration(staleTime, 'staleTime');
+    InputValidator.validateDuration(cacheTime, 'cacheTime');
+    InputValidator.validateDuration(maxAge, 'maxAge');
 
+    // Validate secure options
+    if (isSecure && maxAge == null) {
+      throw ArgumentError(
+        'Secure queries must specify maxAge for TTL enforcement',
+      );
+    }
+  }
+}

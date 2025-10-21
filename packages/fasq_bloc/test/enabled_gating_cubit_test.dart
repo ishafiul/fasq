@@ -12,7 +12,7 @@ void main() {
         calls++;
         return 'x';
       },
-      options: const QueryOptions(enabled: false),
+      options: QueryOptions(enabled: false),
     );
 
     expect(cubit.state.isIdle, true);
@@ -20,4 +20,3 @@ void main() {
     await cubit.close();
   });
 }
-

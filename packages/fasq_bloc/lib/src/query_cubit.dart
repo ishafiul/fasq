@@ -6,6 +6,7 @@ class QueryCubit<T> extends Cubit<QueryState<T>> {
   final String key;
   final Future<T> Function() queryFn;
   final QueryOptions? options;
+  final QueryClient? client;
 
   late final Query<T> _query;
   StreamSubscription<QueryState<T>>? _subscription;
@@ -14,13 +15,14 @@ class QueryCubit<T> extends Cubit<QueryState<T>> {
     required this.key,
     required this.queryFn,
     this.options,
+    this.client,
   }) : super(QueryState<T>.idle()) {
     _initialize();
   }
 
   void _initialize() {
-    final client = QueryClient();
-    _query = client.getQuery<T>(key, queryFn, options: options);
+    final queryClient = client ?? QueryClient();
+    _query = queryClient.getQuery<T>(key, queryFn, options: options);
 
     _subscription = _query.stream.listen((newState) {
       if (!isClosed) {
@@ -36,7 +38,8 @@ class QueryCubit<T> extends Cubit<QueryState<T>> {
   }
 
   void invalidate() {
-    QueryClient().invalidateQuery(key);
+    final queryClient = client ?? QueryClient();
+    queryClient.invalidateQuery(key);
   }
 
   @override

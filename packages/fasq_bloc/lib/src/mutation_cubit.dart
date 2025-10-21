@@ -10,13 +10,16 @@ class MutationCubit<TData, TVariables> extends Cubit<MutationState<TData>> {
     required Future<TData> Function(TVariables variables) mutationFn,
     void Function(TData data)? onSuccessCallback,
     void Function(Object error)? onErrorCallback,
+    MutationOptions<TData, TVariables>? options,
+    QueryClient? client,
   }) : super(const MutationState.idle()) {
     _mutation = Mutation<TData, TVariables>(
       mutationFn: mutationFn,
-      options: MutationOptions(
-        onSuccess: onSuccessCallback,
-        onError: onErrorCallback,
-      ),
+      options: options ??
+          MutationOptions(
+            onSuccess: onSuccessCallback,
+            onError: onErrorCallback,
+          ),
     );
 
     _subscription = _mutation.stream.listen((newState) {

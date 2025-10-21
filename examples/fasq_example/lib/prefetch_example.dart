@@ -141,7 +141,7 @@ class _PrefetchExampleState extends State<PrefetchExample> {
       await _client.prefetchQuery(
         'user-$userId',
         () => _simulateApiCall(userId),
-        options: const QueryOptions(
+        options: QueryOptions(
           staleTime: Duration(seconds: 30),
         ),
       );

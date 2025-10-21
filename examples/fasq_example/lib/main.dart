@@ -624,7 +624,7 @@ class DeduplicationExamplePage extends StatelessWidget {
     return QueryBuilder<String>(
       queryKey: 'dedup-demo',
       queryFn: fetchData,
-      options: const QueryOptions(
+      options: QueryOptions(
         staleTime: Duration(seconds: 30),
       ),
       builder: (context, state) {
@@ -781,7 +781,7 @@ class _InvalidationExamplePageState extends State<InvalidationExamplePage> {
               child: QueryBuilder<Map<String, dynamic>>(
                 queryKey: 'user-data',
                 queryFn: fetchUserData,
-                options: const QueryOptions(
+                options: QueryOptions(
                   staleTime: Duration(seconds: 30),
                 ),
                 builder: (context, state) {
@@ -1136,7 +1136,7 @@ class MultipleQueriesPage extends StatelessWidget {
     return QueryBuilder<String>(
       queryKey: 'shared-data',
       queryFn: fetchData,
-      options: const QueryOptions(
+      options: QueryOptions(
         staleTime: Duration(minutes: 1),
       ),
       builder: (context, state) {

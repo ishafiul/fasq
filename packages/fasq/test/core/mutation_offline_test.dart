@@ -1,7 +1,9 @@
+import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq/fasq.dart';
-import 'package:test/test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Mutation with Offline Queue', () {
     late Mutation<String, String> mutation;
 
@@ -11,7 +13,7 @@ void main() {
           await Future.delayed(Duration(milliseconds: 10));
           return 'Processed: $data';
         },
-        options: const MutationOptions(
+        options: MutationOptions(
           queueWhenOffline: true,
         ),
       );
@@ -61,7 +63,7 @@ void main() {
         mutationFn: (String data) async {
           return 'Processed: $data';
         },
-        options: const MutationOptions(
+        options: MutationOptions(
           queueWhenOffline: false,
         ),
       );
@@ -111,7 +113,7 @@ void main() {
         mutationFn: (String data) async {
           throw Exception('Test error');
         },
-        options: const MutationOptions(
+        options: MutationOptions(
           queueWhenOffline: true,
         ),
       );

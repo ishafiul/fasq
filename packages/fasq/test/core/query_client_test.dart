@@ -133,7 +133,7 @@ void main() {
 
     test('passes options to created query', () {
       final client = QueryClient();
-      final options = const QueryOptions(enabled: false);
+      final options = QueryOptions(enabled: false);
 
       final query = client.getQuery<String>(
         'test-key',

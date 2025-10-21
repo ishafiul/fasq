@@ -142,7 +142,8 @@ class Query<T> {
       if (cachedEntry != null && cachedEntry.isStale) {
         final age = DateTime.now().difference(cachedEntry.createdAt);
         print('🔄 [flutter_query] Serving STALE data for "$key"');
-        print('   Age: ${age.inSeconds}s, StaleTime: ${cachedEntry.staleTime.inSeconds}s');
+        print(
+            '   Age: ${age.inSeconds}s, StaleTime: ${cachedEntry.staleTime.inSeconds}s');
         print('   Setting isFetching = true');
         _updateState(QueryState.success(
           cachedEntry.data,
@@ -184,6 +185,8 @@ class Query<T> {
             data,
             staleTime: options?.staleTime,
             cacheTime: options?.cacheTime,
+            isSecure: options?.isSecure ?? false,
+            maxAge: options?.maxAge,
           );
           options?.onSuccess?.call();
         }
@@ -255,4 +258,3 @@ class Query<T> {
     onDispose?.call();
   }
 }
-

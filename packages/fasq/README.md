@@ -21,6 +21,7 @@ A powerful async state management library for Flutter. Handles API calls, databa
 - ✅ **Infinite Queries** - Pagination and infinite scroll with memory management
 - ✅ **Dependent Queries** - Chain queries using enabled gating
 - ✅ **Offline Mutation Queue** - Persist mutations offline and sync when online
+- ✅ **Security Hardening** - Secure cache entries, encrypted persistence, input validation
 - 🔄 **Offline Support** - Coming in Phase 5
 
 ## Installation
@@ -774,6 +775,122 @@ QueryBuilder<Data>(
 )
 ```
 
+## Security Features 🔒
+
+FASQ includes comprehensive security features for production applications:
+
+### Secure Cache Entries
+
+Mark sensitive data to prevent persistence and enable automatic cleanup:
+
+```dart
+QueryBuilder<String>(
+  queryKey: 'auth-token',
+  queryFn: () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,                    // Mark as secure
+    maxAge: Duration(minutes: 15),     // Required TTL for secure entries
+    staleTime: Duration(minutes: 5),
+  ),
+  builder: (context, state) {
+    // Secure data is never persisted to disk
+    // Automatically cleared on app background
+    return Text('Token: ${state.data}');
+  },
+)
+```
+
+**Security Benefits:**
+- ✅ Never persisted to disk
+- ✅ Automatically cleared on app background/termination
+- ✅ Strict TTL enforcement
+- ✅ Not exposed in DevTools or logs
+
+### Encrypted Persistence
+
+Optional encryption for persisted cache data:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-secure-encryption-key',
+  ),
+  child: MyApp(),
+)
+```
+
+**Encryption Features:**
+- ✅ AES-GCM encryption for data at rest
+- ✅ Platform-specific secure key storage (iOS Keychain, Android EncryptedSharedPreferences)
+- ✅ Isolate-based encryption for large data (>50KB)
+- ✅ Automatic key generation and management
+
+### Input Validation
+
+Comprehensive validation prevents injection attacks:
+
+```dart
+// Valid query keys
+QueryBuilder<String>(
+  queryKey: 'user:123',        // ✅ Valid
+  queryFn: () => fetchUser(),
+)
+
+// Invalid query keys throw clear errors
+QueryBuilder<String>(
+  queryKey: 'user@123',        // ❌ Throws: "Query key must contain only alphanumeric, colon, hyphen, underscore"
+  queryFn: () => fetchUser(),
+)
+```
+
+**Validation Coverage:**
+- ✅ Query keys (alphanumeric, colon, hyphen, underscore only)
+- ✅ Cache data (no functions or closures)
+- ✅ Duration values (non-negative)
+- ✅ Clear, actionable error messages
+
+### Security Configuration
+
+Configure security features globally:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MyApp(),
+)
+
+// Access configured client in widgets
+class MyWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient; // Gets configured QueryClient
+    
+    return QueryBuilder<String>(
+      queryKey: 'secure-data',
+      queryFn: () => fetchSecureData(),
+      options: QueryOptions(
+        isSecure: true,
+        maxAge: Duration(minutes: 30),
+      ),
+      client: client, // Use configured client
+      builder: (context, state) => Text('${state.data}'),
+    );
+  }
+}
+```
+
 ## Phase 2 Complete - What's Next
 
 Phase 2 caching layer is complete! The following features will be added in future phases:
@@ -782,7 +899,7 @@ Phase 2 caching layer is complete! The following features will be added in futur
 - **Phase 4:** Infinite queries for pagination ✅
 - **Phase 4:** Dependent queries ✅
 - **Phase 4:** Offline mutation queue ✅
-- **Phase 5:** Production hardening (security, DevTools, testing utilities)
+- **Phase 5:** Production hardening (security, DevTools, testing utilities) ✅
 
 ## Architecture
 

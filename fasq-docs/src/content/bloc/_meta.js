@@ -8,6 +8,7 @@ const meta = {
   'prefetching': 'Prefetching',
   'offline-queue': 'Offline Queue',
   'bloc-patterns': 'Bloc Patterns',
+  security: 'Security Features',
   examples: 'Examples',
 }
 

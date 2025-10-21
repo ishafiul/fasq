@@ -1,0 +1,396 @@
+# Security Features 🔒
+
+FASQ includes comprehensive security features for production applications, ensuring sensitive data is protected and preventing common security vulnerabilities.
+
+## Overview
+
+The security features in FASQ are designed to:
+
+- **Protect sensitive data** from persistence and unauthorized access
+- **Encrypt data at rest** using platform-specific secure storage
+- **Validate all inputs** to prevent injection attacks
+- **Automatically clean up** sensitive data on app lifecycle events
+
+## Secure Cache Entries
+
+Mark sensitive data to prevent persistence and enable automatic cleanup:
+
+```dart
+QueryBuilder<String>(
+  queryKey: 'auth-token',
+  queryFn: () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,                    // Mark as secure
+    maxAge: Duration(minutes: 15),     // Required TTL for secure entries
+    staleTime: Duration(minutes: 5),
+  ),
+  builder: (context, state) {
+    // Secure data is never persisted to disk
+    // Automatically cleared on app background
+    return Text('Token: ${state.data}');
+  },
+)
+```
+
+### Security Benefits
+
+- ✅ **Never persisted to disk** - Secure entries are memory-only
+- ✅ **Automatic cleanup** - Cleared on app background/termination
+- ✅ **Strict TTL enforcement** - Expired secure entries are immediately removed
+- ✅ **Not exposed in DevTools** - Secure data is hidden from debugging tools
+
+### Use Cases
+
+Perfect for storing:
+- Authentication tokens
+- Personal information
+- Payment details
+- API keys
+- Session data
+
+## Encrypted Persistence
+
+Optional encryption for persisted cache data using platform-specific secure storage:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-secure-encryption-key',
+  ),
+  child: MyApp(),
+)
+```
+
+### Encryption Features
+
+- ✅ **AES-GCM encryption** for data at rest
+- ✅ **Platform-specific key storage**:
+  - iOS: Keychain
+  - Android: EncryptedSharedPreferences
+  - Desktop: Platform-specific secure storage
+- ✅ **Isolate-based encryption** for large data (>50KB)
+- ✅ **Automatic key generation** and management
+
+### Platform Support
+
+| Platform | Key Storage | Status |
+|----------|-------------|---------|
+| iOS | Keychain | ✅ Supported |
+| Android | EncryptedSharedPreferences | ✅ Supported |
+| macOS | Keychain | ✅ Supported |
+| Windows | Credential Manager | ✅ Supported |
+| Linux | Secret Service | ✅ Supported |
+| Web | Not supported | ❌ Throws error |
+
+## Input Validation
+
+Comprehensive validation prevents injection attacks and malformed data:
+
+```dart
+// Valid query keys
+QueryBuilder<String>(
+  queryKey: 'user:123',        // ✅ Valid
+  queryFn: () => fetchUser(),
+)
+
+// Invalid query keys throw clear errors
+QueryBuilder<String>(
+  queryKey: 'user@123',        // ❌ Throws: "Query key must contain only alphanumeric, colon, hyphen, underscore"
+  queryFn: () => fetchUser(),
+)
+```
+
+### Validation Coverage
+
+- ✅ **Query keys** - Alphanumeric, colon, hyphen, underscore only
+- ✅ **Cache data** - No functions or closures allowed
+- ✅ **Duration values** - Non-negative durations only
+- ✅ **Clear error messages** - Actionable validation feedback
+
+### Valid Query Key Patterns
+
+```dart
+// ✅ Valid patterns
+'user:123'
+'posts-list'
+'profile_data'
+'item_id-123_v2'
+'key_with_underscores'
+'key-with-hyphens'
+'key:with:colons'
+'KEY_WITH_CAPS'
+'12345'
+
+// ❌ Invalid patterns
+'user@123'           // Special characters
+'key with spaces'    // Spaces
+'key.with.dots'      // Dots
+'key$value'          // Special characters
+```
+
+## Security Configuration
+
+Configure security features globally using `QueryClientProvider`:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MaterialApp(
+    home: MyApp(),
+  ),
+)
+
+// Access configured client in widgets
+class MyWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient; // Gets configured QueryClient
+    
+    return QueryBuilder<String>(
+      queryKey: 'secure-data',
+      queryFn: () => fetchSecureData(),
+      options: QueryOptions(
+        isSecure: true,
+        maxAge: Duration(minutes: 30),
+      ),
+      client: client, // Use configured client
+      builder: (context, state) => Text('${state.data}'),
+    );
+  }
+}
+```
+
+## Adapter Support
+
+All FASQ adapters support security features:
+
+### fasq_bloc
+
+```dart
+BlocProvider(
+  create: (_) => QueryCubit<String>(
+    key: 'auth-token',
+    queryFn: () => api.getAuthToken(),
+    options: QueryOptions(
+      isSecure: true,
+      maxAge: Duration(minutes: 15),
+    ),
+    client: context.queryClient,
+  ),
+  child: BlocBuilder<QueryCubit<String>, QueryState<String>>(
+    builder: (context, state) => Text('${state.data}'),
+  ),
+)
+```
+
+### fasq_hooks
+
+```dart
+class SecureDataWidget extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = context.queryClient;
+    
+    final secureQuery = useQuery<String>(
+      'auth-token',
+      () => api.getAuthToken(),
+      options: QueryOptions(
+        isSecure: true,
+        maxAge: Duration(minutes: 15),
+      ),
+      client: client,
+    );
+    
+    return Text('Token: ${secureQuery.data}');
+  }
+}
+```
+
+### fasq_riverpod
+
+```dart
+final secureTokenProvider = queryProvider<String>(
+  'auth-token',
+  () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 15),
+  ),
+  client: context.queryClient,
+);
+
+class SecureTokenWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(secureTokenProvider);
+    return Text('Token: ${state.data}');
+  }
+}
+```
+
+## Best Practices
+
+### 1. Use Secure Entries for Sensitive Data
+
+Always mark sensitive data as secure:
+
+```dart
+// ✅ Good - Sensitive data marked as secure
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(minutes: 15),
+)
+
+// ❌ Bad - Sensitive data not marked as secure
+QueryOptions(
+  isSecure: false, // Sensitive data could be persisted
+)
+```
+
+### 2. Set Appropriate TTL Values
+
+Use reasonable TTL values for secure entries:
+
+```dart
+// ✅ Good - Short TTL for sensitive data
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(minutes: 15), // Short-lived tokens
+)
+
+// ❌ Bad - Too long TTL for sensitive data
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(hours: 24), // Too long for sensitive data
+)
+```
+
+### 3. Use Strong Encryption Keys
+
+Generate strong encryption keys:
+
+```dart
+// ✅ Good - Strong encryption key
+PersistenceOptions(
+  enabled: true,
+  encryptionKey: 'your-very-long-and-secure-encryption-key-here',
+)
+
+// ❌ Bad - Weak encryption key
+PersistenceOptions(
+  enabled: true,
+  encryptionKey: '123', // Too short and weak
+)
+```
+
+### 4. Validate All Inputs
+
+Always validate query keys and data:
+
+```dart
+// ✅ Good - Valid query key
+queryKey: 'user:123'
+
+// ❌ Bad - Invalid query key
+queryKey: 'user@123' // Will throw validation error
+```
+
+## Migration Guide
+
+### Enabling Security Features
+
+1. **Add security dependencies** to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  fasq: ^0.2.0
+  encrypt: ^5.0.3
+  flutter_secure_storage: ^9.0.0
+```
+
+2. **Wrap your app** with `QueryClientProvider`:
+
+```dart
+QueryClientProvider(
+  config: CacheConfig(
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MaterialApp(
+    home: MyApp(),
+  ),
+)
+```
+
+3. **Mark sensitive queries** as secure:
+
+```dart
+QueryOptions(
+  isSecure: true,
+  maxAge: Duration(minutes: 15),
+)
+```
+
+4. **Update adapter usage** to use configured client:
+
+```dart
+// Before
+QueryCubit<String>(
+  key: 'auth-token',
+  queryFn: () => api.getAuthToken(),
+)
+
+// After
+QueryCubit<String>(
+  key: 'auth-token',
+  queryFn: () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 15),
+  ),
+  client: context.queryClient,
+)
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Encryption not working on web:**
+- Web platform doesn't support secure storage
+- Use `isSecure: true` for web-sensitive data instead
+
+**Validation errors:**
+- Check query key format (alphanumeric, colon, hyphen, underscore only)
+- Ensure durations are non-negative
+- Verify cache data doesn't contain functions
+
+**Performance issues:**
+- Large data (>50KB) is automatically encrypted in isolates
+- Consider reducing cache size for better performance
+- Use appropriate TTL values to prevent memory bloat
+
+### Error Messages
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Query key must contain only alphanumeric, colon, hyphen, underscore" | Invalid query key format | Use valid characters only |
+| "Secure queries must specify maxAge for TTL enforcement" | Missing maxAge for secure query | Add maxAge to QueryOptions |
+| "staleTime must be non-negative" | Negative duration | Use positive or zero duration |
+| "Cache data cannot be a function or closure" | Function in cache data | Remove functions from cached data |

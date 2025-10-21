@@ -24,6 +24,12 @@ class CacheEntry<T> {
   /// Reference count for active queries using this data.
   final int referenceCount;
 
+  /// Whether this entry contains sensitive data.
+  final bool isSecure;
+
+  /// When this secure entry expires (enforced TTL).
+  final DateTime? expiresAt;
+
   const CacheEntry({
     required this.data,
     required this.createdAt,
@@ -32,6 +38,8 @@ class CacheEntry<T> {
     required this.staleTime,
     required this.cacheTime,
     this.referenceCount = 0,
+    this.isSecure = false,
+    this.expiresAt,
   });
 
   /// Creates a new cache entry with current timestamp.
@@ -39,6 +47,8 @@ class CacheEntry<T> {
     required T data,
     required Duration staleTime,
     required Duration cacheTime,
+    bool isSecure = false,
+    Duration? maxAge,
   }) {
     final now = DateTime.now();
     return CacheEntry<T>(
@@ -48,6 +58,8 @@ class CacheEntry<T> {
       accessCount: 1,
       staleTime: staleTime,
       cacheTime: cacheTime,
+      isSecure: isSecure,
+      expiresAt: isSecure && maxAge != null ? now.add(maxAge) : null,
     );
   }
 
@@ -60,9 +72,21 @@ class CacheEntry<T> {
   /// Whether the data is stale.
   bool get isStale => !isFresh;
 
+  /// Whether this secure entry has expired (TTL exceeded).
+  bool get isExpired {
+    if (!isSecure || expiresAt == null) return false;
+    return DateTime.now().isAfter(expiresAt!);
+  }
+
   /// Whether the entry should be garbage collected.
   bool shouldGarbageCollect(DateTime now) {
     if (referenceCount > 0) return false;
+
+    // Secure entries with TTL are strictly enforced
+    if (isSecure && expiresAt != null) {
+      return now.isAfter(expiresAt!);
+    }
+
     final inactiveTime = now.difference(lastAccessedAt);
     return inactiveTime > cacheTime;
   }
@@ -108,6 +132,8 @@ class CacheEntry<T> {
     Duration? staleTime,
     Duration? cacheTime,
     int? referenceCount,
+    bool? isSecure,
+    DateTime? expiresAt,
   }) {
     return CacheEntry<T>(
       data: data ?? this.data,
@@ -117,6 +143,8 @@ class CacheEntry<T> {
       staleTime: staleTime ?? this.staleTime,
       cacheTime: cacheTime ?? this.cacheTime,
       referenceCount: referenceCount ?? this.referenceCount,
+      isSecure: isSecure ?? this.isSecure,
+      expiresAt: expiresAt ?? this.expiresAt,
     );
   }
 
@@ -131,7 +159,7 @@ class CacheEntry<T> {
   @override
   String toString() {
     return 'CacheEntry<$T>(age: $age, accessCount: $accessCount, '
-        'isFresh: $isFresh, refCount: $referenceCount)';
+        'isFresh: $isFresh, refCount: $referenceCount, '
+        'isSecure: $isSecure, isExpired: $isExpired)';
   }
 }
-

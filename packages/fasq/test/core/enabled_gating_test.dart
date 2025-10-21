@@ -15,7 +15,7 @@ void main() {
         calls++;
         return 'data';
       },
-      options: const QueryOptions(enabled: false),
+      options: QueryOptions(enabled: false),
     );
 
     query.addListener();
@@ -58,4 +58,3 @@ void main() {
     expect(calls > 0, true);
   });
 }
-

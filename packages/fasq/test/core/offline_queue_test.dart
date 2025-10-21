@@ -1,7 +1,9 @@
+import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq/fasq.dart';
-import 'package:test/test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('OfflineQueueManager', () {
     late OfflineQueueManager queueManager;
 
@@ -11,15 +13,19 @@ void main() {
     });
 
     test('should enqueue mutation entry', () async {
-      await queueManager.enqueue('test-key', {'data': 'test'});
+      await queueManager
+          .enqueue('test-key', 'test-mutation-type', {'data': 'test'});
 
       expect(queueManager.length, equals(1));
       expect(queueManager.entries.first.key, equals('test-key'));
+      expect(queueManager.entries.first.mutationType,
+          equals('test-mutation-type'));
       expect(queueManager.entries.first.variables, equals({'data': 'test'}));
     });
 
     test('should remove mutation entry by id', () async {
-      await queueManager.enqueue('test-key', {'data': 'test'});
+      await queueManager
+          .enqueue('test-key', 'test-mutation-type', {'data': 'test'});
       final id = queueManager.entries.first.id;
 
       await queueManager.remove(id);
@@ -28,8 +34,8 @@ void main() {
     });
 
     test('should clear all entries', () async {
-      await queueManager.enqueue('key1', {'data': 'test1'});
-      await queueManager.enqueue('key2', {'data': 'test2'});
+      await queueManager.enqueue('key1', 'mutation-type-1', {'data': 'test1'});
+      await queueManager.enqueue('key2', 'mutation-type-2', {'data': 'test2'});
 
       await queueManager.clear();
 
@@ -40,7 +46,8 @@ void main() {
       final streamValues = <List<OfflineMutationEntry>>[];
       final subscription = queueManager.stream.listen(streamValues.add);
 
-      await queueManager.enqueue('test-key', {'data': 'test'});
+      await queueManager
+          .enqueue('test-key', 'test-mutation-type', {'data': 'test'});
       await queueManager.remove(queueManager.entries.first.id);
 
       await Future.delayed(Duration(milliseconds: 10));
@@ -53,8 +60,8 @@ void main() {
     });
 
     test('should create unique ids for entries', () async {
-      await queueManager.enqueue('key1', {'data': 'test1'});
-      await queueManager.enqueue('key2', {'data': 'test2'});
+      await queueManager.enqueue('key1', 'mutation-type-1', {'data': 'test1'});
+      await queueManager.enqueue('key2', 'mutation-type-2', {'data': 'test2'});
 
       final ids = queueManager.entries.map((e) => e.id).toList();
       expect(ids[0], isNot(equals(ids[1])));
@@ -66,6 +73,7 @@ void main() {
       final entry = OfflineMutationEntry(
         id: 'test-id',
         key: 'test-key',
+        mutationType: 'test-mutation-type',
         variables: {'data': 'test'},
         createdAt: DateTime(2023, 1, 1),
         attempts: 2,
@@ -76,6 +84,7 @@ void main() {
 
       expect(json['id'], equals('test-id'));
       expect(json['key'], equals('test-key'));
+      expect(json['mutationType'], equals('test-mutation-type'));
       expect(json['variables'], equals({'data': 'test'}));
       expect(json['createdAt'], equals('2023-01-01T00:00:00.000'));
       expect(json['attempts'], equals(2));
@@ -86,6 +95,7 @@ void main() {
       final json = {
         'id': 'test-id',
         'key': 'test-key',
+        'mutationType': 'test-mutation-type',
         'variables': {'data': 'test'},
         'createdAt': '2023-01-01T00:00:00.000',
         'attempts': 2,
@@ -96,6 +106,7 @@ void main() {
 
       expect(entry.id, equals('test-id'));
       expect(entry.key, equals('test-key'));
+      expect(entry.mutationType, equals('test-mutation-type'));
       expect(entry.variables, equals({'data': 'test'}));
       expect(entry.createdAt, equals(DateTime(2023, 1, 1)));
       expect(entry.attempts, equals(2));
@@ -106,6 +117,7 @@ void main() {
       final entry = OfflineMutationEntry(
         id: 'test-id',
         key: 'test-key',
+        mutationType: 'test-mutation-type',
         variables: {'data': 'test'},
         createdAt: DateTime(2023, 1, 1),
         attempts: 1,
@@ -119,6 +131,7 @@ void main() {
 
       expect(updated.id, equals('test-id'));
       expect(updated.key, equals('test-key'));
+      expect(updated.mutationType, equals('test-mutation-type'));
       expect(updated.variables, equals({'data': 'test'}));
       expect(updated.createdAt, equals(DateTime(2023, 1, 1)));
       expect(updated.attempts, equals(2));

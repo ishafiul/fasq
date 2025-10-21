@@ -198,6 +198,60 @@ QueryBuilder<List<User>>(
 - ✅ **Memory Management** - Automatic cleanup and eviction
 - ✅ **Type Safety** - Full generic type support
 - ✅ **Thread Safety** - Concurrent access protection
+- ✅ **Security Features** - Secure cache entries, encrypted persistence, input validation
+
+## Security Features 🔒
+
+Fasq includes comprehensive security features for production applications:
+
+### Secure Cache Entries
+Mark sensitive data to prevent persistence and enable automatic cleanup:
+
+```dart
+QueryBuilder<String>(
+  queryKey: 'auth-token',
+  queryFn: () => api.getAuthToken(),
+  options: QueryOptions(
+    isSecure: true,                    // Mark as secure
+    maxAge: Duration(minutes: 15),     // Required TTL
+  ),
+  builder: (context, state) {
+    // Secure data never persisted, cleared on app background
+    return Text('Token: ${state.data}');
+  },
+)
+```
+
+### Encrypted Persistence
+Optional encryption for persisted cache data:
+
+```dart
+QueryClientProvider(
+  persistenceOptions: PersistenceOptions(
+    enabled: true,
+    encryptionKey: 'your-encryption-key',
+  ),
+  child: MyApp(),
+)
+```
+
+### Input Validation
+Comprehensive validation prevents injection attacks:
+
+```dart
+// ✅ Valid query keys
+queryKey: 'user:123'        // Alphanumeric, colon, hyphen, underscore only
+
+// ❌ Invalid query keys throw clear errors
+queryKey: 'user@123'        // Special characters not allowed
+```
+
+**Security Benefits:**
+- ✅ Never persisted to disk for secure entries
+- ✅ AES-GCM encryption for data at rest
+- ✅ Platform-specific secure key storage
+- ✅ Automatic cleanup on app lifecycle events
+- ✅ Input validation preventing injection attacks
 
 ## What Fasq Doesn't Do
 
@@ -213,6 +267,7 @@ Ready to get started? Choose your path:
 - **[Installation](/docs/installation)** - Add Fasq to your project
 - **[Quick Start](/docs/quick-start)** - Get up and running in 5 minutes
 - **[Core Concepts](/docs/core-concepts)** - Understand queries, mutations, and caching
+- **[Security Features](/docs/core/security)** - Learn about secure cache entries, encrypted persistence, and input validation
 - **[Choose Your Adapter](/docs/core)** - Pick the approach that fits your app
 
 ## Inspiration
