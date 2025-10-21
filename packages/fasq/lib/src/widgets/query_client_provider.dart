@@ -85,7 +85,9 @@ class _QueryClientInheritedWidget extends InheritedWidget {
   }
 
   static QueryClient? of(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<_QueryClientInheritedWidget>()?.client;
+    return context
+        .dependOnInheritedWidgetOfExactType<_QueryClientInheritedWidget>()
+        ?.client;
   }
 }
 

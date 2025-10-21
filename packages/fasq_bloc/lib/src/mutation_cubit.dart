@@ -15,10 +15,11 @@ class MutationCubit<TData, TVariables> extends Cubit<MutationState<TData>> {
   }) : super(const MutationState.idle()) {
     _mutation = Mutation<TData, TVariables>(
       mutationFn: mutationFn,
-      options: options ?? MutationOptions(
-        onSuccess: onSuccessCallback,
-        onError: onErrorCallback,
-      ),
+      options: options ??
+          MutationOptions(
+            onSuccess: onSuccessCallback,
+            onError: onErrorCallback,
+          ),
     );
 
     _subscription = _mutation.stream.listen((newState) {

@@ -44,4 +44,3 @@ void usePrefetchOnMount(List<PrefetchConfig> configs, {QueryClient? client}) {
     return null;
   }, [configs.length]);
 }
-
