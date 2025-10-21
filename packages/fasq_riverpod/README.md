@@ -7,6 +7,7 @@ Riverpod adapter for FASQ (Flutter Async State Query) - bringing powerful async 
 - 🔌 **queryProvider** - Provider factory for queries
 - ♾️ **infiniteQueryProvider** - Provider factory for infinite queries
 - 🔄 **QueryNotifier** - StateNotifier for query state
+- 🔀 **combineQueries2/3** - Combine multiple query providers
 - 🚀 **Automatic caching** - Built on FASQ's production-ready cache
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
 - 🎯 **Type-safe** - Compile-time safety with Riverpod
@@ -43,6 +44,35 @@ class Posts extends ConsumerWidget {
             onPressed: () => notifier.fetchNextPage(),
             child: Text('Load More'),
           ),
+      ],
+    );
+  }
+}
+```
+
+### Parallel Queries with combineQueries
+
+```dart
+// Define individual providers
+final usersProvider = queryProvider('users', () => api.fetchUsers());
+final postsProvider = queryProvider('posts', () => api.fetchPosts());
+final commentsProvider = queryProvider('comments', () => api.fetchComments());
+
+// Combine providers
+final dashboardProvider = combineQueries3(usersProvider, postsProvider, commentsProvider);
+
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(dashboardProvider);
+    
+    return Column(
+      children: [
+        if (!combined.isAllSuccess) LinearProgressIndicator(),
+        if (combined.hasAnyError) ErrorBanner(),
+        UsersList(combined.state1),
+        PostsList(combined.state2),
+        CommentsList(combined.state3),
       ],
     );
   }

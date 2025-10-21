@@ -1,0 +1,484 @@
+# Combining Queries
+
+Execute multiple queries in parallel with the Riverpod adapter using provider combiners.
+
+## Basic Usage
+
+```dart
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// Define individual providers
+final usersProvider = queryProvider('users', () => api.fetchUsers());
+final postsProvider = queryProvider('posts', () => api.fetchPosts());
+final commentsProvider = queryProvider('comments', () => api.fetchComments());
+
+// Combine providers
+final dashboardProvider = combineQueries3(usersProvider, postsProvider, commentsProvider);
+
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(dashboardProvider);
+    
+    return Column(
+      children: [
+        UsersList(combined.state1),
+        PostsList(combined.state2),
+        CommentsList(combined.state3),
+      ],
+    );
+  }
+}
+```
+
+## API Reference
+
+### combineQueries2
+
+```dart
+Provider<CombinedQueryState2<T1, T2>> combineQueries2<T1, T2>(
+  StateNotifierProvider<QueryNotifier<T1>, QueryState<T1>> provider1,
+  StateNotifierProvider<QueryNotifier<T2>, QueryState<T2>> provider2,
+)
+```
+
+Combines two query providers into a single provider.
+
+### combineQueries3
+
+```dart
+Provider<CombinedQueryState3<T1, T2, T3>> combineQueries3<T1, T2, T3>(
+  StateNotifierProvider<QueryNotifier<T1>, QueryState<T1>> provider1,
+  StateNotifierProvider<QueryNotifier<T2>, QueryState<T2>> provider2,
+  StateNotifierProvider<QueryNotifier<T3>, QueryState<T3>> provider3,
+)
+```
+
+Combines three query providers into a single provider.
+
+### CombinedQueryState2
+
+```dart
+class CombinedQueryState2<T1, T2> {
+  final QueryState<T1> state1;
+  final QueryState<T2> state2;
+  
+  // Helper methods
+  bool get isAllLoading;
+  bool get isAnyLoading;
+  bool get isAllSuccess;
+  bool get hasAnyError;
+  bool get isAllData;
+}
+```
+
+### CombinedQueryState3
+
+```dart
+class CombinedQueryState3<T1, T2, T3> {
+  final QueryState<T1> state1;
+  final QueryState<T2> state2;
+  final QueryState<T3> state3;
+  
+  // Helper methods
+  bool get isAllLoading;
+  bool get isAnyLoading;
+  bool get isAllSuccess;
+  bool get hasAnyError;
+  bool get isAllData;
+}
+```
+
+## State Management
+
+### Built-in Helper Methods
+
+```dart
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(dashboardProvider);
+    
+    // Check if all queries are loading
+    if (combined.isAllLoading) {
+      return const CircularProgressIndicator();
+    }
+    
+    // Check if any query is loading
+    if (combined.isAnyLoading) {
+      return const PartialLoadingWidget();
+    }
+    
+    // Check if all queries succeeded
+    if (combined.isAllSuccess) {
+      return const SuccessWidget();
+    }
+    
+    // Check if any query has error
+    if (combined.hasAnyError) {
+      return const ErrorWidget();
+    }
+    
+    // Check if all queries have data
+    if (combined.isAllData) {
+      return const DataWidget();
+    }
+    
+    return const SizedBox();
+  }
+}
+```
+
+### Accessing Individual States
+
+```dart
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(dashboardProvider);
+    
+    return Column(
+      children: [
+        // Access individual states with type safety
+        UserList(combined.state1),
+        PostList(combined.state2),
+        CommentList(combined.state3),
+      ],
+    );
+  }
+}
+```
+
+## Advanced Patterns
+
+### Two Query Combination
+
+```dart
+// Define providers
+final usersProvider = queryProvider('users', () => api.fetchUsers());
+final postsProvider = queryProvider('posts', () => api.fetchPosts());
+
+// Combine two providers
+final userPostsProvider = combineQueries2(usersProvider, postsProvider);
+
+class UserPostsDashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(userPostsProvider);
+    
+    return Column(
+      children: [
+        if (combined.isAllLoading) const CircularProgressIndicator(),
+        if (combined.hasAnyError) const ErrorBanner(),
+        
+        if (combined.state1.hasData) UserList(combined.state1),
+        if (combined.state2.hasData) PostList(combined.state2),
+      ],
+    );
+  }
+}
+```
+
+### Conditional Providers
+
+```dart
+// Conditional provider based on user input
+final conditionalCommentsProvider = Provider.family<StateNotifierProvider<QueryNotifier<List<Comment>>, QueryState<List<Comment>>>?, String>((ref, userId) {
+  if (userId.isEmpty) return null;
+  return queryProvider('comments-$userId', () => api.fetchUserComments(userId));
+});
+
+// Combine with conditional provider
+final conditionalDashboardProvider = Provider.family<CombinedQueryState2<List<User>, List<Comment>>?, String>((ref, userId) {
+  final commentsProvider = ref.watch(conditionalCommentsProvider(userId));
+  if (commentsProvider == null) return null;
+  
+  return CombinedQueryState2(
+    ref.watch(usersProvider),
+    ref.watch(commentsProvider),
+  );
+});
+
+class ConditionalDashboard extends ConsumerWidget {
+  final String userId;
+  
+  const ConditionalDashboard({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(conditionalDashboardProvider(userId));
+    
+    if (combined == null) {
+      return const Text('No user selected');
+    }
+    
+    return Column(
+      children: [
+        UserList(combined.state1),
+        CommentList(combined.state2),
+      ],
+    );
+  }
+}
+```
+
+### Error Handling
+
+```dart
+class ErrorHandlingDashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(dashboardProvider);
+    
+    return Column(
+      children: [
+        // Show error banner if any query failed
+        if (combined.hasAnyError)
+          ErrorBanner(
+            onRetry: () {
+              // Retry all queries
+              ref.invalidate(usersProvider);
+              ref.invalidate(postsProvider);
+              ref.invalidate(commentsProvider);
+            },
+          ),
+        
+        // Show loading indicator if any query is loading
+        if (combined.isAnyLoading) const LinearProgressIndicator(),
+        
+        // Show data for successful queries
+        if (combined.state1.hasData) UserList(combined.state1),
+        if (combined.state2.hasData) PostList(combined.state2),
+        if (combined.state3.hasData) CommentList(combined.state3),
+      ],
+    );
+  }
+}
+```
+
+### Custom Combiner
+
+```dart
+// Custom combiner for more than 3 queries
+final customCombinerProvider = Provider<CustomCombinedState>((ref) {
+  final users = ref.watch(usersProvider);
+  final posts = ref.watch(postsProvider);
+  final comments = ref.watch(commentsProvider);
+  final settings = ref.watch(settingsProvider);
+  
+  return CustomCombinedState(
+    users: users,
+    posts: posts,
+    comments: comments,
+    settings: settings,
+  );
+});
+
+class CustomCombinedState {
+  final QueryState<List<User>> users;
+  final QueryState<List<Post>> posts;
+  final QueryState<List<Comment>> comments;
+  final QueryState<Settings> settings;
+  
+  const CustomCombinedState({
+    required this.users,
+    required this.posts,
+    required this.comments,
+    required this.settings,
+  });
+  
+  bool get isAllLoading => users.isLoading && posts.isLoading && comments.isLoading && settings.isLoading;
+  bool get isAnyLoading => users.isLoading || posts.isLoading || comments.isLoading || settings.isLoading;
+  bool get isAllSuccess => users.isSuccess && posts.isSuccess && comments.isSuccess && settings.isSuccess;
+  bool get hasAnyError => users.hasError || posts.hasError || comments.hasError || settings.hasError;
+}
+```
+
+## Performance Tips
+
+### Provider Stability
+
+```dart
+// ✅ Good: Stable provider definitions
+final usersProvider = queryProvider('users', () => api.fetchUsers());
+final postsProvider = queryProvider('posts', () => api.fetchPosts());
+final dashboardProvider = combineQueries2(usersProvider, postsProvider);
+
+// ❌ Avoid: Creating providers in build method
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // This creates new providers on each build
+    final usersProvider = queryProvider('users', () => api.fetchUsers());
+    final postsProvider = queryProvider('posts', () => api.fetchPosts());
+    final dashboardProvider = combineQueries2(usersProvider, postsProvider);
+    
+    final combined = ref.watch(dashboardProvider);
+    return DataWidget(combined);
+  }
+}
+```
+
+### Selective Watching
+
+```dart
+class SelectiveDashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch only what you need
+    final users = ref.watch(usersProvider);
+    final posts = ref.watch(postsProvider);
+    
+    // Don't watch comments if not needed
+    // final comments = ref.watch(commentsProvider);
+    
+    return Column(
+      children: [
+        UserList(users),
+        PostList(posts),
+        // CommentList(comments), // Not watched, won't rebuild
+      ],
+    );
+  }
+}
+```
+
+### Provider Families
+
+```dart
+// Use families for dynamic queries
+final userProvider = queryProvider.family<User, String>('user', (userId) => api.fetchUser(userId));
+final userPostsProvider = queryProvider.family<List<Post>, String>('user-posts', (userId) => api.fetchUserPosts(userId));
+
+// Combine family providers
+final userDashboardProvider = Provider.family<CombinedQueryState2<User, List<Post>>, String>((ref, userId) {
+  return CombinedQueryState2(
+    ref.watch(userProvider(userId)),
+    ref.watch(userPostsProvider(userId)),
+  );
+});
+
+class UserDashboard extends ConsumerWidget {
+  final String userId;
+  
+  const UserDashboard({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(userDashboardProvider(userId));
+    
+    return Column(
+      children: [
+        UserCard(combined.state1),
+        PostList(combined.state2),
+      ],
+    );
+  }
+}
+```
+
+## Testing
+
+```dart
+testWidgets('combineQueries2 works correctly', (tester) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      child: MaterialApp(
+        home: Consumer(
+          builder: (context, ref, child) {
+            final combined = ref.watch(dashboardProvider);
+            return Column(
+              children: [
+                Text('loading: ${combined.isAnyLoading}'),
+                Text('success: ${combined.isAllSuccess}'),
+                Text('data1: ${combined.state1.data ?? 'null'}'),
+                Text('data2: ${combined.state2.data ?? 'null'}'),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
+  
+  await tester.pumpAndSettle();
+  
+  expect(find.text('loading: false'), findsOneWidget);
+  expect(find.text('success: true'), findsOneWidget);
+});
+```
+
+## Common Pitfalls
+
+### 1. Provider Disposal
+
+```dart
+// ❌ Bad: Providers might not dispose properly
+final unstableProvider = Provider((ref) {
+  // This might not dispose correctly
+  return SomeResource();
+});
+
+// ✅ Good: Use proper Riverpod lifecycle
+final stableProvider = Provider((ref) {
+  final resource = SomeResource();
+  
+  ref.onDispose(() {
+    resource.dispose();
+  });
+  
+  return resource;
+});
+```
+
+### 2. Over-watching
+
+```dart
+// ❌ Bad: Watching more than needed
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final combined = ref.watch(dashboardProvider); // Watches all 3 queries
+    final users = ref.watch(usersProvider); // Watches users again
+    
+    return UserList(users); // Only using users
+  }
+}
+
+// ✅ Good: Watch only what you need
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final users = ref.watch(usersProvider); // Only watch users
+    
+    return UserList(users);
+  }
+}
+```
+
+### 3. Provider Recreation
+
+```dart
+// ❌ Bad: Creating providers in build
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = queryProvider('data', () => api.fetchData()); // New provider each build
+    final data = ref.watch(provider);
+    
+    return DataWidget(data);
+  }
+}
+
+// ✅ Good: Stable provider definition
+final dataProvider = queryProvider('data', () => api.fetchData());
+
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(dataProvider); // Stable provider
+    
+    return DataWidget(data);
+  }
+}
+```

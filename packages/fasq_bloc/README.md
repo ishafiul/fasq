@@ -7,6 +7,7 @@ Bloc/Cubit adapter for FASQ (Flutter Async State Query) - bringing powerful asyn
 - 🧊 **QueryCubit** - Cubit wrapper for queries
 - ♾️ **InfiniteQueryCubit** - Infinite queries for pagination
 - 🔄 **MutationCubit** - Cubit for server mutations
+- 🔀 **MultiQueryBuilder** - Execute multiple queries in parallel
 - 🚀 **Automatic caching** - Built on FASQ's production-ready cache
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
 - 🎯 **Type-safe** - Full type safety with Bloc
@@ -38,6 +39,29 @@ BlocProvider(
       );
     },
   ),
+)
+```
+
+### Parallel Queries with MultiQueryBuilder
+
+```dart
+MultiQueryBuilder(
+  configs: [
+    MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
+    MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+    MultiQueryConfig(key: 'comments', queryFn: () => api.fetchComments()),
+  ],
+  builder: (context, state) {
+    return Column(
+      children: [
+        if (!state.isAllSuccess) LinearProgressIndicator(),
+        if (state.hasAnyError) ErrorBanner(),
+        UsersList(state.getState<List<User>>(0)),
+        PostsList(state.getState<List<Post>>(1)),
+        CommentsList(state.getState<List<Comment>>(2)),
+      ],
+    );
+  },
 )
 ```
 
