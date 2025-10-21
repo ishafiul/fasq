@@ -175,7 +175,7 @@ void main() {
               fetchCount++;
               return 'data';
             },
-            options: const QueryOptions(enabled: false),
+            options: QueryOptions(enabled: false),
             builder: (context, state) {
               return Text('Status: ${state.status}');
             },

@@ -149,7 +149,7 @@ void main() {
           callCount++;
           return 'data';
         },
-        options: const QueryOptions(enabled: false),
+        options: QueryOptions(enabled: false),
       );
 
       await query.fetch();
