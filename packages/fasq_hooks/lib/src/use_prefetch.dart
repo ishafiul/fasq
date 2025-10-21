@@ -16,12 +16,12 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 /// onHover: () => prefetch('user-123', () => api.fetchUser('123')),
 /// ```
 void Function(String, Future<T> Function(), {QueryOptions? options})
-    usePrefetchQuery<T>() {
-  final client = QueryClient();
+    usePrefetchQuery<T>({QueryClient? client}) {
+  final queryClient = client ?? QueryClient();
 
   return useCallback((String key, Future<T> Function() queryFn,
       {QueryOptions? options}) {
-    client.prefetchQuery(key, queryFn, options: options);
+    queryClient.prefetchQuery(key, queryFn, options: options);
   }, []);
 }
 
@@ -36,11 +36,11 @@ void Function(String, Future<T> Function(), {QueryOptions? options})
 ///   PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
 /// ]);
 /// ```
-void usePrefetchOnMount(List<PrefetchConfig> configs) {
-  final client = QueryClient();
+void usePrefetchOnMount(List<PrefetchConfig> configs, {QueryClient? client}) {
+  final queryClient = client ?? QueryClient();
 
   useEffect(() {
-    client.prefetchQueries(configs);
+    queryClient.prefetchQueries(configs);
     return null;
   }, [configs.length]);
 }

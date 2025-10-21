@@ -7,13 +7,14 @@ QueryState<T> useQuery<T>(
   String key,
   Future<T> Function() queryFn, {
   QueryOptions? options,
+  QueryClient? client,
 }) {
-  final client = QueryClient();
+  final queryClient = client ?? QueryClient();
 
   final state = useState<QueryState<T>>(QueryState.idle());
 
   useEffect(() {
-    final query = client.getQuery<T>(key, queryFn, options: options);
+    final query = queryClient.getQuery<T>(key, queryFn, options: options);
 
     query.addListener();
 

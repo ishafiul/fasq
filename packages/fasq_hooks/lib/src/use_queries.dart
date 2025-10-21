@@ -33,13 +33,13 @@ class QueryConfig<T> {
 /// final allLoaded = queries.every((q) => q.hasData);
 /// final anyError = queries.any((q) => q.hasError);
 /// ```
-List<QueryState<dynamic>> useQueries(List<QueryConfig> configs) {
-  final client = QueryClient();
+List<QueryState<dynamic>> useQueries(List<QueryConfig> configs, {QueryClient? client}) {
+  final queryClient = client ?? QueryClient();
   final states = useState<List<QueryState<dynamic>>>([]);
 
   useEffect(() {
     final queries = configs
-        .map((config) => client.getQuery(config.key, config.queryFn,
+        .map((config) => queryClient.getQuery(config.key, config.queryFn,
             options: config.options))
         .toList();
 
