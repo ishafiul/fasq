@@ -103,6 +103,34 @@ class Dashboard extends ConsumerWidget {
 }
 ```
 
+### Prefetching
+
+Warm the cache before data is needed:
+
+```dart
+// Using extension on WidgetRef
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Prefetch on hover
+    onHover: () => ref.prefetchQuery('user-123', () => api.fetchUser('123'));
+  }
+}
+
+// Using usePrefetch helper
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    usePrefetch(ref, [
+      PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+      PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+    ]);
+    
+    return YourWidget();
+  }
+}
+```
+
 ### Dependent Queries
 
 ```dart

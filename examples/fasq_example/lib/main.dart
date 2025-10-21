@@ -10,6 +10,7 @@ import 'dependent_queries_user_posts.dart';
 import 'offline_queue_todos.dart';
 import 'multi_api_offline_queue.dart';
 import 'parallel_queries_dashboard.dart';
+import 'prefetch_example.dart';
 
 void main() {
   runApp(const MyApp());
@@ -231,6 +232,28 @@ class ExampleHomePage extends StatelessWidget {
               context,
               MaterialPageRoute(
                   builder: (_) => const ParallelQueriesDashboardPage()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Prefetching',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Warm the cache before data is needed',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          _buildExampleCard(
+            context,
+            'Prefetch Example',
+            'Hover to prefetch, click to see instant loading',
+            Icons.download,
+            Colors.teal,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PrefetchExample()),
             ),
           ),
           const SizedBox(height: 12),

@@ -48,6 +48,34 @@ final queries = useQueries([
   QueryConfig('comments', () => api.fetchComments()),
 ]);
 
+// Named access (more ergonomic)
+final queries = useNamedQueries({
+  'users': QueryConfig('users', () => api.fetchUsers()),
+  'posts': QueryConfig('posts', () => api.fetchPosts()),
+  'comments': QueryConfig('comments', () => api.fetchComments()),
+});
+
+// Access by name
+final users = queries['users']?.data;
+final posts = queries['posts']?.data;
+```
+
+### Prefetching
+
+Warm the cache before data is needed:
+
+```dart
+// Prefetch on demand
+final prefetch = usePrefetchQuery();
+
+onHover: () => prefetch('user-123', () => api.fetchUser('123'));
+
+// Prefetch on mount
+usePrefetchOnMount([
+  PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+  PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+]);
+
 final allLoaded = queries.every((q) => q.hasData);
 final anyError = queries.any((q) => q.hasError);
 

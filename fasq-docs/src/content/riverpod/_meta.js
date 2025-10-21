@@ -5,6 +5,7 @@ const meta = {
   'combining-queries': 'Combining Queries',
   'dependent-queries': 'Dependent Queries',
   'mutation-provider': 'mutationProvider',
+  'prefetching': 'Prefetching',
   'offline-queue': 'Offline Queue',
   'family-providers': 'Family Providers',
   'riverpod-patterns': 'Riverpod Patterns',

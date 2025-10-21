@@ -5,6 +5,7 @@ import 'query.dart';
 import 'query_options.dart';
 import 'infinite_query.dart';
 import 'infinite_query_options.dart';
+import 'prefetch_config.dart';
 
 /// Global registry for all queries in the application.
 ///
@@ -164,6 +165,11 @@ class QueryClient {
   /// Whether a query with the given [key] exists.
   bool hasQuery(String key) => _queries.containsKey(key);
 
+  /// Gets the underlying query cache instance.
+  ///
+  /// Useful for direct cache access in tests or advanced use cases.
+  QueryCache get cache => _cache;
+
   /// Invalidates a single query by key.
   ///
   /// Removes the cache entry and triggers refetch if the query is active.
@@ -198,6 +204,71 @@ class QueryClient {
         query.fetch();
       }
     }
+  }
+
+  /// Prefetches a query and populates the cache without creating a persistent query.
+  ///
+  /// Useful for warming the cache before navigation or when hovering over links.
+  /// The query executes in the background and the result is cached but no
+  /// loading state is exposed to the UI.
+  ///
+  /// If the cache already contains fresh data for the given key, the prefetch
+  /// is skipped to avoid unnecessary network requests.
+  ///
+  /// Example:
+  /// ```dart
+  /// await queryClient.prefetchQuery('users', () => api.fetchUsers());
+  /// // Later when the actual query mounts, it uses cached data
+  /// ```
+  Future<void> prefetchQuery<T>(
+    String key,
+    Future<T> Function() queryFn, {
+    QueryOptions? options,
+  }) async {
+    final cachedEntry = _cache.get<T>(key);
+
+    if (cachedEntry != null && cachedEntry.isFresh) {
+      return;
+    }
+
+    final query = Query<T>(
+      key: key,
+      queryFn: queryFn,
+      options: options,
+      cache: _cache,
+    );
+
+    try {
+      await query.fetch();
+    } finally {
+      query.dispose();
+    }
+  }
+
+  /// Prefetches multiple queries in parallel.
+  ///
+  /// Executes all prefetch operations concurrently for better performance.
+  /// Each query is prefetched independently, and failures in one query
+  /// do not affect others.
+  ///
+  /// Example:
+  /// ```dart
+  /// await queryClient.prefetchQueries([
+  ///   PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+  ///   PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+  ///   PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+  /// ]);
+  /// ```
+  Future<void> prefetchQueries(
+    List<PrefetchConfig> configs,
+  ) async {
+    await Future.wait(
+      configs.map((config) => prefetchQuery(
+            config.key,
+            config.queryFn,
+            options: config.options,
+          )),
+    );
   }
 
   /// Invalidates queries matching the predicate.

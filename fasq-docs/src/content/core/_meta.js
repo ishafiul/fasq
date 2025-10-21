@@ -8,6 +8,7 @@ export default {
   'infinite-queries': 'Infinite Queries',
   'dependent-queries': 'Dependent Queries',
   'parallel-queries': 'Parallel Queries',
+  'prefetching': 'Prefetching',
   'offline-mutation-queue': 'Offline Mutation Queue',
   'cache-configuration': 'Cache Configuration',
   'cache-invalidation': 'Cache Invalidation',

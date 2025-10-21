@@ -88,6 +88,25 @@ NamedMultiQueryBuilder(
 )
 ```
 
+### Prefetching
+
+Warm the cache before data is needed:
+
+```dart
+// Using PrefetchBuilder
+PrefetchBuilder(
+  configs: [
+    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+  ],
+  child: YourScreen(),
+)
+
+// Using PrefetchQueryCubit directly
+final prefetchCubit = PrefetchQueryCubit();
+await prefetchCubit.prefetch('users', () => api.fetchUsers());
+```
+
 ### Dependent Queries
 
 ```dart

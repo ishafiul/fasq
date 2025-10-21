@@ -1,0 +1,409 @@
+# Prefetching with Riverpod
+
+The Riverpod adapter provides extensions and utilities for prefetching queries in your Riverpod-based Flutter applications.
+
+## PrefetchExtension
+
+The `PrefetchExtension` adds prefetching methods to `WidgetRef`:
+
+```dart
+class UserCard extends ConsumerWidget {
+  final String userId;
+  
+  const UserCard({required this.userId});
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Card(
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/user/$userId'),
+        onHover: () => ref.prefetchQuery('user-$userId', () => api.fetchUser(userId)),
+        child: Column(
+          children: [
+            Text('User $userId'),
+            Text('Hover to prefetch profile data'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Methods
+
+- **`prefetchQuery<T>`**: Prefetch a single query
+- **`prefetchQueries`**: Prefetch multiple queries in parallel
+
+## usePrefetch Helper
+
+The `usePrefetch` helper function prefetches queries when called:
+
+```dart
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Prefetch dashboard data
+    usePrefetch(ref, [
+      PrefetchConfig(key: 'user-stats', queryFn: () => api.fetchUserStats()),
+      PrefetchConfig(key: 'recent-posts', queryFn: () => api.fetchRecentPosts()),
+      PrefetchConfig(key: 'notifications', queryFn: () => api.fetchNotifications()),
+    ]);
+    
+    return DashboardContent();
+  }
+}
+```
+
+### Features
+
+- **Simple API**: Just call the function with ref and configs
+- **Parallel Execution**: All queries are prefetched in parallel
+- **Type Safety**: Full type safety with generic parameters
+
+## Advanced Patterns
+
+### Route-Based Prefetching
+
+Prefetch data before navigation:
+
+```dart
+class UserList extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListView.builder(
+      itemBuilder: (context, index) {
+        final userId = users[index].id;
+        
+        return ListTile(
+          title: Text(users[index].name),
+          onTap: () {
+            // Prefetch user details before navigation
+            ref.prefetchQuery('user-$userId', () => api.fetchUser(userId));
+            Navigator.pushNamed(context, '/user/$userId');
+          },
+        );
+      },
+    );
+  }
+}
+```
+
+### Tab-Based Prefetching
+
+Prefetch data for inactive tabs:
+
+```dart
+class TabbedInterface extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          TabBar(
+            onTap: (index) {
+              // Prefetch data for other tabs
+              switch (index) {
+                case 0:
+                  ref.prefetchQueries([
+                    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+                    PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+                  ]);
+                  break;
+                case 1:
+                  ref.prefetchQueries([
+                    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+                    PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+                  ]);
+                  break;
+                case 2:
+                  ref.prefetchQueries([
+                    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+                    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+                  ]);
+                  break;
+              }
+            },
+            tabs: [
+              Tab(text: 'Users'),
+              Tab(text: 'Posts'),
+              Tab(text: 'Comments'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                UsersTab(),
+                PostsTab(),
+                CommentsTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Conditional Prefetching
+
+Prefetch based on conditions:
+
+```dart
+class UserProfile extends ConsumerWidget {
+  final String userId;
+  final bool shouldPrefetchRelated;
+  
+  const UserProfile({
+    required this.userId,
+    required this.shouldPrefetchRelated,
+  });
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (shouldPrefetchRelated) {
+      ref.prefetchQueries([
+        PrefetchConfig(key: 'user-posts-$userId', queryFn: () => api.fetchUserPosts(userId)),
+        PrefetchConfig(key: 'user-followers-$userId', queryFn: () => api.fetchUserFollowers(userId)),
+      ]);
+    }
+    
+    return ProfileContent();
+  }
+}
+```
+
+## Integration with Routing
+
+### Go Router Integration
+
+```dart
+class AppRouter {
+  static final router = GoRouter(
+    routes: [
+      GoRoute(
+        path: '/users',
+        builder: (context, state) {
+          return Consumer(
+            builder: (context, ref, child) {
+              usePrefetch(ref, [
+                PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+              ]);
+              return UsersPage();
+            },
+          );
+        },
+        routes: [
+          GoRoute(
+            path: '/:userId',
+            builder: (context, state) {
+              final userId = state.pathParameters['userId']!;
+              return Consumer(
+                builder: (context, ref, child) {
+                  usePrefetch(ref, [
+                    PrefetchConfig(key: 'user-$userId', queryFn: () => api.fetchUser(userId)),
+                    PrefetchConfig(key: 'user-posts-$userId', queryFn: () => api.fetchUserPosts(userId)),
+                  ]);
+                  return UserProfilePage(userId: userId);
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+}
+```
+
+### Custom Route Wrapper
+
+Create a reusable route wrapper for prefetching:
+
+```dart
+class PrefetchRoute extends ConsumerWidget {
+  final List<PrefetchConfig> configs;
+  final Widget child;
+  
+  const PrefetchRoute({
+    required this.configs,
+    required this.child,
+  });
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    usePrefetch(ref, configs);
+    return child;
+  }
+}
+
+// Usage
+GoRoute(
+  path: '/dashboard',
+  builder: (context, state) => PrefetchRoute(
+    configs: [
+      PrefetchConfig(key: 'dashboard-data', queryFn: () => api.fetchDashboardData()),
+    ],
+    child: DashboardPage(),
+  ),
+),
+```
+
+## Provider-Based Prefetching
+
+Create providers for prefetching logic:
+
+```dart
+// Prefetch provider
+final prefetchProvider = Provider<void Function(List<PrefetchConfig>)>((ref) {
+  return (configs) {
+    final client = QueryClient();
+    client.prefetchQueries(configs);
+  };
+});
+
+// Usage
+class Dashboard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prefetch = ref.read(prefetchProvider);
+    
+    useEffect(() {
+      prefetch([
+        PrefetchConfig(key: 'dashboard-data', queryFn: () => api.fetchDashboardData()),
+      ]);
+      return null;
+    }, []);
+    
+    return DashboardContent();
+  }
+}
+```
+
+## Performance Tips
+
+### 1. Use Extension Methods for Event-Based Prefetching
+
+For prefetching on user interactions, use the extension methods:
+
+```dart
+// Good: Direct extension method
+onHover: () => ref.prefetchQuery('user-data', fetchUserData);
+
+// Less efficient: Manual client creation
+onHover: () {
+  final client = QueryClient();
+  client.prefetchQuery('user-data', fetchUserData);
+};
+```
+
+### 2. Batch Related Prefetches
+
+Use `prefetchQueries` for multiple related queries:
+
+```dart
+// Good: Batch prefetch
+ref.prefetchQueries([
+  PrefetchConfig(key: 'user', queryFn: () => api.fetchUser()),
+  PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+]);
+
+// Less efficient: Individual prefetches
+ref.prefetchQuery('user', () => api.fetchUser());
+ref.prefetchQuery('posts', () => api.fetchPosts());
+```
+
+### 3. Use usePrefetch for Mount-Based Prefetching
+
+For prefetching when components mount, use `usePrefetch`:
+
+```dart
+// Good: Simple mount-based prefetching
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    usePrefetch(ref, [
+      PrefetchConfig(key: 'data', queryFn: fetchData),
+    ]);
+    return MyWidgetContent();
+  }
+}
+
+// More complex: Manual effect management
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    useEffect(() {
+      ref.prefetchQuery('data', fetchData);
+      return null;
+    }, []);
+    return MyWidgetContent();
+  }
+}
+```
+
+## Testing
+
+Test prefetching extensions and helpers:
+
+```dart
+testWidgets('PrefetchExtension works correctly', (tester) async {
+  int fetchCount = 0;
+
+  Future<String> fetchData() async {
+    fetchCount++;
+    return 'test-data';
+  }
+
+  await tester.pumpWidget(
+    ProviderScope(
+      child: MaterialApp(
+        home: Consumer(
+          builder: (context, ref, child) {
+            return ElevatedButton(
+              onPressed: () => ref.prefetchQuery('test-key', fetchData),
+              child: Text('Prefetch'),
+            );
+          },
+        ),
+      ),
+    ),
+  );
+
+  await tester.tap(find.text('Prefetch'));
+  await tester.pump();
+
+  expect(fetchCount, equals(1));
+});
+
+testWidgets('usePrefetch prefetches correctly', (tester) async {
+  int fetchCount = 0;
+
+  Future<String> fetchData() async {
+    fetchCount++;
+    return 'test-data';
+  }
+
+  await tester.pumpWidget(
+    ProviderScope(
+      child: MaterialApp(
+        home: Consumer(
+          builder: (context, ref, child) {
+            usePrefetch(ref, [
+              PrefetchConfig(key: 'test-key', queryFn: fetchData),
+            ]);
+            return SizedBox();
+          },
+        ),
+      ),
+    ),
+  );
+
+  await tester.pump();
+  expect(fetchCount, equals(1));
+});
+```
+
+The Riverpod adapter provides a clean, extension-based approach to prefetching that integrates seamlessly with Riverpod's provider system and Flutter's widget lifecycle.
