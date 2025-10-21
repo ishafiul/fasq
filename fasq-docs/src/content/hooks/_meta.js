@@ -5,6 +5,7 @@ const meta = {
   'use-queries': 'useQueries',
   'dependent-queries': 'Dependent Queries',
   'use-mutation': 'useMutation',
+  'prefetching': 'Prefetching',
   'offline-queue': 'Offline Queue',
   'use-query-client': 'useQueryClient',
   'custom-hooks': 'Custom Hooks',

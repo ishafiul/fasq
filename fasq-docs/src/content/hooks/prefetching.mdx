@@ -1,0 +1,318 @@
+# Prefetching with Hooks
+
+The Hooks adapter provides convenient hooks for prefetching queries in your React-like Flutter components.
+
+## usePrefetchQuery
+
+The `usePrefetchQuery` hook returns a stable callback function for prefetching queries:
+
+```dart
+class UserCard extends HookWidget {
+  final String userId;
+  
+  const UserCard({required this.userId});
+  
+  @override
+  Widget build(BuildContext context) {
+    final prefetch = usePrefetchQuery<User>();
+    
+    return Card(
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/user/$userId'),
+        onHover: () => prefetch('user-$userId', () => api.fetchUser(userId)),
+        child: Column(
+          children: [
+            Text('User $userId'),
+            Text('Hover to prefetch profile data'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Features
+
+- **Stable Reference**: The returned callback has a stable reference across renders
+- **Type Safety**: Full type safety with generic parameters
+- **Error Handling**: Prefetch errors are handled silently
+- **Cache Respect**: Automatically respects cache staleness
+
+## usePrefetchOnMount
+
+The `usePrefetchOnMount` hook prefetches queries when the component mounts:
+
+```dart
+class Dashboard extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    // Prefetch dashboard data on mount
+    usePrefetchOnMount([
+      PrefetchConfig(key: 'user-stats', queryFn: () => api.fetchUserStats()),
+      PrefetchConfig(key: 'recent-posts', queryFn: () => api.fetchRecentPosts()),
+      PrefetchConfig(key: 'notifications', queryFn: () => api.fetchNotifications()),
+    ]);
+    
+    return DashboardContent();
+  }
+}
+```
+
+### Features
+
+- **Mount Trigger**: Executes only when the component mounts
+- **Parallel Execution**: All queries are prefetched in parallel
+- **Cleanup**: Automatically handles cleanup when component unmounts
+- **Dependency Tracking**: Re-executes if the configs list changes
+
+## Advanced Patterns
+
+### Conditional Prefetching
+
+Prefetch based on conditions:
+
+```dart
+class UserProfile extends HookWidget {
+  final String userId;
+  final bool shouldPrefetchRelated;
+  
+  @override
+  Widget build(BuildContext context) {
+    final prefetch = usePrefetchQuery();
+    
+    useEffect(() {
+      if (shouldPrefetchRelated) {
+        prefetch('user-posts-$userId', () => api.fetchUserPosts(userId));
+        prefetch('user-followers-$userId', () => api.fetchUserFollowers(userId));
+      }
+      return null;
+    }, [userId, shouldPrefetchRelated]);
+    
+    return ProfileContent();
+  }
+}
+```
+
+### Navigation-Based Prefetching
+
+Prefetch before navigation:
+
+```dart
+class UserList extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final prefetch = usePrefetchQuery<User>();
+    
+    return ListView.builder(
+      itemBuilder: (context, index) {
+        final userId = users[index].id;
+        
+        return ListTile(
+          title: Text(users[index].name),
+          onTap: () {
+            // Prefetch user details before navigation
+            prefetch('user-$userId', () => api.fetchUser(userId));
+            Navigator.pushNamed(context, '/user/$userId');
+          },
+        );
+      },
+    );
+  }
+}
+```
+
+### Tab-Based Prefetching
+
+Prefetch data for inactive tabs:
+
+```dart
+class TabbedInterface extends HookWidget {
+  @override
+  Widget build(BuildContext context) {
+    final prefetch = usePrefetchQuery();
+    
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          TabBar(
+            onTap: (index) {
+              // Prefetch data for other tabs
+              switch (index) {
+                case 0:
+                  prefetch('posts', () => api.fetchPosts());
+                  prefetch('comments', () => api.fetchComments());
+                  break;
+                case 1:
+                  prefetch('users', () => api.fetchUsers());
+                  prefetch('comments', () => api.fetchComments());
+                  break;
+                case 2:
+                  prefetch('users', () => api.fetchUsers());
+                  prefetch('posts', () => api.fetchPosts());
+                  break;
+              }
+            },
+            tabs: [
+              Tab(text: 'Users'),
+              Tab(text: 'Posts'),
+              Tab(text: 'Comments'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                UsersTab(),
+                PostsTab(),
+                CommentsTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Integration with Routing
+
+### Go Router Integration
+
+```dart
+class AppRouter {
+  static final router = GoRouter(
+    routes: [
+      GoRoute(
+        path: '/users',
+        builder: (context, state) {
+          // Prefetch user details on route mount
+          return HookBuilder(
+            builder: (context) {
+              usePrefetchOnMount([
+                PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+              ]);
+              return UsersPage();
+            },
+          );
+        },
+        routes: [
+          GoRoute(
+            path: '/:userId',
+            builder: (context, state) {
+              final userId = state.pathParameters['userId']!;
+              return HookBuilder(
+                builder: (context) {
+                  usePrefetchOnMount([
+                    PrefetchConfig(key: 'user-$userId', queryFn: () => api.fetchUser(userId)),
+                    PrefetchConfig(key: 'user-posts-$userId', queryFn: () => api.fetchUserPosts(userId)),
+                  ]);
+                  return UserProfilePage(userId: userId);
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+}
+```
+
+## Performance Tips
+
+### 1. Use Stable References
+
+The `usePrefetchQuery` hook returns a stable reference, so you can safely use it in event handlers:
+
+```dart
+// Good: Stable reference
+final prefetch = usePrefetchQuery();
+onHover: () => prefetch('key', fetchFn);
+
+// Avoid: Creating new functions in render
+onHover: () => usePrefetchQuery()('key', fetchFn); // Creates new function each render
+```
+
+### 2. Batch Related Prefetches
+
+Use `usePrefetchOnMount` for multiple related queries:
+
+```dart
+// Good: Batch prefetch
+usePrefetchOnMount([
+  PrefetchConfig(key: 'user', queryFn: () => api.fetchUser()),
+  PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+]);
+
+// Less efficient: Individual prefetches
+useEffect(() {
+  prefetch('user', () => api.fetchUser());
+  prefetch('posts', () => api.fetchPosts());
+}, []);
+```
+
+### 3. Conditional Prefetching
+
+Only prefetch when conditions are met:
+
+```dart
+useEffect(() {
+  if (isAuthenticated && hasPermission) {
+    prefetch('sensitive-data', () => api.fetchSensitiveData());
+  }
+}, [isAuthenticated, hasPermission]);
+```
+
+## Testing
+
+Test prefetching hooks:
+
+```dart
+testWidgets('usePrefetchQuery returns stable callback', (tester) async {
+  late void Function(String, Future<String> Function()) prefetch1;
+  late void Function(String, Future<String> Function()) prefetch2;
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: HookBuilder(
+        builder: (context) {
+          prefetch1 = usePrefetchQuery<String>();
+          prefetch2 = usePrefetchQuery<String>();
+          return SizedBox();
+        },
+      ),
+    ),
+  );
+
+  expect(prefetch1, equals(prefetch2));
+});
+
+testWidgets('usePrefetchOnMount prefetches on mount', (tester) async {
+  int fetchCount = 0;
+
+  Future<String> fetchData() async {
+    fetchCount++;
+    return 'test-data';
+  }
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: HookBuilder(
+        builder: (context) {
+          usePrefetchOnMount([
+            PrefetchConfig(key: 'test-key', queryFn: fetchData),
+          ]);
+          return SizedBox();
+        },
+      ),
+    ),
+  );
+
+  await tester.pump();
+  expect(fetchCount, equals(1));
+});
+```
+
+The Hooks adapter makes prefetching intuitive and React-like, providing a clean API for predictive data loading in your Flutter applications.

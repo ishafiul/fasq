@@ -1,0 +1,448 @@
+# Prefetching with Bloc
+
+The Bloc adapter provides widgets and cubits for prefetching queries in your Bloc-based Flutter applications.
+
+## PrefetchBuilder Widget
+
+The `PrefetchBuilder` widget prefetches queries when it mounts and renders its child:
+
+```dart
+class Dashboard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return PrefetchBuilder(
+      configs: [
+        PrefetchConfig(key: 'user-stats', queryFn: () => api.fetchUserStats()),
+        PrefetchConfig(key: 'recent-posts', queryFn: () => api.fetchRecentPosts()),
+        PrefetchConfig(key: 'notifications', queryFn: () => api.fetchNotifications()),
+      ],
+      child: DashboardContent(),
+    );
+  }
+}
+```
+
+### Features
+
+- **Mount Trigger**: Prefetches when the widget mounts
+- **Parallel Execution**: All queries are prefetched in parallel
+- **Cleanup**: Automatically disposes the cubit when unmounted
+- **Transparent**: Child widget is rendered immediately
+
+## PrefetchQueryCubit
+
+The `PrefetchQueryCubit` provides direct control over prefetching:
+
+```dart
+class UserCard extends StatefulWidget {
+  final String userId;
+  
+  const UserCard({required this.userId});
+  
+  @override
+  State<UserCard> createState() => _UserCardState();
+}
+
+class _UserCardState extends State<UserCard> {
+  late final PrefetchQueryCubit _prefetchCubit;
+  
+  @override
+  void initState() {
+    super.initState();
+    _prefetchCubit = PrefetchQueryCubit();
+  }
+  
+  @override
+  void dispose() {
+    _prefetchCubit.close();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/user/${widget.userId}'),
+        onHover: () => _prefetchCubit.prefetch(
+          'user-${widget.userId}',
+          () => api.fetchUser(widget.userId),
+        ),
+        child: Column(
+          children: [
+            Text('User ${widget.userId}'),
+            Text('Hover to prefetch profile data'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Methods
+
+- **`prefetch<T>`**: Prefetch a single query
+- **`prefetchAll`**: Prefetch multiple queries in parallel
+
+## Advanced Patterns
+
+### Route-Based Prefetching
+
+Prefetch data before navigation:
+
+```dart
+class UserList extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemBuilder: (context, index) {
+        final userId = users[index].id;
+        
+        return ListTile(
+          title: Text(users[index].name),
+          onTap: () {
+            // Prefetch user details before navigation
+            final prefetchCubit = PrefetchQueryCubit();
+            prefetchCubit.prefetch('user-$userId', () => api.fetchUser(userId));
+            Navigator.pushNamed(context, '/user/$userId');
+          },
+        );
+      },
+    );
+  }
+}
+```
+
+### Tab-Based Prefetching
+
+Prefetch data for inactive tabs:
+
+```dart
+class TabbedInterface extends StatefulWidget {
+  @override
+  State<TabbedInterface> createState() => _TabbedInterfaceState();
+}
+
+class _TabbedInterfaceState extends State<TabbedInterface> {
+  late final PrefetchQueryCubit _prefetchCubit;
+  
+  @override
+  void initState() {
+    super.initState();
+    _prefetchCubit = PrefetchQueryCubit();
+  }
+  
+  @override
+  void dispose() {
+    _prefetchCubit.close();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          TabBar(
+            onTap: (index) {
+              // Prefetch data for other tabs
+              switch (index) {
+                case 0:
+                  _prefetchCubit.prefetchAll([
+                    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+                    PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+                  ]);
+                  break;
+                case 1:
+                  _prefetchCubit.prefetchAll([
+                    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+                    PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+                  ]);
+                  break;
+                case 2:
+                  _prefetchCubit.prefetchAll([
+                    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+                    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+                  ]);
+                  break;
+              }
+            },
+            tabs: [
+              Tab(text: 'Users'),
+              Tab(text: 'Posts'),
+              Tab(text: 'Comments'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                UsersTab(),
+                PostsTab(),
+                CommentsTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### Conditional Prefetching
+
+Prefetch based on conditions:
+
+```dart
+class UserProfile extends StatefulWidget {
+  final String userId;
+  final bool shouldPrefetchRelated;
+  
+  @override
+  State<UserProfile> createState() => _UserProfileState();
+}
+
+class _UserProfileState extends State<UserProfile> {
+  late final PrefetchQueryCubit _prefetchCubit;
+  
+  @override
+  void initState() {
+    super.initState();
+    _prefetchCubit = PrefetchQueryCubit();
+    
+    if (widget.shouldPrefetchRelated) {
+      _prefetchCubit.prefetchAll([
+        PrefetchConfig(key: 'user-posts-${widget.userId}', queryFn: () => api.fetchUserPosts(widget.userId)),
+        PrefetchConfig(key: 'user-followers-${widget.userId}', queryFn: () => api.fetchUserFollowers(widget.userId)),
+      ]);
+    }
+  }
+  
+  @override
+  void dispose() {
+    _prefetchCubit.close();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return ProfileContent();
+  }
+}
+```
+
+## Integration with Routing
+
+### Go Router Integration
+
+```dart
+class AppRouter {
+  static final router = GoRouter(
+    routes: [
+      GoRoute(
+        path: '/users',
+        builder: (context, state) {
+          return PrefetchBuilder(
+            configs: [
+              PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+            ],
+            child: UsersPage(),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: '/:userId',
+            builder: (context, state) {
+              final userId = state.pathParameters['userId']!;
+              return PrefetchBuilder(
+                configs: [
+                  PrefetchConfig(key: 'user-$userId', queryFn: () => api.fetchUser(userId)),
+                  PrefetchConfig(key: 'user-posts-$userId', queryFn: () => api.fetchUserPosts(userId)),
+                ],
+                child: UserProfilePage(userId: userId),
+              );
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+}
+```
+
+### Custom Route Wrapper
+
+Create a reusable route wrapper for prefetching:
+
+```dart
+class PrefetchRoute extends StatelessWidget {
+  final List<PrefetchConfig> configs;
+  final Widget child;
+  
+  const PrefetchRoute({
+    required this.configs,
+    required this.child,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return PrefetchBuilder(
+      configs: configs,
+      child: child,
+    );
+  }
+}
+
+// Usage
+GoRoute(
+  path: '/dashboard',
+  builder: (context, state) => PrefetchRoute(
+    configs: [
+      PrefetchConfig(key: 'dashboard-data', queryFn: () => api.fetchDashboardData()),
+    ],
+    child: DashboardPage(),
+  ),
+),
+```
+
+## Performance Tips
+
+### 1. Use PrefetchBuilder for Mount-Based Prefetching
+
+For prefetching when components mount, use `PrefetchBuilder`:
+
+```dart
+// Good: Simple mount-based prefetching
+PrefetchBuilder(
+  configs: [PrefetchConfig(key: 'data', queryFn: fetchData)],
+  child: MyWidget(),
+);
+
+// More complex: Manual cubit management
+class MyWidget extends StatefulWidget {
+  @override
+  State<MyWidget> createState() => _MyWidgetState();
+}
+
+class _MyWidgetState extends State<MyWidget> {
+  late final PrefetchQueryCubit _cubit;
+  
+  @override
+  void initState() {
+    super.initState();
+    _cubit = PrefetchQueryCubit();
+    _cubit.prefetch('data', fetchData);
+  }
+  
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) => MyWidgetContent();
+}
+```
+
+### 2. Batch Related Prefetches
+
+Use `prefetchAll` for multiple related queries:
+
+```dart
+// Good: Batch prefetch
+_prefetchCubit.prefetchAll([
+  PrefetchConfig(key: 'user', queryFn: () => api.fetchUser()),
+  PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+]);
+
+// Less efficient: Individual prefetches
+_prefetchCubit.prefetch('user', () => api.fetchUser());
+_prefetchCubit.prefetch('posts', () => api.fetchPosts());
+```
+
+### 3. Reuse Cubit Instances
+
+For components that need frequent prefetching, reuse the cubit:
+
+```dart
+class UserCard extends StatefulWidget {
+  @override
+  State<UserCard> createState() => _UserCardState();
+}
+
+class _UserCardState extends State<UserCard> {
+  late final PrefetchQueryCubit _prefetchCubit;
+  
+  @override
+  void initState() {
+    super.initState();
+    _prefetchCubit = PrefetchQueryCubit();
+  }
+  
+  @override
+  void dispose() {
+    _prefetchCubit.close();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onHover: () => _prefetchCubit.prefetch('user-data', fetchUserData),
+        onTap: () => _prefetchCubit.prefetch('user-details', fetchUserDetails),
+        child: UserCardContent(),
+      ),
+    );
+  }
+}
+```
+
+## Testing
+
+Test prefetching widgets and cubits:
+
+```dart
+testWidgets('PrefetchBuilder prefetches on mount', (tester) async {
+  int fetchCount = 0;
+
+  Future<String> fetchData() async {
+    fetchCount++;
+    return 'test-data';
+  }
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: PrefetchBuilder(
+        configs: [
+          PrefetchConfig(key: 'test-key', queryFn: fetchData),
+        ],
+        child: SizedBox(),
+      ),
+    ),
+  );
+
+  await tester.pump();
+  expect(fetchCount, equals(1));
+});
+
+test('PrefetchQueryCubit prefetches correctly', () async {
+  final cubit = PrefetchQueryCubit();
+  int fetchCount = 0;
+
+  Future<String> fetchData() async {
+    fetchCount++;
+    return 'test-data';
+  }
+
+  await cubit.prefetch('test-key', fetchData);
+  
+  expect(fetchCount, equals(1));
+  
+  cubit.close();
+});
+```
+
+The Bloc adapter provides a clean, widget-based approach to prefetching that integrates seamlessly with Flutter's widget lifecycle and Bloc patterns.
