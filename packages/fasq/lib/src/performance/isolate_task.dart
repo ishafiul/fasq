@@ -17,6 +17,9 @@ class IsolateTask<T, R> {
   /// Timestamp when the task was created
   final DateTime createdAt;
 
+  /// Whether this task has been cancelled
+  bool _isCancelled = false;
+
   IsolateTask({
     required this.callback,
     required this.message,
@@ -27,7 +30,7 @@ class IsolateTask<T, R> {
   bool get isCompleted => completer.isCompleted;
 
   /// Whether this task has been cancelled
-  bool get isCancelled => completer.isCompleted && !completer.isCompleted;
+  bool get isCancelled => _isCancelled;
 
   /// Complete the task with a result
   void complete(R result) {
@@ -46,6 +49,7 @@ class IsolateTask<T, R> {
   /// Cancel the task
   void cancel() {
     if (!completer.isCompleted) {
+      _isCancelled = true;
       completer.completeError(
         IsolateTaskCancelledException('Task was cancelled'),
       );

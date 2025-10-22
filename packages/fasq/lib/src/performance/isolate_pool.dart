@@ -109,7 +109,17 @@ void _isolateEntryPoint(SendPort sendPort) {
     if (message is IsolateTask<dynamic, dynamic>) {
       try {
         final result = message.callback(message.message);
-        message.complete(result);
+
+        // Handle both sync and async results
+        if (result is Future) {
+          result.then((value) {
+            message.complete(value);
+          }).catchError((error, stackTrace) {
+            message.completeError(error, stackTrace);
+          });
+        } else {
+          message.complete(result);
+        }
       } catch (error, stackTrace) {
         message.completeError(error, stackTrace);
       }
@@ -137,8 +147,21 @@ class IsolatePool {
   Future<void> _initializeWorkers() async {
     for (int i = 0; i < poolSize; i++) {
       final worker = _IsolateWorker();
-      await worker.initialize();
-      _workers.add(worker);
+      try {
+        await worker.initialize();
+        _workers.add(worker);
+      } catch (e) {
+        // If worker initialization fails, continue with remaining workers
+        // but log the error for debugging
+        // In production, you might want to throw or handle this differently
+        continue;
+      }
+    }
+
+    // Ensure we have at least one worker
+    if (_workers.isEmpty) {
+      throw IsolateExecutionException(
+          'Failed to initialize any worker isolates');
     }
   }
 
@@ -149,6 +172,10 @@ class IsolatePool {
   Future<R> execute<T, R>(R Function(T message) callback, T message) async {
     if (_isDisposed) {
       throw IsolateExecutionException('Isolate pool is disposed');
+    }
+
+    if (_workers.isEmpty) {
+      throw IsolateExecutionException('No worker isolates available');
     }
 
     final task = IsolateTask<T, R>(
@@ -180,7 +207,11 @@ class IsolatePool {
       _currentWorkerIndex = (_currentWorkerIndex + 1) % _workers.length;
     }
 
-    return selectedWorker.execute(task);
+    try {
+      return await selectedWorker.execute(task);
+    } catch (e) {
+      throw IsolateExecutionException('Task execution failed', e);
+    }
   }
 
   /// Execute a callback function in an isolate with automatic threshold detection

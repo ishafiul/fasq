@@ -38,8 +38,8 @@ class QueryCache {
     this.persistenceOptions,
     this.securityPlugin,
   }) : config = config ?? const CacheConfig() {
-    _hotCache =
-        HotCache<CacheEntry>(maxSize: config?.performance.hotCacheSize ?? 50);
+    _hotCache = HotCache<CacheEntry>(
+        maxSize: (config ?? const CacheConfig()).performance.hotCacheSize);
     _startGarbageCollection();
     _initializePersistence();
   }
@@ -240,19 +240,34 @@ class QueryCache {
     String key,
     Future<T> Function() fn,
   ) async {
+    InputValidator.validateQueryKey(key);
+
     if (_inFlightRequests.containsKey(key)) {
       return _inFlightRequests[key] as Future<T>;
     }
 
-    final future = fn();
-    _inFlightRequests[key] = future;
+    // Get or create lock for this key to prevent race conditions
+    final lock = _locks.putIfAbsent(key, () => AsyncLock());
 
-    try {
-      final result = await future;
-      return result;
-    } finally {
-      _inFlightRequests.remove(key);
-    }
+    return await lock.synchronized(() async {
+      // Double-check after acquiring lock
+      if (_inFlightRequests.containsKey(key)) {
+        return _inFlightRequests[key] as Future<T>;
+      }
+
+      final future = fn();
+      _inFlightRequests[key] = future;
+
+      try {
+        final result = await future;
+        return result;
+      } finally {
+        // Always clean up the in-flight request
+        _inFlightRequests.remove(key);
+        // Clean up lock if no longer needed
+        _locks.remove(key);
+      }
+    });
   }
 
   /// Executes a function with a lock on the given key.
@@ -352,12 +367,23 @@ class QueryCache {
     }
   }
 
-  /// Disposes the cache and stops garbage collection.
+  /// Disposes the cache and cleans up all resources.
   void dispose() {
     _gcTimer?.cancel();
     _gcTimer = null;
     _persistenceGcTimer?.cancel();
     _persistenceGcTimer = null;
+
+    // Cancel all in-flight requests
+    // Note: We can't cancel futures, but we can clean up the map
+    _inFlightRequests.clear();
+
+    // Clean up all locks
+    _locks.clear();
+
+    // Clear hot cache
+    _hotCache.clear();
+
     clearSecureEntries(); // Clear secure data before full clear
     clear();
   }
@@ -372,7 +398,6 @@ class QueryCache {
       _startPersistenceGarbageCollection();
       await _loadPersistedEntries();
     } catch (e) {
-      print('Warning: Failed to initialize persistence: $e');
       _isInitialized = false;
     }
   }
@@ -406,9 +431,7 @@ class QueryCache {
       if (keysToRemove.isNotEmpty) {
         await persistenceProvider.removeMultiple(keysToRemove);
       }
-    } catch (e) {
-      print('Warning: Failed to run persistence garbage collection: $e');
-    }
+    } catch (e) {}
   }
 
   /// Persists a cache entry to disk.
@@ -436,9 +459,7 @@ class QueryCache {
 
       // Persist the encrypted data
       await persistenceProvider.persist(key, encryptedData);
-    } catch (e) {
-      print('Warning: Failed to persist entry "$key": $e');
-    }
+    } catch (e) {}
   }
 
   /// Removes an entry from persistence.
@@ -448,9 +469,7 @@ class QueryCache {
     try {
       final persistenceProvider = securityPlugin!.createPersistenceProvider();
       await persistenceProvider.remove(key);
-    } catch (e) {
-      print('Warning: Failed to remove entry "$key" from persistence: $e');
-    }
+    } catch (e) {}
   }
 
   /// Removes multiple entries from persistence.
@@ -460,9 +479,7 @@ class QueryCache {
     try {
       final persistenceProvider = securityPlugin!.createPersistenceProvider();
       await persistenceProvider.removeMultiple(keys);
-    } catch (e) {
-      print('Warning: Failed to remove multiple entries from persistence: $e');
-    }
+    } catch (e) {}
   }
 
   /// Clears all persisted data.
@@ -472,9 +489,7 @@ class QueryCache {
     try {
       final persistenceProvider = securityPlugin!.createPersistenceProvider();
       await persistenceProvider.clear();
-    } catch (e) {
-      print('Warning: Failed to clear persistence: $e');
-    }
+    } catch (e) {}
   }
 
   /// Loads persisted entries on initialization.
@@ -513,14 +528,11 @@ class QueryCache {
               _entries[key] = entry;
             }
           } catch (e) {
-            print('Warning: Failed to load persisted entry "$key": $e');
             // Remove corrupted entry
             await persistenceProvider.remove(key);
           }
         }
       }
-    } catch (e) {
-      print('Warning: Failed to load persisted entries: $e');
-    }
+    } catch (e) {}
   }
 }

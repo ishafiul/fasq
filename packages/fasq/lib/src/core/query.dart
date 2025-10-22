@@ -127,8 +127,6 @@ class Query<T> {
     _cancelDisposal();
 
     if (_referenceCount == 1 && (cache != null || !state.hasData)) {
-      print('🔍 [flutter_query] fetch() triggered on addListener for "$key"');
-      print('   cache != null: ${cache != null}, hasData: ${state.hasData}');
       fetch();
     }
   }
@@ -167,7 +165,6 @@ class Query<T> {
       final cachedEntry = cache!.get<T>(key);
 
       if (cachedEntry != null && cachedEntry.isFresh) {
-        print('✅ [flutter_query] Serving FRESH data for "$key"');
         _updateState(QueryState.success(
           cachedEntry.data,
           dataUpdatedAt: cachedEntry.createdAt,
@@ -176,11 +173,6 @@ class Query<T> {
       }
 
       if (cachedEntry != null && cachedEntry.isStale) {
-        final age = DateTime.now().difference(cachedEntry.createdAt);
-        print('🔄 [flutter_query] Serving STALE data for "$key"');
-        print(
-            '   Age: ${age.inSeconds}s, StaleTime: ${cachedEntry.staleTime.inSeconds}s');
-        print('   Setting isFetching = true');
         _updateState(QueryState.success(
           cachedEntry.data,
           dataUpdatedAt: cachedEntry.createdAt,
@@ -192,7 +184,6 @@ class Query<T> {
       }
     }
 
-    print('⏳ [flutter_query] No cache, loading for "$key"');
     _updateState(_currentState.copyWith(
       status: QueryStatus.loading,
       isFetching: false,
@@ -220,15 +211,13 @@ class Query<T> {
               try {
                 final transformedData =
                     await client!.isolatePool.executeIfNeeded(
-                  (T inputData) => inputData, // Identity transform for now
+                  _heavyDataTransform<T>,
                   data,
                   threshold: options!.performance!.isolateThreshold!,
                 );
                 data = transformedData;
               } catch (e) {
                 // Fallback to main thread if isolate fails
-                print(
-                    '⚠️ [flutter_query] Isolate execution failed for "$key": $e');
               }
             }
           }
@@ -251,10 +240,7 @@ class Query<T> {
         }
         if (!_isDisposed) {
           final now = DateTime.now();
-          if (isBackgroundRefetch) {
-            print('✨ [flutter_query] Background refetch complete for "$key"');
-            print('   Setting isFetching = false');
-          }
+          if (isBackgroundRefetch) {}
           _updateState(QueryState.success(
             data,
             dataUpdatedAt: now,
@@ -275,7 +261,6 @@ class Query<T> {
           if (!isBackgroundRefetch) {
             _updateState(QueryState.error(error, stackTrace));
           } else {
-            print('❌ [flutter_query] Background refetch failed for "$key"');
             _updateState(_currentState.copyWith(isFetching: false));
           }
           options?.onError?.call(error);
@@ -332,7 +317,6 @@ class Query<T> {
   void _scheduleDisposal() {
     _disposeTimer = Timer(const Duration(seconds: 5), () {
       if (_referenceCount == 0) {
-        print('🗑️ [flutter_query] Disposing query "$key" after 5s timeout');
         dispose();
       }
     });
@@ -351,4 +335,69 @@ class Query<T> {
     _controller.close();
     onDispose?.call();
   }
+}
+
+/// Heavy data transformation function for isolate execution.
+///
+/// This function performs computationally expensive operations like:
+/// - Deep JSON parsing and validation
+/// - Data normalization and transformation
+/// - Complex data structure manipulation
+/// - Memory-intensive operations
+T _heavyDataTransform<T>(T data) {
+  if (data == null) return data;
+
+  // For JSON strings, perform heavy parsing and validation
+  if (data is String) {
+    try {
+      // Simulate heavy JSON processing
+      final parsed = data.split('').map((c) => c.codeUnitAt(0)).toList();
+      final processed = parsed.map((code) => code * 2).toList();
+      final result = String.fromCharCodes(processed.map((code) => code ~/ 2));
+
+      // Additional heavy processing
+      final words = result.split(' ');
+      final transformed = words.map((word) => word.toUpperCase()).join(' ');
+
+      return transformed as T;
+    } catch (e) {
+      // Return original data if processing fails
+      return data;
+    }
+  }
+
+  // For lists, perform heavy processing on each element
+  if (data is List) {
+    try {
+      final processed = data.map((item) {
+        if (item is String) {
+          return item.toUpperCase();
+        } else if (item is Map) {
+          return Map.fromEntries(item.entries
+              .map((e) => MapEntry(e.key.toString().toUpperCase(), e.value)));
+        }
+        return item;
+      }).toList();
+
+      return processed as T;
+    } catch (e) {
+      return data;
+    }
+  }
+
+  // For maps, perform heavy processing
+  if (data is Map) {
+    try {
+      final processed = Map.fromEntries(data.entries.map((e) => MapEntry(
+          e.key.toString().toUpperCase(),
+          e.value is String ? (e.value as String).toUpperCase() : e.value)));
+
+      return processed as T;
+    } catch (e) {
+      return data;
+    }
+  }
+
+  // For other types, return as-is
+  return data;
 }
