@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
+import 'query_client.dart';
 import 'query_options.dart';
 import 'query_state.dart';
 import 'query_status.dart';
@@ -40,6 +42,9 @@ class Query<T> {
   /// The cache instance for storing results.
   final QueryCache? cache;
 
+  /// The query client instance for accessing isolate pool
+  final QueryClient? client;
+
   /// Callback when query is disposed (for cleanup in QueryClient).
   final void Function()? onDispose;
 
@@ -49,11 +54,17 @@ class Query<T> {
   Timer? _disposeTimer;
   bool _isDisposed = false;
 
+  // Performance tracking fields
+  DateTime? _lastFetchStart;
+  Duration? _lastFetchDuration;
+  final List<Duration> _fetchHistory = [];
+
   Query({
     required this.key,
     required this.queryFn,
     this.options,
     this.cache,
+    this.client,
     this.onDispose,
     T? initialData,
   }) : _currentState = initialData != null
@@ -77,6 +88,31 @@ class Query<T> {
 
   /// Whether this query has been disposed.
   bool get isDisposed => _isDisposed;
+
+  /// Get performance metrics for this query
+  QueryMetrics get metrics => QueryMetrics(
+        fetchHistory: List.from(_fetchHistory),
+        lastFetchDuration: _lastFetchDuration,
+        referenceCount: _referenceCount,
+      );
+
+  /// Estimate the size of data in bytes for performance decisions
+  int _estimateDataSize<T>(T data) {
+    if (data == null) return 0;
+
+    if (data is String) {
+      return data.length * 2; // UTF-16 encoding
+    } else if (data is List<int>) {
+      return data.length;
+    } else if (data is Map) {
+      return data.toString().length * 2;
+    } else if (data is List) {
+      return data.toString().length * 2;
+    } else {
+      // Fallback: serialize to string and estimate
+      return data.toString().length * 2;
+    }
+  }
 
   /// Adds a subscriber to this query.
   ///
@@ -168,7 +204,51 @@ class Query<T> {
   Future<void> _fetchAndCache({required bool isBackgroundRefetch}) async {
     if (cache != null) {
       try {
-        final data = await cache!.deduplicate<T>(key, queryFn);
+        // Start performance tracking
+        _lastFetchStart = DateTime.now();
+
+        var data = await cache!.deduplicate<T>(key, queryFn);
+
+        // Apply isolate transform if configured
+        if (options?.performance?.autoIsolate == true &&
+            options?.performance?.isolateThreshold != null) {
+          // Check if data size exceeds threshold for isolate execution
+          final dataSize = _estimateDataSize(data);
+          if (dataSize > options!.performance!.isolateThreshold!) {
+            // Execute in isolate if available
+            if (client != null) {
+              try {
+                final transformedData =
+                    await client!.isolatePool.executeIfNeeded(
+                  (T inputData) => inputData, // Identity transform for now
+                  data,
+                  threshold: options!.performance!.isolateThreshold!,
+                );
+                data = transformedData;
+              } catch (e) {
+                // Fallback to main thread if isolate fails
+                print(
+                    '⚠️ [flutter_query] Isolate execution failed for "$key": $e');
+              }
+            }
+          }
+        }
+
+        // Record fetch timing
+        if (_lastFetchStart != null) {
+          _lastFetchDuration = DateTime.now().difference(_lastFetchStart!);
+          _fetchHistory.add(_lastFetchDuration!);
+
+          // Record timing in cache metrics if performance tracking is enabled
+          if (options?.performance?.enableMetrics != false) {
+            cache!.metrics.recordFetchTime(_lastFetchDuration!);
+          }
+
+          // Keep only last 100 fetch times to prevent memory growth
+          if (_fetchHistory.length > 100) {
+            _fetchHistory.removeAt(0);
+          }
+        }
         if (!_isDisposed) {
           final now = DateTime.now();
           if (isBackgroundRefetch) {
@@ -203,7 +283,21 @@ class Query<T> {
       }
     } else {
       try {
+        // Start performance tracking for direct query execution
+        _lastFetchStart = DateTime.now();
+
         final data = await queryFn();
+
+        // Record fetch timing
+        if (_lastFetchStart != null) {
+          _lastFetchDuration = DateTime.now().difference(_lastFetchStart!);
+          _fetchHistory.add(_lastFetchDuration!);
+
+          // Keep only last 100 fetch times to prevent memory growth
+          if (_fetchHistory.length > 100) {
+            _fetchHistory.removeAt(0);
+          }
+        }
         if (!_isDisposed) {
           _updateState(QueryState.success(
             data,
