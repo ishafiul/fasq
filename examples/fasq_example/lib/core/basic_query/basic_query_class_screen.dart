@@ -13,7 +13,8 @@ class BasicQueryClassScreen extends StatefulWidget {
 
 class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
   late Query<List<User>> _query;
-  int _referenceCount = 1; // Start with 1 since StreamBuilder is listening
+  int _referenceCount =
+      0; // Start with 0, will be incremented when listener is added
 
   @override
   void initState() {
@@ -24,17 +25,19 @@ class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
       'users-class',
       () => ApiService.fetchUsers(),
       options: QueryOptions(
-        staleTime: const Duration(minutes: 5), // Cache for 5 minutes
-        cacheTime: const Duration(minutes: 10), // Keep in cache for 10 minutes
+        staleTime: const Duration(seconds: 5), // Cache for 5 seconds
+        cacheTime: const Duration(seconds: 10), // Keep in cache for 10 seconds
       ),
     );
     _query.addListener(); // Add initial listener for StreamBuilder
+    _referenceCount++; // Increment UI reference count to match
     // Don't call fetch() manually - let addListener() handle it
   }
 
   @override
   void dispose() {
     _query.removeListener(); // Remove the initial listener
+    _referenceCount--; // Decrement UI reference count to match
     // Don't dispose the query manually - let QueryClient handle it
     super.dispose();
   }
@@ -60,11 +63,11 @@ class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
     return ExampleScaffold(
       title: 'Basic Query - Query Class',
       description:
-          'Demonstrates Query class usage with QueryClient, caching, and reference counting. Data is cached for 5 minutes.',
+          'Demonstrates Query class usage with QueryClient, caching, and reference counting. Data is cached for 5 seconds.',
       codeSnippet: '''
 class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
   late Query<List<User>> _query;
-  int _referenceCount = 1; // Start with 1 since StreamBuilder is listening
+  int _referenceCount = 0; // Start with 0, will be incremented when listener is added
 
   @override
   void initState() {
@@ -75,17 +78,19 @@ class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
       'users-class',
       () => ApiService.fetchUsers(),
       options: QueryOptions(
-        staleTime: const Duration(minutes: 5), // Cache for 5 minutes
-        cacheTime: const Duration(minutes: 10), // Keep in cache for 10 minutes
+        staleTime: const Duration(seconds: 5), // Cache for 5 seconds
+        cacheTime: const Duration(seconds: 10), // Keep in cache for 10 seconds
       ),
     );
     _query.addListener(); // Add initial listener for StreamBuilder
+    _referenceCount++; // Increment UI reference count to match
     // Don't call fetch() manually - let addListener() handle it
   }
 
   @override
   void dispose() {
     _query.removeListener(); // Remove the initial listener
+    _referenceCount--; // Decrement UI reference count to match
     // Don't dispose the query manually - let QueryClient handle it
     super.dispose();
   }
@@ -228,7 +233,7 @@ class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Data cached for 5 minutes (staleTime)',
+                          'Data cached for 5 seconds (staleTime)',
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
