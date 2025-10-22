@@ -48,6 +48,33 @@ void main() {
       query.dispose();
     });
 
+    test('removeListener prevents negative reference count', () {
+      final query = Query<String>(
+        key: 'test',
+        queryFn: () async => 'data',
+      );
+
+      // Start with 0 references
+      expect(query.referenceCount, 0);
+
+      // Try to remove listener when count is already 0
+      query.removeListener();
+      expect(query.referenceCount, 0); // Should remain 0, not go negative
+
+      // Add one listener
+      query.addListener();
+      expect(query.referenceCount, 1);
+
+      // Remove listener twice (more removes than adds)
+      query.removeListener();
+      expect(query.referenceCount, 0);
+
+      query.removeListener(); // This should not make it negative
+      expect(query.referenceCount, 0); // Should remain 0
+
+      query.dispose();
+    });
+
     test('fetch transitions from idle to loading to success', () async {
       final query = Query<String>(
         key: 'test',
