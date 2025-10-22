@@ -1,9 +1,83 @@
 import 'package:flutter/foundation.dart';
 import 'validation/input_validator.dart';
 
+/// Performance configuration options for a query.
+///
+/// Controls performance-related features like isolate usage, retry behavior,
+/// and performance tracking for individual queries.
+class PerformanceOptions {
+  /// Enable detailed performance tracking for this query
+  final bool enableMetrics;
+
+  /// Maximum fetch time before warning (milliseconds)
+  final int? fetchTimeoutMs;
+
+  /// Enable automatic isolate usage based on threshold
+  final bool autoIsolate;
+
+  /// Custom isolate threshold for this query (overrides global)
+  final int? isolateThreshold;
+
+  /// Enable hot cache for this query
+  final bool enableHotCache;
+
+  /// Maximum number of fetch retries
+  final int maxRetries;
+
+  /// Initial retry delay
+  final Duration initialRetryDelay;
+
+  /// Backoff multiplier for retries
+  final double retryBackoffMultiplier;
+
+  const PerformanceOptions({
+    this.enableMetrics = true,
+    this.fetchTimeoutMs,
+    this.autoIsolate = false,
+    this.isolateThreshold,
+    this.enableHotCache = true,
+    this.maxRetries = 3,
+    this.initialRetryDelay = const Duration(seconds: 1),
+    this.retryBackoffMultiplier = 2.0,
+  });
+
+  /// Create a copy with some fields changed
+  PerformanceOptions copyWith({
+    bool? enableMetrics,
+    int? fetchTimeoutMs,
+    bool? autoIsolate,
+    int? isolateThreshold,
+    bool? enableHotCache,
+    int? maxRetries,
+    Duration? initialRetryDelay,
+    double? retryBackoffMultiplier,
+  }) {
+    return PerformanceOptions(
+      enableMetrics: enableMetrics ?? this.enableMetrics,
+      fetchTimeoutMs: fetchTimeoutMs ?? this.fetchTimeoutMs,
+      autoIsolate: autoIsolate ?? this.autoIsolate,
+      isolateThreshold: isolateThreshold ?? this.isolateThreshold,
+      enableHotCache: enableHotCache ?? this.enableHotCache,
+      maxRetries: maxRetries ?? this.maxRetries,
+      initialRetryDelay: initialRetryDelay ?? this.initialRetryDelay,
+      retryBackoffMultiplier:
+          retryBackoffMultiplier ?? this.retryBackoffMultiplier,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'PerformanceOptions('
+        'metrics: $enableMetrics, '
+        'autoIsolate: $autoIsolate, '
+        'hotCache: $enableHotCache, '
+        'retries: $maxRetries)';
+  }
+}
+
 /// Configuration options for a query.
 ///
-/// Allows controlling query behavior, caching, and adding lifecycle callbacks.
+/// Allows controlling query behavior, caching, performance, and adding lifecycle callbacks.
 ///
 /// Example:
 /// ```dart
@@ -11,6 +85,11 @@ import 'validation/input_validator.dart';
 ///   enabled: userId != null,
 ///   staleTime: Duration(minutes: 5),
 ///   cacheTime: Duration(minutes: 10),
+///   performance: PerformanceOptions(
+///     enableMetrics: true,
+///     autoIsolate: true,
+///     maxRetries: 3,
+///   ),
 ///   onSuccess: () => print('Data loaded!'),
 ///   onError: (error) => print('Failed: $error'),
 /// )
@@ -68,6 +147,9 @@ class QueryOptions {
   /// regardless of cache settings. Required when isSecure is true.
   final Duration? maxAge;
 
+  /// Performance configuration for this query
+  final PerformanceOptions? performance;
+
   QueryOptions({
     this.enabled = true,
     this.staleTime,
@@ -77,6 +159,7 @@ class QueryOptions {
     this.onError,
     this.isSecure = false,
     this.maxAge,
+    this.performance,
   }) {
     // Validate durations
     InputValidator.validateDuration(staleTime, 'staleTime');
@@ -89,5 +172,30 @@ class QueryOptions {
         'Secure queries must specify maxAge for TTL enforcement',
       );
     }
+  }
+
+  /// Create a copy with some fields changed
+  QueryOptions copyWith({
+    bool? enabled,
+    Duration? staleTime,
+    Duration? cacheTime,
+    bool? refetchOnMount,
+    VoidCallback? onSuccess,
+    void Function(Object error)? onError,
+    bool? isSecure,
+    Duration? maxAge,
+    PerformanceOptions? performance,
+  }) {
+    return QueryOptions(
+      enabled: enabled ?? this.enabled,
+      staleTime: staleTime ?? this.staleTime,
+      cacheTime: cacheTime ?? this.cacheTime,
+      refetchOnMount: refetchOnMount ?? this.refetchOnMount,
+      onSuccess: onSuccess ?? this.onSuccess,
+      onError: onError ?? this.onError,
+      isSecure: isSecure ?? this.isSecure,
+      maxAge: maxAge ?? this.maxAge,
+      performance: performance ?? this.performance,
+    );
   }
 }

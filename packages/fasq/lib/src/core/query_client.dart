@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../cache/cache_config.dart';
 import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
+import '../performance/isolate_pool.dart';
 import '../persistence/persistence_options.dart';
 import 'query.dart';
 import 'query_options.dart';
@@ -52,11 +53,14 @@ class QueryClient with WidgetsBindingObserver {
           persistenceOptions: persistenceOptions,
         ) {
     WidgetsBinding.instance.addObserver(this);
+    _isolatePool =
+        IsolatePool(poolSize: config?.performance.isolatePoolSize ?? 2);
   }
 
   final Map<String, Query> _queries = {};
   final Map<String, InfiniteQuery> _infiniteQueries = {};
   final QueryCache _cache;
+  late final IsolatePool _isolatePool;
 
   /// Gets an existing query or creates a new one.
   ///
@@ -99,6 +103,7 @@ class QueryClient with WidgetsBindingObserver {
       queryFn: queryFn,
       options: options,
       cache: _cache,
+      client: this,
       onDispose: () => _queries.remove(key),
       initialData: cachedEntry?.data,
     );
@@ -196,6 +201,9 @@ class QueryClient with WidgetsBindingObserver {
   /// Useful for direct cache access in tests or advanced use cases.
   QueryCache get cache => _cache;
 
+  /// The isolate pool for heavy computation tasks.
+  IsolatePool get isolatePool => _isolatePool;
+
   /// Invalidates a single query by key.
   ///
   /// Removes the cache entry and triggers refetch if the query is active.
@@ -208,12 +216,20 @@ class QueryClient with WidgetsBindingObserver {
     }
   }
 
-  /// Invalidates multiple queries by keys.
+  /// Invalidates multiple queries atomically
   void invalidateQueries(List<String> keys) {
     for (final key in keys) {
       invalidateQuery(key);
     }
   }
+
+  /// Invalidates queries matching condition
+  void invalidateQueriesWhere(bool Function(String key) predicate) {
+    final keysToInvalidate = _queries.keys.where(predicate).toList();
+    invalidateQueries(keysToInvalidate);
+  }
+
+  /// Invalidates multiple queries by keys.
 
   /// Invalidates all queries with keys starting with the prefix.
   ///
@@ -301,7 +317,7 @@ class QueryClient with WidgetsBindingObserver {
   /// Invalidates queries matching the predicate.
   ///
   /// Example: `invalidateQueriesWhere((key) => key.contains('stale'))`
-  void invalidateQueriesWhere(bool Function(String key) predicate) {
+  void invalidateQueriesWherePredicate(bool Function(String key) predicate) {
     _cache.invalidateWhere(predicate);
 
     final affectedKeys = _queries.keys.where(predicate).toList();
@@ -379,6 +395,7 @@ class QueryClient with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     clear();
     _cache.dispose();
+    _isolatePool.dispose();
   }
 
   /// Resets the singleton instance for testing.
