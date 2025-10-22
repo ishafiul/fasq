@@ -1,3 +1,11 @@
+## 0.1.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+
 # Changelog
 
 All notable changes to the fasq_security package will be documented in this file.

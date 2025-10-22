@@ -1,3 +1,21 @@
+## 0.3.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **FIX**: resolve critical issues and improve code quality (#15).
+ - **FIX**: security (#9).
+ - **FEAT**: implement comprehensive performance optimization system (#13).
+ - **FEAT**: integrate SecurityPlugin with QueryCache (#12).
+ - **FEAT**: complete updateEncryptionKey implementation with real persistence (#10).
+ - **FEAT**: prefetching (#8).
+ - **FEAT**: implement parallel queries across all adapters (#6).
+ - **FEAT**: offline mutation queue (#5).
+ - **FEAT**: dependent queries (#4).
+ - **FEAT**: infinite queries (#3).
+ - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
