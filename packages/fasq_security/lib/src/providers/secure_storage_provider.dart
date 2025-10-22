@@ -1,25 +1,31 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:fasq/fasq.dart';
+import '../exceptions/security_exception.dart';
 
-/// Platform-specific secure storage for encryption keys.
+/// Implementation of SecurityProvider using flutter_secure_storage.
 ///
 /// Uses platform-specific secure storage mechanisms:
 /// - iOS: Keychain
 /// - Android: EncryptedSharedPreferences
 /// - Web: Not supported (throws UnsupportedError)
 /// - Desktop: Platform-specific secure storage
-class SecureStorage {
+class SecureStorageProvider implements SecurityProvider {
   static const String _keyIdKey = 'fasq_key_id';
 
   final FlutterSecureStorage _storage;
 
-  SecureStorage() : _storage = const FlutterSecureStorage();
+  SecureStorageProvider() : _storage = const FlutterSecureStorage();
 
-  /// Gets the encryption key from secure storage.
-  ///
-  /// Returns null if no key is stored.
+  @override
+  Future<void> initialize() async {
+    // No initialization needed for flutter_secure_storage
+  }
+
+  @override
   Future<String?> getEncryptionKey() async {
     try {
       return await _storage.read(key: _keyIdKey);
@@ -28,7 +34,7 @@ class SecureStorage {
     }
   }
 
-  /// Stores an encryption key in secure storage.
+  @override
   Future<void> setEncryptionKey(String key) async {
     try {
       await _storage.write(key: _keyIdKey, value: key);
@@ -37,9 +43,7 @@ class SecureStorage {
     }
   }
 
-  /// Generates and stores a new encryption key.
-  ///
-  /// Returns the generated key.
+  @override
   Future<String> generateAndStoreKey() async {
     try {
       // Generate a random key
@@ -54,7 +58,7 @@ class SecureStorage {
     }
   }
 
-  /// Checks if an encryption key exists in secure storage.
+  @override
   Future<bool> hasEncryptionKey() async {
     try {
       final key = await getEncryptionKey();
@@ -64,7 +68,7 @@ class SecureStorage {
     }
   }
 
-  /// Deletes the encryption key from secure storage.
+  @override
   Future<void> deleteEncryptionKey() async {
     try {
       await _storage.delete(key: _keyIdKey);
@@ -73,7 +77,7 @@ class SecureStorage {
     }
   }
 
-  /// Checks if secure storage is supported on the current platform.
+  @override
   bool get isSupported {
     if (kIsWeb) {
       return false; // Web doesn't support secure storage
@@ -84,17 +88,8 @@ class SecureStorage {
   /// Generates a random encryption key.
   String _generateRandomKey() {
     // Generate 32 random bytes and encode as base64
-    final random = List<int>.generate(
-        32, (i) => DateTime.now().millisecondsSinceEpoch % 256);
-    return base64Encode(random);
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (i) => random.nextInt(256));
+    return base64Encode(bytes);
   }
-}
-
-/// Exception thrown when secure storage operations fail.
-class SecureStorageException implements Exception {
-  final String message;
-  const SecureStorageException(this.message);
-
-  @override
-  String toString() => 'SecureStorageException: $message';
 }

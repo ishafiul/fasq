@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-01-14
+
+### Added - Security Package Extraction
+
+**Security Plugin Architecture:**
+- Abstract security interfaces for modular security implementation
+- `SecurityPlugin` interface for pluggable security providers
+- `SecurityProvider` interface for secure key storage
+- `EncryptionProvider` interface for encryption/decryption operations
+- `PersistenceProvider` interface for encrypted data persistence
+
+**New Security Package:**
+- `fasq_security` package with complete security implementation
+- `DefaultSecurityPlugin` with production-ready security features
+- `CryptoEncryptionProvider` with AES-GCM encryption and isolate support
+- `SecureStorageProvider` with platform-specific secure storage
+- `DriftPersistenceProvider` with efficient batch operations
+
+### Changed
+
+**Breaking Changes:**
+- Removed built-in security dependencies (`encrypt`, `flutter_secure_storage`, `shared_preferences`)
+- Security functionality moved to separate `fasq_security` package
+- `PersistenceOptions.encrypt` and `PersistenceOptions.encryptionKey` marked as deprecated
+
+**Migration Required:**
+- Install `fasq_security` package for security features
+- Update QueryClient to use `SecurityPlugin` instead of `PersistenceOptions`
+- See migration guide in `fasq_security` package documentation
+
+### Removed
+
+- `EncryptionService` class (moved to `fasq_security`)
+- `SecureStorage` class (moved to `fasq_security`)
+- `EncryptedCachePersister` class (moved to `fasq_security`)
+- Security-related dependencies from core package
+
+### Performance
+
+- **Bundle Size**: 75% reduction in core package size
+- **Dependencies**: Core package now has zero security dependencies
+- **Modularity**: Security features are now optional and pluggable
+
 ## [0.1.0] - 2025-01-14
 
 ### Added - Phase 2: Production-Ready Caching Layer

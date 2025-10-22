@@ -1,6 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/widgets.dart';
-import 'package:fasq/src/cache/cache_entry.dart';
 import 'package:fasq/src/cache/query_cache.dart';
 import 'package:fasq/src/core/query_client.dart';
 import 'package:fasq/src/core/query_options.dart';

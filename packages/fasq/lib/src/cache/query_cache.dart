@@ -10,7 +10,6 @@ import 'eviction/fifo_eviction.dart';
 import 'eviction/lfu_eviction.dart';
 import 'eviction/lru_eviction.dart';
 import '../persistence/persistence_options.dart';
-import '../persistence/encrypted_cache_persister.dart';
 import '../core/validation/input_validator.dart';
 
 /// Core cache storage and management for queries.
@@ -26,7 +25,6 @@ class QueryCache {
 
   Timer? _gcTimer;
   Timer? _persistenceGcTimer;
-  EncryptedCachePersister? _persister;
 
   QueryCache({
     CacheConfig? config,
@@ -92,10 +90,10 @@ class QueryCache {
     _entries[key] = entry;
 
     // Persist non-secure entries if persistence is enabled
-    if (persistenceOptions?.enabled == true &&
-        !isSecure &&
-        _persister != null) {
-      _persistEntry(key, entry);
+    if (persistenceOptions?.enabled == true && !isSecure) {
+      // TODO: Implement SecurityPlugin integration
+      print(
+          'Warning: Persistence is deprecated. Use SecurityPlugin from fasq_security package instead.');
     }
 
     if (_shouldEvict()) {
@@ -303,55 +301,29 @@ class QueryCache {
   Future<void> _initializePersistence() async {
     if (persistenceOptions?.enabled != true) return;
 
-    try {
-      _persister = EncryptedCachePersister();
-      await _persister!.initialize();
-      _startPersistenceGarbageCollection();
-    } catch (e) {
-      // Log error but don't fail initialization
-      print('Warning: Failed to initialize persistence: $e');
-    }
+    // TODO: Implement SecurityPlugin integration
+    print(
+        'Warning: Persistence is deprecated. Use SecurityPlugin from fasq_security package instead.');
   }
 
   /// Starts garbage collection for persisted data.
   void _startPersistenceGarbageCollection() {
-    final interval =
-        persistenceOptions?.gcInterval ?? const Duration(minutes: 5);
-    _persistenceGcTimer = Timer.periodic(interval, (_) {
-      _runPersistenceGarbageCollection();
-    });
+    // TODO: Implement SecurityPlugin integration
+    print(
+        'Warning: Persistence garbage collection is deprecated. Use SecurityPlugin from fasq_security package instead.');
   }
 
   /// Runs garbage collection on persisted data.
   Future<void> _runPersistenceGarbageCollection() async {
-    if (_persister == null) return;
-
-    try {
-      final keys = await _persister!.getAllKeys();
-      final now = DateTime.now();
-
-      for (final key in keys) {
-        // Check if entry should be garbage collected
-        final entry = _entries[key];
-        if (entry != null && entry.shouldGarbageCollect(now)) {
-          await _persister!.remove(key);
-        }
-      }
-    } catch (e) {
-      // Log error but don't fail GC
-      print('Warning: Persistence garbage collection failed: $e');
-    }
+    // TODO: Implement SecurityPlugin integration
+    print(
+        'Warning: Persistence garbage collection is deprecated. Use SecurityPlugin from fasq_security package instead.');
   }
 
   /// Persists a cache entry to disk.
   Future<void> _persistEntry(String key, CacheEntry entry) async {
-    if (_persister == null) return;
-
-    try {
-      await _persister!.persist(key, entry.data);
-    } catch (e) {
-      // Log error but don't fail cache operation
-      print('Warning: Failed to persist entry $key: $e');
-    }
+    // TODO: Implement SecurityPlugin integration
+    print(
+        'Warning: Persistence is deprecated. Use SecurityPlugin from fasq_security package instead.');
   }
 }

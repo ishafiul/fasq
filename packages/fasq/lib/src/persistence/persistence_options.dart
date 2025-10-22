@@ -12,12 +12,20 @@ class PersistenceOptions {
   ///
   /// When true, data is encrypted using AES-GCM before being written to disk.
   /// Requires [encryptionKey] to be provided or auto-generated.
+  ///
+  /// @deprecated Use SecurityPlugin instead. This will be removed in a future version.
+  @Deprecated(
+      'Use SecurityPlugin instead. This will be removed in a future version.')
   final bool encrypt;
 
   /// The encryption key for encrypting/decrypting persisted data.
   ///
   /// If null and [encrypt] is true, a key will be auto-generated and stored
   /// securely using platform-specific secure storage.
+  ///
+  /// @deprecated Use SecurityPlugin instead. This will be removed in a future version.
+  @Deprecated(
+      'Use SecurityPlugin instead. This will be removed in a future version.')
   final String? encryptionKey;
 
   /// How often to run garbage collection on persisted data.
