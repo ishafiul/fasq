@@ -56,9 +56,13 @@ class InfiniteQuery<TData, TParam> {
 
   void removeListener() {
     if (_isDisposed) return;
-    _referenceCount--;
-    if (_referenceCount == 0) {
-      _scheduleDisposal();
+    
+    // Prevent negative reference count
+    if (_referenceCount > 0) {
+      _referenceCount--;
+      if (_referenceCount == 0) {
+        _scheduleDisposal();
+      }
     }
   }
 

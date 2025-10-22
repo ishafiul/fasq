@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
     QueryClient.resetForTesting();
   });
 
@@ -80,5 +81,35 @@ void main() {
     expect(query.state.pages[0].data, isNotNull);
     expect(query.state.pages[1].error, isNotNull);
     expect(query.state.pages[2].data, isNotNull);
+  });
+
+  test('removeListener prevents negative reference count', () {
+    final client = QueryClient();
+    final query = client.getInfiniteQuery<List<int>, int>(
+      'test:negative-refs',
+      (page) async => [page],
+      options: InfiniteQueryOptions<List<int>, int>(
+        getNextPageParam: (pages, last) => pages.length + 1,
+        enabled: false, // Disable to prevent prefetch
+      ),
+    );
+
+    // Start with 0 references
+    expect(query.referenceCount, 0);
+
+    // Try to remove listener when count is already 0
+    query.removeListener();
+    expect(query.referenceCount, 0); // Should remain 0, not go negative
+
+    // Add one listener
+    query.addListener();
+    expect(query.referenceCount, 1);
+
+    // Remove listener twice (more removes than adds)
+    query.removeListener();
+    expect(query.referenceCount, 0);
+
+    query.removeListener(); // This should not make it negative
+    expect(query.referenceCount, 0); // Should remain 0
   });
 }
