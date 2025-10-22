@@ -176,6 +176,40 @@ class UserProfile extends HookWidget {
           </pre>
         </div>
 
+        <h2 style={{ fontSize: 32, marginBottom: 40, color: '#ffffff' }}>Is FASQ Right for You?</h2>
+        <div style={{ backgroundColor: '#1a1a1a', padding: '30px', borderRadius: '12px', marginBottom: 60, border: '1px solid #333' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px', textAlign: 'left' }}>
+            <div>
+              <h3 style={{ color: '#4ade80', fontSize: '20px', marginBottom: '15px' }}>✅ Choose FASQ if you have:</h3>
+              <ul style={{ color: '#d0d0d0', lineHeight: '1.8', paddingLeft: '20px' }}>
+                <li>Multiple API endpoints to manage</li>
+                <li>Complex caching requirements</li>
+                <li>Need for request deduplication</li>
+                <li>Background data synchronization</li>
+                <li>Team standardization needs</li>
+                <li>Performance-critical applications</li>
+              </ul>
+            </div>
+            <div>
+              <h3 style={{ color: '#f87171', fontSize: '20px', marginBottom: '15px' }}>❌ Consider alternatives if you:</h3>
+              <ul style={{ color: '#d0d0d0', lineHeight: '1.8', paddingLeft: '20px' }}>
+                <li>Have simple, single API calls</li>
+                <li>Need micro-level performance control</li>
+                <li>Want minimal bundle size</li>
+                <li>Are new to Flutter development</li>
+                <li>Have unique state management needs</li>
+                <li>Prefer complete code ownership</li>
+              </ul>
+            </div>
+          </div>
+          <div style={{ marginTop: '25px', padding: '20px', backgroundColor: '#2a2a2a', borderRadius: '8px', border: '1px solid #444' }}>
+            <p style={{ color: '#a0a0a0', fontSize: '16px', margin: '0', textAlign: 'center' }}>
+              <strong style={{ color: '#ffffff' }}>Bottom Line:</strong> FASQ gives you <strong style={{ color: '#4ade80' }}>strategic control</strong> over async state management with <strong style={{ color: '#4ade80' }}>rapid development</strong>, 
+              but you trade <strong style={{ color: '#f87171' }}>implementation control</strong> for <strong style={{ color: '#4ade80' }}>proven patterns</strong>.
+            </p>
+          </div>
+        </div>
+
         <h2 style={{ fontSize: 32, marginBottom: 40, color: '#ffffff' }}>Get Started</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', textAlign: 'left' }}>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>

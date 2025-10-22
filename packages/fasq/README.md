@@ -2,8 +2,8 @@
 
 A powerful async state management library for Flutter. Handles API calls, database queries, file operations, and any async operation with intelligent caching, automatic refetching, and error recovery.
 
-**Current Version:** 0.2.0 (Phase 4 - Advanced Features)  
-**Status:** In Development
+**Current Version:** 0.2.0  
+**Status:** Production Ready
 
 ## Features
 
@@ -21,8 +21,8 @@ A powerful async state management library for Flutter. Handles API calls, databa
 - ✅ **Infinite Queries** - Pagination and infinite scroll with memory management
 - ✅ **Dependent Queries** - Chain queries using enabled gating
 - ✅ **Offline Mutation Queue** - Persist mutations offline and sync when online
-- ✅ **Security Hardening** - Secure cache entries, encrypted persistence, input validation
-- 🔄 **Offline Support** - Coming in Phase 5
+- ✅ **Security Integration** - Plugin architecture for secure storage and encryption
+- ✅ **Performance Optimization** - Hot cache, isolate pool, performance monitoring
 
 ## Installation
 
@@ -30,7 +30,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  fasq: ^0.0.1
+  fasq: ^0.2.0
 ```
 
 ## Quick Start
