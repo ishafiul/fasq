@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq_bloc/fasq_bloc.dart';
-import 'package:fasq/fasq.dart';
 
 void main() {
   group('MultiQueryBuilder', () {

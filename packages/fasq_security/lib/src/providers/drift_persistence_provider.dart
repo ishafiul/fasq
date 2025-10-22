@@ -199,7 +199,7 @@ class DriftPersistenceProvider implements PersistenceProvider {
           }
         } catch (e) {
           // Log warning but continue with other keys
-          print('Warning: Failed to re-encrypt key $key: $e');
+          // Failed to re-encrypt key, skip this entry
         }
 
         processedCount++;

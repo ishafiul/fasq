@@ -431,7 +431,9 @@ class QueryCache {
       if (keysToRemove.isNotEmpty) {
         await persistenceProvider.removeMultiple(keysToRemove);
       }
-    } catch (e) {}
+    } catch (e) {
+      // Persistence garbage collection failed, continue silently
+    }
   }
 
   /// Persists a cache entry to disk.
@@ -445,9 +447,7 @@ class QueryCache {
 
       // Get or generate encryption key
       String? encryptionKey = await securityProvider.getEncryptionKey();
-      if (encryptionKey == null) {
-        encryptionKey = await securityProvider.generateAndStoreKey();
-      }
+      encryptionKey ??= await securityProvider.generateAndStoreKey();
 
       // Serialize the entry to JSON
       final entryJson = jsonEncode(entry.toJson());
@@ -459,7 +459,9 @@ class QueryCache {
 
       // Persist the encrypted data
       await persistenceProvider.persist(key, encryptedData);
-    } catch (e) {}
+    } catch (e) {
+      // Persistence failed, continue without persisting this entry
+    }
   }
 
   /// Removes an entry from persistence.
@@ -469,7 +471,9 @@ class QueryCache {
     try {
       final persistenceProvider = securityPlugin!.createPersistenceProvider();
       await persistenceProvider.remove(key);
-    } catch (e) {}
+    } catch (e) {
+      // Persistence removal failed, continue silently
+    }
   }
 
   /// Removes multiple entries from persistence.
@@ -479,7 +483,9 @@ class QueryCache {
     try {
       final persistenceProvider = securityPlugin!.createPersistenceProvider();
       await persistenceProvider.removeMultiple(keys);
-    } catch (e) {}
+    } catch (e) {
+      // Persistence removal failed, continue silently
+    }
   }
 
   /// Clears all persisted data.
@@ -489,7 +495,9 @@ class QueryCache {
     try {
       final persistenceProvider = securityPlugin!.createPersistenceProvider();
       await persistenceProvider.clear();
-    } catch (e) {}
+    } catch (e) {
+      // Persistence clear failed, continue silently
+    }
   }
 
   /// Loads persisted entries on initialization.
@@ -533,6 +541,8 @@ class QueryCache {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      // Failed to load persisted entries, continue without them
+    }
   }
 }

@@ -23,7 +23,7 @@ class _OfflineQueueTodosPageState extends State<OfflineQueueTodosPage> {
 
   final TextEditingController _todoController = TextEditingController();
   bool _isOffline = false;
-  List<String> _todos = [];
+  final List<String> _todos = [];
 
   @override
   void initState() {

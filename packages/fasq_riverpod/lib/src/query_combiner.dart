@@ -1,6 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fasq_riverpod/fasq_riverpod.dart';
-import 'package:fasq/fasq.dart';
 
 /// Combined state for multiple queries with helper methods.
 class CombinedQueriesState {

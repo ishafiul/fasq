@@ -215,7 +215,9 @@ void main() {
           PrefetchConfig(key: 'success', queryFn: fetchSuccess),
           PrefetchConfig(key: 'error', queryFn: fetchError),
         ]);
-      } catch (e) {}
+      } catch (e) {
+        // Expected error, test passed
+      }
 
       final cache = client.cache;
       expect(cache.get<String>('success')?.data, equals('success'));

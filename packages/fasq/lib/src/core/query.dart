@@ -97,7 +97,7 @@ class Query<T> {
       );
 
   /// Estimate the size of data in bytes for performance decisions
-  int _estimateDataSize<T>(T data) {
+  int _estimateDataSize<U>(U data) {
     if (data == null) return 0;
 
     if (data is String) {

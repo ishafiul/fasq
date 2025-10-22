@@ -29,18 +29,15 @@ class MutationState<T> {
         stackTrace = null,
         isQueued = false;
 
-  const MutationState.success(T data)
+  const MutationState.success(this.data)
       : status = MutationStatus.success,
-        data = data,
         error = null,
         stackTrace = null,
         isQueued = false;
 
-  const MutationState.error(Object error, [StackTrace? stackTrace])
+  const MutationState.error(this.error, [this.stackTrace])
       : status = MutationStatus.error,
         data = null,
-        error = error,
-        stackTrace = stackTrace,
         isQueued = false;
 
   const MutationState.queued()
