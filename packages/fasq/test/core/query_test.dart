@@ -2,6 +2,11 @@ import 'package:fasq/fasq.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    QueryClient.resetForTesting();
+  });
+
   group('Query', () {
     test('initializes with idle state', () {
       final query = Query<String>(
@@ -321,6 +326,35 @@ void main() {
       query.removeListener();
 
       expect(query.referenceCount, count);
+    });
+
+    test('QueryClient clears cache when query is disposed', () async {
+      final client = QueryClient();
+
+      // Create a query and fetch data
+      final query1 = client.getQuery<String>(
+        'test-cache-clear',
+        () async => 'cached-data',
+      );
+
+      query1.addListener();
+      await query1.fetch(); // Wait for fetch to complete
+
+      // Verify data is cached
+      final cachedEntry = client.cache.get<String>('test-cache-clear');
+      expect(cachedEntry, isNotNull);
+      expect(cachedEntry!.data, 'cached-data');
+
+      // Remove all listeners to trigger disposal
+      query1.removeListener();
+
+      // Wait for disposal to complete (disposal is scheduled after 5 seconds)
+      // For testing, we'll manually dispose to trigger immediate cache clearing
+      query1.dispose();
+
+      // Verify cache is cleared
+      final clearedEntry = client.cache.get<String>('test-cache-clear');
+      expect(clearedEntry, isNull);
     });
   });
 }
