@@ -28,4 +28,3 @@ abstract class SecurityProvider {
   /// Whether secure storage is supported on the current platform.
   bool get isSupported;
 }
-

@@ -1313,7 +1313,7 @@ class _MutationExamplePageState extends State<MutationExamplePage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   int _userIdCounter = 1;
-  List<Map<String, dynamic>> _createdUsers = [];
+  final List<Map<String, dynamic>> _createdUsers = [];
 
   @override
   void dispose() {

@@ -6,4 +6,3 @@ class PersistenceException implements Exception {
   @override
   String toString() => 'PersistenceException: $message';
 }
-

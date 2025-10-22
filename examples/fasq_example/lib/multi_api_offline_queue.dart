@@ -38,7 +38,7 @@ class _MultiApiOfflineQueuePageState extends State<MultiApiOfflineQueuePage> {
   final TextEditingController _commentController = TextEditingController();
 
   bool _isOffline = false;
-  List<String> _actions = [];
+  final List<String> _actions = [];
 
   @override
   void initState() {

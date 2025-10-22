@@ -33,7 +33,8 @@ class QueryConfig<T> {
 /// final allLoaded = queries.every((q) => q.hasData);
 /// final anyError = queries.any((q) => q.hasError);
 /// ```
-List<QueryState<dynamic>> useQueries(List<QueryConfig> configs, {QueryClient? client}) {
+List<QueryState<dynamic>> useQueries(List<QueryConfig> configs,
+    {QueryClient? client}) {
   final queryClient = client ?? QueryClient();
   final states = useState<List<QueryState<dynamic>>>([]);
 

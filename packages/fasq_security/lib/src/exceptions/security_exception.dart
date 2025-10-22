@@ -6,4 +6,3 @@ class SecureStorageException implements Exception {
   @override
   String toString() => 'SecureStorageException: $message';
 }
-

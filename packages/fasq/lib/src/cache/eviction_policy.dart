@@ -20,4 +20,3 @@ enum EvictionPolicy {
   /// Simplest policy but least intelligent about access patterns.
   fifo,
 }
-

@@ -194,8 +194,9 @@ class InfiniteQuery<TData, TParam> {
 
   TParam? _computeNextParam(List<Page<TData, TParam>> pages) {
     if (options?.getNextPageParam == null) return null;
-    if (pages.isEmpty)
+    if (pages.isEmpty) {
       return options!.getNextPageParam!(const [], (null as dynamic));
+    }
     final lastWithData = pages.lastWhere(
       (p) => p.data != null,
       orElse: () => pages.last,

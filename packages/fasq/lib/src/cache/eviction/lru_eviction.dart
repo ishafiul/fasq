@@ -14,12 +14,11 @@ class LRUEviction implements EvictionStrategy {
     int currentSize,
     int targetSize,
   ) {
-    final evictableEntries = entries.entries
-        .where((e) => e.value.referenceCount == 0)
-        .toList();
+    final evictableEntries =
+        entries.entries.where((e) => e.value.referenceCount == 0).toList();
 
-    evictableEntries.sort((a, b) =>
-        a.value.lastAccessedAt.compareTo(b.value.lastAccessedAt));
+    evictableEntries.sort(
+        (a, b) => a.value.lastAccessedAt.compareTo(b.value.lastAccessedAt));
 
     final keysToEvict = <String>[];
     int sizeToEvict = currentSize - targetSize;
@@ -35,4 +34,3 @@ class LRUEviction implements EvictionStrategy {
     return keysToEvict;
   }
 }
-

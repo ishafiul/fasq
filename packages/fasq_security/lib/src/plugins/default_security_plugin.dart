@@ -114,4 +114,3 @@ class DefaultSecurityPlugin implements SecurityPlugin {
     await _storageProvider.setEncryptionKey(newKey);
   }
 }
-

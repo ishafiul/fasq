@@ -67,4 +67,3 @@ class _MutationBuilderState<T, TVariables>
     );
   }
 }
-

@@ -53,4 +53,3 @@ abstract class PersistenceProvider {
   /// [keys] List of cache keys to remove
   Future<void> removeMultiple(List<String> keys);
 }
-

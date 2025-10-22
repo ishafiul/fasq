@@ -104,4 +104,3 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
     return widget.builder(context, _query.state);
   }
 }
-

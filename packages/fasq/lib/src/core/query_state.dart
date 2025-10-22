@@ -65,7 +65,8 @@ class QueryState<T> {
   }
 
   /// Creates a success state with [data].
-  factory QueryState.success(T data, {DateTime? dataUpdatedAt, bool isFetching = false}) {
+  factory QueryState.success(T data,
+      {DateTime? dataUpdatedAt, bool isFetching = false}) {
     return QueryState<T>(
       status: QueryStatus.success,
       data: data,
@@ -149,4 +150,3 @@ class QueryState<T> {
     return 'QueryState<$T>(status: $status, hasData: $hasData, hasError: $hasError)';
   }
 }
-
