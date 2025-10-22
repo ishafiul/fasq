@@ -104,7 +104,10 @@ class QueryClient with WidgetsBindingObserver {
       options: options,
       cache: _cache,
       client: this,
-      onDispose: () => _queries.remove(key),
+      onDispose: () {
+        _queries.remove(key);
+        _cache.invalidate(key); // Clear cache when query is disposed
+      },
       initialData: cachedEntry?.data,
     );
 
@@ -130,7 +133,10 @@ class QueryClient with WidgetsBindingObserver {
       queryFn: queryFn,
       options: options,
       cache: _cache,
-      onDispose: () => _infiniteQueries.remove(key),
+      onDispose: () {
+        _infiniteQueries.remove(key);
+        _cache.invalidate(key); // Clear cache when infinite query is disposed
+      },
     );
 
     _infiniteQueries[key] = infinite;
