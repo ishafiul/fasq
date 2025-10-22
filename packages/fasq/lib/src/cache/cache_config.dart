@@ -33,7 +33,14 @@ class GlobalPerformanceConfig {
     this.memoryWarningThreshold = 10 * 1024 * 1024, // 10MB
     this.isolatePoolSize = 2,
     this.defaultIsolateThreshold = 100 * 1024, // 100KB
-  });
+  })  : assert(hotCacheSize > 0, 'hotCacheSize must be positive'),
+        assert(isolatePoolSize > 0, 'isolatePoolSize must be positive'),
+        assert(
+            slowQueryThresholdMs > 0, 'slowQueryThresholdMs must be positive'),
+        assert(memoryWarningThreshold > 0,
+            'memoryWarningThreshold must be positive'),
+        assert(defaultIsolateThreshold > 0,
+            'defaultIsolateThreshold must be positive');
 
   /// Create a copy with some fields changed
   GlobalPerformanceConfig copyWith({

@@ -39,7 +39,13 @@ class PerformanceOptions {
     this.maxRetries = 3,
     this.initialRetryDelay = const Duration(seconds: 1),
     this.retryBackoffMultiplier = 2.0,
-  });
+  })  : assert(fetchTimeoutMs == null || fetchTimeoutMs > 0,
+            'fetchTimeoutMs must be positive'),
+        assert(isolateThreshold == null || isolateThreshold > 0,
+            'isolateThreshold must be positive'),
+        assert(maxRetries >= 0, 'maxRetries must be non-negative'),
+        assert(retryBackoffMultiplier > 0,
+            'retryBackoffMultiplier must be positive');
 
   /// Create a copy with some fields changed
   PerformanceOptions copyWith({
