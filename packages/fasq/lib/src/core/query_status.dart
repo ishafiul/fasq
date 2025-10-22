@@ -18,4 +18,3 @@ enum QueryStatus {
   /// Query failed with an error.
   error,
 }
-

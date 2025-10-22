@@ -14,9 +14,9 @@ void main() {
       }
 
       await cubit.prefetch('test-key', fetchData);
-      
+
       expect(fetchCount, equals(1));
-      
+
       cubit.close();
     });
 
@@ -39,10 +39,10 @@ void main() {
         PrefetchConfig(key: 'test-key-1', queryFn: fetchData1),
         PrefetchConfig(key: 'test-key-2', queryFn: fetchData2),
       ]);
-      
+
       expect(fetchCount1, equals(1));
       expect(fetchCount2, equals(1));
-      
+
       cubit.close();
     });
   });

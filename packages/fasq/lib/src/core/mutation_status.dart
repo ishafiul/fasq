@@ -4,4 +4,3 @@ enum MutationStatus {
   success,
   error,
 }
-

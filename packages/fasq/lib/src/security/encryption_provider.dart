@@ -28,4 +28,3 @@ abstract class EncryptionProvider {
   /// Returns true if the key is valid, false otherwise
   bool isValidKey(String key);
 }
-

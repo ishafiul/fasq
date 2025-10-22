@@ -14,12 +14,11 @@ class FIFOEviction implements EvictionStrategy {
     int currentSize,
     int targetSize,
   ) {
-    final evictableEntries = entries.entries
-        .where((e) => e.value.referenceCount == 0)
-        .toList();
+    final evictableEntries =
+        entries.entries.where((e) => e.value.referenceCount == 0).toList();
 
-    evictableEntries.sort((a, b) =>
-        a.value.createdAt.compareTo(b.value.createdAt));
+    evictableEntries
+        .sort((a, b) => a.value.createdAt.compareTo(b.value.createdAt));
 
     final keysToEvict = <String>[];
     int sizeToEvict = currentSize - targetSize;
@@ -35,4 +34,3 @@ class FIFOEviction implements EvictionStrategy {
     return keysToEvict;
   }
 }
-

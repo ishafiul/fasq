@@ -61,4 +61,3 @@ class AsyncLock {
   /// Number of operations waiting for the lock.
   int get queueLength => _queue.length;
 }
-

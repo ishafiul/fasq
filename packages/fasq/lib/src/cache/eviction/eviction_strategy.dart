@@ -19,4 +19,3 @@ abstract class EvictionStrategy {
     int targetSize,
   );
 }
-

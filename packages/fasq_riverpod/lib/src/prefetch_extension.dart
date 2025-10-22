@@ -13,9 +13,10 @@ extension PrefetchExtension on WidgetRef {
     final queryClient = client ?? QueryClient();
     await queryClient.prefetchQuery(key, queryFn, options: options);
   }
-  
+
   /// Prefetch multiple queries in parallel.
-  Future<void> prefetchQueries(List<PrefetchConfig> configs, {QueryClient? client}) async {
+  Future<void> prefetchQueries(List<PrefetchConfig> configs,
+      {QueryClient? client}) async {
     final queryClient = client ?? QueryClient();
     await queryClient.prefetchQueries(configs);
   }

@@ -11,4 +11,3 @@ class PrefetchConfig<T> {
     this.options,
   });
 }
-
