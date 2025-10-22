@@ -71,6 +71,11 @@ class Query<T> {
             ? QueryState<T>.success(initialData)
             : QueryState<T>.idle() {
     _controller = StreamController<QueryState<T>>.broadcast();
+
+    // If no initial data and no cached data, start in loading state
+    if (initialData == null && cache != null && cache!.get<T>(key) == null) {
+      _currentState = QueryState<T>.loading();
+    }
   }
 
   /// Stream of state changes for this query.
@@ -126,7 +131,7 @@ class Query<T> {
     _referenceCount++;
     _cancelDisposal();
 
-    if (_referenceCount == 1 && (cache != null || !state.hasData)) {
+    if (_referenceCount == 1 && !state.hasData) {
       fetch();
     }
   }

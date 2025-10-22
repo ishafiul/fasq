@@ -356,5 +356,50 @@ void main() {
       final clearedEntry = client.cache.get<String>('test-cache-clear');
       expect(clearedEntry, isNull);
     });
+
+    test('New query fetches data when cache is cleared', () async {
+      final client = QueryClient();
+      int fetchCount = 0;
+
+      // Create first query
+      final query1 = client.getQuery<String>(
+        'test-fresh-fetch',
+        () async {
+          fetchCount++;
+          return 'data-$fetchCount';
+        },
+      );
+
+      query1.addListener(); // This will trigger fetch automatically
+      await Future.delayed(
+          const Duration(milliseconds: 10)); // Wait for async fetch
+      expect(fetchCount, 1);
+      expect(query1.state.data, 'data-1');
+
+      // Dispose query (clears cache)
+      query1.removeListener();
+      query1.dispose();
+
+      // Create new query with same key
+      final query2 = client.getQuery<String>(
+        'test-fresh-fetch',
+        () async {
+          fetchCount++;
+          return 'data-$fetchCount';
+        },
+      );
+
+      // Should start in loading state when no cached data
+      expect(query2.state.status, QueryStatus.loading);
+      expect(query2.state.hasData, false);
+
+      // Adding listener should trigger fetch
+      query2.addListener();
+      await Future.delayed(
+          const Duration(milliseconds: 10)); // Wait for async fetch
+
+      expect(fetchCount, 2);
+      expect(query2.state.data, 'data-2');
+    });
   });
 }
