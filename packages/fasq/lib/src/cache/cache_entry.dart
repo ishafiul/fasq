@@ -156,6 +156,38 @@ class CacheEntry<T> {
     );
   }
 
+  /// Converts this cache entry to a JSON-serializable map.
+  Map<String, dynamic> toJson() {
+    return {
+      'data': data,
+      'createdAt': createdAt.toIso8601String(),
+      'lastAccessedAt': lastAccessedAt.toIso8601String(),
+      'accessCount': accessCount,
+      'staleTime': staleTime.inMilliseconds,
+      'cacheTime': cacheTime.inMilliseconds,
+      'referenceCount': referenceCount,
+      'isSecure': isSecure,
+      'expiresAt': expiresAt?.toIso8601String(),
+    };
+  }
+
+  /// Creates a cache entry from a JSON map.
+  factory CacheEntry.fromJson(Map<String, dynamic> json) {
+    return CacheEntry<T>(
+      data: json['data'] as T,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      lastAccessedAt: DateTime.parse(json['lastAccessedAt'] as String),
+      accessCount: json['accessCount'] as int,
+      staleTime: Duration(milliseconds: json['staleTime'] as int),
+      cacheTime: Duration(milliseconds: json['cacheTime'] as int),
+      referenceCount: json['referenceCount'] as int? ?? 0,
+      isSecure: json['isSecure'] as bool? ?? false,
+      expiresAt: json['expiresAt'] != null
+          ? DateTime.parse(json['expiresAt'] as String)
+          : null,
+    );
+  }
+
   @override
   String toString() {
     return 'CacheEntry<$T>(age: $age, accessCount: $accessCount, '
