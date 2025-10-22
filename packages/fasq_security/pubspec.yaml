@@ -1,7 +1,7 @@
 name: fasq_security
 description: "Security plugin package for FASQ with encryption, secure storage, and persistence capabilities."
 version: 0.1.0
-homepage: https://github.com/fasq/fasq
+homepage: https://fasq.shafi.dev
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

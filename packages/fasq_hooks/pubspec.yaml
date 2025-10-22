@@ -1,8 +1,8 @@
 name: fasq_hooks
 description: Flutter Hooks adapter for FASQ (Flutter Async State Query) - async state management with hooks
 version: 0.2.0
-repository: https://github.com/yourusername/fasq
-homepage: https://github.com/yourusername/fasq
+repository: https://github.com/ishafiul/fasq
+homepage: https://fasq.shafi.dev
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
