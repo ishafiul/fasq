@@ -115,20 +115,24 @@ QueryBuilder<List<User>>(
                 final existingQuery =
                     client.getQueryByKey<List<User>>('users-stale-demo');
 
-                // Update debug info
-                setState(() {
-                  _queryStateInfo =
-                      'Query State - isLoading: ${state.isLoading}, isStale: ${state.isStale}, isFetching: ${state.isFetching}, hasData: ${state.hasData}';
+                // Update debug info using WidgetsBinding to avoid setState during build
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() {
+                      _queryStateInfo =
+                          'Query State - isLoading: ${state.isLoading}, isStale: ${state.isStale}, isFetching: ${state.isFetching}, hasData: ${state.hasData}';
 
-                  if (cacheEntry != null) {
-                    _cacheEntryInfo =
-                        'Cache Entry - age: ${cacheEntry.age.inSeconds}s, staleTime: ${cacheEntry.staleTime.inSeconds}s, isFresh: ${cacheEntry.isFresh}, isStale: ${cacheEntry.isStale}';
-                  } else {
-                    _cacheEntryInfo = 'Cache Entry - not found';
+                      if (cacheEntry != null) {
+                        _cacheEntryInfo =
+                            'Cache Entry - age: ${cacheEntry.age.inSeconds}s, staleTime: ${cacheEntry.staleTime.inSeconds}s, isFresh: ${cacheEntry.isFresh}, isStale: ${cacheEntry.isStale}';
+                      } else {
+                        _cacheEntryInfo = 'Cache Entry - not found';
+                      }
+
+                      _existingQueryInfo =
+                          'Existing Query - ${existingQuery != null ? "found" : "not found"}';
+                    });
                   }
-
-                  _existingQueryInfo =
-                      'Existing Query - ${existingQuery != null ? "found" : "not found"}';
                 });
 
                 // Show snackbar when background refetch starts
