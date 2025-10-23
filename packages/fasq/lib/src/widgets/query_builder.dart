@@ -87,6 +87,9 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       }
     });
 
+    // Trigger fetch to check for staleness and update state
+    _query.fetch();
+
     if (mounted) {
       setState(() {});
     }

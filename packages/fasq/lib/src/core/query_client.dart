@@ -106,7 +106,7 @@ class QueryClient with WidgetsBindingObserver {
       client: this,
       onDispose: () {
         _queries.remove(key);
-        _cache.invalidate(key); // Clear cache when query is disposed
+        // Don't clear cache on disposal - let cacheTime handle cleanup
       },
       initialData: cachedEntry?.data,
     );
@@ -135,7 +135,7 @@ class QueryClient with WidgetsBindingObserver {
       cache: _cache,
       onDispose: () {
         _infiniteQueries.remove(key);
-        _cache.invalidate(key); // Clear cache when infinite query is disposed
+        // Don't clear cache on disposal - let cacheTime handle cleanup
       },
     );
 
