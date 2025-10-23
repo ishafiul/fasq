@@ -67,15 +67,38 @@ class Query<T> {
     this.client,
     this.onDispose,
     T? initialData,
-  }) : _currentState = initialData != null
-            ? QueryState<T>.success(initialData)
-            : QueryState<T>.idle() {
+  }) : _currentState = QueryState<T>.idle() {
     _controller = StreamController<QueryState<T>>.broadcast();
+
+    // Set initial state based on initialData and cache staleness
+    _currentState = _createInitialState(initialData);
 
     // If no initial data and no cached data, start in loading state
     if (initialData == null && cache != null && cache!.get<T>(key) == null) {
       _currentState = QueryState<T>.loading();
     }
+  }
+
+  /// Creates the initial state, checking cache staleness if initialData is provided
+  QueryState<T> _createInitialState(T? initialData) {
+    if (initialData == null) {
+      return QueryState<T>.idle();
+    }
+
+    // If we have initialData, it came from cache, so we need to check staleness
+    if (cache != null) {
+      final cachedEntry = cache!.get<T>(key);
+      if (cachedEntry != null) {
+        return QueryState<T>.success(
+          initialData,
+          dataUpdatedAt: cachedEntry.createdAt,
+          isStale: cachedEntry.isStale,
+        );
+      }
+    }
+
+    // Fallback to fresh data if no cache entry found
+    return QueryState<T>.success(initialData);
   }
 
   /// Stream of state changes for this query.
@@ -176,6 +199,7 @@ class Query<T> {
         _updateState(QueryState.success(
           cachedEntry.data,
           dataUpdatedAt: cachedEntry.createdAt,
+          isStale: false,
         ));
         return;
       }
@@ -185,6 +209,7 @@ class Query<T> {
           cachedEntry.data,
           dataUpdatedAt: cachedEntry.createdAt,
           isFetching: true,
+          isStale: true,
         ));
 
         _fetchAndCache(isBackgroundRefetch: true);
@@ -203,6 +228,11 @@ class Query<T> {
   Future<void> _fetchAndCache({required bool isBackgroundRefetch}) async {
     if (cache != null) {
       try {
+        // Emit state update for background refetch to show isFetching: true
+        if (isBackgroundRefetch) {
+          _updateState(_currentState.copyWith(isFetching: true));
+        }
+
         // Start performance tracking
         _lastFetchStart = DateTime.now();
 
@@ -248,11 +278,11 @@ class Query<T> {
         }
         if (!_isDisposed) {
           final now = DateTime.now();
-          if (isBackgroundRefetch) {}
           _updateState(QueryState.success(
             data,
             dataUpdatedAt: now,
             isFetching: false,
+            isStale: false, // Fresh data after successful fetch
           ));
           cache!.set<T>(
             key,
@@ -295,6 +325,7 @@ class Query<T> {
           _updateState(QueryState.success(
             data,
             dataUpdatedAt: DateTime.now(),
+            isStale: false, // Fresh data after successful fetch
           ));
           options?.onSuccess?.call();
         }
@@ -312,7 +343,7 @@ class Query<T> {
   /// Called by QueryClient when setQueryData is used.
   void updateFromCache(T data) {
     if (_isDisposed) return;
-    _updateState(QueryState.success(data));
+    _updateState(QueryState.success(data, isStale: false));
   }
 
   void _updateState(QueryState<T> newState) {

@@ -39,6 +39,9 @@ class QueryState<T> {
   /// When the data was last updated.
   final DateTime? dataUpdatedAt;
 
+  /// Whether the data is stale (determined by cache).
+  final bool isStale;
+
   const QueryState({
     this.data,
     this.error,
@@ -46,6 +49,7 @@ class QueryState<T> {
     required this.status,
     this.isFetching = false,
     this.dataUpdatedAt,
+    this.isStale = false,
   });
 
   /// Creates an idle state (query not started yet).
@@ -56,22 +60,27 @@ class QueryState<T> {
   /// Creates a loading state.
   ///
   /// Optionally includes [data] from a previous fetch to show while loading.
-  factory QueryState.loading({T? data, bool isFetching = false}) {
+  factory QueryState.loading(
+      {T? data, bool isFetching = false, bool isStale = false}) {
     return QueryState<T>(
       status: QueryStatus.loading,
       data: data,
       isFetching: isFetching,
+      isStale: isStale,
     );
   }
 
   /// Creates a success state with [data].
   factory QueryState.success(T data,
-      {DateTime? dataUpdatedAt, bool isFetching = false}) {
+      {DateTime? dataUpdatedAt,
+      bool isFetching = false,
+      bool isStale = false}) {
     return QueryState<T>(
       status: QueryStatus.success,
       data: data,
       dataUpdatedAt: dataUpdatedAt ?? DateTime.now(),
       isFetching: isFetching,
+      isStale: isStale,
     );
   }
 
@@ -99,11 +108,6 @@ class QueryState<T> {
   /// Whether the query is in idle state (not started).
   bool get isIdle => status == QueryStatus.idle;
 
-  /// Whether the data is stale (based on dataUpdatedAt and staleTime).
-  ///
-  /// This is a simplified check. Full staleness is determined by the cache.
-  bool get isStale => dataUpdatedAt == null;
-
   QueryState<T> copyWith({
     T? data,
     Object? error,
@@ -111,6 +115,7 @@ class QueryState<T> {
     QueryStatus? status,
     bool? isFetching,
     DateTime? dataUpdatedAt,
+    bool? isStale,
   }) {
     return QueryState<T>(
       data: data ?? this.data,
@@ -119,6 +124,7 @@ class QueryState<T> {
       status: status ?? this.status,
       isFetching: isFetching ?? this.isFetching,
       dataUpdatedAt: dataUpdatedAt ?? this.dataUpdatedAt,
+      isStale: isStale ?? this.isStale,
     );
   }
 
@@ -131,7 +137,8 @@ class QueryState<T> {
         other.error == error &&
         other.stackTrace == stackTrace &&
         other.status == status &&
-        other.isFetching == isFetching;
+        other.isFetching == isFetching &&
+        other.isStale == isStale;
   }
 
   @override
@@ -142,6 +149,7 @@ class QueryState<T> {
       stackTrace,
       status,
       isFetching,
+      isStale,
     );
   }
 
