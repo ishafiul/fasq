@@ -12,7 +12,7 @@ class EnabledGatingScreen extends StatefulWidget {
 }
 
 class _EnabledGatingScreenState extends State<EnabledGatingScreen> {
-  bool _queryEnabled = false;
+  bool _queryEnabled = true; // Start enabled for immediate demonstration
   String _statusMessage = '';
   DateTime? _lastFetchTime;
 
@@ -345,20 +345,30 @@ setState(() {
                       children: [
                         Text(
                           'Last Fetch: ${_lastFetchTime!.hour}:${_lastFetchTime!.minute.toString().padLeft(2, '0')}:${_lastFetchTime!.second.toString().padLeft(2, '0')}',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: _queryEnabled
-                                    ? Theme.of(context).colorScheme.onPrimaryContainer
-                                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: _queryEnabled
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                  ),
                         ),
                         Text(
                           'Status: ${_queryEnabled ? "Enabled - Fetching allowed" : "Disabled - Fetching blocked"}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: _queryEnabled
-                                    ? Theme.of(context).colorScheme.onPrimaryContainer
-                                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: _queryEnabled
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ),
