@@ -19,37 +19,60 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
   late Mutation<User, UpdateUserRequest> _mutation;
   StreamSubscription? _subscription;
   final List<String> _eventLog = [];
-  
+
   // Configuration toggles for testing options
   bool _simulateError = false;
   bool _enableOnSuccess = true;
   bool _enableOnError = true;
   bool _enableOnMutate = true;
-  int _retryCount = 0;
   int _maxRetries = 3;
   bool _queueWhenOffline = false;
+  int _currentRetryAttempt = 0;
 
   @override
   void initState() {
     super.initState();
     _initializeMutation();
   }
-  
-  void _initializeMutation() {
-    _mutation = Mutation<User, UpdateUserRequest>(
-      mutationFn: (request) async {
+
+  Future<User> _executeWithRetry(UpdateUserRequest request) async {
+    _currentRetryAttempt = 0;
+    
+    while (_currentRetryAttempt < _maxRetries) {
+      _currentRetryAttempt++;
+      
+      if (_currentRetryAttempt > 1 && mounted) {
+        setState(() {
+          _addLog('🔄 Retry attempt $_currentRetryAttempt of $_maxRetries');
+        });
+      }
+      
+      try {
+        // Wait before retrying (with exponential backoff)
+        if (_currentRetryAttempt > 1) {
+          final delay = Duration(milliseconds: 200 * _currentRetryAttempt);
+          await Future.delayed(delay);
+          
+          if (mounted) {
+            _addLog('⏳ Waiting ${delay.inMilliseconds}ms before retry...');
+          }
+        }
+        
         // Simulate network delay
         await Future.delayed(const Duration(milliseconds: 800));
 
         // Simulate error based on toggle
-        if (_simulateError || _retryCount < _maxRetries && DateTime.now().millisecond % 5 == 0) {
-          _retryCount++;
-          throw Exception('Network error occurred (retry: $_retryCount/$_maxRetries)');
+        if (_simulateError) {
+          throw Exception('Simulated error');
         }
-        
-        _retryCount = 0; // Reset on success
 
-        return User(
+        // Random error simulation (40% chance for testing retries)
+        if (DateTime.now().millisecond % 10 < 4 && _currentRetryAttempt == 1) {
+          throw Exception('Random network error on first attempt');
+        }
+
+        // Success
+        final user = User(
           id: 1,
           name: request.name,
           email: request.email,
@@ -57,63 +80,98 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
           phone: request.phone,
           website: request.website,
         );
-      },
+        
+        if (_currentRetryAttempt > 1 && mounted) {
+          _addLog('✅ Retry succeeded on attempt $_currentRetryAttempt');
+        }
+        
+        _currentRetryAttempt = 0; // Reset
+        return user;
+      } catch (error) {
+        if (mounted) {
+          _addLog('❌ Attempt $_currentRetryAttempt failed: $error');
+        }
+        
+        if (_currentRetryAttempt >= _maxRetries) {
+          // Max retries reached, throw the error
+          if (mounted) {
+            _addLog('❌ Max retries ($_maxRetries) reached. Giving up.');
+          }
+          _currentRetryAttempt = 0; // Reset
+          rethrow;
+        }
+        // Continue to retry
+      }
+    }
+    
+    throw Exception('Max retries reached');
+  }
+
+  void _initializeMutation() {
+    _mutation = Mutation<User, UpdateUserRequest>(
+      mutationFn: _executeWithRetry,
       options: MutationOptions<User, UpdateUserRequest>(
-        onSuccess: _enableOnSuccess ? (data) {
-          if (mounted) {
-            _addLog('✅ onSuccess called: ${data.name}');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'User updated: ${data.name}',
-                        style: const TextStyle(color: Colors.white),
+        onSuccess: _enableOnSuccess
+            ? (data) {
+                if (mounted) {
+                  _addLog('✅ onSuccess called: ${data.name}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'User updated: ${data.name}',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
                       ),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
                     ),
-                  ],
-                ),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-            _nameController.clear();
-            _emailController.clear();
-          }
-        } : null,
-        onError: _enableOnError ? (error) {
-          if (mounted) {
-            _addLog('❌ onError called: ${error.toString()}');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.error, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Error: ${error.toString()}',
-                        style: const TextStyle(color: Colors.white),
+                  );
+                  _nameController.clear();
+                  _emailController.clear();
+                }
+              }
+            : null,
+        onError: _enableOnError
+            ? (error) {
+                if (mounted) {
+                  _addLog('❌ onError called: ${error.toString()}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Error: ${error.toString()}',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
                       ),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
                     ),
-                  ],
-                ),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        } : null,
-        onMutate: _enableOnMutate ? (data, variables) {
-          if (mounted) {
-            _addLog('🔄 onMutate called with data: ${data.name}');
-          }
-        } : null,
+                  );
+                }
+              }
+            : null,
+        onMutate: _enableOnMutate
+            ? (data, variables) {
+                if (mounted) {
+                  _addLog('🔄 onMutate called with data: ${data.name}');
+                }
+              }
+            : null,
         queueWhenOffline: _queueWhenOffline,
         maxRetries: _maxRetries,
       ),
@@ -245,11 +303,11 @@ MutationOptions<Todo, CreateTodoRequest>(
                 ),
           ),
           const SizedBox(height: 16),
-          
+
           // Error Simulation Toggle
           SwitchListTile(
             title: const Text('Simulate Error'),
-            subtitle: Text(_simulateError 
+            subtitle: Text(_simulateError
                 ? 'Will force error on next mutation'
                 : 'Mutation will succeed normally'),
             value: _simulateError,
@@ -264,7 +322,7 @@ MutationOptions<Todo, CreateTodoRequest>(
             ),
           ),
           const Divider(),
-          
+
           // Callback toggles
           SwitchListTile(
             title: const Text('onSuccess Callback'),
@@ -281,7 +339,7 @@ MutationOptions<Todo, CreateTodoRequest>(
               color: _enableOnSuccess ? Colors.green : Colors.grey,
             ),
           ),
-          
+
           SwitchListTile(
             title: const Text('onError Callback'),
             subtitle: const Text('Called when mutation fails'),
@@ -297,7 +355,7 @@ MutationOptions<Todo, CreateTodoRequest>(
               color: _enableOnError ? Colors.red : Colors.grey,
             ),
           ),
-          
+
           SwitchListTile(
             title: const Text('onMutate Callback'),
             subtitle: const Text('Called when mutation starts'),
@@ -314,7 +372,7 @@ MutationOptions<Todo, CreateTodoRequest>(
             ),
           ),
           const Divider(),
-          
+
           // Max Retries Slider
           Text(
             'Max Retries: $_maxRetries',
@@ -334,7 +392,7 @@ MutationOptions<Todo, CreateTodoRequest>(
               });
             },
           ),
-          
+
           // Queue When Offline Toggle
           SwitchListTile(
             title: const Text('Queue When Offline'),
@@ -351,9 +409,9 @@ MutationOptions<Todo, CreateTodoRequest>(
               color: _queueWhenOffline ? Colors.orange : Colors.grey,
             ),
           ),
-          
+
           const Divider(),
-          
+
           // Clear Log Button
           SizedBox(
             width: double.infinity,
@@ -361,7 +419,7 @@ MutationOptions<Todo, CreateTodoRequest>(
               onPressed: () {
                 setState(() {
                   _eventLog.clear();
-                  _retryCount = 0;
+                  _currentRetryAttempt = 0;
                 });
               },
               icon: const Icon(Icons.clear),
@@ -489,7 +547,34 @@ MutationOptions<Todo, CreateTodoRequest>(
           ),
           if (state.isLoading) ...[
             const SizedBox(height: 16),
-            const Center(child: CircularProgressIndicator()),
+            Column(
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 8),
+                if (_currentRetryAttempt > 0)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.autorenew, size: 16, color: Colors.orange),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Retrying: $_currentRetryAttempt/$_maxRetries',
+                          style: TextStyle(
+                            color: Colors.orange[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ],
         ],
       ),
