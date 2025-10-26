@@ -25,9 +25,8 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
   bool _enableOnSuccess = true;
   bool _enableOnError = true;
   bool _enableOnMutate = true;
-  int _maxRetries = 3;
   bool _queueWhenOffline = false;
-  int _currentRetryAttempt = 0;
+  int _priority = 0;
 
   @override
   void initState() {
@@ -35,81 +34,29 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
     _initializeMutation();
   }
 
-  Future<User> _executeWithRetry(UpdateUserRequest request) async {
-    _currentRetryAttempt = 0;
-    
-    while (_currentRetryAttempt < _maxRetries) {
-      _currentRetryAttempt++;
-      
-      if (_currentRetryAttempt > 1 && mounted) {
-        setState(() {
-          _addLog('🔄 Retry attempt $_currentRetryAttempt of $_maxRetries');
-        });
-      }
-      
-      try {
-        // Wait before retrying (with exponential backoff)
-        if (_currentRetryAttempt > 1) {
-          final delay = Duration(milliseconds: 200 * _currentRetryAttempt);
-          await Future.delayed(delay);
-          
-          if (mounted) {
-            _addLog('⏳ Waiting ${delay.inMilliseconds}ms before retry...');
-          }
-        }
-        
-        // Simulate network delay
-        await Future.delayed(const Duration(milliseconds: 800));
+  Future<User> _mutationFunction(UpdateUserRequest request) async {
+    // Simulate network delay
+    await Future.delayed(const Duration(milliseconds: 800));
 
-        // Simulate error based on toggle
-        if (_simulateError) {
-          throw Exception('Simulated error');
-        }
-
-        // Random error simulation (40% chance for testing retries)
-        if (DateTime.now().millisecond % 10 < 4 && _currentRetryAttempt == 1) {
-          throw Exception('Random network error on first attempt');
-        }
-
-        // Success
-        final user = User(
-          id: 1,
-          name: request.name,
-          email: request.email,
-          username: 'updated_user',
-          phone: request.phone,
-          website: request.website,
-        );
-        
-        if (_currentRetryAttempt > 1 && mounted) {
-          _addLog('✅ Retry succeeded on attempt $_currentRetryAttempt');
-        }
-        
-        _currentRetryAttempt = 0; // Reset
-        return user;
-      } catch (error) {
-        if (mounted) {
-          _addLog('❌ Attempt $_currentRetryAttempt failed: $error');
-        }
-        
-        if (_currentRetryAttempt >= _maxRetries) {
-          // Max retries reached, throw the error
-          if (mounted) {
-            _addLog('❌ Max retries ($_maxRetries) reached. Giving up.');
-          }
-          _currentRetryAttempt = 0; // Reset
-          rethrow;
-        }
-        // Continue to retry
-      }
+    // Simulate error based on toggle
+    if (_simulateError) {
+      throw Exception('Simulated error for testing');
     }
-    
-    throw Exception('Max retries reached');
+
+    // Success - return updated user
+    return User(
+      id: 1,
+      name: request.name,
+      email: request.email,
+      username: 'updated_user',
+      phone: request.phone,
+      website: request.website,
+    );
   }
 
   void _initializeMutation() {
     _mutation = Mutation<User, UpdateUserRequest>(
-      mutationFn: _executeWithRetry,
+      mutationFn: _mutationFunction,
       options: MutationOptions<User, UpdateUserRequest>(
         onSuccess: _enableOnSuccess
             ? (data) {
@@ -172,8 +119,15 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
                 }
               }
             : null,
+        onQueued: _queueWhenOffline
+            ? (variables) {
+                if (mounted) {
+                  _addLog('📥 onQueued called: ${variables.name}');
+                }
+              }
+            : null,
         queueWhenOffline: _queueWhenOffline,
-        maxRetries: _maxRetries,
+        priority: _priority,
       ),
     );
 
@@ -211,13 +165,13 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
     return ExampleScaffold(
       title: 'Mutation Options',
       description:
-          'Demonstrates advanced mutation options including callbacks (onSuccess, onError, onMutate), retry behavior, offline queue, and priority handling. Shows how to configure mutation behavior for different scenarios.',
+          'Demonstrates advanced mutation options including callbacks (onSuccess, onError, onMutate, onQueued), offline queue support, and priority handling. Shows how to configure mutation behavior for different scenarios.',
       codeSnippet: '''
-MutationOptions<Todo, CreateTodoRequest>(
+MutationOptions<User, UpdateUserRequest>(
   // Callback executed when mutation succeeds
   onSuccess: (data) {
-    print('Success: \${data.title}');
-    showNotification('Todo created');
+    print('Success: \${data.name}');
+    showNotification('User updated');
   },
   
   // Callback executed when mutation fails
@@ -235,11 +189,13 @@ MutationOptions<Todo, CreateTodoRequest>(
   // Queue mutation when offline
   queueWhenOffline: true,
   
-  // Priority (higher = executes first)
-  priority: 1,
+  // Priority (higher = executes first when queue processed)
+  priority: 5,
   
-  // Maximum retry attempts
-  maxRetries: 3,
+  // Called when mutation is queued
+  onQueued: (variables) {
+    print('Queued: \${variables.name}');
+  },
 )
 
 // Use cases for options:
@@ -247,7 +203,7 @@ MutationOptions<Todo, CreateTodoRequest>(
 // - Optimistic updates
 // - Error logging
 // - Offline support
-// - Retry logic
+// - Queue priority management
 ''',
       child: Column(
         children: [
@@ -373,21 +329,21 @@ MutationOptions<Todo, CreateTodoRequest>(
           ),
           const Divider(),
 
-          // Max Retries Slider
+          // Priority Slider
           Text(
-            'Max Retries: $_maxRetries',
+            'Priority: $_priority',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w500,
                 ),
           ),
           Slider(
-            value: _maxRetries.toDouble(),
+            value: _priority.toDouble(),
             min: 0,
-            max: 5,
-            divisions: 5,
+            max: 10,
+            divisions: 10,
             onChanged: (value) {
               setState(() {
-                _maxRetries = value.round();
+                _priority = value.round();
                 _initializeMutation();
               });
             },
@@ -419,7 +375,6 @@ MutationOptions<Todo, CreateTodoRequest>(
               onPressed: () {
                 setState(() {
                   _eventLog.clear();
-                  _currentRetryAttempt = 0;
                 });
               },
               icon: const Icon(Icons.clear),
@@ -463,9 +418,9 @@ MutationOptions<Todo, CreateTodoRequest>(
           const SizedBox(height: 8),
           Text(
             'Interactive Testing:\n'
-            '1️⃣ Toggle callbacks on/off to test each one\n'
+            '1️⃣ Toggle callbacks on/off to test each one (onSuccess, onError, onMutate)\n'
             '2️⃣ Toggle "Simulate Error" to test error handling\n'
-            '3️⃣ Adjust "Max Retries" slider (0-5)\n'
+            '3️⃣ Adjust "Priority" slider (0-10) to test queue priority\n'
             '4️⃣ Toggle "Queue When Offline" to test offline support\n'
             '5️⃣ Watch Event Log to see which callbacks fire\n'
             '6️⃣ Try with/without each option to understand behavior',
@@ -547,34 +502,7 @@ MutationOptions<Todo, CreateTodoRequest>(
           ),
           if (state.isLoading) ...[
             const SizedBox(height: 16),
-            Column(
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 8),
-                if (_currentRetryAttempt > 0)
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.autorenew, size: 16, color: Colors.orange),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Retrying: $_currentRetryAttempt/$_maxRetries',
-                          style: TextStyle(
-                            color: Colors.orange[700],
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+            const Center(child: CircularProgressIndicator()),
           ],
         ],
       ),
