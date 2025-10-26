@@ -18,31 +18,69 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
   final List<String> _eventLog = [];
   bool _isOffline = false;
   int _queuedMutations = 0;
+  Timer? _networkTimer;
+  bool _isExecutingQueued = false;
 
   @override
   void initState() {
     super.initState();
     _initializeMutation();
-    _setupNetworkStatusListener();
+    _setupQueueExecutionListener();
   }
-  
-  void _setupNetworkStatusListener() {
-    // Listen to network status changes
-    // In a real app, you'd use NetworkStatus.instance.stream
-    Timer.periodic(const Duration(seconds: 2), (timer) {
+
+  void _setupQueueExecutionListener() {
+    // Periodically check if we should execute queued mutations
+    _networkTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-      // Simulate network toggle
-      final wasOffline = _isOffline;
-      _isOffline = !_isOffline;
       
-      if (wasOffline != _isOffline) {
+      // If we go from offline to online and have queued mutations, execute them
+      if (!_isOffline && _queuedMutations > 0 && !_isExecutingQueued) {
         setState(() {
-          _addLog(_isOffline 
-              ? '📡 Network went OFFLINE' 
-              : '📡 Network went ONLINE');
+          _isExecutingQueued = true;
+          _addLog('🔄 Executing queued mutations...');
+        });
+        
+        // Execute queued mutations
+        _executeQueuedMutations();
+      }
+    });
+  }
+
+  void _toggleNetwork() {
+    final wasOffline = _isOffline;
+    
+    setState(() {
+      _isOffline = !_isOffline;
+      _addLog(_isOffline 
+          ? '📡 Network toggled OFFLINE' 
+          : '📡 Network toggled ONLINE');
+    });
+    
+    // If we went online and have queued mutations, execute them
+    if (!_isOffline && wasOffline && _queuedMutations > 0) {
+      setState(() {
+        _isExecutingQueued = true;
+        _addLog('🔄 Executing queued mutations...');
+      });
+      
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _executeQueuedMutations();
+      });
+    }
+  }
+
+  void _executeQueuedMutations() {
+    // Simulate executing queued mutations
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted && _queuedMutations > 0) {
+        setState(() {
+          final executedCount = _queuedMutations;
+          _queuedMutations = 0;
+          _isExecutingQueued = false;
+          _addLog('✅ Executed $executedCount queued mutation(s)');
         });
       }
     });
@@ -54,10 +92,10 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
         if (_isOffline) {
           throw Exception('Network is offline - mutation will be queued');
         }
-        
+
         // Simulate network delay
         await Future.delayed(const Duration(milliseconds: 500));
-        
+
         // Return a mock todo
         return Todo(
           id: DateTime.now().millisecondsSinceEpoch,
@@ -130,7 +168,7 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
         },
       ),
     );
-    
+
     _subscription = _mutation.stream.listen((_) {
       if (mounted) {
         setState(() {});
@@ -151,6 +189,7 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
 
   @override
   void dispose() {
+    _networkTimer?.cancel();
     _subscription?.cancel();
     _mutation.dispose();
     _titleController.dispose();
@@ -214,7 +253,7 @@ MutationOptions<Todo, CreateTodoRequest>(
       ),
     );
   }
-  
+
   Widget _buildNetworkStatus() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -228,39 +267,53 @@ MutationOptions<Todo, CreateTodoRequest>(
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(
-            _isOffline ? Icons.signal_wifi_off : Icons.wifi,
-            size: 32,
-            color: _isOffline ? Colors.red : Colors.green,
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                _isOffline ? 'Network Status: OFFLINE' : 'Network Status: ONLINE',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: _isOffline ? Colors.red : Colors.green,
-                    ),
+              Icon(
+                _isOffline ? Icons.signal_wifi_off : Icons.wifi,
+                size: 32,
+                color: _isOffline ? Colors.red : Colors.green,
               ),
-              Text(
-                _isOffline
-                    ? 'Mutations will be queued'
-                    : 'Mutations execute immediately',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isOffline ? 'Network: OFFLINE' : 'Network: ONLINE',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _isOffline ? Colors.red : Colors.green,
+                        ),
+                  ),
+                  Text(
+                    _isOffline
+                        ? 'Mutations will be queued'
+                        : 'Mutations execute immediately',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
               ),
             ],
+          ),
+          ElevatedButton.icon(
+            onPressed: _toggleNetwork,
+            icon: Icon(_isOffline ? Icons.network_check : Icons.network_locked),
+            label: Text(_isOffline ? 'Go Online' : 'Go Offline'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _isOffline ? Colors.green : Colors.red,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildQueueInfo() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -297,20 +350,28 @@ MutationOptions<Todo, CreateTodoRequest>(
             Icons.queue,
           ),
           _buildInfoRow(
-            'Max Retries',
-            '3',
-            Icons.refresh,
+            'Execution Status',
+            _isExecutingQueued 
+                ? '🔄 Executing...'
+                : _queuedMutations > 0
+                    ? '⏸️ Waiting for online'
+                    : '✅ All processed',
+            _isExecutingQueued 
+                ? Icons.sync
+                : _queuedMutations > 0
+                    ? Icons.pause_circle
+                    : Icons.check_circle,
           ),
           _buildInfoRow(
-            'Status',
-            _isOffline ? 'Queuing mutations' : 'Executing immediately',
-            Icons.info,
+            'Network Status',
+            _isOffline ? 'Offline - Queuing' : 'Online - Ready',
+            Icons.network_check,
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildInfoRow(String label, String value, IconData icon) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -367,12 +428,14 @@ MutationOptions<Todo, CreateTodoRequest>(
           ),
           const SizedBox(height: 8),
           Text(
-            '1️⃣ Watch the network status indicator (toggles every 2s)\n'
+            '1️⃣ Use the toggle button to switch between ONLINE/OFFLINE\n'
             '2️⃣ Create a todo when ONLINE - executes immediately\n'
-            '3️⃣ Create a todo when OFFLINE - gets queued\n'
-            '4️⃣ Wait for network to come back ONLINE\n'
-            '5️⃣ Queued mutations execute automatically\n'
-            '6️⃣ Watch Event Log to see the flow',
+            '3️⃣ Toggle to OFFLINE, create todos - they get queued\n'
+            '4️⃣ Watch queue status: "⏸️ Waiting for online"\n'
+            '5️⃣ Toggle back to ONLINE\n'
+            '6️⃣ Queued mutations execute automatically\n'
+            '7️⃣ Watch "Execution Status" change to "🔄 Executing..." then "✅ All processed"\n'
+            '8️⃣ Check Event Log to see the complete flow',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -382,7 +445,7 @@ MutationOptions<Todo, CreateTodoRequest>(
 
   Widget _buildMutationForm() {
     final state = _mutation.state;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -471,7 +534,7 @@ MutationOptions<Todo, CreateTodoRequest>(
       ),
     );
   }
-  
+
   Widget _buildEventLog() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -520,7 +583,8 @@ MutationOptions<Todo, CreateTodoRequest>(
                       'Events will appear here...\nCreate todos to see mutations in action',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   )
@@ -532,7 +596,7 @@ MutationOptions<Todo, CreateTodoRequest>(
                       final isSuccess = log.contains('✅');
                       final isQueued = log.contains('📥');
                       final isNetwork = log.contains('📡');
-                      
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(8),
@@ -558,7 +622,8 @@ MutationOptions<Todo, CreateTodoRequest>(
                                       : isQueued
                                           ? Icons.queue_outlined
                                           : isNetwork
-                                              ? Icons.signal_cellular_alt_outlined
+                                              ? Icons
+                                                  .signal_cellular_alt_outlined
                                               : Icons.info_outline,
                               size: 16,
                               color: isError
@@ -575,7 +640,10 @@ MutationOptions<Todo, CreateTodoRequest>(
                             Expanded(
                               child: Text(
                                 log,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
                                       fontFamily: 'monospace',
                                       fontSize: 11,
                                     ),
@@ -592,4 +660,3 @@ MutationOptions<Todo, CreateTodoRequest>(
     );
   }
 }
-
