@@ -68,10 +68,12 @@ QueryBuilder<List<Todo>>(
                 refetchOnMount: _refetchOnMount,
                 staleTime: const Duration(seconds: 10),
                 onSuccess: () {
-                  setState(() {
-                    _lastFetchTime = DateTime.now();
-                    _mountCount++;
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _lastFetchTime = DateTime.now();
+                      _mountCount++;
+                    });
+                  }
                 },
               ),
               builder: (context, state) {
@@ -103,7 +105,8 @@ QueryBuilder<List<Todo>>(
                     message: state.error.toString(),
                     onRetry: () {
                       QueryClient()
-                          .getQueryByKey<List<Todo>>('todos-refetch-on-mount-demo')
+                          .getQueryByKey<List<Todo>>(
+                              'todos-refetch-on-mount-demo')
                           ?.fetch();
                     },
                   );
@@ -283,7 +286,8 @@ QueryBuilder<List<Todo>>(
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    QueryClient().invalidateQuery('todos-refetch-on-mount-demo');
+                    QueryClient()
+                        .invalidateQuery('todos-refetch-on-mount-demo');
                     setState(() {
                       _mountCount = 0;
                       _lastFetchTime = null;
@@ -302,7 +306,8 @@ QueryBuilder<List<Todo>>(
                             ),
                           ],
                         ),
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        backgroundColor:
+                            Theme.of(context).colorScheme.secondary,
                         duration: const Duration(seconds: 2),
                         behavior: SnackBarBehavior.floating,
                       ),
@@ -366,8 +371,7 @@ QueryBuilder<List<Todo>>(
   }
 
   Widget _buildTodoList(QueryState<List<Todo>> state) {
-    final completedCount =
-        state.data!.where((todo) => todo.completed).length;
+    final completedCount = state.data!.where((todo) => todo.completed).length;
     final totalCount = state.data!.length;
 
     return Column(
@@ -376,7 +380,8 @@ QueryBuilder<List<Todo>>(
           padding: const EdgeInsets.all(12),
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+            color:
+                Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -426,9 +431,8 @@ QueryBuilder<List<Todo>>(
                       decoration: todo.completed
                           ? TextDecoration.lineThrough
                           : TextDecoration.none,
-                      fontWeight: todo.completed
-                          ? FontWeight.normal
-                          : FontWeight.bold,
+                      fontWeight:
+                          todo.completed ? FontWeight.normal : FontWeight.bold,
                       color: todo.completed
                           ? Theme.of(context).colorScheme.onSurfaceVariant
                           : Theme.of(context).colorScheme.onSurface,
@@ -507,15 +511,19 @@ class _OtherScreenDemo extends StatelessWidget {
                     'What to observe:',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                   ),
                   const SizedBox(height: 12),
-                  _buildInfoRow(context, Icons.compare_arrows, 'Compare loading behavior'),
+                  _buildInfoRow(context, Icons.compare_arrows,
+                      'Compare loading behavior'),
                   const SizedBox(height: 8),
-                  _buildInfoRow(context, Icons.cached, 'Cached data (refetchOnMount: false)'),
+                  _buildInfoRow(context, Icons.cached,
+                      'Cached data (refetchOnMount: false)'),
                   const SizedBox(height: 8),
-                  _buildInfoRow(context, Icons.refresh, 'Fresh data (refetchOnMount: true)'),
+                  _buildInfoRow(context, Icons.refresh,
+                      'Fresh data (refetchOnMount: true)'),
                 ],
               ),
             ),
@@ -552,4 +560,3 @@ class _OtherScreenDemo extends StatelessWidget {
     );
   }
 }
-
