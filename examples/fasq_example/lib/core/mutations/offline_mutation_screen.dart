@@ -20,6 +20,7 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
   int _queuedMutations = 0;
   Timer? _networkTimer;
   bool _isExecutingQueued = false;
+  final List<CreateTodoRequest> _queuedRequests = [];
 
   @override
   void initState() {
@@ -35,14 +36,14 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
         timer.cancel();
         return;
       }
-      
+
       // If we go from offline to online and have queued mutations, execute them
       if (!_isOffline && _queuedMutations > 0 && !_isExecutingQueued) {
         setState(() {
           _isExecutingQueued = true;
           _addLog('🔄 Executing queued mutations...');
         });
-        
+
         // Execute queued mutations
         _executeQueuedMutations();
       }
@@ -51,39 +52,64 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
 
   void _toggleNetwork() {
     final wasOffline = _isOffline;
-    
+
     setState(() {
       _isOffline = !_isOffline;
-      _addLog(_isOffline 
-          ? '📡 Network toggled OFFLINE' 
+      _addLog(_isOffline
+          ? '📡 Network toggled OFFLINE'
           : '📡 Network toggled ONLINE');
     });
-    
+
     // If we went online and have queued mutations, execute them
     if (!_isOffline && wasOffline && _queuedMutations > 0) {
       setState(() {
         _isExecutingQueued = true;
         _addLog('🔄 Executing queued mutations...');
       });
-      
+
       Future.delayed(const Duration(milliseconds: 300), () {
         _executeQueuedMutations();
       });
     }
   }
 
-  void _executeQueuedMutations() {
-    // Simulate executing queued mutations
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted && _queuedMutations > 0) {
-        setState(() {
-          final executedCount = _queuedMutations;
-          _queuedMutations = 0;
-          _isExecutingQueued = false;
-          _addLog('✅ Executed $executedCount queued mutation(s)');
-        });
-      }
+  void _executeQueuedMutations() async {
+    if (_queuedRequests.isEmpty) {
+      setState(() {
+        _isExecutingQueued = false;
+      });
+      return;
+    }
+
+    // Copy the queued requests and clear the queue
+    final requestsToExecute = List<CreateTodoRequest>.from(_queuedRequests);
+    _queuedRequests.clear();
+    
+    setState(() {
+      _queuedMutations = 0;
     });
+
+    // Execute each queued mutation
+    for (int i = 0; i < requestsToExecute.length; i++) {
+      final request = requestsToExecute[i];
+      
+      if (!mounted) return;
+      
+      _addLog('🔄 Executing queued mutation ${i + 1}/${requestsToExecute.length}: "${request.title}"');
+      
+      // Execute the mutation by calling mutate with the stored request
+      await _mutation.mutate(request);
+      
+      // Add a small delay between mutations
+      await Future.delayed(const Duration(milliseconds: 400));
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isExecutingQueued = false;
+        _addLog('✅ Executed ${requestsToExecute.length} queued mutation(s)');
+      });
+    }
   }
 
   void _initializeMutation() {
@@ -143,8 +169,11 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
         queueWhenOffline: true, // Enable offline queue
         onQueued: (variables) {
           if (mounted) {
-            _queuedMutations++;
-            _addLog('📥 Mutation queued (total queued: $_queuedMutations)');
+            _queuedRequests.add(variables);
+            setState(() {
+              _queuedMutations = _queuedRequests.length;
+            });
+            _addLog('📥 Mutation queued: "${variables.title}" (total queued: $_queuedMutations)');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
@@ -351,12 +380,12 @@ MutationOptions<Todo, CreateTodoRequest>(
           ),
           _buildInfoRow(
             'Execution Status',
-            _isExecutingQueued 
+            _isExecutingQueued
                 ? '🔄 Executing...'
                 : _queuedMutations > 0
                     ? '⏸️ Waiting for online'
                     : '✅ All processed',
-            _isExecutingQueued 
+            _isExecutingQueued
                 ? Icons.sync
                 : _queuedMutations > 0
                     ? Icons.pause_circle
