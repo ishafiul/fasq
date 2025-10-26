@@ -12,30 +12,43 @@ class MutationWithOptionsScreen extends StatefulWidget {
       _MutationWithOptionsScreenState();
 }
 
-class _MutationWithOptionsScreenState
-    extends State<MutationWithOptionsScreen> {
+class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  
+
   late Mutation<User, UpdateUserRequest> _mutation;
   StreamSubscription? _subscription;
   final List<String> _eventLog = [];
+  
+  // Configuration toggles for testing options
+  bool _simulateError = false;
+  bool _enableOnSuccess = true;
+  bool _enableOnError = true;
+  bool _enableOnMutate = true;
+  int _retryCount = 0;
+  int _maxRetries = 3;
+  bool _queueWhenOffline = false;
 
   @override
   void initState() {
     super.initState();
-    
-    // Create mutation with various options
+    _initializeMutation();
+  }
+  
+  void _initializeMutation() {
     _mutation = Mutation<User, UpdateUserRequest>(
       mutationFn: (request) async {
         // Simulate network delay
         await Future.delayed(const Duration(milliseconds: 800));
-        
-        // Simulate error 10% of the time
-        if (DateTime.now().millisecond % 10 == 0) {
-          throw Exception('Network error occurred');
+
+        // Simulate error based on toggle
+        if (_simulateError || _retryCount < _maxRetries && DateTime.now().millisecond % 5 == 0) {
+          _retryCount++;
+          throw Exception('Network error occurred (retry: $_retryCount/$_maxRetries)');
         }
         
+        _retryCount = 0; // Reset on success
+
         return User(
           id: 1,
           name: request.name,
@@ -46,7 +59,7 @@ class _MutationWithOptionsScreenState
         );
       },
       options: MutationOptions<User, UpdateUserRequest>(
-        onSuccess: (data) {
+        onSuccess: _enableOnSuccess ? (data) {
           if (mounted) {
             _addLog('✅ onSuccess called: ${data.name}');
             ScaffoldMessenger.of(context).showSnackBar(
@@ -71,8 +84,8 @@ class _MutationWithOptionsScreenState
             _nameController.clear();
             _emailController.clear();
           }
-        },
-        onError: (error) {
+        } : null,
+        onError: _enableOnError ? (error) {
           if (mounted) {
             _addLog('❌ onError called: ${error.toString()}');
             ScaffoldMessenger.of(context).showSnackBar(
@@ -95,19 +108,19 @@ class _MutationWithOptionsScreenState
               ),
             );
           }
-        },
-        onMutate: (data, variables) {
+        } : null,
+        onMutate: _enableOnMutate ? (data, variables) {
           if (mounted) {
-            _addLog('🔄 onMutate called: ${data.name}');
+            _addLog('🔄 onMutate called with data: ${data.name}');
           }
-        },
-        // queueWhenOffline: true, // Queue mutations when offline
-        // priority: 1, // Higher priority mutations execute first
-        // maxRetries: 3, // Retry failed mutations up to 3 times
+        } : null,
+        queueWhenOffline: _queueWhenOffline,
+        maxRetries: _maxRetries,
       ),
     );
-    
+
     // Subscribe to state changes
+    _subscription?.cancel();
     _subscription = _mutation.stream.listen((_) {
       if (mounted) {
         setState(() {});
@@ -189,10 +202,10 @@ MutationOptions<Todo, CreateTodoRequest>(
       ),
     );
   }
-  
+
   Widget _buildContent() {
     final state = _mutation.state;
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -205,7 +218,7 @@ MutationOptions<Todo, CreateTodoRequest>(
             _buildErrorCard(state.error!),
             const SizedBox(height: 16),
           ],
-          _buildMutationOptions(),
+          _buildConfigurationPanel(state),
           const SizedBox(height: 16),
           _buildUpdateForm(state),
           const SizedBox(height: 16),
@@ -214,58 +227,145 @@ MutationOptions<Todo, CreateTodoRequest>(
       ),
     );
   }
-  
-  Widget _buildMutationOptions() {
+
+  Widget _buildConfigurationPanel(MutationState<User> state) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+        color: Theme.of(context).colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.settings,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Enabled Options',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-              ),
-            ],
+          Text(
+            '🔧 Configuration Panel - Test Mutation Options',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
           ),
-          const SizedBox(height: 12),
-          _buildOptionRow(Icons.check_circle, 'onSuccess callback', Colors.green),
-          _buildOptionRow(Icons.error, 'onError callback', Colors.red),
-          _buildOptionRow(Icons.autorenew, 'onMutate callback', Colors.blue),
-          _buildOptionRow(Icons.queue, 'offline queue support', Colors.orange),
-          _buildOptionRow(Icons.refresh, 'automatic retry', Colors.purple),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildOptionRow(IconData icon, String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodyMedium,
+          const SizedBox(height: 16),
+          
+          // Error Simulation Toggle
+          SwitchListTile(
+            title: const Text('Simulate Error'),
+            subtitle: Text(_simulateError 
+                ? 'Will force error on next mutation'
+                : 'Mutation will succeed normally'),
+            value: _simulateError,
+            onChanged: (value) {
+              setState(() {
+                _simulateError = value;
+              });
+            },
+            secondary: Icon(
+              Icons.error,
+              color: _simulateError ? Colors.red : Colors.grey,
+            ),
+          ),
+          const Divider(),
+          
+          // Callback toggles
+          SwitchListTile(
+            title: const Text('onSuccess Callback'),
+            subtitle: const Text('Called when mutation succeeds'),
+            value: _enableOnSuccess,
+            onChanged: (value) {
+              setState(() {
+                _enableOnSuccess = value;
+                _initializeMutation();
+              });
+            },
+            secondary: Icon(
+              Icons.check_circle,
+              color: _enableOnSuccess ? Colors.green : Colors.grey,
+            ),
+          ),
+          
+          SwitchListTile(
+            title: const Text('onError Callback'),
+            subtitle: const Text('Called when mutation fails'),
+            value: _enableOnError,
+            onChanged: (value) {
+              setState(() {
+                _enableOnError = value;
+                _initializeMutation();
+              });
+            },
+            secondary: Icon(
+              Icons.error,
+              color: _enableOnError ? Colors.red : Colors.grey,
+            ),
+          ),
+          
+          SwitchListTile(
+            title: const Text('onMutate Callback'),
+            subtitle: const Text('Called when mutation starts'),
+            value: _enableOnMutate,
+            onChanged: (value) {
+              setState(() {
+                _enableOnMutate = value;
+                _initializeMutation();
+              });
+            },
+            secondary: Icon(
+              Icons.autorenew,
+              color: _enableOnMutate ? Colors.blue : Colors.grey,
+            ),
+          ),
+          const Divider(),
+          
+          // Max Retries Slider
+          Text(
+            'Max Retries: $_maxRetries',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+          Slider(
+            value: _maxRetries.toDouble(),
+            min: 0,
+            max: 5,
+            divisions: 5,
+            onChanged: (value) {
+              setState(() {
+                _maxRetries = value.round();
+                _initializeMutation();
+              });
+            },
+          ),
+          
+          // Queue When Offline Toggle
+          SwitchListTile(
+            title: const Text('Queue When Offline'),
+            subtitle: const Text('Queue mutations when network is offline'),
+            value: _queueWhenOffline,
+            onChanged: (value) {
+              setState(() {
+                _queueWhenOffline = value;
+                _initializeMutation();
+              });
+            },
+            secondary: Icon(
+              Icons.queue,
+              color: _queueWhenOffline ? Colors.orange : Colors.grey,
+            ),
+          ),
+          
+          const Divider(),
+          
+          // Clear Log Button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _eventLog.clear();
+                  _retryCount = 0;
+                });
+              },
+              icon: const Icon(Icons.clear),
+              label: const Text('Clear Event Log'),
             ),
           ),
         ],
@@ -304,12 +404,13 @@ MutationOptions<Todo, CreateTodoRequest>(
           ),
           const SizedBox(height: 8),
           Text(
-            'This example shows:\n'
-            '• onSuccess: Executed when mutation succeeds\n'
-            '• onError: Executed when mutation fails\n'
-            '• onMutate: Executed when mutation starts\n'
-            '• Watch event log to see callbacks fire\n'
-            '• All callbacks are logged for demonstration',
+            'Interactive Testing:\n'
+            '1️⃣ Toggle callbacks on/off to test each one\n'
+            '2️⃣ Toggle "Simulate Error" to test error handling\n'
+            '3️⃣ Adjust "Max Retries" slider (0-5)\n'
+            '4️⃣ Toggle "Queue When Offline" to test offline support\n'
+            '5️⃣ Watch Event Log to see which callbacks fire\n'
+            '6️⃣ Try with/without each option to understand behavior',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -381,8 +482,8 @@ MutationOptions<Todo, CreateTodoRequest>(
 
                       _mutation.mutate(request);
                     },
-              icon: Icon(
-                  state.isLoading ? Icons.hourglass_empty : Icons.update),
+              icon:
+                  Icon(state.isLoading ? Icons.hourglass_empty : Icons.update),
               label: Text(state.isLoading ? 'Updating...' : 'Update User'),
             ),
           ),
@@ -485,7 +586,7 @@ MutationOptions<Todo, CreateTodoRequest>(
       ),
     );
   }
-  
+
   Widget _buildEventLog() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -519,7 +620,8 @@ MutationOptions<Todo, CreateTodoRequest>(
                     child: Text(
                       'Events will appear here...',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   )
@@ -529,7 +631,7 @@ MutationOptions<Todo, CreateTodoRequest>(
                       final log = _eventLog[index];
                       final isError = log.contains('❌');
                       final isSuccess = log.contains('✅');
-                      
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(8),
@@ -560,7 +662,10 @@ MutationOptions<Todo, CreateTodoRequest>(
                             Expanded(
                               child: Text(
                                 log,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
                                       fontFamily: 'monospace',
                                       fontSize: 11,
                                     ),
@@ -577,4 +682,3 @@ MutationOptions<Todo, CreateTodoRequest>(
     );
   }
 }
-
