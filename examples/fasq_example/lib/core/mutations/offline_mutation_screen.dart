@@ -3,6 +3,8 @@ import 'package:fasq/fasq.dart';
 import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/models.dart';
+import 'package:fasq/src/core/offline_queue.dart';
+import 'package:fasq/src/core/network_status.dart';
 
 class OfflineMutationScreen extends StatefulWidget {
   const OfflineMutationScreen({super.key});
@@ -25,111 +27,151 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
   @override
   void initState() {
     super.initState();
+    _registerMutationHandler();
     _initializeMutation();
-    _setupQueueExecutionListener();
+    _listenToNetworkStatus();
+    _listenToQueueStream();
   }
 
-  void _setupQueueExecutionListener() {
-    // Periodically check if we should execute queued mutations
-    _networkTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
+  void _registerMutationHandler() {
+    // Register the mutation handler so the queue can execute it
+    MutationTypeRegistry.register<Todo, CreateTodoRequest>(
+      'createTodo',
+      (variables) async {
+        if (_isOffline) {
+          throw Exception('Network is offline');
+        }
+        await Future.delayed(const Duration(milliseconds: 500));
+        return Todo(
+          id: DateTime.now().millisecondsSinceEpoch,
+          userId: variables.userId,
+          title: variables.title,
+          completed: variables.completed,
+        );
+      },
+    );
+  }
 
-      // If we go from offline to online and have queued mutations, execute them
-      if (!_isOffline && _queuedMutations > 0 && !_isExecutingQueued) {
+  void _listenToNetworkStatus() {
+    // Listen to network status changes from the core package
+    NetworkStatus.instance.stream.listen((isOnline) {
+      if (mounted) {
         setState(() {
-          _isExecutingQueued = true;
-          _addLog('🔄 Executing queued mutations...');
+          _isOffline = !isOnline;
+          _addLog(isOnline 
+              ? '📡 Network came ONLINE' 
+              : '📡 Network went OFFLINE');
         });
 
-        // Execute queued mutations
-        _executeQueuedMutations();
+        // When network comes back online, process the queue
+        if (isOnline && _queuedMutations > 0) {
+          _executeQueuedMutations();
+        }
+      }
+    });
+  }
+
+  void _listenToQueueStream() {
+    // Listen to queue changes to update the queued count
+    OfflineQueueManager.instance.stream.listen((entries) {
+      if (mounted) {
+        // Register handler dynamically for any mutation type we see
+        for (var entry in entries) {
+          if (entry.variables is CreateTodoRequest) {
+            // Check if handler is already registered for this type
+            if (MutationTypeRegistry.getHandler(entry.mutationType) == null) {
+              // Register handler for this specific mutation type
+              MutationTypeRegistry.register<Todo, CreateTodoRequest>(
+                entry.mutationType,
+                (variables) async {
+                  if (_isOffline) {
+                    throw Exception('Network is offline');
+                  }
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  return Todo(
+                    id: DateTime.now().millisecondsSinceEpoch,
+                    userId: variables.userId,
+                    title: variables.title,
+                    completed: variables.completed,
+                  );
+                },
+              );
+            }
+          }
+        }
+        
+        setState(() {
+          _queuedMutations = entries.length;
+          _queuedRequests.clear();
+          for (var entry in entries) {
+            if (entry.variables is CreateTodoRequest) {
+              _queuedRequests.add(entry.variables as CreateTodoRequest);
+            }
+          }
+        });
       }
     });
   }
 
   void _toggleNetwork() {
-    final wasOffline = _isOffline;
-
-    setState(() {
-      _isOffline = !_isOffline;
-      _addLog(_isOffline
-          ? '📡 Network toggled OFFLINE'
-          : '📡 Network toggled ONLINE');
-    });
-
-    // If we went online and have queued mutations, execute them
-    if (!_isOffline && wasOffline && _queuedMutations > 0) {
-      setState(() {
-        _isExecutingQueued = true;
-        _addLog('🔄 Executing queued mutations...');
-      });
-
-      Future.delayed(const Duration(milliseconds: 300), () {
-        _executeQueuedMutations();
-      });
-    }
+    // Use the core package's NetworkStatus to toggle
+    final newStatus = !NetworkStatus.instance.isOnline;
+    NetworkStatus.instance.setOnline(newStatus);
   }
 
   void _executeQueuedMutations() async {
-    if (_queuedRequests.isEmpty) {
-      setState(() {
-        _isExecutingQueued = false;
-      });
-      return;
-    }
-
-    // Copy the queued requests and clear the queue
-    final requestsToExecute = List<CreateTodoRequest>.from(_queuedRequests);
-    _queuedRequests.clear();
+    if (!mounted) return;
     
     setState(() {
-      _queuedMutations = 0;
+      _isExecutingQueued = true;
+      _addLog('🔄 Processing queued mutations...');
     });
-
-    // Execute each queued mutation
-    for (int i = 0; i < requestsToExecute.length; i++) {
-      final request = requestsToExecute[i];
-      
-      if (!mounted) return;
-      
-      _addLog('🔄 Executing queued mutation ${i + 1}/${requestsToExecute.length}: "${request.title}"');
-      
-      // Execute the mutation by calling mutate with the stored request
-      await _mutation.mutate(request);
-      
-      // Add a small delay between mutations
-      await Future.delayed(const Duration(milliseconds: 400));
-    }
     
-    if (mounted) {
-      setState(() {
-        _isExecutingQueued = false;
-        _addLog('✅ Executed ${requestsToExecute.length} queued mutation(s)');
-      });
+    try {
+      // Use the core package's queue manager to process all queued mutations
+      // The handler is already registered for 'createTodo' type
+      await OfflineQueueManager.instance.processQueue();
+      
+      if (mounted) {
+        setState(() {
+          _isExecutingQueued = false;
+          _addLog('✅ Queue processing completed');
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _isExecutingQueued = false;
+          _addLog('❌ Error processing queue: $error');
+        });
+      }
     }
   }
 
   void _initializeMutation() {
+    // Use the registered handler as the mutationFn
+    final registeredHandler = MutationTypeRegistry.getHandler('createTodo');
+    
     _mutation = Mutation<Todo, CreateTodoRequest>(
-      mutationFn: (request) async {
-        if (_isOffline) {
-          throw Exception('Network is offline - mutation will be queued');
-        }
-
-        // Simulate network delay
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        // Return a mock todo
-        return Todo(
-          id: DateTime.now().millisecondsSinceEpoch,
-          userId: request.userId,
-          title: request.title,
-          completed: request.completed,
-        );
-      },
+      mutationFn: registeredHandler != null 
+        ? (request) async {
+            // Call the registered handler
+            final result = await registeredHandler.execute(request);
+            return result as Todo;
+          }
+        : (request) async {
+            // Fallback if handler not registered
+            if (_isOffline) {
+              throw Exception('Network is offline - mutation will be queued');
+            }
+            await Future.delayed(const Duration(milliseconds: 500));
+            return Todo(
+              id: DateTime.now().millisecondsSinceEpoch,
+              userId: request.userId,
+              title: request.title,
+              completed: request.completed,
+            );
+          },
       options: MutationOptions<Todo, CreateTodoRequest>(
         onSuccess: (data) {
           if (mounted) {
@@ -169,11 +211,8 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
         queueWhenOffline: true, // Enable offline queue
         onQueued: (variables) {
           if (mounted) {
-            _queuedRequests.add(variables);
-            setState(() {
-              _queuedMutations = _queuedRequests.length;
-            });
-            _addLog('📥 Mutation queued: "${variables.title}" (total queued: $_queuedMutations)');
+            _addLog(
+                '📥 Mutation queued: "${variables.title}" (total queued: ${_queuedMutations + 1})');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
@@ -182,7 +221,7 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Mutation queued - will execute when online ($_queuedMutations in queue)',
+                        'Mutation queued - will execute when online',
                         style: const TextStyle(color: Colors.white),
                       ),
                     ),
