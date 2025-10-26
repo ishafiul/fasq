@@ -61,70 +61,137 @@ QueryBuilder<List<Todo>>(
           _buildControls(),
           const SizedBox(height: 16),
           Expanded(
-            child: QueryBuilder<List<Todo>>(
-              queryKey: 'todos-refetch-on-mount-demo',
-              queryFn: () => _fetchTodos(),
-              options: QueryOptions(
-                refetchOnMount: _refetchOnMount,
-                staleTime: const Duration(seconds: 10),
-                onSuccess: () {
-                  if (mounted) {
-                    setState(() {
-                      _lastFetchTime = DateTime.now();
-                      _mountCount++;
-                    });
-                  }
-                },
-              ),
-              builder: (context, state) {
-                // Update status message
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() {
-                      if (state.isLoading && !state.hasData) {
-                        _statusMessage = _refetchOnMount
-                            ? '🔄 Refetching on mount... Making network request'
-                            : '🔄 Loading... Initial fetch';
-                      } else if (state.hasData) {
-                        _statusMessage = _refetchOnMount
-                            ? '✅ Fresh data loaded from network (refetchOnMount: true)'
-                            : '✅ Cached data loaded (refetchOnMount: false)';
-                      } else if (state.hasError) {
-                        _statusMessage = '❌ Error: ${state.error}';
+            child: _refetchOnMount
+                ? QueryBuilder<List<Todo>>(
+                    queryKey: 'todos-refetch-on-mount-demo',
+                    queryFn: () => _fetchTodos(),
+                    options: QueryOptions(
+                      staleTime: const Duration(seconds: 10),
+                      onSuccess: () {
+                        if (mounted) {
+                          setState(() {
+                            _lastFetchTime = DateTime.now();
+                            _mountCount++;
+                          });
+                        }
+                      },
+                    ),
+                    builder: (context, state) {
+                      // When refetchOnMount is enabled, we manually fetch on mount
+                      if (mounted) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          final query = QueryClient()
+                              .getQueryByKey<List<Todo>>('todos-refetch-on-mount-demo');
+                          if (query != null && state.hasData && _mountCount > 1) {
+                            query.fetch();
+                          }
+                        });
                       }
-                    });
-                  }
-                });
 
-                if (state.isLoading && !state.hasData) {
-                  return const LoadingWidget(message: 'Fetching todos...');
-                }
+                      // Update status message
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() {
+                            if (state.isLoading && !state.hasData) {
+                              _statusMessage =
+                                  '🔄 Refetching on mount... Making network request';
+                            } else if (state.hasData) {
+                              _statusMessage =
+                                  '✅ Fresh data loaded from network (refetchOnMount: true)';
+                            } else if (state.hasError) {
+                              _statusMessage = '❌ Error: ${state.error}';
+                            }
+                          });
+                        }
+                      });
 
-                if (state.hasError) {
-                  return CustomErrorWidget(
-                    message: state.error.toString(),
-                    onRetry: () {
-                      QueryClient()
-                          .getQueryByKey<List<Todo>>(
-                              'todos-refetch-on-mount-demo')
-                          ?.fetch();
+                      if (state.isLoading && !state.hasData) {
+                        return const LoadingWidget(message: 'Fetching todos...');
+                      }
+
+                      if (state.hasError) {
+                        return CustomErrorWidget(
+                          message: state.error.toString(),
+                          onRetry: () {
+                            QueryClient()
+                                .getQueryByKey<List<Todo>>('todos-refetch-on-mount-demo')
+                                ?.fetch();
+                          },
+                        );
+                      }
+
+                      if (state.hasData) {
+                        return Column(
+                          children: [
+                            _buildStatusIndicator(state),
+                            const SizedBox(height: 16),
+                            Expanded(child: _buildTodoList(state)),
+                          ],
+                        );
+                      }
+
+                      return const EmptyWidget(message: 'No todos found');
                     },
-                  );
-                }
+                  )
+                : QueryBuilder<List<Todo>>(
+                    queryKey: 'todos-refetch-on-mount-demo',
+                    queryFn: () => _fetchTodos(),
+                    options: QueryOptions(
+                      staleTime: const Duration(seconds: 10),
+                      onSuccess: () {
+                        if (mounted) {
+                          setState(() {
+                            _lastFetchTime = DateTime.now();
+                            _mountCount++;
+                          });
+                        }
+                      },
+                    ),
+                    builder: (context, state) {
+                      // Update status message
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() {
+                            if (state.isLoading && !state.hasData) {
+                              _statusMessage = '🔄 Loading... Initial fetch';
+                            } else if (state.hasData) {
+                              _statusMessage =
+                                  '✅ Cached data loaded (refetchOnMount: false)';
+                            } else if (state.hasError) {
+                              _statusMessage = '❌ Error: ${state.error}';
+                            }
+                          });
+                        }
+                      });
 
-                if (state.hasData) {
-                  return Column(
-                    children: [
-                      _buildStatusIndicator(state),
-                      const SizedBox(height: 16),
-                      Expanded(child: _buildTodoList(state)),
-                    ],
-                  );
-                }
+                      if (state.isLoading && !state.hasData) {
+                        return const LoadingWidget(message: 'Fetching todos...');
+                      }
 
-                return const EmptyWidget(message: 'No todos found');
-              },
-            ),
+                      if (state.hasError) {
+                        return CustomErrorWidget(
+                          message: state.error.toString(),
+                          onRetry: () {
+                            QueryClient()
+                                .getQueryByKey<List<Todo>>('todos-refetch-on-mount-demo')
+                                ?.fetch();
+                          },
+                        );
+                      }
+
+                      if (state.hasData) {
+                        return Column(
+                          children: [
+                            _buildStatusIndicator(state),
+                            const SizedBox(height: 16),
+                            Expanded(child: _buildTodoList(state)),
+                          ],
+                        );
+                      }
+
+                      return const EmptyWidget(message: 'No todos found');
+                    },
+                  ),
           ),
         ],
       ),
