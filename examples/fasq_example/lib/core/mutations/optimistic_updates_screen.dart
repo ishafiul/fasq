@@ -8,7 +8,8 @@ class OptimisticUpdatesScreen extends StatefulWidget {
   const OptimisticUpdatesScreen({super.key});
 
   @override
-  State<OptimisticUpdatesScreen> createState() => _OptimisticUpdatesScreenState();
+  State<OptimisticUpdatesScreen> createState() =>
+      _OptimisticUpdatesScreenState();
 }
 
 class _OptimisticUpdatesScreenState extends State<OptimisticUpdatesScreen> {
@@ -29,12 +30,12 @@ class _OptimisticUpdatesScreenState extends State<OptimisticUpdatesScreen> {
       mutationFn: (request) async {
         // Simulate network delay
         await Future.delayed(const Duration(milliseconds: 1500));
-        
+
         // Simulate occasional error (20% chance)
         if (DateTime.now().millisecond % 10 < 2) {
           throw Exception('Network error - failed to create todo');
         }
-        
+
         // Return the created todo
         return Todo(
           id: DateTime.now().millisecondsSinceEpoch,
@@ -52,11 +53,11 @@ class _OptimisticUpdatesScreenState extends State<OptimisticUpdatesScreen> {
             title: variables.title,
             completed: variables.completed,
           );
-          
+
           setState(() {
             _todoList.insert(0, optimisticTodo);
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -81,13 +82,14 @@ class _OptimisticUpdatesScreenState extends State<OptimisticUpdatesScreen> {
           // Replace temporary todo with real one from server
           setState(() {
             // Remove the optimistic todo (by finding the one with similar title)
-            _todoList.removeWhere((todo) => 
-              todo.title == data.title && todo.id < 10000 // Temp IDs are < 10000
-            );
+            _todoList.removeWhere((todo) =>
+                    todo.title == data.title &&
+                    todo.id < 10000 // Temp IDs are < 10000
+                );
             // Add the real todo
             _todoList.insert(0, data);
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -107,17 +109,16 @@ class _OptimisticUpdatesScreenState extends State<OptimisticUpdatesScreen> {
               behavior: SnackBarBehavior.floating,
             ),
           );
-          
+
           _titleController.clear();
         },
         onError: (error) {
           // Rollback: remove the optimistic todo on error
           setState(() {
-            _todoList.removeWhere((todo) => 
-              todo.id < 10000 // Remove temp IDs
-            );
+            _todoList.removeWhere((todo) => todo.id < 10000 // Remove temp IDs
+                );
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -140,7 +141,7 @@ class _OptimisticUpdatesScreenState extends State<OptimisticUpdatesScreen> {
         },
       ),
     );
-    
+
     _subscription = _mutation.stream.listen((_) {
       if (mounted) {
         setState(() {});
@@ -275,8 +276,6 @@ MutationOptions<Todo, CreateTodoRequest>(
   }
 
   Widget _buildCreateForm() {
-    final state = _mutation.state;
-    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -301,13 +300,12 @@ MutationOptions<Todo, CreateTodoRequest>(
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.task),
             ),
-            enabled: !state.isLoading,
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: state.isLoading || _titleController.text.isEmpty
+              onPressed: _titleController.text.isEmpty
                   ? null
                   : () {
                       final request = CreateTodoRequest(
@@ -315,11 +313,11 @@ MutationOptions<Todo, CreateTodoRequest>(
                         title: _titleController.text,
                         completed: false,
                       );
-                      
+
                       _mutation.mutate(request);
                     },
-              icon: Icon(state.isLoading ? Icons.hourglass_empty : Icons.add),
-              label: Text(state.isLoading ? 'Processing...' : 'Create Todo'),
+              icon: const Icon(Icons.add),
+              label: const Text('Create Todo'),
             ),
           ),
         ],
@@ -395,7 +393,7 @@ MutationOptions<Todo, CreateTodoRequest>(
             itemBuilder: (context, index) {
               final todo = _todoList[index];
               final isOptimistic = todo.id < 10000;
-              
+
               return Container(
                 decoration: BoxDecoration(
                   color: isOptimistic ? Colors.blue.withOpacity(0.1) : null,
@@ -422,8 +420,8 @@ MutationOptions<Todo, CreateTodoRequest>(
                     ),
                   ),
                   subtitle: Text(
-                    isOptimistic 
-                        ? 'Creating... (optimistic)' 
+                    isOptimistic
+                        ? 'Creating... (optimistic)'
                         : 'ID: ${todo.id} • Created',
                   ),
                   trailing: isOptimistic
