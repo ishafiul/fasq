@@ -18,11 +18,18 @@ class _OptimisticUpdatesScreenState extends State<OptimisticUpdatesScreen> {
   final List<Todo> _todoList = [];
   final TextEditingController _titleController = TextEditingController();
   int _nextId = 1000; // Temp ID counter for optimistic updates
+  bool _hasText = false; // Track if text field has content
 
   @override
   void initState() {
     super.initState();
     _initializeMutation();
+    // Listen to text changes to enable/disable button
+    _titleController.addListener(() {
+      setState(() {
+        _hasText = _titleController.text.trim().isNotEmpty;
+      });
+    });
   }
 
   void _initializeMutation() {
@@ -305,17 +312,17 @@ MutationOptions<Todo, CreateTodoRequest>(
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _titleController.text.isEmpty
-                  ? null
-                  : () {
+              onPressed: _hasText
+                  ? () {
                       final request = CreateTodoRequest(
                         userId: 1,
-                        title: _titleController.text,
+                        title: _titleController.text.trim(),
                         completed: false,
                       );
 
                       _mutation.mutate(request);
-                    },
+                    }
+                  : null,
               icon: const Icon(Icons.add),
               label: const Text('Create Todo'),
             ),
