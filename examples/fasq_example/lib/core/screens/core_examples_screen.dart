@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../widgets/example_scaffold.dart';
 import '../basic_query/basic_query_widget_screen.dart';
 import '../basic_query/basic_query_class_screen.dart';
 import '../query_options/stale_time_screen.dart';
@@ -11,6 +10,7 @@ import '../mutations/basic_mutation_widget_screen.dart';
 import '../mutations/basic_mutation_class_screen.dart';
 import '../mutations/mutation_with_options_screen.dart';
 import '../mutations/optimistic_updates_screen.dart';
+import '../mutations/offline_mutation_screen.dart';
 import '../cache_management/cache_invalidation_screen.dart';
 import '../cache_management/eviction_policies_screen.dart';
 import '../cache_management/manual_cache_control_screen.dart';
@@ -119,6 +119,11 @@ class CoreExamplesScreen extends StatelessWidget {
                 title: 'Optimistic Updates',
                 description: 'Update UI immediately before server response',
                 screen: const OptimisticUpdatesScreen(),
+              ),
+              _ExampleItem(
+                title: 'Offline Mutations',
+                description: 'Queue mutations for when network comes back',
+                screen: const OfflineMutationScreen(),
               ),
             ],
           ),
