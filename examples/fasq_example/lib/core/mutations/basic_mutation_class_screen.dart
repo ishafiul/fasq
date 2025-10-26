@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fasq/fasq.dart';
+import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
@@ -15,9 +16,80 @@ class BasicMutationClassScreen extends StatefulWidget {
 class _BasicMutationClassScreenState extends State<BasicMutationClassScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _userIdController = TextEditingController();
+  
+  late Mutation<Todo, CreateTodoRequest> _mutation;
+  StreamSubscription? _subscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Create mutation instance using class-based approach
+    _mutation = Mutation<Todo, CreateTodoRequest>(
+      mutationFn: (request) => ApiService.createTodo(request),
+      options: MutationOptions<Todo, CreateTodoRequest>(
+        onSuccess: (data) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Todo created: ${data.title}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            _titleController.clear();
+            _userIdController.clear();
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.error, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Error: ${error.toString()}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+      ),
+    );
+    
+    // Subscribe to mutation state changes
+    _subscription = _mutation.stream.listen((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _subscription?.cancel();
+    _mutation.dispose();
     _titleController.dispose();
     _userIdController.dispose();
     super.dispose();
@@ -26,126 +98,72 @@ class _BasicMutationClassScreenState extends State<BasicMutationClassScreen> {
   @override
   Widget build(BuildContext context) {
     return ExampleScaffold(
-      title: 'Basic Mutation',
+      title: 'Mutation - Class-Based Approach',
       description:
-          'Demonstrates how to create and update data using mutations. Mutations are used for creating, updating, and deleting data, unlike queries which are for reading data.',
+          'Demonstrates class-based mutation pattern where you create and manage a Mutation instance directly. This gives you full control over the mutation lifecycle, state management, and cleanup.',
       codeSnippet: '''
-// Define mutation function
-Future<Todo> createTodo(CreateTodoRequest request) {
-  return ApiService.createTodo(request);
+// Class-based approach - Create mutation instance
+Mutation<Todo, CreateTodoRequest> mutation = Mutation(
+  mutationFn: (request) => ApiService.createTodo(request),
+  options: MutationOptions(
+    onSuccess: (result) => print('Todo created'),
+    onError: (err) => print('Error occurred'),
+  ),
+);
+
+// Subscribe to state changes
+StreamSubscription subscription = mutation.stream.listen((state) {
+  setState(() {}); // Trigger rebuild on state change
+});
+
+// Trigger mutation manually
+mutation.mutate(CreateTodoRequest(
+  userId: 1,
+  title: 'New Todo',
+));
+
+// Access mutation state
+if (mutation.state.isSuccess) {
+  print('Success');
 }
 
-// Use MutationBuilder
-MutationBuilder<Todo, CreateTodoRequest>(
-  mutationFn: createTodo,
-  builder: (context, state, mutate) {
-    // state: Current mutation state (idle, loading, success, error)
-    // mutate: Function to trigger the mutation
-    
-    if (state.isLoading) {
-      return LoadingButton(message: 'Creating...');
-    }
-    
-    if (state.isSuccess) {
-      return SuccessWidget(data: state.data!);
-    }
-    
-    if (state.isError) {
-      return ErrorWidget(error: state.error);
-    }
-    
-    return CreateButton(
-      onPressed: () => mutate(CreateTodoRequest(
-        userId: 1,
-        title: 'New Todo',
-      )),
-    );
-  },
-)
+// Clean up when done
+subscription.cancel();
+mutation.dispose();
 
-// Key differences from queries:
-// - Mutations are triggered manually (no auto-fetch)
-// - Mutations are for write operations (POST, PUT, DELETE)
-// - Mutations have onSuccess/onError callbacks
-// - Mutations support optimistic updates and rollback
+// Benefits of class-based approach:
+// - Full control over lifecycle
+// - Manual state management
+// - Share mutation instance across widgets
+// - More flexibility for complex scenarios
 ''',
       child: Column(
         children: [
           _buildInstructions(),
           const SizedBox(height: 16),
           Expanded(
-            child: MutationBuilder<Todo, CreateTodoRequest>(
-              mutationFn: (request) => ApiService.createTodo(request),
-              options: MutationOptions<Todo, CreateTodoRequest>(
-                onSuccess: (data) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Row(
-                          children: [
-                            const Icon(Icons.check_circle, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Todo created: ${data.title}',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                        backgroundColor: Colors.green,
-                        duration: const Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                    // Clear form
-                    _titleController.clear();
-                    _userIdController.clear();
-                  }
-                },
-                onError: (error) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Row(
-                          children: [
-                            const Icon(Icons.error, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Error: ${error.toString()}',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                        backgroundColor: Colors.red,
-                        duration: const Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                },
-              ),
-              builder: (context, state, mutate) {
-                return Column(
-                  children: [
-                    if (state.isSuccess && state.hasData) ...[
-                      _buildSuccessCard(state.data!, isSuccess: true),
-                      const SizedBox(height: 16),
-                    ],
-                    if (state.isError) ...[
-                      _buildErrorCard(state.error!),
-                      const SizedBox(height: 16),
-                    ],
-                    _buildForm(context, state, mutate),
-                  ],
-                );
-              },
-            ),
+            child: _buildContent(),
           ),
         ],
       ),
+    );
+  }
+  
+  Widget _buildContent() {
+    final state = _mutation.state;
+    
+    return Column(
+      children: [
+        if (state.isSuccess && state.hasData) ...[
+          _buildSuccessCard(state.data!, isSuccess: true),
+          const SizedBox(height: 16),
+        ],
+        if (state.isError) ...[
+          _buildErrorCard(state.error!),
+          const SizedBox(height: 16),
+        ],
+        _buildForm(context, state),
+      ],
     );
   }
 
@@ -180,8 +198,14 @@ MutationBuilder<Todo, CreateTodoRequest>(
           ),
           const SizedBox(height: 8),
           Text(
+            'Class-Based Approach:\n'
+            '• Mutation instance created in initState\n'
+            '• Manual subscription to state stream\n'
+            '• Direct access to mutation.mutate()\n'
+            '• Full control over lifecycle\n\n'
+            'How to test:\n'
             '1️⃣ Fill in the form fields (title and userId)\n'
-            '2️⃣ Click "Create Todo" button to trigger mutation\n'
+            '2️⃣ Click "Create Todo" to trigger _mutation.mutate()\n'
             '3️⃣ Watch loading state while mutation executes\n'
             '4️⃣ See success message when mutation completes\n'
             '5️⃣ Created todo appears in the result card\n'
@@ -193,8 +217,7 @@ MutationBuilder<Todo, CreateTodoRequest>(
     );
   }
 
-  Widget _buildForm(BuildContext context,
-      [MutationState<Todo>? state, void Function(CreateTodoRequest)? mutate]) {
+  Widget _buildForm(BuildContext context, [MutationState<Todo>? state]) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -255,7 +278,7 @@ MutationBuilder<Todo, CreateTodoRequest>(
                         title: _titleController.text,
                       );
 
-                      mutate?.call(request);
+                      _mutation.mutate(request);
                     },
               icon: Icon(
                   state?.isLoading == true ? Icons.hourglass_empty : Icons.add),
