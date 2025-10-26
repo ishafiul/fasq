@@ -12,8 +12,7 @@ class BasicMutationClassScreen extends StatefulWidget {
       _BasicMutationClassScreenState();
 }
 
-class _BasicMutationClassScreenState
-    extends State<BasicMutationClassScreen> {
+class _BasicMutationClassScreenState extends State<BasicMutationClassScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _userIdController = TextEditingController();
 
@@ -73,8 +72,6 @@ MutationBuilder<Todo, CreateTodoRequest>(
       child: Column(
         children: [
           _buildInstructions(),
-          const SizedBox(height: 16),
-          _buildForm(context),
           const SizedBox(height: 16),
           Expanded(
             child: MutationBuilder<Todo, CreateTodoRequest>(
@@ -260,9 +257,8 @@ MutationBuilder<Todo, CreateTodoRequest>(
 
                       mutate?.call(request);
                     },
-              icon: Icon(state?.isLoading == true
-                  ? Icons.hourglass_empty
-                  : Icons.add),
+              icon: Icon(
+                  state?.isLoading == true ? Icons.hourglass_empty : Icons.add),
               label: Text(
                 state?.isLoading == true ? 'Creating...' : 'Create Todo',
               ),
@@ -391,4 +387,3 @@ MutationBuilder<Todo, CreateTodoRequest>(
     );
   }
 }
-
