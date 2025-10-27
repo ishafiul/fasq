@@ -51,6 +51,24 @@ class ApiService {
             body: 'This is comment ${index + 1} on the post.',
           ));
 
+  static final List<Category> _mockCategories = List.generate(
+      5,
+      (index) => Category(
+            id: index + 1,
+            name: 'Category ${index + 1}',
+            description: 'Description for Category ${index + 1}',
+          ));
+
+  static final List<Product> _mockProducts = List.generate(
+      20,
+      (index) => Product(
+            id: index + 1,
+            name: 'Product ${index + 1}',
+            description: 'Description for Product ${index + 1}',
+            price: (10.0 + index * 5.0),
+            categoryId: (index % 5) + 1,
+          ));
+
   // Simulate network delay
   static Future<void> _simulateDelay() async {
     if (_useMockApi) {
@@ -336,6 +354,48 @@ class ApiService {
     }
   }
 
+  // Categories API
+  static Future<List<Category>> fetchCategories() async {
+    await _simulateDelay();
+
+    if (_shouldSimulateError()) {
+      throw Exception('Failed to fetch categories');
+    }
+
+    if (_useMockApi) {
+      return List.from(_mockCategories);
+    }
+
+    try {
+      // Note: JSONPlaceholder doesn't have categories endpoint
+      // This is a placeholder for a real API implementation
+      throw Exception('Categories API not implemented for real API');
+    } catch (e) {
+      throw Exception('Failed to fetch categories: $e');
+    }
+  }
+
+  // Products API
+  static Future<List<Product>> fetchProducts(int categoryId) async {
+    await _simulateDelay();
+
+    if (_shouldSimulateError()) {
+      throw Exception('Failed to fetch products for category $categoryId');
+    }
+
+    if (_useMockApi) {
+      return _mockProducts.where((p) => p.categoryId == categoryId).toList();
+    }
+
+    try {
+      // Note: JSONPlaceholder doesn't have products endpoint
+      // This is a placeholder for a real API implementation
+      throw Exception('Products API not implemented for real API');
+    } catch (e) {
+      throw Exception('Failed to fetch products: $e');
+    }
+  }
+
   // Utility methods
   static String get apiMode => _useMockApi ? 'Mock API' : 'Real API';
 
@@ -346,4 +406,3 @@ class ApiService {
     // In a real app, you might use SharedPreferences or similar
   }
 }
-

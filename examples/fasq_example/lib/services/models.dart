@@ -278,3 +278,72 @@ class UpdateUserRequest {
   }
 }
 
+class Category {
+  final int id;
+  final String name;
+  final String description;
+
+  const Category({
+    required this.id,
+    required this.name,
+    required this.description,
+  });
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['id'] as int,
+      name: json['name'] as String,
+      description: json['description'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+    };
+  }
+
+  @override
+  String toString() => 'Category(id: $id, name: $name)';
+}
+
+class Product {
+  final int id;
+  final String name;
+  final String description;
+  final double price;
+  final int categoryId;
+
+  const Product({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.categoryId,
+  });
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product(
+      id: json['id'] as int,
+      name: json['name'] as String,
+      description: json['description'] as String,
+      price: (json['price'] as num).toDouble(),
+      categoryId: json['categoryId'] as int,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'price': price,
+      'categoryId': categoryId,
+    };
+  }
+
+  @override
+  String toString() => 'Product(id: $id, name: $name, price: \$$price)';
+}

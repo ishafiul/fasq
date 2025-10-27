@@ -80,9 +80,11 @@ QueryBuilder<List<Todo>>(
                       // When refetchOnMount is enabled, we manually fetch on mount
                       if (mounted) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          final query = QueryClient()
-                              .getQueryByKey<List<Todo>>('todos-refetch-on-mount-demo');
-                          if (query != null && state.hasData && _mountCount > 1) {
+                          final query = QueryClient().getQueryByKey<List<Todo>>(
+                              'todos-refetch-on-mount-demo');
+                          if (query != null &&
+                              state.hasData &&
+                              _mountCount > 1) {
                             query.fetch();
                           }
                         });
@@ -106,7 +108,8 @@ QueryBuilder<List<Todo>>(
                       });
 
                       if (state.isLoading && !state.hasData) {
-                        return const LoadingWidget(message: 'Fetching todos...');
+                        return const LoadingWidget(
+                            message: 'Fetching todos...');
                       }
 
                       if (state.hasError) {
@@ -114,7 +117,8 @@ QueryBuilder<List<Todo>>(
                           message: state.error.toString(),
                           onRetry: () {
                             QueryClient()
-                                .getQueryByKey<List<Todo>>('todos-refetch-on-mount-demo')
+                                .getQueryByKey<List<Todo>>(
+                                    'todos-refetch-on-mount-demo')
                                 ?.fetch();
                           },
                         );
@@ -165,7 +169,8 @@ QueryBuilder<List<Todo>>(
                       });
 
                       if (state.isLoading && !state.hasData) {
-                        return const LoadingWidget(message: 'Fetching todos...');
+                        return const LoadingWidget(
+                            message: 'Fetching todos...');
                       }
 
                       if (state.hasError) {
@@ -173,7 +178,8 @@ QueryBuilder<List<Todo>>(
                           message: state.error.toString(),
                           onRetry: () {
                             QueryClient()
-                                .getQueryByKey<List<Todo>>('todos-refetch-on-mount-demo')
+                                .getQueryByKey<List<Todo>>(
+                                    'todos-refetch-on-mount-demo')
                                 ?.fetch();
                           },
                         );

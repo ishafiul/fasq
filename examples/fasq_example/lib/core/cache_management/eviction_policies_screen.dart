@@ -47,7 +47,7 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
     // Dispose old client
     _queries.values.forEach((q) => q.dispose());
     _queries.clear();
-    
+
     // Create new QueryClient with new policy
     _queryClient = QueryClient(
       config: CacheConfig(
@@ -55,13 +55,13 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
         evictionPolicy: policy,
       ),
     );
-    
+
     setState(() {
       _cacheData.clear();
       _evictionOrder.clear();
       _cacheSize = 0;
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('✅ Switched to ${policy.name.toUpperCase()} policy'),

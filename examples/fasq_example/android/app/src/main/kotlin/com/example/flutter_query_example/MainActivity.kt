@@ -1,4 +1,4 @@
-package com.example.fasq_example
+package com.example.flutter_query_example
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -8,7 +8,8 @@ class ManualCacheControlScreen extends StatefulWidget {
   const ManualCacheControlScreen({super.key});
 
   @override
-  State<ManualCacheControlScreen> createState() => _ManualCacheControlScreenState();
+  State<ManualCacheControlScreen> createState() =>
+      _ManualCacheControlScreenState();
 }
 
 class _ManualCacheControlScreenState extends State<ManualCacheControlScreen> {
@@ -37,9 +38,9 @@ class _ManualCacheControlScreenState extends State<ManualCacheControlScreen> {
         queryFn: queryFn,
         cache: _queryClient.cache,
       );
-      
+
       _queries[key] = query;
-      
+
       query.stream.listen((state) {
         if (mounted && state.hasData) {
           setState(() {
@@ -47,7 +48,7 @@ class _ManualCacheControlScreenState extends State<ManualCacheControlScreen> {
           });
         }
       });
-      
+
       await query.fetch();
     }
   }
@@ -83,8 +84,9 @@ class _ManualCacheControlScreenState extends State<ManualCacheControlScreen> {
   void _inspectCache() {
     final info = _queryClient.cache.getCacheInfo();
     final keys = _queryClient.cache.getCacheKeys();
-    
-    _addLog('📊 Cache Info: ${info.entryCount} entries, ${info.sizeBytes ~/ 1024}KB');
+
+    _addLog(
+        '📊 Cache Info: ${info.entryCount} entries, ${info.sizeBytes ~/ 1024}KB');
     _addLog('🔑 Keys: ${keys.join(', ')}');
   }
 
@@ -241,7 +243,8 @@ final entry = cache.inspectEntry('myKey');
               children: keys.map((key) {
                 return Chip(
                   label: Text(key),
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
                   labelStyle: TextStyle(
                     fontSize: 11,
                     color: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -398,7 +401,8 @@ final entry = cache.inspectEntry('myKey');
                     child: Text(
                       'Actions will appear here...',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   )
@@ -410,10 +414,11 @@ final entry = cache.inspectEntry('myKey');
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
                           log,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                                fontSize: 11,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                  ),
                         ),
                       );
                     },

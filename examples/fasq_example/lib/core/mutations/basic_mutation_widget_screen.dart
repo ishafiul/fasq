@@ -11,8 +11,7 @@ class BasicMutationWidgetScreen extends StatefulWidget {
       _BasicMutationWidgetScreenState();
 }
 
-class _BasicMutationWidgetScreenState
-    extends State<BasicMutationWidgetScreen> {
+class _BasicMutationWidgetScreenState extends State<BasicMutationWidgetScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   int _selectedUserId = 1;
@@ -417,4 +416,3 @@ MutationBuilder<User, UpdateUserRequest>(
     );
   }
 }
-

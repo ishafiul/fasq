@@ -27,7 +27,8 @@ class _SharedQueriesScreenState extends State<SharedQueriesScreen> {
 
   void _addLog(String message) {
     setState(() {
-      _eventLog.insert(0, '${DateTime.now().toString().substring(11, 19)}: $message');
+      _eventLog.insert(
+          0, '${DateTime.now().toString().substring(11, 19)}: $message');
       if (_eventLog.length > 20) {
         _eventLog.removeLast();
       }
@@ -259,7 +260,7 @@ QueryBuilder<User>(
         return ApiService.fetchUser(1);
       },
     );
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -351,7 +352,9 @@ QueryBuilder<User>(
               _buildStatItem('Network Requests', '$_fetchCount'),
               _buildStatItem(
                 'Efficiency',
-                _widgetCount > 0 && _fetchCount > 0 && _fetchCount < _widgetCount
+                _widgetCount > 0 &&
+                        _fetchCount > 0 &&
+                        _fetchCount < _widgetCount
                     ? '✅ Optimal'
                     : _widgetCount == 0
                         ? '—'
@@ -450,7 +453,8 @@ QueryBuilder<User>(
                     child: Text(
                       'Events will appear here...',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   )
@@ -462,10 +466,11 @@ QueryBuilder<User>(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
                           log,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                                fontSize: 11,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                  ),
                         ),
                       );
                     },

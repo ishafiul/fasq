@@ -26,7 +26,7 @@ class _CallbacksScreenState extends State<CallbacksScreen> {
           _callbackLog.removeAt(_callbackLog.length - 1);
         }
       });
-      
+
       // Show snackbar for important events
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -226,7 +226,8 @@ QueryBuilder<List<User>>(
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -295,7 +296,8 @@ QueryBuilder<List<User>>(
                       'No callbacks yet...\nFetch data to see events',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   )
@@ -305,7 +307,7 @@ QueryBuilder<List<User>>(
                       final log = _callbackLog[index];
                       final isError = log.contains('❌');
                       final isSuccess = log.contains('✅');
-                      
+
                       return Container(
                         margin: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -317,7 +319,9 @@ QueryBuilder<List<User>>(
                               ? Colors.red.withOpacity(0.1)
                               : isSuccess
                                   ? Colors.green.withOpacity(0.1)
-                                  : Theme.of(context).colorScheme.surfaceVariant,
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceVariant,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
@@ -334,13 +338,18 @@ QueryBuilder<List<User>>(
                                   ? Colors.red
                                   : isSuccess
                                       ? Colors.green
-                                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 log,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
                                       fontFamily: 'monospace',
                                       fontSize: 11,
                                     ),
@@ -513,4 +522,3 @@ QueryBuilder<List<User>>(
     return users;
   }
 }
-

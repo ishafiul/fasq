@@ -58,9 +58,8 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
       if (mounted) {
         setState(() {
           _isOffline = !isOnline;
-          _addLog(isOnline 
-              ? '📡 Network came ONLINE' 
-              : '📡 Network went OFFLINE');
+          _addLog(
+              isOnline ? '📡 Network came ONLINE' : '📡 Network went OFFLINE');
         });
 
         // When network comes back online, process the queue
@@ -99,7 +98,7 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
             }
           }
         }
-        
+
         setState(() {
           _queuedMutations = entries.length;
           _queuedRequests.clear();
@@ -121,17 +120,17 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
 
   void _executeQueuedMutations() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isExecutingQueued = true;
       _addLog('🔄 Processing queued mutations...');
     });
-    
+
     try {
       // Use the core package's queue manager to process all queued mutations
       // The handler is already registered for 'createTodo' type
       await OfflineQueueManager.instance.processQueue();
-      
+
       if (mounted) {
         setState(() {
           _isExecutingQueued = false;
@@ -151,27 +150,27 @@ class _OfflineMutationScreenState extends State<OfflineMutationScreen> {
   void _initializeMutation() {
     // Use the registered handler as the mutationFn
     final registeredHandler = MutationTypeRegistry.getHandler('createTodo');
-    
+
     _mutation = Mutation<Todo, CreateTodoRequest>(
-      mutationFn: registeredHandler != null 
-        ? (request) async {
-            // Call the registered handler
-            final result = await registeredHandler.execute(request);
-            return result as Todo;
-          }
-        : (request) async {
-            // Fallback if handler not registered
-            if (_isOffline) {
-              throw Exception('Network is offline - mutation will be queued');
+      mutationFn: registeredHandler != null
+          ? (request) async {
+              // Call the registered handler
+              final result = await registeredHandler.execute(request);
+              return result as Todo;
             }
-            await Future.delayed(const Duration(milliseconds: 500));
-            return Todo(
-              id: DateTime.now().millisecondsSinceEpoch,
-              userId: request.userId,
-              title: request.title,
-              completed: request.completed,
-            );
-          },
+          : (request) async {
+              // Fallback if handler not registered
+              if (_isOffline) {
+                throw Exception('Network is offline - mutation will be queued');
+              }
+              await Future.delayed(const Duration(milliseconds: 500));
+              return Todo(
+                id: DateTime.now().millisecondsSinceEpoch,
+                userId: request.userId,
+                title: request.title,
+                completed: request.completed,
+              );
+            },
       options: MutationOptions<Todo, CreateTodoRequest>(
         onSuccess: (data) {
           if (mounted) {

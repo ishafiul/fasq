@@ -16,7 +16,7 @@ class BasicMutationClassScreen extends StatefulWidget {
 class _BasicMutationClassScreenState extends State<BasicMutationClassScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _userIdController = TextEditingController();
-  
+
   late Mutation<Todo, CreateTodoRequest> _mutation;
   StreamSubscription? _subscription;
 
@@ -77,7 +77,7 @@ class _BasicMutationClassScreenState extends State<BasicMutationClassScreen> {
         },
       ),
     );
-    
+
     // Subscribe to mutation state changes
     _subscription = _mutation.stream.listen((_) {
       if (mounted) {
@@ -148,10 +148,10 @@ mutation.dispose();
       ),
     );
   }
-  
+
   Widget _buildContent() {
     final state = _mutation.state;
-    
+
     return Column(
       children: [
         if (state.isSuccess && state.hasData) ...[

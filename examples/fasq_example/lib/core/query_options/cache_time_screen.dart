@@ -284,7 +284,8 @@ QueryBuilder<List<Post>>(
                               ),
                             ],
                           ),
-                          backgroundColor: Theme.of(context).colorScheme.secondary,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.secondary,
                           duration: const Duration(seconds: 2),
                           behavior: SnackBarBehavior.floating,
                         ),
@@ -309,7 +310,7 @@ QueryBuilder<List<Post>>(
   Widget _buildCacheInfo() {
     final client = QueryClient();
     final cacheEntry = client.cache.get<List<Post>>('posts-cache-demo');
-    
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -436,15 +437,19 @@ class _NavigationDemoScreen extends StatelessWidget {
                     'Key Points:',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                   ),
                   const SizedBox(height: 12),
-                  _buildInfoPoint(context, Icons.cached, 'Cache persists after unmount'),
+                  _buildInfoPoint(
+                      context, Icons.cached, 'Cache persists after unmount'),
                   const SizedBox(height: 8),
-                  _buildInfoPoint(context, Icons.timer, 'Controlled by cacheTime option'),
+                  _buildInfoPoint(
+                      context, Icons.timer, 'Controlled by cacheTime option'),
                   const SizedBox(height: 8),
-                  _buildInfoPoint(context, Icons.flash_on, 'Instant load on return'),
+                  _buildInfoPoint(
+                      context, Icons.flash_on, 'Instant load on return'),
                 ],
               ),
             ),

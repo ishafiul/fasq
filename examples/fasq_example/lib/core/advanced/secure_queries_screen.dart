@@ -40,7 +40,7 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
         cacheTime: const Duration(minutes: 10),
       ),
     );
-    
+
     _regularSubscription = _regularQuery.stream.listen((state) {
       if (mounted && state.hasData) {
         setState(() {
@@ -50,7 +50,7 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
         });
       }
     });
-    
+
     // Secure Query
     _secureQuery = Query<User>(
       key: 'user-secure',
@@ -61,7 +61,7 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
         maxAge: const Duration(seconds: 30), // Short TTL for demo
       ),
     );
-    
+
     _secureSubscription = _secureQuery.stream.listen((state) {
       if (mounted && state.hasData) {
         setState(() {
@@ -71,7 +71,7 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
         });
       }
     });
-    
+
     // Fetch both
     _regularQuery.fetch();
     _secureQuery.fetch();
@@ -79,7 +79,8 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
 
   void _addLog(String message) {
     setState(() {
-      _eventLog.insert(0, '${DateTime.now().toString().substring(11, 19)}: $message');
+      _eventLog.insert(
+          0, '${DateTime.now().toString().substring(11, 19)}: $message');
       if (_eventLog.length > 20) {
         _eventLog.removeLast();
       }
@@ -99,15 +100,16 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
   void _checkCacheStatus() {
     final regularEntry = _queryClient.cache.inspectEntry('user-regular');
     final secureEntry = _queryClient.cache.inspectEntry('user-secure');
-    
+
     if (regularEntry != null) {
       _addLog('Regular: cached, age: ${regularEntry.age.inSeconds}s');
     } else {
       _addLog('Regular: not in cache');
     }
-    
+
     if (secureEntry != null) {
-      _addLog('Secure: cached, expires: ${secureEntry.expiresAt != null ? "${secureEntry.expiresAt!.difference(DateTime.now()).inSeconds}s" : "no expiry"}');
+      _addLog(
+          'Secure: cached, expires: ${secureEntry.expiresAt != null ? "${secureEntry.expiresAt!.difference(DateTime.now()).inSeconds}s" : "no expiry"}');
     } else {
       _addLog('Secure: not in cache (expired or not persisted)');
     }
@@ -140,7 +142,7 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
   Widget build(BuildContext context) {
     final regularState = _regularQuery.state;
     final secureState = _secureQuery.state;
-    
+
     return ExampleScaffold(
       title: 'Secure Queries',
       description:
@@ -241,7 +243,8 @@ Query<User>(
     );
   }
 
-  Widget _buildQueriesDisplay(QueryState<User> regularState, QueryState<User> secureState) {
+  Widget _buildQueriesDisplay(
+      QueryState<User> regularState, QueryState<User> secureState) {
     return Row(
       children: [
         Expanded(
@@ -279,14 +282,14 @@ Query<User>(
       final age = DateTime.now().difference(createdAt);
       ageText = '${age.inSeconds}s';
     }
-    
+
     String statusText = 'Loading...';
     if (state.hasData) {
       statusText = '✓ Loaded';
     } else if (state.hasError) {
       statusText = 'Error';
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -450,7 +453,8 @@ Query<User>(
                     child: Text(
                       'Events will appear here...',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   )
@@ -462,10 +466,11 @@ Query<User>(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
                           log,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                                fontSize: 11,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                  ),
                         ),
                       );
                     },

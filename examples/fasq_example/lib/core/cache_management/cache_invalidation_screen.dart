@@ -9,7 +9,8 @@ class CacheInvalidationScreen extends StatefulWidget {
   const CacheInvalidationScreen({super.key});
 
   @override
-  State<CacheInvalidationScreen> createState() => _CacheInvalidationScreenState();
+  State<CacheInvalidationScreen> createState() =>
+      _CacheInvalidationScreenState();
 }
 
 class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
@@ -20,11 +21,11 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
   StreamSubscription? _userSubscription;
   StreamSubscription? _todosSubscription;
   StreamSubscription? _postsSubscription;
-  
+
   User? _userData;
   List<Todo> _todosData = [];
   List<Post> _postsData = [];
-  
+
   bool _userLoading = false;
   bool _todosLoading = false;
   bool _postsLoading = false;
@@ -43,7 +44,7 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
       queryFn: () => ApiService.fetchUser(1),
       cache: _queryClient.cache,
     );
-    
+
     _userSubscription = _userQuery.stream.listen((state) {
       if (mounted) {
         setState(() {
@@ -52,14 +53,14 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
         });
       }
     });
-    
+
     // Todos Query
     _todosQuery = Query<List<Todo>>(
       key: 'user-todos',
       queryFn: ApiService.fetchTodos,
       cache: _queryClient.cache,
     );
-    
+
     _todosSubscription = _todosQuery.stream.listen((state) {
       if (mounted) {
         setState(() {
@@ -68,14 +69,14 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
         });
       }
     });
-    
+
     // Posts Query
     _postsQuery = Query<List<Post>>(
       key: 'user-posts',
       queryFn: ApiService.fetchPosts,
       cache: _queryClient.cache,
     );
-    
+
     _postsSubscription = _postsQuery.stream.listen((state) {
       if (mounted) {
         setState(() {
@@ -122,7 +123,8 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
   }
 
   void _invalidateAll() {
-    _queryClient.invalidateQueries(['user-profile', 'user-todos', 'user-posts']);
+    _queryClient
+        .invalidateQueries(['user-profile', 'user-todos', 'user-posts']);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Invalidated all queries - refetching...'),
@@ -144,9 +146,8 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
 
   void _invalidateWhere() {
     // Invalidate queries with 'todo' or 'post' in the key
-    _queryClient.invalidateQueriesWhere((key) => 
-      key.contains('todo') || key.contains('post')
-    );
+    _queryClient.invalidateQueriesWhere(
+        (key) => key.contains('todo') || key.contains('post'));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Invalidated matching queries (todos & posts)'),
@@ -279,7 +280,7 @@ queryClient.invalidateQueriesWhere((key) =>
                 ),
           ),
           const SizedBox(height: 16),
-          
+
           // User Query
           _buildQueryCard(
             'User Profile',
@@ -288,7 +289,7 @@ queryClient.invalidateQueriesWhere((key) =>
             Colors.blue,
           ),
           const SizedBox(height: 12),
-          
+
           // Todos Query
           _buildQueryCard(
             'Todos',
@@ -297,7 +298,7 @@ queryClient.invalidateQueriesWhere((key) =>
             Colors.green,
           ),
           const SizedBox(height: 12),
-          
+
           // Posts Query
           _buildQueryCard(
             'Posts',
@@ -310,7 +311,8 @@ queryClient.invalidateQueriesWhere((key) =>
     );
   }
 
-  Widget _buildQueryCard(String title, String content, bool loading, Color color) {
+  Widget _buildQueryCard(
+      String title, String content, bool loading, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -369,7 +371,7 @@ queryClient.invalidateQueriesWhere((key) =>
               ),
         ),
         const SizedBox(height: 16),
-        
+
         // Single Invalidation
         Wrap(
           spacing: 8,
@@ -404,11 +406,11 @@ queryClient.invalidateQueriesWhere((key) =>
             ),
           ],
         ),
-        
+
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 16),
-        
+
         // Batch Invalidation
         SizedBox(
           width: double.infinity,
@@ -422,9 +424,9 @@ queryClient.invalidateQueriesWhere((key) =>
             ),
           ),
         ),
-        
+
         const SizedBox(height: 12),
-        
+
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
@@ -437,9 +439,9 @@ queryClient.invalidateQueriesWhere((key) =>
             ),
           ),
         ),
-        
+
         const SizedBox(height: 12),
-        
+
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
