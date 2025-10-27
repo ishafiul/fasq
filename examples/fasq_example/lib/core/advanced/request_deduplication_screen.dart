@@ -9,15 +9,18 @@ class RequestDeduplicationScreen extends StatefulWidget {
   const RequestDeduplicationScreen({super.key});
 
   @override
-  State<RequestDeduplicationScreen> createState() => _RequestDeduplicationScreenState();
+  State<RequestDeduplicationScreen> createState() =>
+      _RequestDeduplicationScreenState();
 }
 
-class _RequestDeduplicationScreenState extends State<RequestDeduplicationScreen> {
+class _RequestDeduplicationScreenState
+    extends State<RequestDeduplicationScreen> {
   late QueryClient _queryClient;
   late Query<List<User>> _usersQuery;
   StreamSubscription? _subscription;
   final List<String> _eventLog = [];
   int _fetchCount = 0;
+  int _fetchAttempts = 0;
   DateTime? _lastFetchTime;
 
   @override
@@ -38,13 +41,13 @@ class _RequestDeduplicationScreenState extends State<RequestDeduplicationScreen>
       },
       cache: _queryClient.cache,
     );
-    
+
     _subscription = _usersQuery.stream.listen((state) {
       if (mounted) {
         setState(() {});
       }
     });
-    
+
     // Initial fetch
     _usersQuery.fetch();
   }
@@ -59,13 +62,17 @@ class _RequestDeduplicationScreenState extends State<RequestDeduplicationScreen>
   }
 
   void _refetch() {
+    _fetchAttempts++;
     _lastFetchTime = DateTime.now();
+    _addLog('🔄 Fetch attempt #$_fetchAttempts');
     _usersQuery.fetch();
   }
 
   void _simulateMultipleRequests() {
     _addLog('🔄 Simulating 5 simultaneous fetches...');
     for (int i = 0; i < 5; i++) {
+      _fetchAttempts++;
+      _addLog('🔄 Fetch attempt #$_fetchAttempts');
       _usersQuery.fetch();
     }
   }
@@ -74,6 +81,7 @@ class _RequestDeduplicationScreenState extends State<RequestDeduplicationScreen>
     setState(() {
       _eventLog.clear();
       _fetchCount = 0;
+      _fetchAttempts = 0;
     });
   }
 
@@ -87,7 +95,7 @@ class _RequestDeduplicationScreenState extends State<RequestDeduplicationScreen>
   @override
   Widget build(BuildContext context) {
     final state = _usersQuery.state;
-    
+
     return ExampleScaffold(
       title: 'Request Deduplication',
       description:
@@ -171,11 +179,11 @@ QueryBuilder<List<User>>(
           const SizedBox(height: 8),
           Text(
             'When multiple parts of your app request the same data:\n'
-            '✅ Only ONE network request is made\n'
-            '✅ All requests share the same response\n'
-            '✅ Prevents duplicate API calls\n'
+            '✅ Fetch Attempts: Number of times fetch() was called\n'
+            '✅ Network Requests: Actual HTTP calls made\n'
+            '✅ Deduplication: Same attempt = same request\n'
             '✅ Automatic - no extra code needed\n\n'
-            'Try clicking "5 Simultaneous Fetches" - watch the log!',
+            'Try "5 Simultaneous Fetches" → 5 attempts, only 1 network call!',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -200,18 +208,45 @@ QueryBuilder<List<User>>(
                 ),
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            alignment: WrapAlignment.center,
             children: [
+              _buildStatItem('Fetch Attempts', '$_fetchAttempts'),
               _buildStatItem('Network Requests', '$_fetchCount'),
               _buildStatItem(
-                'Last Fetch', 
-                _lastFetchTime != null
-                    ? '${DateTime.now().difference(_lastFetchTime!).inSeconds}s ago'
-                    : 'Never'
-              ),
+                  'Last Fetch',
+                  _lastFetchTime != null
+                      ? '${DateTime.now().difference(_lastFetchTime!).inSeconds}s ago'
+                      : 'Never'),
             ],
           ),
+          if (_fetchAttempts > 0 && _fetchAttempts > _fetchCount) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '✅ Deduplication working! $_fetchAttempts attempts = $_fetchCount network calls',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -271,7 +306,8 @@ QueryBuilder<List<User>>(
           ] else if (state.hasData) ...[
             Text(
               '✓ ${state.data!.length} users loaded',
-              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  color: Colors.green, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -371,7 +407,8 @@ QueryBuilder<List<User>>(
                       'Events will appear here...\nTry "5 Simultaneous Fetches" to see deduplication!',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   )
@@ -380,7 +417,7 @@ QueryBuilder<List<User>>(
                     itemBuilder: (context, index) {
                       final log = _eventLog[index];
                       final isNetworkRequest = log.contains('🌐');
-                      
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(8),
@@ -393,15 +430,21 @@ QueryBuilder<List<User>>(
                         child: Row(
                           children: [
                             Icon(
-                              isNetworkRequest ? Icons.cloud_download : Icons.info,
+                              isNetworkRequest
+                                  ? Icons.cloud_download
+                                  : Icons.info,
                               size: 16,
-                              color: isNetworkRequest ? Colors.blue : Colors.grey,
+                              color:
+                                  isNetworkRequest ? Colors.blue : Colors.grey,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 log,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
                                       fontFamily: 'monospace',
                                       fontSize: 11,
                                     ),
