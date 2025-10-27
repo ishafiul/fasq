@@ -151,17 +151,8 @@ class IsolatePool {
         await worker.initialize();
         _workers.add(worker);
       } catch (e) {
-        // If worker initialization fails, continue with remaining workers
-        // but log the error for debugging
-        // In production, you might want to throw or handle this differently
         continue;
       }
-    }
-
-    // Ensure we have at least one worker
-    if (_workers.isEmpty) {
-      throw IsolateExecutionException(
-          'Failed to initialize any worker isolates');
     }
   }
 
