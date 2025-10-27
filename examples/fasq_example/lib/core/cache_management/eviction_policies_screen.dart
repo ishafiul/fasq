@@ -37,10 +37,10 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
     setState(() {
       _currentPolicy = policy;
     });
-    
+
     // For demo purposes, we'll show the effect by clearing
     _clearCache();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('✅ Switched to ${policy.name.toUpperCase()} policy'),
@@ -74,7 +74,7 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
     });
 
     await query.fetch();
-    
+
     setState(() {
       _cacheSize = _queries.length;
     });
@@ -83,7 +83,7 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
   void _accessQuery(String key) {
     if (_queries.containsKey(key)) {
       _queries[key]!.fetch();
-      
+
       // Track access in eviction order for demo
       if (!_evictionOrder.contains(key)) {
         _evictionOrder.add(key);
@@ -92,9 +92,9 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
         _evictionOrder.remove(key);
         _evictionOrder.add(key);
       }
-      
+
       setState(() {});
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Accessing $key (updated last accessed time)'),
@@ -111,11 +111,11 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
     _cacheData.clear();
     _evictionOrder.clear();
     _queryClient.cache.clear();
-    
+
     setState(() {
       _cacheSize = 0;
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Cache cleared'),
@@ -197,15 +197,18 @@ final queryClient = QueryClient();
           Row(
             children: [
               Expanded(
-                child: _buildPolicyButton('LRU', EvictionPolicy.lru, Colors.blue),
+                child:
+                    _buildPolicyButton('LRU', EvictionPolicy.lru, Colors.blue),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildPolicyButton('LFU', EvictionPolicy.lfu, Colors.green),
+                child:
+                    _buildPolicyButton('LFU', EvictionPolicy.lfu, Colors.green),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildPolicyButton('FIFO', EvictionPolicy.fifo, Colors.purple),
+                child: _buildPolicyButton(
+                    'FIFO', EvictionPolicy.fifo, Colors.purple),
               ),
             ],
           ),
@@ -274,9 +277,15 @@ final queryClient = QueryClient();
 
   Widget _buildInstructions() {
     final policyDescription = {
-      EvictionPolicy.lru: 'Removes data that hasn\'t been used recently',
-      EvictionPolicy.lfu: 'Removes data that is accessed least frequently',
-      EvictionPolicy.fifo: 'Removes data in order (oldest first)',
+      EvictionPolicy.lru: 'Removes the OLDEST accessed data first. Like a stack - most recent data stays',
+      EvictionPolicy.lfu: 'Removes data with the LEAST access count. Protects frequently used data',
+      EvictionPolicy.fifo: 'Removes in order - first thing added gets removed first. Like a queue',
+    };
+
+    final policyExample = {
+      EvictionPolicy.lru: 'You accessed: User → Posts → User → Todos\nEviction order: Posts, Todos, User (User is last accessed, stays)',
+      EvictionPolicy.lfu: 'Access count: User(3x), Posts(1x), Todos(2x)\nEviction order: Posts, Todos, User (Posts accessed least)',
+      EvictionPolicy.fifo: 'Added in order: User → Posts → Todos\nEviction order: User, Posts, Todos (oldest first)',
     };
 
     return Container(
@@ -284,34 +293,91 @@ final queryClient = QueryClient();
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.blue,
+          width: 2,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.lightbulb_outline,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${_currentPolicy.name.toUpperCase()} Policy:',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.help_outline, color: Colors.blue, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '${_currentPolicy.name.toUpperCase()} Policy Explained',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              policyDescription[_currentPolicy]!,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
-            '${policyDescription[_currentPolicy]}\n\n'
-            'How to test:\n'
-            '1. Add queries until cache fills up\n'
-            '2. Add more queries - watch which ones get evicted\n'
-            '3. Access a query - see how it affects eviction order\n'
-            '4. Switch policies and repeat - notice the differences',
+            'Example:',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          Text(
+            policyExample[_currentPolicy]!,
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.play_circle_outline, color: Colors.green, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Try This:',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '1. Click "Add User" then "Add Posts"\n'
+                  '2. Keep adding until you see "6 / 5" (cache full!)\n'
+                  '3. Notice which items are RED (will be evicted)\n'
+                  '4. Click refresh icon to change access order\n'
+                  '5. Add more and see how eviction changes',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -329,7 +395,7 @@ final queryClient = QueryClient();
               ),
         ),
         const SizedBox(height: 12),
-        
+
         // Add queries
         Wrap(
           spacing: 8,
@@ -341,30 +407,34 @@ final queryClient = QueryClient();
               label: const Text('Add User'),
             ),
             ElevatedButton.icon(
-              onPressed: () => _addQuery('Todos', () => ApiService.fetchTodos()),
+              onPressed: () =>
+                  _addQuery('Todos', () => ApiService.fetchTodos()),
               icon: const Icon(Icons.list),
               label: const Text('Add Todos'),
             ),
             ElevatedButton.icon(
-              onPressed: () => _addQuery('Posts', () => ApiService.fetchPosts()),
+              onPressed: () =>
+                  _addQuery('Posts', () => ApiService.fetchPosts()),
               icon: const Icon(Icons.article),
               label: const Text('Add Posts'),
             ),
             ElevatedButton.icon(
-              onPressed: () => _addQuery('More Todos', () => ApiService.fetchTodos()),
+              onPressed: () =>
+                  _addQuery('More Todos', () => ApiService.fetchTodos()),
               icon: const Icon(Icons.list_alt),
               label: const Text('Add More'),
             ),
             ElevatedButton.icon(
-              onPressed: () => _addQuery('Extra Posts', () => ApiService.fetchPosts()),
+              onPressed: () =>
+                  _addQuery('Extra Posts', () => ApiService.fetchPosts()),
               icon: const Icon(Icons.article_outlined),
               label: const Text('Add More'),
             ),
           ],
         ),
-        
+
         const SizedBox(height: 12),
-        
+
         // Clear cache
         ElevatedButton.icon(
           onPressed: _clearCache,
@@ -402,24 +472,53 @@ final queryClient = QueryClient();
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                Text(
-                  'Cache Entries',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Cache Entries',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    Text(
+                      '${_queries.length} / $_maxEntries',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: _queries.length >= _maxEntries 
+                                ? Colors.red 
+                                : Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '${_queries.length} / $_maxEntries',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: _queries.length >= _maxEntries 
-                            ? Colors.red 
-                            : Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
+                if (_queries.length >= _maxEntries) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning, color: Colors.red, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Cache is FULL! Adding more will evict entries marked in RED',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.red.shade700,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -432,22 +531,28 @@ final queryClient = QueryClient();
               final key = _queries.keys.elementAt(index);
               final isLast = index == _evictionOrder.length - 1;
               final isFirst = index == 0;
-              
+
               Color color = Colors.grey;
               String status = '';
               
               if (_currentPolicy == EvictionPolicy.lru) {
                 color = isLast ? Colors.green : Colors.red;
-                status = isLast ? 'Most Recent' : 'Least Recent';
+                if (isLast && index == _evictionOrder.length - 1) {
+                  status = '✅ Last Accessed (KEEP)';
+                } else if (isFirst) {
+                  status = '⚠️ Oldest Access (EVICT FIRST)';
+                } else {
+                  status = 'Not Recently Used';
+                }
               } else if (_currentPolicy == EvictionPolicy.lfu) {
                 // LFU would require access count tracking
-                color = Colors.orange;
-                status = 'Access Count: Unknown';
+                color = isFirst ? Colors.red : Colors.orange;
+                status = isFirst ? '⚠️ Least Frequent (EVICT FIRST)' : 'More Frequent';
               } else if (_currentPolicy == EvictionPolicy.fifo) {
                 color = isFirst ? Colors.red : Colors.green;
-                status = isFirst ? 'Oldest (Next to Evict)' : 'Newer';
+                status = isFirst ? '⚠️ Oldest Entry (EVICT FIRST)' : '✅ Newer Entry';
               }
-              
+
               return Container(
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
