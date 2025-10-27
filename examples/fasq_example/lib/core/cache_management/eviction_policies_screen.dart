@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fasq/fasq.dart';
 import 'package:fasq/src/cache/eviction_policy.dart';
+import 'package:fasq/src/cache/cache_config.dart';
 import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
@@ -28,8 +29,13 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
   }
 
   void _setupCache() {
-    _queryClient = QueryClient();
-    // Set max entries to small value to trigger eviction
+    // Create QueryClient with small maxEntries to force eviction
+    _queryClient = QueryClient(
+      config: CacheConfig(
+        maxEntries: _maxEntries,
+        evictionPolicy: _currentPolicy,
+      ),
+    );
     _queryClient.cache.clear(); // Clear any existing data
   }
 
@@ -38,9 +44,24 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
       _currentPolicy = policy;
     });
 
-    // For demo purposes, we'll show the effect by clearing
-    _clearCache();
-
+    // Dispose old client
+    _queries.values.forEach((q) => q.dispose());
+    _queries.clear();
+    
+    // Create new QueryClient with new policy
+    _queryClient = QueryClient(
+      config: CacheConfig(
+        maxEntries: _maxEntries,
+        evictionPolicy: policy,
+      ),
+    );
+    
+    setState(() {
+      _cacheData.clear();
+      _evictionOrder.clear();
+      _cacheSize = 0;
+    });
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('✅ Switched to ${policy.name.toUpperCase()} policy'),
@@ -277,15 +298,21 @@ final queryClient = QueryClient();
 
   Widget _buildInstructions() {
     final policyDescription = {
-      EvictionPolicy.lru: 'Removes the OLDEST accessed data first. Like a stack - most recent data stays',
-      EvictionPolicy.lfu: 'Removes data with the LEAST access count. Protects frequently used data',
-      EvictionPolicy.fifo: 'Removes in order - first thing added gets removed first. Like a queue',
+      EvictionPolicy.lru:
+          'Removes the OLDEST accessed data first. Like a stack - most recent data stays',
+      EvictionPolicy.lfu:
+          'Removes data with the LEAST access count. Protects frequently used data',
+      EvictionPolicy.fifo:
+          'Removes in order - first thing added gets removed first. Like a queue',
     };
 
     final policyExample = {
-      EvictionPolicy.lru: 'You accessed: User → Posts → User → Todos\nEviction order: Posts, Todos, User (User is last accessed, stays)',
-      EvictionPolicy.lfu: 'Access count: User(3x), Posts(1x), Todos(2x)\nEviction order: Posts, Todos, User (Posts accessed least)',
-      EvictionPolicy.fifo: 'Added in order: User → Posts → Todos\nEviction order: User, Posts, Todos (oldest first)',
+      EvictionPolicy.lru:
+          'You accessed: User → Posts → User → Todos\nEviction order: Posts, Todos, User (User is last accessed, stays)',
+      EvictionPolicy.lfu:
+          'Access count: User(3x), Posts(1x), Todos(2x)\nEviction order: Posts, Todos, User (Posts accessed least)',
+      EvictionPolicy.fifo:
+          'Added in order: User → Posts → Todos\nEviction order: User, Posts, Todos (oldest first)',
     };
 
     return Container(
@@ -356,7 +383,8 @@ final queryClient = QueryClient();
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.play_circle_outline, color: Colors.green, size: 16),
+                    const Icon(Icons.play_circle_outline,
+                        color: Colors.green, size: 16),
                     const SizedBox(width: 4),
                     Text(
                       'Try This:',
@@ -486,8 +514,8 @@ final queryClient = QueryClient();
                     Text(
                       '${_queries.length} / $_maxEntries',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: _queries.length >= _maxEntries 
-                                ? Colors.red 
+                            color: _queries.length >= _maxEntries
+                                ? Colors.red
                                 : Colors.green,
                             fontWeight: FontWeight.bold,
                           ),
@@ -509,10 +537,11 @@ final queryClient = QueryClient();
                         Expanded(
                           child: Text(
                             'Cache is FULL! Adding more will evict entries marked in RED',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.red.shade700,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.red.shade700,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                           ),
                         ),
                       ],
@@ -534,7 +563,7 @@ final queryClient = QueryClient();
 
               Color color = Colors.grey;
               String status = '';
-              
+
               if (_currentPolicy == EvictionPolicy.lru) {
                 color = isLast ? Colors.green : Colors.red;
                 if (isLast && index == _evictionOrder.length - 1) {
@@ -547,10 +576,13 @@ final queryClient = QueryClient();
               } else if (_currentPolicy == EvictionPolicy.lfu) {
                 // LFU would require access count tracking
                 color = isFirst ? Colors.red : Colors.orange;
-                status = isFirst ? '⚠️ Least Frequent (EVICT FIRST)' : 'More Frequent';
+                status = isFirst
+                    ? '⚠️ Least Frequent (EVICT FIRST)'
+                    : 'More Frequent';
               } else if (_currentPolicy == EvictionPolicy.fifo) {
                 color = isFirst ? Colors.red : Colors.green;
-                status = isFirst ? '⚠️ Oldest Entry (EVICT FIRST)' : '✅ Newer Entry';
+                status =
+                    isFirst ? '⚠️ Oldest Entry (EVICT FIRST)' : '✅ Newer Entry';
               }
 
               return Container(
