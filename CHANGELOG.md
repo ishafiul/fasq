@@ -3,6 +3,44 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-10-27
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.3.1`](#fasq---v031)
+ - [`fasq_bloc` - `v0.2.0+1`](#fasq_bloc---v0201)
+ - [`fasq_security` - `v0.1.0+1`](#fasq_security---v0101)
+ - [`fasq_hooks` - `v0.2.0+1`](#fasq_hooks---v0201)
+ - [`fasq_riverpod` - `v0.2.0+1`](#fasq_riverpod---v0201)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `fasq_bloc` - `v0.2.0+1`
+ - `fasq_security` - `v0.1.0+1`
+ - `fasq_hooks` - `v0.2.0+1`
+ - `fasq_riverpod` - `v0.2.0+1`
+
+---
+
+#### `fasq` - `v0.3.1`
+
+ - **REFACTOR**(performance): simplify isolate pool initialization (#24).
+ - **FIX**: improve cache staleness handling and query state management (#22).
+ - **FIX**: comprehensive fixes for reference counting and loading state (#21).
+ - **FIX**: prevent negative reference count in Query and InfiniteQuery (#18).
+ - **FEAT**: clear cache when query is disposed to ensure fresh data on revisit (#20).
+
+
 ## 2025-10-22
 
 ### Changes

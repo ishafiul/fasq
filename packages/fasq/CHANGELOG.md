@@ -1,3 +1,11 @@
+## 0.3.1
+
+ - **REFACTOR**(performance): simplify isolate pool initialization (#24).
+ - **FIX**: improve cache staleness handling and query state management (#22).
+ - **FIX**: comprehensive fixes for reference counting and loading state (#21).
+ - **FIX**: prevent negative reference count in Query and InfiniteQuery (#18).
+ - **FEAT**: clear cache when query is disposed to ensure fresh data on revisit (#20).
+
 ## 0.3.0
 
 > Note: This release has breaking changes.
