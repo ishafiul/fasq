@@ -18,7 +18,7 @@ void main() {
         return List.generate(3, (i) => (page - 1) * 3 + i + 1);
       },
       options: InfiniteQueryOptions<List<int>, int>(
-        getNextPageParam: (pages, last) => pages.length + 1,
+        getNextPageParam: (pages, last) => last == null ? 1 : pages.length + 1,
         maxPages: 3,
       ),
     );
@@ -42,7 +42,7 @@ void main() {
         return [page];
       },
       options: InfiniteQueryOptions<List<int>, int>(
-        getNextPageParam: (pages, last) => pages.length + 1,
+        getNextPageParam: (pages, last) => last == null ? 1 : pages.length + 1,
         maxPages: 2,
       ),
     );
@@ -68,7 +68,7 @@ void main() {
         return [p];
       },
       options: InfiniteQueryOptions<List<int>, int>(
-        getNextPageParam: (pages, last) => pages.length + 1,
+        getNextPageParam: (pages, last) => last == null ? 1 : pages.length + 1,
       ),
     );
 
