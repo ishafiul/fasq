@@ -46,3 +46,4 @@ app.*.map.json
 # Melos
 .melos_tool/
 
+/.cursor/
