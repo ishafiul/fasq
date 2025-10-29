@@ -8,9 +8,9 @@ class InfiniteQueryOptions<TData, TParam> {
   final VoidCallback? onSuccess;
   final void Function(Object error)? onError;
 
-  final TParam? Function(List<Page<TData, TParam>> pages, TData lastPageData)?
+  final TParam? Function(List<Page<TData, TParam>> pages, TData? lastPageData)?
       getNextPageParam;
-  final TParam? Function(List<Page<TData, TParam>> pages, TData firstPageData)?
+  final TParam? Function(List<Page<TData, TParam>> pages, TData? firstPageData)?
       getPreviousPageParam;
   final int? maxPages;
 
@@ -24,7 +24,7 @@ class InfiniteQueryOptions<TData, TParam> {
     this.getNextPageParam,
     this.getPreviousPageParam,
     this.maxPages,
-  });
+  }) : assert(maxPages == null || maxPages > 0, 'maxPages must be positive');
 }
 
 class Page<TData, TParam> {
