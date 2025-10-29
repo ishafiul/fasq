@@ -227,6 +227,58 @@ class ApiService {
     }
   }
 
+  static Future<List<Post>> fetchPostsWithCursor(int? cursor,
+      {int limit = 10}) async {
+    await _simulateDelay();
+
+    if (_shouldSimulateError()) {
+      throw Exception('Failed to fetch posts with cursor ${cursor ?? "null"}');
+    }
+
+    if (_useMockApi) {
+      final sortedPosts = List<Post>.from(_mockPosts)
+        ..sort((a, b) => b.id.compareTo(a.id));
+
+      if (cursor == null) {
+        return sortedPosts.take(limit).toList();
+      }
+
+      final filteredPosts =
+          sortedPosts.where((post) => post.id < cursor).toList();
+      return filteredPosts.take(limit).toList();
+    }
+
+    try {
+      final queryParams = <String, String>{
+        '_limit': limit.toString(),
+        '_sort': 'id',
+        '_order': 'desc',
+      };
+
+      if (cursor != null) {
+        queryParams['id_lte'] = cursor.toString();
+      }
+
+      final uri =
+          Uri.parse('$_baseUrl/posts').replace(queryParameters: queryParams);
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+        final posts = jsonList.map((json) => Post.fromJson(json)).toList();
+        posts.sort((a, b) => b.id.compareTo(a.id));
+        return posts.take(limit).toList();
+      } else {
+        throw Exception(
+            'Failed to fetch posts with cursor: ${response.statusCode}');
+      }
+    } on SocketException {
+      throw Exception('No internet connection');
+    } catch (e) {
+      throw Exception('Failed to fetch posts with cursor: $e');
+    }
+  }
+
   // Todos API
   static Future<List<Todo>> fetchTodos() async {
     await _simulateDelay();

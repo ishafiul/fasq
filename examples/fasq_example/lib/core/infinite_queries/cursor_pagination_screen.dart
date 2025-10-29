@@ -32,7 +32,7 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
       options: InfiniteQueryOptions<List<Post>, String?>(
         getNextPageParam: (pages, lastPageData) {
           if (pages.isEmpty) {
-            return '1';
+            return '';
           }
           if (pages.length >= maxPages) {
             return null;
@@ -41,7 +41,7 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
             return null;
           }
           final lastPost = lastPageData.last;
-          return '${lastPost.id + 1}';
+          return '${lastPost.id}';
         },
         maxPages: maxPages,
       ),
@@ -70,11 +70,9 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
   Future<List<Post>> _fetchPostsWithCursor(String? cursor) async {
     await Future.delayed(const Duration(milliseconds: 800));
 
-    final cursorValue = cursor == null ? 0 : int.tryParse(cursor) ?? 0;
-    final posts = await ApiService.fetchPostsPaginated(
-      ((cursorValue - 1) ~/ 5) + 1,
-      limit: 5,
-    );
+    final cursorValue =
+        cursor == null || cursor.isEmpty ? null : int.tryParse(cursor);
+    final posts = await ApiService.fetchPostsWithCursor(cursorValue, limit: 5);
 
     return posts;
   }
@@ -91,22 +89,29 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
     return ExampleScaffold(
       title: 'Cursor Pagination',
       description:
-          'Demonstrates cursor-based pagination using InfiniteQuery. Posts are loaded incrementally with a cursor-based pagination strategy.',
+          'Demonstrates true cursor-based pagination using InfiniteQuery. Posts are queried directly using WHERE id < cursor, providing stable pagination windows that remain consistent even when data changes.',
       codeSnippet: '''
 final query = QueryClient().getInfiniteQuery<List<Post>, String?>(
   'posts-cursor',
   (cursor) => fetchPostsWithCursor(cursor),
   options: InfiniteQueryOptions<List<Post>, String?>(
     getNextPageParam: (pages, lastPageData) {
+      if (pages.isEmpty) {
+        return '';
+      }
       if (lastPageData == null || lastPageData.isEmpty) {
         return null;
       }
       final lastPost = lastPageData.last;
-      return '\${lastPost.id + 1}';
+      return '\${lastPost.id}';
     },
     maxPages: 5,
   ),
 );
+
+// The cursor points to the last post's ID
+// Empty string ('') means fetch first page (no cursor)
+// Next query: WHERE id < cursor ORDER BY id DESC LIMIT limit
 
 // Load next page
 await query.fetchNextPage();
