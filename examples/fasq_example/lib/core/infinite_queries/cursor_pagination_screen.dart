@@ -25,6 +25,7 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
 
   void _initializeQuery() {
     final client = QueryClient();
+    const maxPages = 5;
     _query = client.getInfiniteQuery<List<Post>, String?>(
       'posts-cursor',
       (cursor) => _fetchPostsWithCursor(cursor),
@@ -33,13 +34,16 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
           if (pages.isEmpty) {
             return '1';
           }
+          if (pages.length >= maxPages) {
+            return null;
+          }
           if (lastPageData == null || lastPageData.isEmpty) {
             return null;
           }
           final lastPost = lastPageData.last;
           return '${lastPost.id + 1}';
         },
-        maxPages: 5,
+        maxPages: maxPages,
       ),
     );
 
@@ -68,7 +72,7 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
 
     final cursorValue = cursor == null ? 0 : int.tryParse(cursor) ?? 0;
     final posts = await ApiService.fetchPostsPaginated(
-      (cursorValue ~/ 10) + 1,
+      ((cursorValue - 1) ~/ 5) + 1,
       limit: 5,
     );
 
@@ -183,14 +187,15 @@ if (query.state.isFetchingNextPage) { /* show spinner */ }
   }
 
   Widget _buildControls() {
+    final shouldDisableButton =
+        _state.isFetchingNextPage || !_state.hasNextPage;
+
     return Row(
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: _state.isFetchingNextPage ||
-                    (_state.pages.isNotEmpty && !_state.hasNextPage)
-                ? null
-                : () => _query.fetchNextPage(),
+            onPressed:
+                shouldDisableButton ? null : () => _query.fetchNextPage(),
             icon: const Icon(Icons.add_circle_outline),
             label: const Text('Load More Posts'),
             style: ElevatedButton.styleFrom(
@@ -201,7 +206,7 @@ if (query.state.isFetchingNextPage) { /* show spinner */ }
         ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
-          onPressed: () => _query.reset(),
+          onPressed: _state.isFetchingNextPage ? null : () => _query.reset(),
           icon: const Icon(Icons.refresh),
           label: const Text('Reset'),
           style: ElevatedButton.styleFrom(
@@ -300,10 +305,16 @@ if (query.state.isFetchingNextPage) { /* show spinner */ }
               itemBuilder: (context, index) {
                 if (index < allPosts.length) {
                   final post = allPosts[index];
-                  final pageIndex = _getPageIndexForPost(post.id, allPosts);
+                  final pageIndex = _getPageIndexForPost(post);
                   return _buildPostCard(post, pageIndex);
                 } else if (errorPages.isNotEmpty && index == allPosts.length) {
-                  return _buildErrorRetryCard(errorPages.first.error!);
+                  final errorPageIndex = _state.pages.indexWhere(
+                    (page) => page.error != null,
+                  );
+                  return _buildErrorRetryCard(
+                    errorPages.first.error!,
+                    errorPageIndex >= 0 ? errorPageIndex : null,
+                  );
                 } else if (_state.isFetchingNextPage) {
                   return _buildLoadingIndicator();
                 } else if (_state.hasNextPage) {
@@ -318,10 +329,17 @@ if (query.state.isFetchingNextPage) { /* show spinner */ }
     );
   }
 
-  int _getPageIndexForPost(int postId, List<Post> allPosts) {
-    final postIndex = allPosts.indexWhere((p) => p.id == postId);
-    if (postIndex == -1) return 0;
-    return (postIndex ~/ 5) + 1;
+  int _getPageIndexForPost(Post post) {
+    for (int i = 0; i < _state.pages.length; i++) {
+      final page = _state.pages[i];
+      if (page.data != null) {
+        final posts = page.data as List<Post>;
+        if (posts.any((p) => p.id == post.id)) {
+          return i + 1;
+        }
+      }
+    }
+    return 1;
   }
 
   Widget _buildPostCard(Post post, int pageIndex) {
@@ -396,7 +414,7 @@ if (query.state.isFetchingNextPage) { /* show spinner */ }
     );
   }
 
-  Widget _buildErrorRetryCard(Object error) {
+  Widget _buildErrorRetryCard(Object error, int? errorPageIndex) {
     return Card(
       color: Theme.of(context).colorScheme.errorContainer,
       child: Padding(
@@ -426,7 +444,15 @@ if (query.state.isFetchingNextPage) { /* show spinner */ }
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: () => _query.fetchNextPage(),
+              onPressed: _state.isFetchingNextPage
+                  ? null
+                  : () {
+                      if (errorPageIndex != null && errorPageIndex >= 0) {
+                        _query.refetchPage(errorPageIndex);
+                      } else {
+                        _query.fetchNextPage();
+                      }
+                    },
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
