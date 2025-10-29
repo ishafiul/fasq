@@ -17,6 +17,7 @@ import '../cache_management/manual_cache_control_screen.dart';
 import '../infinite_queries/page_number_pagination_screen.dart';
 import '../infinite_queries/cursor_pagination_screen.dart';
 import '../infinite_queries/load_more_button_screen.dart';
+import '../infinite_queries/infinite_scroll_screen.dart';
 import '../dependent_queries/user_posts_screen.dart';
 import '../dependent_queries/category_products_screen.dart';
 import '../offline_queue/basic_offline_queue_screen.dart';
@@ -157,8 +158,13 @@ class CoreExamplesScreen extends StatelessWidget {
             description: 'Handle pagination and infinite scroll',
             examples: [
               _ExampleItem(
+                title: 'Infinite Scroll',
+                description: 'Auto-load posts as you scroll',
+                screen: const InfiniteScrollScreen(),
+              ),
+              _ExampleItem(
                 title: 'Page Number Pagination',
-                description: 'Page-based infinite scroll',
+                description: 'Navigate pages with Previous/Next buttons',
                 screen: const PageNumberPaginationScreen(),
               ),
               _ExampleItem(
