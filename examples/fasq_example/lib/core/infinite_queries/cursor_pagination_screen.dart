@@ -29,8 +29,10 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
       'posts-cursor',
       (cursor) => _fetchPostsWithCursor(cursor),
       options: InfiniteQueryOptions<List<Post>, String?>(
-        enabled: false,
         getNextPageParam: (pages, lastPageData) {
+          if (pages.isEmpty) {
+            return '1';
+          }
           if (lastPageData == null || lastPageData.isEmpty) {
             return null;
           }
@@ -52,10 +54,11 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
       }
     });
 
-    // Manually trigger the first fetch
-    Future.microtask(() {
-      if (mounted) {
-        _query.fetchNextPage('1');
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted &&
+          _query.state.pages.isEmpty &&
+          !_query.state.isFetchingNextPage) {
+        await _query.fetchNextPage();
       }
     });
   }
@@ -184,7 +187,8 @@ if (query.state.isFetchingNextPage) { /* show spinner */ }
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: _state.isFetchingNextPage || !_state.hasNextPage
+            onPressed: _state.isFetchingNextPage ||
+                    (_state.pages.isNotEmpty && !_state.hasNextPage)
                 ? null
                 : () => _query.fetchNextPage(),
             icon: const Icon(Icons.add_circle_outline),
@@ -216,21 +220,37 @@ if (query.state.isFetchingNextPage) { /* show spinner */ }
     final errorPages =
         _state.pages.where((page) => page.error != null).toList();
 
-    if (_state.pages.isEmpty && _state.status == QueryStatus.loading) {
+    if (_state.pages.isEmpty) {
+      if (_state.status == QueryStatus.loading || _state.isFetchingNextPage) {
+        return Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceVariant,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading posts...'),
+              ],
+            ),
+          ),
+        );
+      }
       return Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Loading posts...'),
-            ],
+        child: Center(
+          child: ElevatedButton.icon(
+            onPressed: () => _query.fetchNextPage(),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Load Posts'),
           ),
         ),
       );
