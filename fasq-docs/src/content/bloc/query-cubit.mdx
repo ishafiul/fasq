@@ -1,13 +1,23 @@
 # QueryCubit
 
-The `QueryCubit` is a Cubit that wraps a Fasq query, emitting `QueryState` changes. It provides a structured and familiar way to manage server state with the `flutter_bloc` library.
+The `QueryCubit` is an abstract base class that wraps a Fasq query, emitting `QueryState` changes. Extend `QueryCubit` to create your own query cubits with type-safe, structured state management.
 
 ## Basic Usage
+
+Extend `QueryCubit` and implement the required getters:
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fasq_bloc/fasq_bloc.dart';
+
+class UsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+}
 
 class UsersScreen extends StatelessWidget {
   @override
@@ -15,11 +25,8 @@ class UsersScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Users')),
       body: BlocProvider(
-        create: (context) => QueryCubit<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-        ),
-        child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        create: (context) => UsersQueryCubit(),
+        child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) {
             if (state.isLoading) {
               return Center(child: CircularProgressIndicator());
@@ -50,49 +57,48 @@ class UsersScreen extends StatelessWidget {
 
 ## Cubit Configuration
 
-Configure query behavior with QueryOptions:
+Configure query behavior by overriding the `options` getter:
 
 ```dart
-class UsersScreen extends StatelessWidget {
+class UsersQueryCubit extends QueryCubit<List<User>> {
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Users')),
-      body: BlocProvider(
-        create: (context) => QueryCubit<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-          options: QueryOptions(
-            staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
-            cacheTime: Duration(minutes: 10), // Keep in cache for 10 minutes
-            enabled: true,                     // Whether to execute the query
-            onSuccess: (users) {
-              print('Users fetched: ${users.length}');
-            },
-            onError: (error) {
-              print('Error fetching users: $error');
-            },
-          ),
-        ),
-        child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
-          builder: (context, state) {
-            if (state.isLoading) return CircularProgressIndicator();
-            if (state.hasError) return Text('Error: ${state.error}');
-            if (state.hasData) return UserList(users: state.data!);
-            return SizedBox();
-          },
-        ),
-      ),
-    );
-  }
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    staleTime: Duration(minutes: 5),
+    cacheTime: Duration(minutes: 10),
+    enabled: true,
+    onSuccess: () {
+      print('Users fetched successfully');
+    },
+    onError: (error) {
+      print('Error fetching users: $error');
+    },
+  );
 }
 ```
 
 ## Parameterized Queries
 
-Use dynamic query keys for parameterized queries:
+Use constructor parameters or fields for dynamic query keys:
 
 ```dart
+class UserProfileQueryCubit extends QueryCubit<User> {
+  final String userId;
+
+  UserProfileQueryCubit(this.userId);
+
+  @override
+  String get key => 'user:$userId';
+
+  @override
+  Future<User> Function() get queryFn => () => api.fetchUser(userId);
+}
+
 class UserProfileScreen extends StatelessWidget {
   final String userId;
   
@@ -103,11 +109,8 @@ class UserProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('User Profile')),
       body: BlocProvider(
-        create: (context) => QueryCubit<User>(
-          queryKey: 'user:$userId', // Include parameter in key
-          queryFn: () => api.fetchUser(userId),
-        ),
-        child: BlocBuilder<QueryCubit<User>, QueryState<User>>(
+        create: (context) => UserProfileQueryCubit(userId),
+        child: BlocBuilder<UserProfileQueryCubit, QueryState<User>>(
           builder: (context, state) {
             if (state.isLoading) return CircularProgressIndicator();
             if (state.hasError) return Text('Error: ${state.error}');
@@ -123,9 +126,26 @@ class UserProfileScreen extends StatelessWidget {
 
 ## Conditional Queries
 
-Disable queries based on conditions:
+Disable queries based on conditions using the `enabled` option:
 
 ```dart
+class UserProfileQueryCubit extends QueryCubit<User?> {
+  final String? userId;
+
+  UserProfileQueryCubit(this.userId);
+
+  @override
+  String get key => 'user:$userId';
+
+  @override
+  Future<User?> Function() get queryFn => () => api.fetchUser(userId!);
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    enabled: userId != null,
+  );
+}
+
 class UserProfileScreen extends StatelessWidget {
   final String? userId;
   
@@ -136,14 +156,8 @@ class UserProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('User Profile')),
       body: BlocProvider(
-        create: (context) => QueryCubit<User?>(
-          queryKey: 'user:$userId',
-          queryFn: () => api.fetchUser(userId!),
-          options: QueryOptions(
-            enabled: userId != null, // Only fetch when userId is available
-          ),
-        ),
-        child: BlocBuilder<QueryCubit<User?>, QueryState<User?>>(
+        create: (context) => UserProfileQueryCubit(userId),
+        child: BlocBuilder<UserProfileQueryCubit, QueryState<User?>>(
           builder: (context, state) {
             if (userId == null) {
               return Center(child: Text('Please select a user'));
@@ -163,9 +177,26 @@ class UserProfileScreen extends StatelessWidget {
 
 ## Dependent Queries
 
-Create queries that depend on other queries:
+Create dependent queries by checking other cubit states:
 
 ```dart
+class UserPostsQueryCubit extends QueryCubit<List<Post>> {
+  final String userId;
+
+  UserPostsQueryCubit(this.userId);
+
+  @override
+  String get key => 'posts:user:$userId';
+
+  @override
+  Future<List<Post>> Function() get queryFn => () => api.fetchUserPosts(userId);
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    enabled: false,
+  );
+}
+
 class UserPostsScreen extends StatelessWidget {
   final String userId;
   
@@ -177,27 +208,10 @@ class UserPostsScreen extends StatelessWidget {
       appBar: AppBar(title: Text('User Posts')),
       body: MultiBlocProvider(
         providers: [
-          BlocProvider(
-            create: (context) => QueryCubit<User>(
-              queryKey: 'user:$userId',
-              queryFn: () => api.fetchUser(userId),
-            ),
-          ),
-          BlocProvider(
-            create: (context) => QueryCubit<List<Post>>(
-              queryKey: 'posts:user:$userId',
-              queryFn: () => api.fetchUserPosts(userId),
-              options: QueryOptions(
-                enabled: () {
-                  // Only fetch posts when user is loaded
-                  final userCubit = context.read<QueryCubit<User>>();
-                  return userCubit.state.hasData;
-                },
-              ),
-            ),
-          ),
+          BlocProvider(create: (context) => UserProfileQueryCubit(userId)),
+          BlocProvider(create: (context) => UserPostsQueryCubit(userId)),
         ],
-        child: BlocBuilder<QueryCubit<User>, QueryState<User>>(
+        child: BlocBuilder<UserProfileQueryCubit, QueryState<User>>(
           builder: (context, userState) {
             if (userState.isLoading) {
               return Center(child: CircularProgressIndicator());
@@ -206,8 +220,13 @@ class UserPostsScreen extends StatelessWidget {
             if (!userState.hasData) {
               return Center(child: Text('User not found'));
             }
+
+            final postsCubit = context.read<UserPostsQueryCubit>();
+            if (userState.hasData && postsCubit.state.isIdle) {
+              postsCubit.refetch();
+            }
             
-            return BlocBuilder<QueryCubit<List<Post>>, QueryState<List<Post>>>(
+            return BlocBuilder<UserPostsQueryCubit, QueryState<List<Post>>>(
               builder: (context, postsState) {
                 if (postsState.isLoading) {
                   return Center(child: Text('Loading posts...'));
@@ -238,9 +257,7 @@ class RefreshButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: () {
-        // Get the QueryCubit and trigger refetch
-        final cubit = context.read<QueryCubit<List<User>>>();
-        cubit.fetch();
+        context.read<UsersQueryCubit>().refetch();
       },
       child: Text('Refresh Users'),
     );
@@ -260,25 +277,22 @@ class CacheManager extends StatelessWidget {
       children: [
         ElevatedButton(
           onPressed: () {
-            // Invalidate specific query
             QueryClient().invalidateQuery('users');
           },
           child: Text('Invalidate Users'),
         ),
         ElevatedButton(
           onPressed: () {
-            // Set query data manually
-            QueryClient().setQueryData('user:1', User(id: '1', name: 'John'));
+            final cubit = context.read<UsersQueryCubit>();
+            cubit.invalidate();
           },
-          child: Text('Set User Data'),
+          child: Text('Invalidate via Cubit'),
         ),
         ElevatedButton(
           onPressed: () {
-            // Get cache info
-            final info = QueryClient().getCacheInfo();
-            print('Cache entries: ${info.entryCount}');
+            QueryClient().setQueryData('user:1', User(id: '1', name: 'John'));
           },
-          child: Text('Print Cache Info'),
+          child: Text('Set User Data'),
         ),
       ],
     );
@@ -297,11 +311,8 @@ class UsersScreenWithErrorHandling extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Users')),
       body: BlocProvider(
-        create: (context) => QueryCubit<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-        ),
-        child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        create: (context) => UsersQueryCubit(),
+        child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) {
             if (state.hasError) {
               return Center(
@@ -311,8 +322,7 @@ class UsersScreenWithErrorHandling extends StatelessWidget {
                     Text('Error: ${state.error}'),
                     ElevatedButton(
                       onPressed: () {
-                        // Retry the query
-                        context.read<QueryCubit<List<User>>>().fetch();
+                        context.read<UsersQueryCubit>().refetch();
                       },
                       child: Text('Retry'),
                     ),
@@ -343,16 +353,13 @@ class UsersScreenWithBackgroundRefresh extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Users')),
       body: BlocProvider(
-        create: (context) => QueryCubit<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-        ),
-        child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        create: (context) => UsersQueryCubit(),
+        child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) {
             return Column(
               children: [
                 if (state.isFetching && !state.isLoading)
-                  LinearProgressIndicator(), // Background refresh indicator
+                  LinearProgressIndicator(),
                 Expanded(
                   child: state.when(
                     idle: () => Center(child: Text('Ready to load users')),
@@ -382,24 +389,28 @@ class UsersScreenWithBackgroundRefresh extends StatelessWidget {
 Full generic type support ensures compile-time safety:
 
 ```dart
+class UsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+}
+
 class TypeSafeUsersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Users')),
       body: BlocProvider(
-        create: (context) => QueryCubit<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-        ),
-        child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        create: (context) => UsersQueryCubit(),
+        child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) {
             if (state.hasData) {
-              // state.data is List<User>
               return ListView.builder(
                 itemCount: state.data!.length,
                 itemBuilder: (context, index) {
-                  final user = state.data![index]; // user is User
+                  final user = state.data![index];
                   return ListTile(
                     title: Text(user.name),
                     subtitle: Text(user.email),
@@ -430,11 +441,8 @@ class UsersScreenWithSkeleton extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Users')),
       body: BlocProvider(
-        create: (context) => QueryCubit<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-        ),
-        child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        create: (context) => UsersQueryCubit(),
+        child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) {
             if (state.isLoading) {
               return ListView.builder(
@@ -468,11 +476,8 @@ class UsersScreenWithEmptyState extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Users')),
       body: BlocProvider(
-        create: (context) => QueryCubit<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-        ),
-        child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        create: (context) => UsersQueryCubit(),
+        child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) {
             if (state.isLoading) return CircularProgressIndicator();
             if (state.hasError) return Text('Error: ${state.error}');

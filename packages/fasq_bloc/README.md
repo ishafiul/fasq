@@ -4,9 +4,9 @@ Bloc/Cubit adapter for FASQ (Flutter Async State Query) - bringing powerful asyn
 
 ## Features
 
-- 🧊 **QueryCubit** - Cubit wrapper for queries
-- ♾️ **InfiniteQueryCubit** - Infinite queries for pagination
-- 🔄 **MutationCubit** - Cubit for server mutations
+- 🧊 **QueryCubit** - Abstract base cubit for queries
+- ♾️ **InfiniteQueryCubit** - Abstract base cubit for infinite queries
+- 🔄 **MutationCubit** - Abstract base cubit for server mutations
 - 🔀 **MultiQueryBuilder** - Execute multiple queries in parallel
 - 🚀 **Automatic caching** - Built on FASQ's production-ready cache
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
@@ -20,26 +20,144 @@ dependencies:
 ```
 
 ## Usage
-### Infinite Queries with InfiniteQueryCubit
+
+### Basic Query with QueryCubit
+
+Extend `QueryCubit` and implement the required getters:
 
 ```dart
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fasq_bloc/fasq_bloc.dart';
+
+class UsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    staleTime: Duration(minutes: 5),
+  );
+}
+
+class UsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => UsersQueryCubit(),
+      child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
+        builder: (context, state) {
+          if (state.isLoading) {
+            return CircularProgressIndicator();
+          }
+          
+          if (state.hasError) {
+            return Text('Error: ${state.error}');
+          }
+          
+          if (state.hasData) {
+            return UserList(users: state.data!);
+          }
+          
+          return SizedBox();
+        },
+      ),
+    );
+  }
+}
+```
+
+### Infinite Queries with InfiniteQueryCubit
+
+Extend `InfiniteQueryCubit` for pagination:
+
+```dart
+class PostsInfiniteQueryCubit extends InfiniteQueryCubit<List<Post>, int> {
+  @override
+  String get key => 'posts';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  );
+}
+
 BlocProvider(
-  create: (_) => InfiniteQueryCubit<List<Post>, int>(
-    key: 'posts',
-    queryFn: (page) => api.fetchPosts(page: page),
-    options: InfiniteQueryOptions(
-      getNextPageParam: (pages, last) => pages.length + 1,
-    ),
-  ),
-  child: BlocBuilder<InfiniteQueryCubit<List<Post>, int>, InfiniteQueryState<List<Post>, int>>(
+  create: (_) => PostsInfiniteQueryCubit(),
+  child: BlocBuilder<PostsInfiniteQueryCubit, InfiniteQueryState<List<Post>, int>>(
     builder: (context, state) {
+      final allPosts = state.pages.expand((p) => p.data ?? []).toList();
       return ListView.builder(
-        itemCount: state.pages.expand((p) => p.data ?? []).length,
-        itemBuilder: (_, i) => Text('Item #$i'),
+        itemCount: allPosts.length,
+        itemBuilder: (_, i) => PostItem(allPosts[i]),
       );
     },
   ),
 )
+```
+
+### Mutations with MutationCubit
+
+Extend `MutationCubit` for server mutations:
+
+```dart
+class CreateUserMutationCubit extends MutationCubit<User, String> {
+  @override
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+
+  @override
+  MutationOptions<User, String>? get options => MutationOptions(
+    onSuccess: (user) {
+      QueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      print('Error: $error');
+    },
+  );
+}
+
+class CreateUserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => CreateUserMutationCubit(),
+      child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
+        builder: (context, state) {
+          return Column(
+            children: [
+              if (state.isLoading)
+                CircularProgressIndicator(),
+              
+              if (state.hasError)
+                Text('Error: ${state.error}'),
+              
+              if (state.hasData)
+                Text('Created: ${state.data!.name}'),
+              
+              ElevatedButton(
+                onPressed: state.isLoading
+                    ? null
+                    : () {
+                        context
+                            .read<CreateUserMutationCubit>()
+                            .mutate('John Doe');
+                      },
+                child: Text('Create User'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
 ```
 
 ### Parallel Queries with MultiQueryBuilder
@@ -47,7 +165,6 @@ BlocProvider(
 Execute multiple queries in parallel using `MultiQueryBuilder` or `NamedMultiQueryBuilder`:
 
 ```dart
-// Index-based access
 MultiQueryBuilder(
   configs: [
     MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
@@ -67,7 +184,6 @@ MultiQueryBuilder(
   },
 )
 
-// Named access (better DX)
 NamedMultiQueryBuilder(
   configs: [
     NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
@@ -93,7 +209,6 @@ NamedMultiQueryBuilder(
 Warm the cache before data is needed:
 
 ```dart
-// Using PrefetchBuilder
 PrefetchBuilder(
   configs: [
     PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
@@ -102,63 +217,31 @@ PrefetchBuilder(
   child: YourScreen(),
 )
 
-// Using PrefetchQueryCubit directly
 final prefetchCubit = PrefetchQueryCubit();
 await prefetchCubit.prefetch('users', () => api.fetchUsers());
 ```
 
 ### Dependent Queries
 
-```dart
-final userCubit = QueryCubit<User>(key: 'user', queryFn: fetchUser);
-final postsCubit = QueryCubit<List<Post>>(
-  key: 'posts:user:${userCubit.state.data?.id}',
-  queryFn: () => fetchPosts(userCubit.state.data!.id),
-  options: const QueryOptions(enabled: false),
-);
-
-// Enable when user loaded
-if (userCubit.state.isSuccess) {
-  // You can recreate with enabled true or structure initialization post user
-}
-```
-
-### Basic Query with QueryCubit
+Create dependent queries by implementing conditional logic:
 
 ```dart
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:fasq_bloc/fasq_bloc.dart';
+class UserPostsQueryCubit extends QueryCubit<List<Post>> {
+  final String userId;
 
-class UsersScreen extends StatelessWidget {
+  UserPostsQueryCubit(this.userId);
+
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => QueryCubit<List<User>>(
-        key: 'users',
-        queryFn: () => api.fetchUsers(),
-        options: QueryOptions(
-          staleTime: Duration(minutes: 5),
-        ),
-      ),
-      child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return CircularProgressIndicator();
-          }
-          
-          if (state.hasError) {
-            return Text('Error: ${state.error}');
-          }
-          
-          if (state.hasData) {
-            return UserList(users: state.data!);
-          }
-          
-          return SizedBox();
-        },
-      ),
-    );
-  }
+  String get key => 'posts:user:$userId';
+
+  @override
+  Future<List<Post>> Function() get queryFn => 
+    () => api.fetchUserPosts(userId);
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    enabled: userId.isNotEmpty,
+  );
 }
 ```
 
@@ -172,63 +255,11 @@ class UserList extends StatelessWidget {
       children: [
         ElevatedButton(
           onPressed: () {
-            // Refetch the query
-            context.read<QueryCubit<List<User>>>().refetch();
+            context.read<UsersQueryCubit>().refetch();
           },
           child: Text('Refresh'),
         ),
-        // ... list content
       ],
-    );
-  }
-}
-```
-
-### Mutations with MutationCubit
-
-```dart
-class CreateUserScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => MutationCubit<User, String>(
-        mutationFn: (name) => api.createUser(name),
-        onSuccessCallback: (user) {
-          print('Created user: ${user.name}');
-          // Invalidate users query
-          QueryClient().invalidateQuery('users');
-        },
-        onErrorCallback: (error) {
-          print('Error: $error');
-        },
-      ),
-      child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
-        builder: (context, state) {
-          return Column(
-            children: [
-              if (state.isLoading)
-                CircularProgressIndicator(),
-              
-              if (state.hasError)
-                Text('Error: ${state.error}'),
-              
-              if (state.hasData)
-                Text('Created: ${state.data!.name}'),
-              
-              ElevatedButton(
-                onPressed: state.isLoading
-                    ? null
-                    : () {
-                        context
-                            .read<MutationCubit<User, String>>()
-                            .mutate('John Doe');
-                      },
-                child: Text('Create User'),
-              ),
-            ],
-          );
-        },
-      ),
     );
   }
 }
@@ -242,12 +273,10 @@ class MyWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: () {
-        final cubit = context.read<QueryCubit<List<User>>>();
+        final cubit = context.read<UsersQueryCubit>();
         
-        // Invalidate and refetch this query
         cubit.invalidate();
         
-        // Or use QueryClient directly
         QueryClient().invalidateQuery('users');
         QueryClient().invalidateQueriesWithPrefix('user:');
       },
@@ -262,15 +291,14 @@ class MyWidget extends StatelessWidget {
 ### QueryCubit
 
 ```dart
-class QueryCubit<T> extends Cubit<QueryState<T>> {
-  QueryCubit({
-    required String key,
-    required Future<T> Function() queryFn,
-    QueryOptions? options,
-  });
+abstract class QueryCubit<T> extends Cubit<QueryState<T>> {
+  String get key;
+  Future<T> Function() get queryFn;
+  QueryOptions? get options => null;
+  QueryClient? get client => null;
   
-  void refetch(); // Manually refetch
-  void invalidate(); // Invalidate and refetch
+  void refetch();
+  void invalidate();
 }
 ```
 
@@ -282,15 +310,30 @@ class QueryCubit<T> extends Cubit<QueryState<T>> {
 - `hasError` - Whether an error occurred
 - `error` - The error object
 
+### InfiniteQueryCubit
+
+```dart
+abstract class InfiniteQueryCubit<TData, TParam> 
+    extends Cubit<InfiniteQueryState<TData, TParam>> {
+  String get key;
+  Future<TData> Function(TParam param) get queryFn;
+  InfiniteQueryOptions<TData, TParam>? get options => null;
+  
+  Future<void> fetchNextPage([TParam? param]);
+  Future<void> fetchPreviousPage();
+  Future<void> refetchPage(int index);
+  void reset();
+}
+```
+
 ### MutationCubit
 
 ```dart
-class MutationCubit<TData, TVariables> extends Cubit<MutationState<TData>> {
-  MutationCubit({
-    required Future<TData> Function(TVariables) mutationFn,
-    void Function(TData)? onSuccessCallback,
-    void Function(Object)? onErrorCallback,
-  });
+abstract class MutationCubit<TData, TVariables> 
+    extends Cubit<MutationState<TData>> {
+  Future<TData> Function(TVariables variables) get mutationFn;
+  MutationOptions<TData, TVariables>? get options => null;
+  QueryClient? get client => null;
   
   Future<void> mutate(TVariables variables);
   void reset();
@@ -329,12 +372,17 @@ QueryBuilder<List<User>>(
 
 **Bloc Adapter (QueryCubit):**
 ```dart
+class UsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users';
+  
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+}
+
 BlocProvider(
-  create: (_) => QueryCubit(
-    key: 'users',
-    queryFn: () => api.fetchUsers(),
-  ),
-  child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+  create: (_) => UsersQueryCubit(),
+  child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
     builder: (context, state) {
       if (state.isLoading) return Loading();
       return UserList(state.data!);
@@ -350,7 +398,7 @@ Both approaches use the same underlying query engine and have identical performa
 ### Using BlocConsumer for Side Effects
 
 ```dart
-BlocConsumer<QueryCubit<User>, QueryState<User>>(
+BlocConsumer<UsersQueryCubit, QueryState<List<User>>>(
   listener: (context, state) {
     if (state.hasError) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -363,7 +411,7 @@ BlocConsumer<QueryCubit<User>, QueryState<User>>(
     }
   },
   builder: (context, state) {
-    // Build UI
+    return UserList(users: state.data ?? []);
   },
 )
 ```
@@ -373,93 +421,72 @@ BlocConsumer<QueryCubit<User>, QueryState<User>>(
 ```dart
 MultiBlocProvider(
   providers: [
-    BlocProvider(
-      create: (_) => QueryCubit<List<User>>(
-        key: 'users',
-        queryFn: () => api.fetchUsers(),
-      ),
-    ),
-    BlocProvider(
-      create: (_) => QueryCubit<List<Post>>(
-        key: 'posts',
-        queryFn: () => api.fetchPosts(),
-      ),
-    ),
+    BlocProvider(create: (_) => UsersQueryCubit()),
+    BlocProvider(create: (_) => PostsQueryCubit()),
   ],
   child: MyScreen(),
 )
 ```
 
+### Custom QueryClient
+
+```dart
+class SecureUsersQueryCubit extends QueryCubit<String> {
+  @override
+  String get key => 'auth-token';
+  
+  @override
+  Future<String> Function() get queryFn => () => api.getAuthToken();
+  
+  @override
+  QueryOptions? get options => QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 15),
+    staleTime: Duration(minutes: 5),
+  );
+  
+  @override
+  QueryClient? get client => QueryClient();
+}
+```
+
 ## Security Features 🔒
 
-fasq_bloc supports all FASQ security features through QueryClient configuration:
+fasq_bloc supports all FASQ security features through QueryClient configuration and options:
 
-### Secure Queries with QueryCubit
+### Secure Queries
 
 ```dart
-BlocProvider(
-  create: (_) => QueryCubit<String>(
-    key: 'auth-token',
-    queryFn: () => api.getAuthToken(),
-    options: QueryOptions(
-      isSecure: true,                    // Mark as secure
-      maxAge: Duration(minutes: 15),     // Required TTL
-      staleTime: Duration(minutes: 5),
-    ),
-    client: context.queryClient,         // Use configured client
-  ),
-  child: BlocBuilder<QueryCubit<String>, QueryState<String>>(
-    builder: (context, state) {
-      // Secure data never persisted, cleared on app background
-      return Text('Token: ${state.data}');
-    },
-  ),
-)
+class SecureTokenQueryCubit extends QueryCubit<String> {
+  @override
+  String get key => 'auth-token';
+  
+  @override
+  Future<String> Function() get queryFn => () => api.getAuthToken();
+  
+  @override
+  QueryOptions? get options => QueryOptions(
+    isSecure: true,
+    maxAge: Duration(minutes: 15),
+    staleTime: Duration(minutes: 5),
+  );
+}
 ```
 
-### Secure Mutations with MutationCubit
+### Secure Mutations
 
 ```dart
-BlocProvider(
-  create: (_) => MutationCubit<String, String>(
-    mutationFn: (data) => api.secureMutation(data),
-    options: MutationOptions(
-      queueWhenOffline: true,
-      maxRetries: 3,
-    ),
-    client: context.queryClient,         // Use configured client
-  ),
-  child: BlocBuilder<MutationCubit<String, String>, MutationState<String>>(
-    builder: (context, state) {
-      return ElevatedButton(
-        onPressed: state.isLoading
-            ? null
-            : () => context.read<MutationCubit<String, String>>().mutate('secure-data'),
-        child: state.isLoading
-            ? CircularProgressIndicator()
-            : Text('Secure Mutation'),
-      );
-    },
-  ),
-)
-```
-
-### Global Security Configuration
-
-```dart
-QueryClientProvider(
-  config: CacheConfig(
-    defaultStaleTime: Duration(minutes: 5),
-    defaultCacheTime: Duration(minutes: 10),
-  ),
-  persistenceOptions: PersistenceOptions(
-    enabled: true,
-    encryptionKey: 'your-encryption-key',
-  ),
-  child: MaterialApp(
-    home: MyApp(),
-  ),
-)
+class SecureMutationCubit extends MutationCubit<String, String> {
+  @override
+  Future<String> Function(String variables) get mutationFn => 
+    (data) => api.secureMutation(data);
+  
+  @override
+  MutationOptions<String, String>? get options => MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+  );
+}
 ```
 
 **Security Benefits:**

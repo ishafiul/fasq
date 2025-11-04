@@ -11,35 +11,41 @@ Organize cubits by feature or domain:
 ```dart
 // user_cubits.dart
 class UsersQueryCubit extends QueryCubit<List<User>> {
-  UsersQueryCubit() : super(
-    queryKey: 'users',
-    queryFn: () => api.fetchUsers(),
-  );
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
 }
 
 class UserQueryCubit extends QueryCubit<User> {
-  UserQueryCubit(String userId) : super(
-    queryKey: 'user:$userId',
-    queryFn: () => api.fetchUser(userId),
-  );
+  final String userId;
+
+  UserQueryCubit(this.userId);
+
+  @override
+  String get key => 'user:$userId';
+
+  @override
+  Future<User> Function() get queryFn => () => api.fetchUser(userId);
 }
 
 class CreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
-  CreateUserMutationCubit() : super(
-    mutationFn: (data) => api.createUser(data),
-  );
+  @override
+  Future<User> Function(Map<String, String> variables) get mutationFn => 
+    (data) => api.createUser(data);
 }
 
 class UpdateUserMutationCubit extends MutationCubit<User, User> {
-  UpdateUserMutationCubit() : super(
-    mutationFn: (user) => api.updateUser(user),
-  );
+  @override
+  Future<User> Function(User variables) get mutationFn => 
+    (user) => api.updateUser(user);
 }
 
 class DeleteUserMutationCubit extends MutationCubit<void, String> {
-  DeleteUserMutationCubit() : super(
-    mutationFn: (userId) => api.deleteUser(userId),
-  );
+  @override
+  Future<void> Function(String variables) get mutationFn => 
+    (userId) => api.deleteUser(userId);
 }
 ```
 
@@ -49,23 +55,30 @@ Create cubits that depend on other cubits:
 
 ```dart
 class AuthQueryCubit extends QueryCubit<User?> {
-  AuthQueryCubit() : super(
-    queryKey: 'auth',
-    queryFn: () => api.getCurrentUser(),
-  );
+  @override
+  String get key => 'auth';
+
+  @override
+  Future<User?> Function() get queryFn => () => api.getCurrentUser();
 }
 
 class UserPostsQueryCubit extends QueryCubit<List<Post>> {
-  UserPostsQueryCubit(String userId) : super(
-    queryKey: 'posts:user:$userId',
-    queryFn: () => api.fetchUserPosts(userId),
-    options: QueryOptions(
-      enabled: () {
-        // Only fetch posts when user is authenticated
-        final authCubit = QueryClient().getQueryByKey<User?>('auth');
-        return authCubit?.state.hasData == true && authCubit?.state.data != null;
-      },
-    ),
+  final String userId;
+
+  UserPostsQueryCubit(this.userId);
+
+  @override
+  String get key => 'posts:user:$userId';
+
+  @override
+  Future<List<Post>> Function() get queryFn => () => api.fetchUserPosts(userId);
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    enabled: () {
+      final authCubit = QueryClient().getQueryByKey<User?>('auth');
+      return authCubit?.state.hasData == true && authCubit?.state.data != null;
+    },
   );
 }
 ```
@@ -238,17 +251,19 @@ Implement retry logic for failed queries:
 
 ```dart
 class UsersQueryCubit extends QueryCubit<List<User>> {
-  UsersQueryCubit() : super(
-    queryKey: 'users',
-    queryFn: () => api.fetchUsers(),
-    options: QueryOptions(
-      onError: (error) {
-        // Implement retry logic
-        Future.delayed(Duration(seconds: 2), () {
-          fetch();
-        });
-      },
-    ),
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    onError: (error) {
+      Future.delayed(Duration(seconds: 2), () {
+        refetch();
+      });
+    },
   );
 }
 ```
@@ -516,23 +531,24 @@ Create mock cubits for testing:
 ```dart
 // test_helpers.dart
 class MockUsersQueryCubit extends QueryCubit<List<User>> {
-  MockUsersQueryCubit() : super(
-    queryKey: 'users',
-    queryFn: () => Future.value([
-      User(id: '1', name: 'Test User 1'),
-      User(id: '2', name: 'Test User 2'),
-    ]),
-  );
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => Future.value([
+    User(id: '1', name: 'Test User 1'),
+    User(id: '2', name: 'Test User 2'),
+  ]);
 }
 
 class MockCreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
-  MockCreateUserMutationCubit() : super(
-    mutationFn: (data) => Future.value(User(
+  @override
+  Future<User> Function(Map<String, String> variables) get mutationFn => 
+    (data) => Future.value(User(
       id: '3',
       name: data['name']!,
       email: data['email']!,
-    )),
-  );
+    ));
 }
 
 // In your test

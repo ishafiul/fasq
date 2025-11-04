@@ -2,23 +2,21 @@ import 'dart:async';
 
 import 'package:fasq_bloc/fasq_bloc.dart';
 
-class QueryCubit<T> extends Cubit<QueryState<T>> {
-  final String key;
-  final Future<T> Function() queryFn;
-  final QueryOptions? options;
-  final QueryClient? client;
-
+abstract class QueryCubit<T> extends Cubit<QueryState<T>> {
   late final Query<T> _query;
   StreamSubscription<QueryState<T>>? _subscription;
 
-  QueryCubit({
-    required this.key,
-    required this.queryFn,
-    this.options,
-    this.client,
-  }) : super(QueryState<T>.idle()) {
+  QueryCubit() : super(QueryState<T>.idle()) {
     _initialize();
   }
+
+  String get key;
+
+  Future<T> Function() get queryFn;
+
+  QueryOptions? get options => null;
+
+  QueryClient? get client => null;
 
   void _initialize() {
     final queryClient = client ?? QueryClient();

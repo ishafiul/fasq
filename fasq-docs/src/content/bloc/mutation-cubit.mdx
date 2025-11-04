@@ -1,13 +1,21 @@
 # MutationCubit
 
-The `MutationCubit` is a Cubit for performing server-side mutations, emitting `MutationState` changes. It provides a structured way to handle operations that modify data on the server.
+The `MutationCubit` is an abstract base class for performing server-side mutations, emitting `MutationState` changes. Extend it to create cubits that handle operations that modify data on the server.
 
 ## Basic Usage
+
+Extend `MutationCubit` and implement the required getter:
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fasq_bloc/fasq_bloc.dart';
+
+class CreateUserMutationCubit extends MutationCubit<User, String> {
+  @override
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+}
 
 class CreateUserScreen extends StatelessWidget {
   @override
@@ -15,10 +23,8 @@ class CreateUserScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Create User')),
       body: BlocProvider(
-        create: (context) => MutationCubit<User, String>(
-          mutationFn: (name) => api.createUser(name),
-        ),
-        child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+        create: (context) => CreateUserMutationCubit(),
+        child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
           builder: (context, state) {
             return Column(
               children: [
@@ -26,8 +32,7 @@ class CreateUserScreen extends StatelessWidget {
                   onPressed: state.isLoading 
                     ? null 
                     : () {
-                        final cubit = context.read<MutationCubit<User, String>>();
-                        cubit.mutate('John Doe');
+                        context.read<CreateUserMutationCubit>().mutate('John Doe');
                       },
                   child: state.isLoading
                     ? CircularProgressIndicator()
@@ -49,47 +54,24 @@ class CreateUserScreen extends StatelessWidget {
 
 ## Cubit Configuration
 
-Configure mutation behavior with MutationOptions:
+Configure mutation behavior by overriding the `options` getter:
 
 ```dart
-class CreateUserScreen extends StatelessWidget {
+class CreateUserMutationCubit extends MutationCubit<User, String> {
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Create User')),
-      body: BlocProvider(
-        create: (context) => MutationCubit<User, String>(
-          mutationFn: (name) => api.createUser(name),
-          options: MutationOptions(
-            onSuccess: (user) {
-              print('User created: ${user.name}');
-              // Invalidate users query to refetch
-              QueryClient().invalidateQuery('users');
-            },
-            onError: (error) {
-              print('Error creating user: $error');
-            },
-            onMutate: (name) {
-              print('About to create user: $name');
-            },
-          ),
-        ),
-        child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
-          builder: (context, state) {
-            return ElevatedButton(
-              onPressed: state.isLoading ? null : () {
-                final cubit = context.read<MutationCubit<User, String>>();
-                cubit.mutate('John Doe');
-              },
-              child: state.isLoading
-                  ? CircularProgressIndicator()
-                  : Text('Create User'),
-            );
-          },
-        ),
-      ),
-    );
-  }
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+
+  @override
+  MutationOptions<User, String>? get options => MutationOptions(
+    onSuccess: (user) {
+      print('User created: ${user.name}');
+      QueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      print('Error creating user: $error');
+    },
+  );
 }
 ```
 
@@ -98,23 +80,26 @@ class CreateUserScreen extends StatelessWidget {
 Handle different mutation statuses:
 
 ```dart
+class CreateUserMutationCubit extends MutationCubit<User, String> {
+  @override
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+}
+
 class CreateUserScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Create User')),
       body: BlocProvider(
-        create: (context) => MutationCubit<User, String>(
-          mutationFn: (name) => api.createUser(name),
-        ),
-        child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+        create: (context) => CreateUserMutationCubit(),
+        child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
           builder: (context, state) {
             switch (state.status) {
               case MutationStatus.idle:
                 return ElevatedButton(
                   onPressed: () {
-                    final cubit = context.read<MutationCubit<User, String>>();
-                    cubit.mutate('John Doe');
+                    context.read<CreateUserMutationCubit>().mutate('John Doe');
                   },
                   child: Text('Create User'),
                 );
@@ -138,6 +123,22 @@ class CreateUserScreen extends StatelessWidget {
 Handle form submissions with mutations:
 
 ```dart
+class CreateUserFormMutationCubit extends MutationCubit<User, Map<String, String>> {
+  @override
+  Future<User> Function(Map<String, String> variables) get mutationFn => 
+    (data) => api.createUser(data);
+
+  @override
+  MutationOptions<User, Map<String, String>>? get options => MutationOptions(
+    onSuccess: (user) {
+      print('User created: ${user.name}');
+    },
+    onError: (error) {
+      print('Error: $error');
+    },
+  );
+}
+
 class CreateUserForm extends StatefulWidget {
   @override
   State<CreateUserForm> createState() => _CreateUserFormState();
@@ -150,24 +151,8 @@ class _CreateUserFormState extends State<CreateUserForm> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => MutationCubit<User, Map<String, String>>(
-        mutationFn: (data) => api.createUser(data),
-        options: MutationOptions(
-          onSuccess: (user) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('User created: ${user.name}')),
-            );
-            _nameController.clear();
-            _emailController.clear();
-          },
-          onError: (error) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error: $error')),
-            );
-          },
-        ),
-      ),
-      child: BlocBuilder<MutationCubit<User, Map<String, String>>, MutationState<User>>(
+      create: (context) => CreateUserFormMutationCubit(),
+      child: BlocBuilder<CreateUserFormMutationCubit, MutationState<User>>(
         builder: (context, state) {
           return Column(
             children: [
@@ -183,8 +168,7 @@ class _CreateUserFormState extends State<CreateUserForm> {
                 onPressed: state.isLoading
                     ? null
                     : () {
-                        final cubit = context.read<MutationCubit<User, Map<String, String>>>();
-                        cubit.mutate({
+                        context.read<CreateUserFormMutationCubit>().mutate({
                           'name': _nameController.text,
                           'email': _emailController.text,
                         });
@@ -207,6 +191,19 @@ class _CreateUserFormState extends State<CreateUserForm> {
 After a mutation succeeds, invalidate related queries:
 
 ```dart
+class DeleteUserMutationCubit extends MutationCubit<void, String> {
+  @override
+  Future<void> Function(String variables) get mutationFn => 
+    (id) => api.deleteUser(id);
+
+  @override
+  MutationOptions<void, String>? get options => MutationOptions(
+    onSuccess: () {
+      QueryClient().invalidateQuery('users');
+    },
+  );
+}
+
 class DeleteUserButton extends StatelessWidget {
   final String userId;
   
@@ -215,23 +212,13 @@ class DeleteUserButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => MutationCubit<void, String>(
-        mutationFn: (id) => api.deleteUser(id),
-        options: MutationOptions(
-          onSuccess: (_, id) {
-            // Invalidate users query to refetch
-            QueryClient().invalidateQuery('users');
-            QueryClient().invalidateQuery('user:$id');
-          },
-        ),
-      ),
-      child: BlocBuilder<MutationCubit<void, String>, MutationState<void>>(
+      create: (context) => DeleteUserMutationCubit(),
+      child: BlocBuilder<DeleteUserMutationCubit, MutationState<void>>(
         builder: (context, state) {
           return IconButton(
             icon: Icon(Icons.delete),
             onPressed: state.isLoading ? null : () {
-              final cubit = context.read<MutationCubit<void, String>>();
-              cubit.mutate(userId);
+              context.read<DeleteUserMutationCubit>().mutate(userId);
             },
           );
         },
@@ -246,6 +233,32 @@ class DeleteUserButton extends StatelessWidget {
 Update the cache immediately for instant UX, then rollback on error:
 
 ```dart
+class UpdateUserMutationCubit extends MutationCubit<User, User> {
+  @override
+  Future<User> Function(User variables) get mutationFn => 
+    (updatedUser) => api.updateUser(updatedUser);
+
+  @override
+  MutationOptions<User, User>? get options => MutationOptions(
+    onMutate: (updatedUser) {
+      final users = QueryClient().getQueryData<List<User>>('users');
+      if (users != null) {
+        final optimistic = users.map((u) => 
+          u.id == updatedUser.id ? updatedUser : u
+        ).toList();
+        
+        QueryClient().setQueryData('users', optimistic);
+      }
+    },
+    onSuccess: (user) {
+      QueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      QueryClient().invalidateQuery('users');
+    },
+  );
+}
+
 class UpdateUserButton extends StatelessWidget {
   final User user;
   
@@ -254,36 +267,12 @@ class UpdateUserButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => MutationCubit<User, User>(
-        mutationFn: (updatedUser) => api.updateUser(updatedUser),
-        options: MutationOptions(
-          onMutate: (updatedUser) {
-            // Optimistically update cache
-            final users = QueryClient().getQueryData<List<User>>('users');
-            if (users != null) {
-              final optimistic = users.map((u) => 
-                u.id == updatedUser.id ? updatedUser : u
-              ).toList();
-              
-              QueryClient().setQueryData('users', optimistic);
-            }
-          },
-          onSuccess: (user) {
-            // Invalidate to get fresh data
-            QueryClient().invalidateQuery('users');
-          },
-          onError: (error) {
-            // Rollback on error
-            QueryClient().invalidateQuery('users');
-          },
-        ),
-      ),
-      child: BlocBuilder<MutationCubit<User, User>, MutationState<User>>(
+      create: (context) => UpdateUserMutationCubit(),
+      child: BlocBuilder<UpdateUserMutationCubit, MutationState<User>>(
         builder: (context, state) {
           return ElevatedButton(
             onPressed: () {
-              final cubit = context.read<MutationCubit<User, User>>();
-              cubit.mutate(user);
+              context.read<UpdateUserMutationCubit>().mutate(user);
             },
             child: Text('Update'),
           );
@@ -299,6 +288,18 @@ class UpdateUserButton extends StatelessWidget {
 Handle multiple mutations in one screen:
 
 ```dart
+class UpdateUserMutationCubit extends MutationCubit<User, User> {
+  @override
+  Future<User> Function(User variables) get mutationFn => 
+    (updatedUser) => api.updateUser(updatedUser);
+}
+
+class DeleteUserMutationCubit extends MutationCubit<void, String> {
+  @override
+  Future<void> Function(String variables) get mutationFn => 
+    (userId) => api.deleteUser(userId);
+}
+
 class UserActions extends StatelessWidget {
   final User user;
   
@@ -308,35 +309,25 @@ class UserActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (context) => MutationCubit<User, User>(
-            mutationFn: (updatedUser) => api.updateUser(updatedUser),
-          ),
-        ),
-        BlocProvider(
-          create: (context) => MutationCubit<void, String>(
-            mutationFn: (userId) => api.deleteUser(userId),
-          ),
-        ),
+        BlocProvider(create: (context) => UpdateUserMutationCubit()),
+        BlocProvider(create: (context) => DeleteUserMutationCubit()),
       ],
-      child: BlocBuilder<MutationCubit<User, User>, MutationState<User>>(
+      child: BlocBuilder<UpdateUserMutationCubit, MutationState<User>>(
         builder: (context, updateState) {
-          return BlocBuilder<MutationCubit<void, String>, MutationState<void>>(
+          return BlocBuilder<DeleteUserMutationCubit, MutationState<void>>(
             builder: (context, deleteState) {
               return Row(
                 children: [
                   IconButton(
                     icon: Icon(Icons.edit),
                     onPressed: updateState.isLoading ? null : () {
-                      final cubit = context.read<MutationCubit<User, User>>();
-                      cubit.mutate(user);
+                      context.read<UpdateUserMutationCubit>().mutate(user);
                     },
                   ),
                   IconButton(
                     icon: Icon(Icons.delete),
                     onPressed: deleteState.isLoading ? null : () {
-                      final cubit = context.read<MutationCubit<void, String>>();
-                      cubit.mutate(user.id);
+                      context.read<DeleteUserMutationCubit>().mutate(user.id);
                     },
                   ),
                 ],
@@ -355,16 +346,20 @@ class UserActions extends StatelessWidget {
 Handle errors with retry functionality:
 
 ```dart
+class CreateUserMutationCubit extends MutationCubit<User, String> {
+  @override
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+}
+
 class CreateUserScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Create User')),
       body: BlocProvider(
-        create: (context) => MutationCubit<User, String>(
-          mutationFn: (name) => api.createUser(name),
-        ),
-        child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+        create: (context) => CreateUserMutationCubit(),
+        child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
           builder: (context, state) {
             if (state.hasError) {
               return Column(
@@ -372,8 +367,7 @@ class CreateUserScreen extends StatelessWidget {
                   Text('Error: ${state.error}'),
                   ElevatedButton(
                     onPressed: () {
-                      final cubit = context.read<MutationCubit<User, String>>();
-                      cubit.mutate('John Doe');
+                      context.read<CreateUserMutationCubit>().mutate('John Doe');
                     },
                     child: Text('Retry'),
                   ),
@@ -383,12 +377,56 @@ class CreateUserScreen extends StatelessWidget {
             
             return ElevatedButton(
               onPressed: state.isLoading ? null : () {
-                final cubit = context.read<MutationCubit<User, String>>();
-                cubit.mutate('John Doe');
+                context.read<CreateUserMutationCubit>().mutate('John Doe');
               },
               child: state.isLoading 
                 ? CircularProgressIndicator()
                 : Text('Create User'),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Resetting Mutation State
+
+Reset mutation state to start fresh:
+
+```dart
+class CreateUserMutationCubit extends MutationCubit<User, String> {
+  @override
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+}
+
+class CreateUserScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Create User')),
+      body: BlocProvider(
+        create: (context) => CreateUserMutationCubit(),
+        child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
+          builder: (context, state) {
+            return Column(
+              children: [
+                ElevatedButton(
+                  onPressed: state.isLoading ? null : () {
+                    context.read<CreateUserMutationCubit>().mutate('John Doe');
+                  },
+                  child: Text('Create User'),
+                ),
+                if (state.hasData || state.hasError)
+                  ElevatedButton(
+                    onPressed: () {
+                      context.read<CreateUserMutationCubit>().reset();
+                    },
+                    child: Text('Reset'),
+                  ),
+              ],
             );
           },
         ),
@@ -403,21 +441,24 @@ class CreateUserScreen extends StatelessWidget {
 Full generic type support ensures compile-time safety:
 
 ```dart
+class CreateUserMutationCubit extends MutationCubit<User, String> {
+  @override
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+}
+
 class TypeSafeCreateUserScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Create User')),
       body: BlocProvider(
-        create: (context) => MutationCubit<User, String>(
-          mutationFn: (name) => api.createUser(name),
-        ),
-        child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+        create: (context) => CreateUserMutationCubit(),
+        child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
           builder: (context, state) {
             return ElevatedButton(
               onPressed: state.isLoading ? null : () {
-                final cubit = context.read<MutationCubit<User, String>>();
-                cubit.mutate('John Doe'); // Type-safe
+                context.read<CreateUserMutationCubit>().mutate('John Doe');
               },
               child: Text('Create User'),
             );
@@ -438,15 +479,12 @@ class CreateUserButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => MutationCubit<User, String>(
-        mutationFn: (name) => api.createUser(name),
-      ),
-      child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+      create: (context) => CreateUserMutationCubit(),
+      child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
         builder: (context, state) {
           return ElevatedButton(
             onPressed: state.isLoading ? null : () {
-              final cubit = context.read<MutationCubit<User, String>>();
-              cubit.mutate('John Doe');
+              context.read<CreateUserMutationCubit>().mutate('John Doe');
             },
             child: state.isLoading
                 ? SizedBox(
@@ -466,31 +504,41 @@ class CreateUserButton extends StatelessWidget {
 ### Success Feedback
 
 ```dart
+class CreateUserMutationCubit extends MutationCubit<User, String> {
+  @override
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+
+  @override
+  MutationOptions<User, String>? get options => MutationOptions(
+    onSuccess: (user) {
+      print('User created: ${user.name}');
+    },
+  );
+}
+
 class CreateUserScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Create User')),
       body: BlocProvider(
-        create: (context) => MutationCubit<User, String>(
-          mutationFn: (name) => api.createUser(name),
-          options: MutationOptions(
-            onSuccess: (user) {
+        create: (context) => CreateUserMutationCubit(),
+        child: BlocConsumer<CreateUserMutationCubit, MutationState<User>>(
+          listener: (context, state) {
+            if (state.hasData) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('User created: ${user.name}'),
+                  content: Text('User created: ${state.data!.name}'),
                   backgroundColor: Colors.green,
                 ),
               );
-            },
-          ),
-        ),
-        child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+            }
+          },
           builder: (context, state) {
             return ElevatedButton(
               onPressed: state.isLoading ? null : () {
-                final cubit = context.read<MutationCubit<User, String>>();
-                cubit.mutate('John Doe');
+                context.read<CreateUserMutationCubit>().mutate('John Doe');
               },
               child: Text('Create User'),
             );
@@ -517,10 +565,8 @@ class _CreateUserFormState extends State<CreateUserForm> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => MutationCubit<User, String>(
-        mutationFn: (name) => api.createUser(name),
-      ),
-      child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+      create: (context) => CreateUserMutationCubit(),
+      child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
         builder: (context, state) {
           return Form(
             key: _formKey,
@@ -539,8 +585,7 @@ class _CreateUserFormState extends State<CreateUserForm> {
                 ElevatedButton(
                   onPressed: state.isLoading ? null : () {
                     if (_formKey.currentState!.validate()) {
-                      final cubit = context.read<MutationCubit<User, String>>();
-                      cubit.mutate(_nameController.text);
+                      context.read<CreateUserMutationCubit>().mutate(_nameController.text);
                     }
                   },
                   child: Text('Create User'),

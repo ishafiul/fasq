@@ -29,22 +29,31 @@ dependencies:
 
 ## Basic Usage
 
+Extend `QueryCubit` and implement the required getters:
+
 ```dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fasq_bloc/fasq_bloc.dart';
+
+class UsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    staleTime: Duration(minutes: 5),
+  );
+}
 
 class UsersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => QueryCubit<List<User>>(
-        key: 'users',
-        queryFn: () => api.fetchUsers(),
-        options: QueryOptions(
-          staleTime: Duration(minutes: 5),
-        ),
-      ),
-      child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+      create: (_) => UsersQueryCubit(),
+      child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
         builder: (context, state) {
           if (state.isLoading) {
             return CircularProgressIndicator();
@@ -82,6 +91,18 @@ class UsersScreen extends StatelessWidget {
 QueryCubit provides explicit state management with clear state transitions:
 
 ```dart
+class UserProfileQueryCubit extends QueryCubit<User> {
+  final String userId;
+
+  UserProfileQueryCubit(this.userId);
+
+  @override
+  String get key => 'user:$userId';
+
+  @override
+  Future<User> Function() get queryFn => () => api.fetchUser(userId);
+}
+
 class UserProfile extends StatelessWidget {
   final String userId;
   
@@ -90,11 +111,8 @@ class UserProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => QueryCubit<User>(
-        key: 'user:$userId',
-        queryFn: () => api.fetchUser(userId),
-      ),
-      child: BlocBuilder<QueryCubit<User>, QueryState<User>>(
+      create: (_) => UserProfileQueryCubit(userId),
+      child: BlocBuilder<UserProfileQueryCubit, QueryState<User>>(
         builder: (context, state) {
           switch (state.status) {
             case QueryStatus.idle:
@@ -125,12 +143,11 @@ class UserList extends StatelessWidget {
       children: [
         ElevatedButton(
           onPressed: () {
-            // Refetch the query
-            context.read<QueryCubit<List<User>>>().refetch();
+            context.read<UsersQueryCubit>().refetch();
           },
           child: Text('Refresh'),
         ),
-        BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+        BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) => buildUI(state),
         ),
       ],
@@ -144,22 +161,29 @@ class UserList extends StatelessWidget {
 Use MutationCubit for creating, updating, or deleting data:
 
 ```dart
+class CreateUserMutationCubit extends MutationCubit<User, String> {
+  @override
+  Future<User> Function(String variables) get mutationFn => 
+    (name) => api.createUser(name);
+
+  @override
+  MutationOptions<User, String>? get options => MutationOptions(
+    onSuccess: (user) {
+      print('Created user: ${user.name}');
+      QueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      print('Error: $error');
+    },
+  );
+}
+
 class CreateUserScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => MutationCubit<User, String>(
-        mutationFn: (name) => api.createUser(name),
-        onSuccessCallback: (user) {
-          print('Created user: ${user.name}');
-          // Invalidate users query
-          QueryClient().invalidateQuery('users');
-        },
-        onErrorCallback: (error) {
-          print('Error: $error');
-        },
-      ),
-      child: BlocBuilder<MutationCubit<User, String>, MutationState<User>>(
+      create: (_) => CreateUserMutationCubit(),
+      child: BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
         builder: (context, state) {
           return Column(
             children: [
@@ -176,9 +200,7 @@ class CreateUserScreen extends StatelessWidget {
                 onPressed: state.isLoading
                     ? null
                     : () {
-                        context
-                            .read<MutationCubit<User, String>>()
-                            .mutate('John Doe');
+                        context.read<CreateUserMutationCubit>().mutate('John Doe');
                       },
                 child: Text('Create User'),
               ),
@@ -201,12 +223,10 @@ class MyWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: () {
-        final cubit = context.read<QueryCubit<List<User>>>();
+        final cubit = context.read<UsersQueryCubit>();
         
-        // Invalidate and refetch this query
         cubit.invalidate();
         
-        // Or use QueryClient directly
         QueryClient().invalidateQuery('users');
         QueryClient().invalidateQueriesWithPrefix('user:');
       },
@@ -221,7 +241,7 @@ class MyWidget extends StatelessWidget {
 ### Using BlocConsumer for Side Effects
 
 ```dart
-BlocConsumer<QueryCubit<User>, QueryState<User>>(
+BlocConsumer<UserProfileQueryCubit, QueryState<User>>(
   listener: (context, state) {
     if (state.hasError) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -246,18 +266,8 @@ BlocConsumer<QueryCubit<User>, QueryState<User>>(
 ```dart
 MultiBlocProvider(
   providers: [
-    BlocProvider(
-      create: (_) => QueryCubit<List<User>>(
-        key: 'users',
-        queryFn: () => api.fetchUsers(),
-      ),
-    ),
-    BlocProvider(
-      create: (_) => QueryCubit<List<Post>>(
-        key: 'posts',
-        queryFn: () => api.fetchPosts(),
-      ),
-    ),
+    BlocProvider(create: (_) => UsersQueryCubit()),
+    BlocProvider(create: (_) => PostsQueryCubit()),
   ],
   child: MyScreen(),
 )
@@ -266,6 +276,19 @@ MultiBlocProvider(
 ### Form Submission
 
 ```dart
+class CreateUserFormMutationCubit extends MutationCubit<User, Map<String, String>> {
+  @override
+  Future<User> Function(Map<String, String> variables) get mutationFn => 
+    (data) => api.createUser(data);
+
+  @override
+  MutationOptions<User, Map<String, String>>? get options => MutationOptions(
+    onSuccess: (user) {
+      print('User created: ${user.name}');
+    },
+  );
+}
+
 class CreateUserForm extends StatefulWidget {
   @override
   _CreateUserFormState createState() => _CreateUserFormState();
@@ -278,17 +301,17 @@ class _CreateUserFormState extends State<CreateUserForm> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => MutationCubit<User, Map<String, String>>(
-        mutationFn: (data) => api.createUser(data),
-        onSuccessCallback: (user) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('User created: ${user.name}')),
-          );
-          _nameController.clear();
-          _emailController.clear();
+      create: (_) => CreateUserFormMutationCubit(),
+      child: BlocConsumer<CreateUserFormMutationCubit, MutationState<User>>(
+        listener: (context, state) {
+          if (state.hasData) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('User created: ${state.data!.name}')),
+            );
+            _nameController.clear();
+            _emailController.clear();
+          }
         },
-      ),
-      child: BlocBuilder<MutationCubit<User, Map<String, String>>, MutationState<User>>(
         builder: (context, state) {
           return Column(
             children: [
@@ -304,9 +327,7 @@ class _CreateUserFormState extends State<CreateUserForm> {
                 onPressed: state.isLoading
                     ? null
                     : () {
-                        context
-                            .read<MutationCubit<User, Map<String, String>>>()
-                            .mutate({
+                        context.read<CreateUserFormMutationCubit>().mutate({
                           'name': _nameController.text,
                           'email': _emailController.text,
                         });
@@ -327,12 +348,12 @@ class _CreateUserFormState extends State<CreateUserForm> {
 ### Background Refetch Indicator
 
 ```dart
-BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
   builder: (context, state) {
     return Column(
       children: [
         if (state.isFetching)
-          LinearProgressIndicator(), // Background refresh indicator
+          LinearProgressIndicator(),
         
         if (state.hasData)
           Expanded(
@@ -352,15 +373,20 @@ BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
 Test QueryCubit and MutationCubit like any other Cubit:
 
 ```dart
+class TestUsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+}
+
 void main() {
   group('QueryCubit', () {
-    late QueryCubit<List<User>> cubit;
+    late TestUsersQueryCubit cubit;
     
     setUp(() {
-      cubit = QueryCubit<List<User>>(
-        key: 'users',
-        queryFn: () => api.fetchUsers(),
-      );
+      cubit = TestUsersQueryCubit();
     });
     
     tearDown(() {
@@ -372,14 +398,11 @@ void main() {
     });
     
     test('emits loading then success when query succeeds', () async {
-      // Arrange
       final users = [User(id: '1', name: 'John')];
       when(() => api.fetchUsers()).thenAnswer((_) async => users);
       
-      // Act
       cubit.refetch();
       
-      // Assert
       await expectLater(
         cubit.stream,
         emitsInOrder([
@@ -402,21 +425,14 @@ class UserScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => QueryCubit<List<User>>(
-        key: 'users',
-        queryFn: () => api.fetchUsers(), // Returns Future<List<User>>
-      ),
-      child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+      create: (_) => UsersQueryCubit(),
+      child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
         builder: (context, state) {
-          // state.data is List<User>?
-          // state.error is Object?
-          // state.isLoading is bool
-          
           if (state.hasData) {
             return ListView.builder(
               itemCount: state.data!.length,
               itemBuilder: (context, index) {
-                final user = state.data![index]; // user is User
+                final user = state.data![index];
                 return UserTile(user);
               },
             );
@@ -453,12 +469,17 @@ QueryBuilder<List<User>>(
 
 **Bloc Adapter (QueryCubit):**
 ```dart
+class UsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users';
+  
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+}
+
 BlocProvider(
-  create: (_) => QueryCubit(
-    key: 'users',
-    queryFn: () => api.fetchUsers(),
-  ),
-  child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+  create: (_) => UsersQueryCubit(),
+  child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
     builder: (context, state) {
       if (state.isLoading) return Loading();
       return UserList(state.data!);

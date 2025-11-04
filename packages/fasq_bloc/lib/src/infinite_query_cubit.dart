@@ -2,22 +2,20 @@ import 'dart:async';
 
 import 'package:fasq_bloc/fasq_bloc.dart';
 
-class InfiniteQueryCubit<TData, TParam>
+abstract class InfiniteQueryCubit<TData, TParam>
     extends Cubit<InfiniteQueryState<TData, TParam>> {
-  final String key;
-  final Future<TData> Function(TParam param) queryFn;
-  final InfiniteQueryOptions<TData, TParam>? options;
-
   late final InfiniteQuery<TData, TParam> _query;
   StreamSubscription<InfiniteQueryState<TData, TParam>>? _subscription;
 
-  InfiniteQueryCubit({
-    required this.key,
-    required this.queryFn,
-    this.options,
-  }) : super(InfiniteQueryState<TData, TParam>.idle()) {
+  InfiniteQueryCubit() : super(InfiniteQueryState<TData, TParam>.idle()) {
     _initialize();
   }
+
+  String get key;
+
+  Future<TData> Function(TParam param) get queryFn;
+
+  InfiniteQueryOptions<TData, TParam>? get options => null;
 
   void _initialize() {
     final client = QueryClient();
@@ -34,8 +32,11 @@ class InfiniteQueryCubit<TData, TParam>
   }
 
   Future<void> fetchNextPage([TParam? param]) => _query.fetchNextPage(param);
+
   Future<void> fetchPreviousPage() => _query.fetchPreviousPage();
+
   Future<void> refetchPage(int index) => _query.refetchPage(index);
+
   void reset() => _query.reset();
 
   @override
