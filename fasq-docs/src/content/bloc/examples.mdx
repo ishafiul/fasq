@@ -29,7 +29,7 @@ class User {
 
 class ApiService {
   Future<List<User>> fetchUsers() async {
-    await Future.delayed(Duration(seconds: 1)); // Simulate network
+    await Future.delayed(Duration(seconds: 1));
     return [
       User(id: '1', name: 'Alice', email: 'alice@example.com'),
       User(id: '2', name: 'Bob', email: 'bob@example.com'),
@@ -52,35 +52,37 @@ class ApiService {
 
 final api = ApiService();
 
-// Cubits
 class UsersQueryCubit extends QueryCubit<List<User>> {
-  UsersQueryCubit() : super(
-    queryKey: 'users',
-    queryFn: () => api.fetchUsers(),
-  );
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
 }
 
 class CreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
-  CreateUserMutationCubit() : super(
-    mutationFn: (data) => api.createUser(data),
-    options: MutationOptions(
-      onSuccess: (user) {
-        // Invalidate users query to refetch
-        QueryClient().invalidateQuery('users');
-      },
-    ),
+  @override
+  Future<User> Function(Map<String, String> variables) get mutationFn => 
+    (data) => api.createUser(data);
+
+  @override
+  MutationOptions<User, Map<String, String>>? get options => MutationOptions(
+    onSuccess: (user) {
+      QueryClient().invalidateQuery('users');
+    },
   );
 }
 
 class DeleteUserMutationCubit extends MutationCubit<void, String> {
-  DeleteUserMutationCubit() : super(
-    mutationFn: (id) => api.deleteUser(id),
-    options: MutationOptions(
-      onSuccess: (_, id) {
-        // Invalidate users query to refetch
-        QueryClient().invalidateQuery('users');
-      },
-    ),
+  @override
+  Future<void> Function(String variables) get mutationFn => 
+    (id) => api.deleteUser(id);
+
+  @override
+  MutationOptions<void, String>? get options => MutationOptions(
+    onSuccess: () {
+      QueryClient().invalidateQuery('users');
+    },
   );
 }
 
@@ -135,7 +137,7 @@ class UsersList extends StatelessWidget {
               children: [
                 Text('Error: ${state.error}'),
                 ElevatedButton(
-                  onPressed: () => context.read<UsersQueryCubit>().fetch(),
+                  onPressed: () => context.read<UsersQueryCubit>().refetch(),
                   child: Text('Retry'),
                 ),
               ],
@@ -239,74 +241,53 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
 }
 ```
 
-## Pagination Example
+## Infinite Queries Example
 
-Implementing pagination with Bloc:
+Implementing infinite scroll with InfiniteQueryCubit:
 
 ```dart
-class PaginatedUsersCubit extends Cubit<List<User>> {
-  PaginatedUsersCubit() : super([]);
-  
-  Future<void> loadPage(int page) async {
-    final users = await api.fetchUsersPage(page: page, limit: 10);
-    emit([...state, ...users]);
-  }
-  
-  Future<void> loadInitialPage() async {
-    await loadPage(1);
-  }
-}
-
-class PaginatedUsersScreen extends StatefulWidget {
+class PostsInfiniteQueryCubit extends InfiniteQueryCubit<List<Post>, int> {
   @override
-  State<PaginatedUsersScreen> createState() => _PaginatedUsersScreenState();
+  String get key => 'posts';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  );
 }
 
-class _PaginatedUsersScreenState extends State<PaginatedUsersScreen> {
-  int _currentPage = 1;
-  
+class PostsInfiniteScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Paginated Users')),
+      appBar: AppBar(title: Text('Posts')),
       body: BlocProvider(
-        create: (context) => PaginatedUsersCubit()..loadInitialPage(),
-        child: BlocBuilder<PaginatedUsersCubit, List<User>>(
-          builder: (context, users) {
+        create: (_) => PostsInfiniteQueryCubit(),
+        child: BlocBuilder<PostsInfiniteQueryCubit, InfiniteQueryState<List<Post>, int>>(
+          builder: (context, state) {
+            final allPosts = state.pages.expand((p) => p.data ?? []).toList();
+            
             return Column(
               children: [
                 Expanded(
                   child: ListView.builder(
-                    itemCount: users.length,
+                    itemCount: allPosts.length,
                     itemBuilder: (context, index) {
-                      final user = users[index];
-                      return ListTile(
-                        title: Text(user.name),
-                        subtitle: Text(user.email),
-                      );
+                      return PostItem(allPosts[index]);
                     },
                   ),
                 ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed: _currentPage > 1 ? () {
-                        setState(() => _currentPage--);
-                        context.read<PaginatedUsersCubit>().loadPage(_currentPage);
-                      } : null,
-                      child: Text('Previous'),
-                    ),
-                    Text('Page $_currentPage'),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() => _currentPage++);
-                        context.read<PaginatedUsersCubit>().loadPage(_currentPage);
-                      },
-                      child: Text('Next'),
-                    ),
-                  ],
-                ),
+                if (state.hasNextPage)
+                  ElevatedButton(
+                    onPressed: () {
+                      context.read<PostsInfiniteQueryCubit>().fetchNextPage();
+                    },
+                    child: Text('Load More'),
+                  ),
               ],
             );
           },
@@ -322,14 +303,16 @@ class _PaginatedUsersScreenState extends State<PaginatedUsersScreen> {
 Simulating real-time updates with polling:
 
 ```dart
-class RealTimeUsersCubit extends QueryCubit<List<User>> {
-  RealTimeUsersCubit() : super(
-    queryKey: 'users:realtime',
-    queryFn: () => api.fetchUsers(),
-    options: QueryOptions(
-      refetchInterval: Duration(seconds: 30), // Poll every 30 seconds
-      refetchOnWindowFocus: true, // Refetch when app regains focus
-    ),
+class RealTimeUsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users:realtime';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    staleTime: Duration(seconds: 30),
   );
 }
 
@@ -343,14 +326,14 @@ class RealTimeUsersScreen extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.refresh),
             onPressed: () {
-              context.read<RealTimeUsersCubit>().fetch();
+              context.read<RealTimeUsersQueryCubit>().refetch();
             },
           ),
         ],
       ),
       body: BlocProvider(
-        create: (context) => RealTimeUsersCubit(),
-        child: BlocBuilder<RealTimeUsersCubit, QueryState<List<User>>>(
+        create: (context) => RealTimeUsersQueryCubit(),
+        child: BlocBuilder<RealTimeUsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) {
             return Column(
               children: [
@@ -368,7 +351,6 @@ class RealTimeUsersScreen extends StatelessWidget {
                         return ListTile(
                           title: Text(user.name),
                           subtitle: Text(user.email),
-                          trailing: Text('Updated: ${DateTime.now().toString().substring(11, 19)}'),
                         );
                       },
                     ),
@@ -390,29 +372,28 @@ Implementing optimistic updates for instant feedback:
 
 ```dart
 class UpdateUserMutationCubit extends MutationCubit<User, User> {
-  UpdateUserMutationCubit() : super(
-    mutationFn: (user) => api.updateUser(user),
-    options: MutationOptions(
-      onMutate: (updatedUser) {
-        // Optimistically update cache
-        final users = QueryClient().getQueryData<List<User>>('users');
-        if (users != null) {
-          final optimistic = users.map((u) => 
-            u.id == updatedUser.id ? updatedUser : u
-          ).toList();
-          
-          QueryClient().setQueryData('users', optimistic);
-        }
-      },
-      onSuccess: (user) {
-        // Invalidate to get fresh data
-        QueryClient().invalidateQuery('users');
-      },
-      onError: (error) {
-        // Rollback on error
-        QueryClient().invalidateQuery('users');
-      },
-    ),
+  @override
+  Future<User> Function(User variables) get mutationFn => 
+    (user) => api.updateUser(user);
+
+  @override
+  MutationOptions<User, User>? get options => MutationOptions(
+    onMutate: (updatedUser) {
+      final users = QueryClient().getQueryData<List<User>>('users');
+      if (users != null) {
+        final optimistic = users.map((u) => 
+          u.id == updatedUser.id ? updatedUser : u
+        ).toList();
+        
+        QueryClient().setQueryData('users', optimistic);
+      }
+    },
+    onSuccess: (user) {
+      QueryClient().invalidateQuery('users');
+    },
+    onError: (error) {
+      QueryClient().invalidateQuery('users');
+    },
   );
 }
 
@@ -458,21 +439,16 @@ class UserTileWithUpdate extends StatelessWidget {
         return ListTile(
           title: Text(user.name),
           subtitle: Text(user.email),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: Icon(Icons.edit),
-                onPressed: updateState.isLoading ? null : () {
-                  final updatedUser = User(
-                    id: user.id,
-                    name: '${user.name} (Updated)',
-                    email: user.email,
-                  );
-                  context.read<UpdateUserMutationCubit>().mutate(updatedUser);
-                },
-              ),
-            ],
+          trailing: IconButton(
+            icon: Icon(Icons.edit),
+            onPressed: updateState.isLoading ? null : () {
+              final updatedUser = User(
+                id: user.id,
+                name: '${user.name} (Updated)',
+                email: user.email,
+              );
+              context.read<UpdateUserMutationCubit>().mutate(updatedUser);
+            },
           ),
         );
       },
@@ -483,36 +459,25 @@ class UserTileWithUpdate extends StatelessWidget {
 
 ## Search Functionality
 
-Implementing search with debouncing:
+Implementing search with parameterized queries:
 
 ```dart
-class SearchQueryCubit extends Cubit<String> {
-  Timer? _debounceTimer;
-  
-  SearchQueryCubit() : super('');
-  
-  void updateQuery(String query) {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(Duration(milliseconds: 500), () {
-      emit(query);
-    });
-  }
-  
-  @override
-  Future<void> close() {
-    _debounceTimer?.cancel();
-    return super.close();
-  }
-}
+class SearchResultsQueryCubit extends QueryCubit<List<User>> {
+  final String query;
 
-class SearchResultsCubit extends QueryCubit<List<User>> {
-  SearchResultsCubit(String query) : super(
-    queryKey: 'search:$query',
-    queryFn: () => api.searchUsers(query),
-    options: QueryOptions(
-      enabled: query.isNotEmpty && query.length >= 2,
-      staleTime: Duration(minutes: 5), // Cache search results
-    ),
+  SearchResultsQueryCubit(this.query);
+
+  @override
+  String get key => 'search:$query';
+
+  @override
+  Future<List<User>> Function() get queryFn => 
+    () => api.searchUsers(query);
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    enabled: query.isNotEmpty && query.length >= 2,
+    staleTime: Duration(minutes: 5),
   );
 }
 
@@ -523,62 +488,56 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
-  
+  String _searchQuery = '';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Search Users')),
-      body: MultiBlocProvider(
-        providers: [
-          BlocProvider(create: (context) => SearchQueryCubit()),
-        ],
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: 'Search users',
-                  prefixIcon: Icon(Icons.search),
-                ),
-                onChanged: (value) {
-                  context.read<SearchQueryCubit>().updateQuery(value);
-                },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search users',
+                prefixIcon: Icon(Icons.search),
               ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
             ),
-            Expanded(
-              child: BlocBuilder<SearchQueryCubit, String>(
-                builder: (context, searchQuery) {
-                  return BlocProvider(
-                    create: (context) => SearchResultsCubit(searchQuery),
-                    child: BlocBuilder<SearchResultsCubit, QueryState<List<User>>>(
-                      builder: (context, searchState) {
-                        return searchState.when(
-                          idle: () => Center(child: Text('Enter a search term')),
-                          loading: () => Center(child: CircularProgressIndicator()),
-                          error: (error, stack) => Center(child: Text('Error: $error')),
-                          data: (results) => results.isEmpty
-                              ? Center(child: Text('No results found'))
-                              : ListView.builder(
-                                  itemCount: results.length,
-                                  itemBuilder: (context, index) {
-                                    final user = results[index];
-                                    return ListTile(
-                                      title: Text(user.name),
-                                      subtitle: Text(user.email),
-                                    );
-                                  },
-                                ),
-                        );
-                      },
-                    ),
+          ),
+          Expanded(
+            child: BlocProvider(
+              create: (context) => SearchResultsQueryCubit(_searchQuery),
+              child: BlocBuilder<SearchResultsQueryCubit, QueryState<List<User>>>(
+                builder: (context, searchState) {
+                  return searchState.when(
+                    idle: () => Center(child: Text('Enter a search term')),
+                    loading: () => Center(child: CircularProgressIndicator()),
+                    error: (error, stack) => Center(child: Text('Error: $error')),
+                    data: (results) => results.isEmpty
+                        ? Center(child: Text('No results found'))
+                        : ListView.builder(
+                            itemCount: results.length,
+                            itemBuilder: (context, index) {
+                              final user = results[index];
+                              return ListTile(
+                                title: Text(user.name),
+                                subtitle: Text(user.email),
+                              );
+                            },
+                          ),
                   );
                 },
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -590,197 +549,87 @@ class _SearchScreenState extends State<SearchScreen> {
 Complete form handling with validation:
 
 ```dart
-class CreateUserFormCubit extends Cubit<CreateUserFormState> {
-  CreateUserFormCubit() : super(CreateUserFormState.initial());
-  
-  void updateName(String name) {
-    emit(state.copyWith(
-      name: name,
-      isValid: name.isNotEmpty && state.email.isNotEmpty,
-      nameError: name.isEmpty ? 'Name is required' : null,
-    ));
-  }
-  
-  void updateEmail(String email) {
-    emit(state.copyWith(
-      email: email,
-      isValid: state.name.isNotEmpty && email.isNotEmpty,
-      emailError: email.isEmpty ? 'Email is required' : null,
-    ));
-  }
-  
-  void reset() {
-    emit(CreateUserFormState.initial());
-  }
-}
+class CreateUserFormMutationCubit extends MutationCubit<User, Map<String, String>> {
+  @override
+  Future<User> Function(Map<String, String> variables) get mutationFn => 
+    (data) => api.createUser(data);
 
-class CreateUserFormState {
-  final String name;
-  final String email;
-  final bool isValid;
-  final String? nameError;
-  final String? emailError;
-  
-  CreateUserFormState({
-    required this.name,
-    required this.email,
-    required this.isValid,
-    this.nameError,
-    this.emailError,
-  });
-  
-  factory CreateUserFormState.initial() => CreateUserFormState(
-    name: '',
-    email: '',
-    isValid: false,
+  @override
+  MutationOptions<User, Map<String, String>>? get options => MutationOptions(
+    onSuccess: (user) {
+      QueryClient().invalidateQuery('users');
+    },
   );
-  
-  CreateUserFormState copyWith({
-    String? name,
-    String? email,
-    bool? isValid,
-    String? nameError,
-    String? emailError,
-  }) {
-    return CreateUserFormState(
-      name: name ?? this.name,
-      email: email ?? this.email,
-      isValid: isValid ?? this.isValid,
-      nameError: nameError,
-      emailError: emailError,
-    );
-  }
 }
 
-class CreateUserForm extends StatelessWidget {
+class CreateUserForm extends StatefulWidget {
+  @override
+  State<CreateUserForm> createState() => _CreateUserFormState();
+}
+
+class _CreateUserFormState extends State<CreateUserForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Create User')),
-      body: MultiBlocProvider(
-        providers: [
-          BlocProvider(create: (context) => CreateUserFormCubit()),
-          BlocProvider(create: (context) => CreateUserMutationCubit()),
-        ],
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: BlocBuilder<CreateUserFormCubit, CreateUserFormState>(
-            builder: (context, formState) {
-              return BlocBuilder<CreateUserMutationCubit, MutationState<User>>(
-                builder: (context, mutationState) {
-                  return Form(
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          decoration: InputDecoration(labelText: 'Name'),
-                          onChanged: (value) {
-                            context.read<CreateUserFormCubit>().updateName(value);
-                          },
-                          validator: (value) => formState.nameError,
-                        ),
-                        SizedBox(height: 16),
-                        TextFormField(
-                          decoration: InputDecoration(labelText: 'Email'),
-                          onChanged: (value) {
-                            context.read<CreateUserFormCubit>().updateEmail(value);
-                          },
-                          validator: (value) => formState.emailError,
-                        ),
-                        SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: formState.isValid && !mutationState.isLoading
-                              ? () {
-                                  context.read<CreateUserMutationCubit>().mutate({
-                                    'name': formState.name,
-                                    'email': formState.email,
-                                  });
-                                  context.read<CreateUserFormCubit>().reset();
-                                }
-                              : null,
-                          child: mutationState.isLoading
-                              ? CircularProgressIndicator()
-                              : Text('Create User'),
-                        ),
-                      ],
+      body: BlocProvider(
+        create: (context) => CreateUserFormMutationCubit(),
+        child: BlocBuilder<CreateUserFormMutationCubit, MutationState<User>>(
+          builder: (context, mutationState) {
+            return Form(
+              key: _formKey,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(labelText: 'Name'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Name is required';
+                        }
+                        return null;
+                      },
                     ),
-                  );
-                },
-              );
-            },
-          ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: InputDecoration(labelText: 'Email'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Email is required';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: mutationState.isLoading ? null : () {
+                        if (_formKey.currentState!.validate()) {
+                          context.read<CreateUserFormMutationCubit>().mutate({
+                            'name': _nameController.text,
+                            'email': _emailController.text,
+                          });
+                          _nameController.clear();
+                          _emailController.clear();
+                        }
+                      },
+                      child: mutationState.isLoading
+                          ? CircularProgressIndicator()
+                          : Text('Create User'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
-    );
-  }
-}
-```
-
-## Error Boundary
-
-Implementing error boundaries with Bloc:
-
-```dart
-class ErrorBoundaryCubit extends Cubit<Object?> {
-  ErrorBoundaryCubit() : super(null);
-  
-  void setError(Object error) {
-    emit(error);
-  }
-  
-  void clearError() {
-    emit(null);
-  }
-}
-
-class ErrorBoundary extends StatelessWidget {
-  final Widget child;
-  final Widget Function(Object error)? errorBuilder;
-  
-  const ErrorBoundary({
-    required this.child,
-    this.errorBuilder,
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => ErrorBoundaryCubit(),
-      child: BlocBuilder<ErrorBoundaryCubit, Object?>(
-        builder: (context, error) {
-          if (error != null) {
-            return errorBuilder?.call(error) ?? 
-              Center(child: Text('Error: $error'));
-          }
-          
-          return child;
-        },
-      ),
-    );
-  }
-}
-
-class UsersScreenWithErrorBoundary extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ErrorBoundary(
-      errorBuilder: (error) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error, size: 64, color: Colors.red),
-            SizedBox(height: 16),
-            Text('Something went wrong'),
-            SizedBox(height: 8),
-            Text('$error'),
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Go Back'),
-            ),
-          ],
-        ),
-      ),
-      child: UserManagementScreen(),
     );
   }
 }
@@ -791,16 +640,18 @@ class UsersScreenWithErrorBoundary extends StatelessWidget {
 Optimizing performance with proper cache configuration:
 
 ```dart
-class OptimizedUsersCubit extends QueryCubit<List<User>> {
-  OptimizedUsersCubit() : super(
-    queryKey: 'users',
-    queryFn: () => api.fetchUsers(),
-    options: QueryOptions(
-      staleTime: Duration(minutes: 10), // Keep fresh for 10 minutes
-      cacheTime: Duration(minutes: 30), // Keep in cache for 30 minutes
-      refetchOnWindowFocus: false, // Don't refetch on focus
-      refetchOnMount: false, // Don't refetch on mount if data exists
-    ),
+class OptimizedUsersQueryCubit extends QueryCubit<List<User>> {
+  @override
+  String get key => 'users';
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+
+  @override
+  QueryOptions? get options => QueryOptions(
+    staleTime: Duration(minutes: 10),
+    cacheTime: Duration(minutes: 30),
+    refetchOnMount: false,
   );
 }
 
@@ -810,8 +661,8 @@ class OptimizedUsersScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Optimized Users')),
       body: BlocProvider(
-        create: (context) => OptimizedUsersCubit(),
-        child: BlocBuilder<OptimizedUsersCubit, QueryState<List<User>>>(
+        create: (context) => OptimizedUsersQueryCubit(),
+        child: BlocBuilder<OptimizedUsersQueryCubit, QueryState<List<User>>>(
           builder: (context, state) {
             return state.when(
               loading: () => Center(child: CircularProgressIndicator()),
@@ -839,5 +690,6 @@ class OptimizedUsersScreen extends StatelessWidget {
 
 - **[QueryCubit](/docs/bloc/query-cubit)** - Learn about the QueryCubit
 - **[MutationCubit](/docs/bloc/mutation-cubit)** - Learn about the MutationCubit
+- **[InfiniteQueryCubit](/docs/bloc/infinite-query-cubit)** - Learn about infinite queries
 - **[Bloc Patterns](/docs/bloc/bloc-patterns)** - Best practices and patterns
 - **[Testing](/docs/bloc/testing)** - Testing strategies

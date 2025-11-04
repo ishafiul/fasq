@@ -2,24 +2,25 @@ import 'dart:async';
 
 import 'package:fasq_bloc/fasq_bloc.dart';
 
-class MutationCubit<TData, TVariables> extends Cubit<MutationState<TData>> {
+abstract class MutationCubit<TData, TVariables>
+    extends Cubit<MutationState<TData>> {
   late final Mutation<TData, TVariables> _mutation;
   StreamSubscription<MutationState<TData>>? _subscription;
 
-  MutationCubit({
-    required Future<TData> Function(TVariables variables) mutationFn,
-    void Function(TData data)? onSuccessCallback,
-    void Function(Object error)? onErrorCallback,
-    MutationOptions<TData, TVariables>? options,
-    QueryClient? client,
-  }) : super(const MutationState.idle()) {
+  MutationCubit() : super(const MutationState.idle()) {
+    _initialize();
+  }
+
+  Future<TData> Function(TVariables variables) get mutationFn;
+
+  MutationOptions<TData, TVariables>? get options => null;
+
+  QueryClient? get client => null;
+
+  void _initialize() {
     _mutation = Mutation<TData, TVariables>(
       mutationFn: mutationFn,
-      options: options ??
-          MutationOptions(
-            onSuccess: onSuccessCallback,
-            onError: onErrorCallback,
-          ),
+      options: options,
     );
 
     _subscription = _mutation.stream.listen((newState) {
