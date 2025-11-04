@@ -6,17 +6,28 @@ void main() {
 
   test('QueryCubit respects enabled=false (stays idle)', () async {
     int calls = 0;
-    final cubit = QueryCubit<String>(
-      key: 'bloc:enabled',
-      queryFn: () async {
-        calls++;
-        return 'x';
-      },
-      options: QueryOptions(enabled: false),
-    );
+    final cubit = _TestQueryCubit(() => calls++);
 
     expect(cubit.state.isIdle, true);
     expect(calls, 0);
     await cubit.close();
   });
+}
+
+class _TestQueryCubit extends QueryCubit<String> {
+  final void Function() onQueryCall;
+
+  _TestQueryCubit(this.onQueryCall);
+
+  @override
+  String get key => 'bloc:enabled';
+
+  @override
+  Future<String> Function() get queryFn => () async {
+        onQueryCall();
+        return 'x';
+      };
+
+  @override
+  QueryOptions? get options => QueryOptions(enabled: false);
 }

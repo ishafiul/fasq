@@ -7,17 +7,7 @@ void main() {
   });
 
   test('InfiniteQueryCubit wires methods to core', () async {
-    final cubit = InfiniteQueryCubit<List<int>, int>(
-      key: 'bloc:infinite',
-      queryFn: (page) async {
-        await Future.delayed(const Duration(milliseconds: 5));
-        return [page];
-      },
-      options: InfiniteQueryOptions<List<int>, int>(
-        getNextPageParam: (pages, last) => pages.length + 1,
-        maxPages: 2,
-      ),
-    );
+    final cubit = _TestInfiniteQueryCubit();
 
     expect(cubit.state.pages, isEmpty);
     await cubit.fetchNextPage(1);
@@ -30,4 +20,22 @@ void main() {
 
     await cubit.close();
   });
+}
+
+class _TestInfiniteQueryCubit extends InfiniteQueryCubit<List<int>, int> {
+  @override
+  String get key => 'bloc:infinite';
+
+  @override
+  Future<List<int>> Function(int param) get queryFn => (page) async {
+        await Future.delayed(const Duration(milliseconds: 5));
+        return [page];
+      };
+
+  @override
+  InfiniteQueryOptions<List<int>, int>? get options =>
+      InfiniteQueryOptions<List<int>, int>(
+        getNextPageParam: (pages, last) => pages.length + 1,
+        maxPages: 2,
+      );
 }
