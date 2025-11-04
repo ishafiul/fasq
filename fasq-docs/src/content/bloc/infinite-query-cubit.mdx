@@ -1,17 +1,358 @@
 # InfiniteQueryCubit
 
-```dart
-final cubit = InfiniteQueryCubit<List<Post>, int>(
-  key: 'posts',
-  queryFn: (page) => api.fetchPosts(page: page),
-  options: InfiniteQueryOptions(
-    getNextPageParam: (pages, last) => pages.length + 1,
-  ),
-);
+The `InfiniteQueryCubit` is an abstract base class for managing infinite/paginated queries. Extend it to create cubits that handle paginated data fetching with automatic page management.
 
-cubit.fetchNextPage();
-cubit.fetchPreviousPage();
-cubit.refetchPage(0);
+## Basic Usage
+
+Extend `InfiniteQueryCubit` and implement the required getters:
+
+```dart
+class PostsInfiniteQueryCubit extends InfiniteQueryCubit<List<Post>, int> {
+  @override
+  String get key => 'posts';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  );
+}
+
+BlocProvider(
+  create: (_) => PostsInfiniteQueryCubit(),
+  child: BlocBuilder<PostsInfiniteQueryCubit, InfiniteQueryState<List<Post>, int>>(
+    builder: (context, state) {
+      final allPosts = state.pages.expand((p) => p.data ?? []).toList();
+      return ListView.builder(
+        itemCount: allPosts.length,
+        itemBuilder: (_, i) => PostItem(allPosts[i]),
+      );
+    },
+  ),
+)
 ```
 
+## Pagination Methods
 
+Use the provided pagination methods:
+
+```dart
+class PostsInfiniteQueryCubit extends InfiniteQueryCubit<List<Post>, int> {
+  @override
+  String get key => 'posts';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  );
+}
+
+class PostsScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: BlocProvider(
+        create: (_) => PostsInfiniteQueryCubit(),
+        child: BlocBuilder<PostsInfiniteQueryCubit, InfiniteQueryState<List<Post>, int>>(
+          builder: (context, state) {
+            final allPosts = state.pages.expand((p) => p.data ?? []).toList();
+            
+            return Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: allPosts.length,
+                    itemBuilder: (_, i) => PostItem(allPosts[i]),
+                  ),
+                ),
+                if (state.hasNextPage)
+                  ElevatedButton(
+                    onPressed: () {
+                      context.read<PostsInfiniteQueryCubit>().fetchNextPage();
+                    },
+                    child: Text('Load More'),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Cursor-Based Pagination
+
+Use cursor-based pagination with string parameters:
+
+```dart
+class PostsCursorQueryCubit extends InfiniteQueryCubit<List<Post>, String?> {
+  @override
+  String get key => 'posts:cursor';
+
+  @override
+  Future<List<Post>> Function(String? param) get queryFn => 
+    (cursor) => api.fetchPosts(cursor: cursor);
+
+  @override
+  InfiniteQueryOptions<List<Post>, String?>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) {
+      if (last == null || last.isEmpty) return null;
+      return last.last.cursor;
+    },
+  );
+}
+```
+
+## Bidirectional Pagination
+
+Support both forward and backward pagination:
+
+```dart
+class PostsBidirectionalCubit extends InfiniteQueryCubit<List<Post>, int> {
+  @override
+  String get key => 'posts:bidirectional';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+    getPreviousPageParam: (pages, first) => pages.first.param > 1 
+      ? pages.first.param - 1 
+      : null,
+  );
+}
+
+class PostsBidirectionalScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => PostsBidirectionalCubit(),
+      child: BlocBuilder<PostsBidirectionalCubit, InfiniteQueryState<List<Post>, int>>(
+        builder: (context, state) {
+          final allPosts = state.pages.expand((p) => p.data ?? []).toList();
+          
+          return Column(
+            children: [
+              if (state.hasPreviousPage)
+                ElevatedButton(
+                  onPressed: () {
+                    context.read<PostsBidirectionalCubit>().fetchPreviousPage();
+                  },
+                  child: Text('Load Previous'),
+                ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: allPosts.length,
+                  itemBuilder: (_, i) => PostItem(allPosts[i]),
+                ),
+              ),
+              if (state.hasNextPage)
+                ElevatedButton(
+                  onPressed: () {
+                    context.read<PostsBidirectionalCubit>().fetchNextPage();
+                  },
+                  child: Text('Load More'),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Refetching Specific Pages
+
+Refetch a specific page by index:
+
+```dart
+class PostsRefetchCubit extends InfiniteQueryCubit<List<Post>, int> {
+  @override
+  String get key => 'posts';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  );
+}
+
+class PostsRefetchScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => PostsRefetchCubit(),
+      child: BlocBuilder<PostsRefetchCubit, InfiniteQueryState<List<Post>, int>>(
+        builder: (context, state) {
+          return Column(
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  context.read<PostsRefetchCubit>().refetchPage(0);
+                },
+                child: Text('Refresh First Page'),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: state.pages.length,
+                  itemBuilder: (context, index) {
+                    final page = state.pages[index];
+                    return PageTile(
+                      pageNumber: index + 1,
+                      posts: page.data ?? [],
+                      isLoading: page.data == null && page.error == null,
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Resetting Pages
+
+Reset all pages to start fresh:
+
+```dart
+class PostsResetCubit extends InfiniteQueryCubit<List<Post>, int> {
+  @override
+  String get key => 'posts';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+  );
+}
+
+class PostsResetScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => PostsResetCubit(),
+      child: BlocBuilder<PostsResetCubit, InfiniteQueryState<List<Post>, int>>(
+        builder: (context, state) {
+          return Column(
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  context.read<PostsResetCubit>().reset();
+                },
+                child: Text('Reset All Pages'),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: state.pages.expand((p) => p.data ?? []).length,
+                  itemBuilder: (_, i) => PostItem(state.pages.expand((p) => p.data ?? []).toList()[i]),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Page Limits
+
+Limit the number of pages kept in memory:
+
+```dart
+class PostsLimitedCubit extends InfiniteQueryCubit<List<Post>, int> {
+  @override
+  String get key => 'posts:limited';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+    maxPages: 5,
+  );
+}
+```
+
+## Error Handling
+
+Handle errors per page:
+
+```dart
+class PostsErrorHandlingCubit extends InfiniteQueryCubit<List<Post>, int> {
+  @override
+  String get key => 'posts';
+
+  @override
+  Future<List<Post>> Function(int param) get queryFn => 
+    (page) => api.fetchPosts(page: page);
+
+  @override
+  InfiniteQueryOptions<List<Post>, int>? get options => InfiniteQueryOptions(
+    getNextPageParam: (pages, last) => pages.length + 1,
+    onError: (error) {
+      print('Error fetching page: $error');
+    },
+  );
+}
+
+class PostsErrorScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => PostsErrorHandlingCubit(),
+      child: BlocBuilder<PostsErrorHandlingCubit, InfiniteQueryState<List<Post>, int>>(
+        builder: (context, state) {
+          return ListView.builder(
+            itemCount: state.pages.length,
+            itemBuilder: (context, index) {
+              final page = state.pages[index];
+              if (page.error != null) {
+                return ErrorTile(
+                  error: page.error!,
+                  onRetry: () {
+                    context.read<PostsErrorHandlingCubit>().refetchPage(index);
+                  },
+                );
+              }
+              return PostListTile(posts: page.data ?? []);
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+## Next Steps
+
+- **[QueryCubit](/docs/bloc/query-cubit)** - Learn about basic queries
+- **[MutationCubit](/docs/bloc/mutation-cubit)** - Learn about mutations
+- **[Examples](/docs/bloc/examples)** - Complete working examples
