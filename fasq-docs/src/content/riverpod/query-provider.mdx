@@ -11,7 +11,7 @@ import 'package:fasq_riverpod/fasq_riverpod.dart';
 
 // Define your query provider
 final usersProvider = queryProvider<List<User>>(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
 );
 
@@ -45,7 +45,7 @@ Configure query behavior with QueryOptions:
 
 ```dart
 final usersProvider = queryProvider<List<User>>(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
   options: QueryOptions(
     staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
@@ -68,7 +68,7 @@ Use Riverpod's `family` modifier for parameterized queries:
 ```dart
 // Define a family provider for user details
 final userProvider = queryProvider.family<User, String>(
-  (userId) => 'user:$userId',
+  (userId) => 'user:$userId'.toQueryKey(),
   (userId) => api.fetchUser(userId),
 );
 
@@ -104,7 +104,7 @@ Disable queries based on conditions:
 
 ```dart
 final userProvider = queryProvider.family<User?, String>(
-  (userId) => 'user:$userId',
+  (userId) => 'user:$userId'.toQueryKey(),
   (userId) => api.fetchUser(userId),
   options: QueryOptions(
     enabled: (userId) => userId.isNotEmpty, // Only fetch when userId is not empty
@@ -141,12 +141,12 @@ Create queries that depend on other queries:
 
 ```dart
 final usersProvider = queryProvider<List<User>>(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
 );
 
 final userPostsProvider = queryProvider.family<List<Post>, String>(
-  (userId) => 'posts:user:$userId',
+  (userId) => 'posts:user:$userId'.toQueryKey(),
   (userId) => api.fetchUserPosts(userId),
   options: QueryOptions(
     enabled: (userId) {
@@ -257,7 +257,7 @@ Handle errors with retry functionality:
 
 ```dart
 final usersProvider = queryProvider<List<User>>(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
 );
 
@@ -304,7 +304,7 @@ Handle background refetching with `isFetching`:
 
 ```dart
 final usersProvider = queryProvider<List<User>>(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
 );
 
@@ -343,7 +343,7 @@ Full generic type support ensures compile-time safety:
 ```dart
 // Type-safe provider definition
 final usersProvider = queryProvider<List<User>>(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
 );
 

@@ -17,15 +17,15 @@ final client = QueryClient();
 
 // Prefetch a single query
 await client.prefetchQuery(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
 );
 
 // Prefetch multiple queries in parallel
 await client.prefetchQueries([
-  PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-  PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
-  PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+  PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
+  PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
+  PrefetchConfig(queryKey: 'comments'.toQueryKey(), queryFn: () => api.fetchComments()),
 ]);
 ```
 
@@ -35,12 +35,12 @@ Use `PrefetchConfig` to define multiple queries for batch prefetching:
 
 ```dart
 class PrefetchConfig<T> {
-  final String key;
+  final QueryKey queryKey;
   final Future<T> Function() queryFn;
   final QueryOptions? options;
   
   const PrefetchConfig({
-    required this.key,
+    required this.queryKey,
     required this.queryFn,
     this.options,
   });
@@ -96,9 +96,9 @@ Use `prefetchQueries` for multiple related queries:
 ```dart
 // More efficient than individual prefetches
 await client.prefetchQueries([
-  PrefetchConfig(key: 'user-profile', queryFn: () => api.fetchUser(userId)),
-  PrefetchConfig(key: 'user-posts', queryFn: () => api.fetchUserPosts(userId)),
-  PrefetchConfig(key: 'user-followers', queryFn: () => api.fetchUserFollowers(userId)),
+  PrefetchConfig(queryKey: 'user-profile'.toQueryKey(), queryFn: () => api.fetchUser(userId)),
+  PrefetchConfig(queryKey: 'user-posts'.toQueryKey(), queryFn: () => api.fetchUserPosts(userId)),
+  PrefetchConfig(queryKey: 'user-followers'.toQueryKey(), queryFn: () => api.fetchUserFollowers(userId)),
 ]);
 ```
 
@@ -124,7 +124,7 @@ Set reasonable cache times for prefetched data:
 
 ```dart
 await client.prefetchQuery(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
   options: QueryOptions(
     staleTime: Duration(minutes: 5), // Fresh for 5 minutes
@@ -139,7 +139,7 @@ Prefetch errors should not break the user experience:
 
 ```dart
 try {
-  await client.prefetchQuery('users', () => api.fetchUsers());
+  await client.prefetchQuery('users'.toQueryKey(), () => api.fetchUsers());
 } catch (e) {
   // Log error but don't show to user
   logger.warning('Prefetch failed: $e');
@@ -152,7 +152,7 @@ Consider network conditions when prefetching:
 
 ```dart
 if (isWifiConnection && !isLowBattery) {
-  await client.prefetchQuery('heavy-data', () => api.fetchHeavyData());
+  await client.prefetchQuery('heavy-data'.toQueryKey(), () => api.fetchHeavyData());
 }
 ```
 
@@ -167,7 +167,7 @@ class NavigationService {
   Future<void> navigateToUserProfile(String userId) async {
     // Prefetch user data before navigation
     await queryClient.prefetchQuery(
-      'user-$userId',
+      'user-$userId'.toQueryKey(),
       () => api.fetchUser(userId),
     );
     
@@ -188,8 +188,8 @@ class UserDashboard extends StatelessWidget {
     // Prefetch related data on mount
     useEffect(() {
       queryClient.prefetchQueries([
-        PrefetchConfig(key: 'user-stats', queryFn: () => api.fetchUserStats()),
-        PrefetchConfig(key: 'recent-activity', queryFn: () => api.fetchRecentActivity()),
+        PrefetchConfig(queryKey: 'user-stats'.toQueryKey(), queryFn: () => api.fetchUserStats()),
+        PrefetchConfig(queryKey: 'recent-activity'.toQueryKey(), queryFn: () => api.fetchRecentActivity()),
       ]);
       return null;
     }, []);
@@ -207,7 +207,7 @@ Test prefetching behavior:
 test('prefetch populates cache correctly', () async {
   final client = QueryClient();
   
-  await client.prefetchQuery('test-key', () => Future.value('test-data'));
+  await client.prefetchQuery('test-key'.toQueryKey(), () => Future.value('test-data'));
   
   final cachedData = client.cache.get('test-key');
   expect(cachedData?.data, equals('test-data'));
@@ -223,11 +223,11 @@ test('prefetch skips if cache is fresh', () async {
   }
   
   // First prefetch
-  await client.prefetchQuery('test-key', fetchData);
+  await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
   expect(fetchCount, equals(1));
   
   // Second prefetch should be skipped
-  await client.prefetchQuery('test-key', fetchData);
+  await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
   expect(fetchCount, equals(1)); // Still 1
 });
 ```

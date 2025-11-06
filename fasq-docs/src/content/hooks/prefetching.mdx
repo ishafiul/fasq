@@ -19,7 +19,7 @@ class UserCard extends HookWidget {
     return Card(
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, '/user/$userId'),
-        onHover: () => prefetch('user-$userId', () => api.fetchUser(userId)),
+        onHover: () => prefetch('user-$userId'.toQueryKey(), () => api.fetchUser(userId)),
         child: Column(
           children: [
             Text('User $userId'),
@@ -49,9 +49,9 @@ class Dashboard extends HookWidget {
   Widget build(BuildContext context) {
     // Prefetch dashboard data on mount
     usePrefetchOnMount([
-      PrefetchConfig(key: 'user-stats', queryFn: () => api.fetchUserStats()),
-      PrefetchConfig(key: 'recent-posts', queryFn: () => api.fetchRecentPosts()),
-      PrefetchConfig(key: 'notifications', queryFn: () => api.fetchNotifications()),
+      PrefetchConfig(queryKey: 'user-stats'.toQueryKey(), queryFn: () => api.fetchUserStats()),
+      PrefetchConfig(queryKey: 'recent-posts'.toQueryKey(), queryFn: () => api.fetchRecentPosts()),
+      PrefetchConfig(queryKey: 'notifications'.toQueryKey(), queryFn: () => api.fetchNotifications()),
     ]);
     
     return DashboardContent();
@@ -83,8 +83,8 @@ class UserProfile extends HookWidget {
     
     useEffect(() {
       if (shouldPrefetchRelated) {
-        prefetch('user-posts-$userId', () => api.fetchUserPosts(userId));
-        prefetch('user-followers-$userId', () => api.fetchUserFollowers(userId));
+        prefetch('user-posts-$userId'.toQueryKey(), () => api.fetchUserPosts(userId));
+        prefetch('user-followers-$userId'.toQueryKey(), () => api.fetchUserFollowers(userId));
       }
       return null;
     }, [userId, shouldPrefetchRelated]);
@@ -112,7 +112,7 @@ class UserList extends HookWidget {
           title: Text(users[index].name),
           onTap: () {
             // Prefetch user details before navigation
-            prefetch('user-$userId', () => api.fetchUser(userId));
+            prefetch('user-$userId'.toQueryKey(), () => api.fetchUser(userId));
             Navigator.pushNamed(context, '/user/$userId');
           },
         );
@@ -141,16 +141,16 @@ class TabbedInterface extends HookWidget {
               // Prefetch data for other tabs
               switch (index) {
                 case 0:
-                  prefetch('posts', () => api.fetchPosts());
-                  prefetch('comments', () => api.fetchComments());
+                  prefetch('posts'.toQueryKey(), () => api.fetchPosts());
+                  prefetch('comments'.toQueryKey(), () => api.fetchComments());
                   break;
                 case 1:
-                  prefetch('users', () => api.fetchUsers());
-                  prefetch('comments', () => api.fetchComments());
+                  prefetch('users'.toQueryKey(), () => api.fetchUsers());
+                  prefetch('comments'.toQueryKey(), () => api.fetchComments());
                   break;
                 case 2:
-                  prefetch('users', () => api.fetchUsers());
-                  prefetch('posts', () => api.fetchPosts());
+                  prefetch('users'.toQueryKey(), () => api.fetchUsers());
+                  prefetch('posts'.toQueryKey(), () => api.fetchPosts());
                   break;
               }
             },
@@ -191,7 +191,7 @@ class AppRouter {
           return HookBuilder(
             builder: (context) {
               usePrefetchOnMount([
-                PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+                PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
               ]);
               return UsersPage();
             },
@@ -205,8 +205,8 @@ class AppRouter {
               return HookBuilder(
                 builder: (context) {
                   usePrefetchOnMount([
-                    PrefetchConfig(key: 'user-$userId', queryFn: () => api.fetchUser(userId)),
-                    PrefetchConfig(key: 'user-posts-$userId', queryFn: () => api.fetchUserPosts(userId)),
+                    PrefetchConfig(queryKey: 'user-$userId'.toQueryKey(), queryFn: () => api.fetchUser(userId)),
+                    PrefetchConfig(queryKey: 'user-posts-$userId'.toQueryKey(), queryFn: () => api.fetchUserPosts(userId)),
                   ]);
                   return UserProfilePage(userId: userId);
                 },
@@ -229,7 +229,7 @@ The `usePrefetchQuery` hook returns a stable reference, so you can safely use it
 ```dart
 // Good: Stable reference
 final prefetch = usePrefetchQuery();
-onHover: () => prefetch('key', fetchFn);
+onHover: () => prefetch('key'.toQueryKey(), fetchFn);
 
 // Avoid: Creating new functions in render
 onHover: () => usePrefetchQuery()('key', fetchFn); // Creates new function each render
@@ -242,14 +242,14 @@ Use `usePrefetchOnMount` for multiple related queries:
 ```dart
 // Good: Batch prefetch
 usePrefetchOnMount([
-  PrefetchConfig(key: 'user', queryFn: () => api.fetchUser()),
-  PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+  PrefetchConfig(queryKey: 'user'.toQueryKey(), queryFn: () => api.fetchUser()),
+  PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
 ]);
 
 // Less efficient: Individual prefetches
 useEffect(() {
-  prefetch('user', () => api.fetchUser());
-  prefetch('posts', () => api.fetchPosts());
+  prefetch('user'.toQueryKey(), () => api.fetchUser());
+  prefetch('posts'.toQueryKey(), () => api.fetchPosts());
 }, []);
 ```
 
@@ -260,7 +260,7 @@ Only prefetch when conditions are met:
 ```dart
 useEffect(() {
   if (isAuthenticated && hasPermission) {
-    prefetch('sensitive-data', () => api.fetchSensitiveData());
+    prefetch('sensitive-data'.toQueryKey(), () => api.fetchSensitiveData());
   }
 }, [isAuthenticated, hasPermission]);
 ```
@@ -302,7 +302,7 @@ testWidgets('usePrefetchOnMount prefetches on mount', (tester) async {
       home: HookBuilder(
         builder: (context) {
           usePrefetchOnMount([
-            PrefetchConfig(key: 'test-key', queryFn: fetchData),
+            PrefetchConfig(queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
           ]);
           return SizedBox();
         },

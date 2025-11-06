@@ -12,9 +12,9 @@ class Dashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     return PrefetchBuilder(
       configs: [
-        PrefetchConfig(key: 'user-stats', queryFn: () => api.fetchUserStats()),
-        PrefetchConfig(key: 'recent-posts', queryFn: () => api.fetchRecentPosts()),
-        PrefetchConfig(key: 'notifications', queryFn: () => api.fetchNotifications()),
+        PrefetchConfig(queryKey: 'user-stats'.toQueryKey(), queryFn: () => api.fetchUserStats()),
+        PrefetchConfig(queryKey: 'recent-posts'.toQueryKey(), queryFn: () => api.fetchRecentPosts()),
+        PrefetchConfig(queryKey: 'notifications'.toQueryKey(), queryFn: () => api.fetchNotifications()),
       ],
       child: DashboardContent(),
     );
@@ -64,7 +64,7 @@ class _UserCardState extends State<UserCard> {
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, '/user/${widget.userId}'),
         onHover: () => _prefetchCubit.prefetch(
-          'user-${widget.userId}',
+          'user-${widget.userId}'.toQueryKey(),
           () => api.fetchUser(widget.userId),
         ),
         child: Column(
@@ -103,7 +103,7 @@ class UserList extends StatelessWidget {
           onTap: () {
             // Prefetch user details before navigation
             final prefetchCubit = PrefetchQueryCubit();
-            prefetchCubit.prefetch('user-$userId', () => api.fetchUser(userId));
+            prefetchCubit.prefetch('user-$userId'.toQueryKey(), () => api.fetchUser(userId));
             Navigator.pushNamed(context, '/user/$userId');
           },
         );
@@ -150,20 +150,20 @@ class _TabbedInterfaceState extends State<TabbedInterface> {
               switch (index) {
                 case 0:
                   _prefetchCubit.prefetchAll([
-                    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
-                    PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+                    PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
+                    PrefetchConfig(queryKey: 'comments'.toQueryKey(), queryFn: () => api.fetchComments()),
                   ]);
                   break;
                 case 1:
                   _prefetchCubit.prefetchAll([
-                    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-                    PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+                    PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
+                    PrefetchConfig(queryKey: 'comments'.toQueryKey(), queryFn: () => api.fetchComments()),
                   ]);
                   break;
                 case 2:
                   _prefetchCubit.prefetchAll([
-                    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-                    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+                    PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
+                    PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
                   ]);
                   break;
               }
@@ -213,8 +213,8 @@ class _UserProfileState extends State<UserProfile> {
     
     if (widget.shouldPrefetchRelated) {
       _prefetchCubit.prefetchAll([
-        PrefetchConfig(key: 'user-posts-${widget.userId}', queryFn: () => api.fetchUserPosts(widget.userId)),
-        PrefetchConfig(key: 'user-followers-${widget.userId}', queryFn: () => api.fetchUserFollowers(widget.userId)),
+        PrefetchConfig(queryKey: 'user-posts-${widget.userId}'.toQueryKey(), queryFn: () => api.fetchUserPosts(widget.userId)),
+        PrefetchConfig(queryKey: 'user-followers-${widget.userId}'.toQueryKey(), queryFn: () => api.fetchUserFollowers(widget.userId)),
       ]);
     }
   }
@@ -245,7 +245,7 @@ class AppRouter {
         builder: (context, state) {
           return PrefetchBuilder(
             configs: [
-              PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+              PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
             ],
             child: UsersPage(),
           );
@@ -257,8 +257,8 @@ class AppRouter {
               final userId = state.pathParameters['userId']!;
               return PrefetchBuilder(
                 configs: [
-                  PrefetchConfig(key: 'user-$userId', queryFn: () => api.fetchUser(userId)),
-                  PrefetchConfig(key: 'user-posts-$userId', queryFn: () => api.fetchUserPosts(userId)),
+                  PrefetchConfig(queryKey: 'user-$userId'.toQueryKey(), queryFn: () => api.fetchUser(userId)),
+                  PrefetchConfig(queryKey: 'user-posts-$userId'.toQueryKey(), queryFn: () => api.fetchUserPosts(userId)),
                 ],
                 child: UserProfilePage(userId: userId),
               );
@@ -299,7 +299,7 @@ GoRoute(
   path: '/dashboard',
   builder: (context, state) => PrefetchRoute(
     configs: [
-      PrefetchConfig(key: 'dashboard-data', queryFn: () => api.fetchDashboardData()),
+      PrefetchConfig(queryKey: 'dashboard-data'.toQueryKey(), queryFn: () => api.fetchDashboardData()),
     ],
     child: DashboardPage(),
   ),
@@ -315,7 +315,7 @@ For prefetching when components mount, use `PrefetchBuilder`:
 ```dart
 // Good: Simple mount-based prefetching
 PrefetchBuilder(
-  configs: [PrefetchConfig(key: 'data', queryFn: fetchData)],
+  configs: [PrefetchConfig(queryKey: 'data'.toQueryKey(), queryFn: fetchData)],
   child: MyWidget(),
 );
 
@@ -332,7 +332,7 @@ class _MyWidgetState extends State<MyWidget> {
   void initState() {
     super.initState();
     _cubit = PrefetchQueryCubit();
-    _cubit.prefetch('data', fetchData);
+    _cubit.prefetch('data'.toQueryKey(), fetchData);
   }
   
   @override
@@ -353,13 +353,13 @@ Use `prefetchAll` for multiple related queries:
 ```dart
 // Good: Batch prefetch
 _prefetchCubit.prefetchAll([
-  PrefetchConfig(key: 'user', queryFn: () => api.fetchUser()),
-  PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+  PrefetchConfig(queryKey: 'user'.toQueryKey(), queryFn: () => api.fetchUser()),
+  PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
 ]);
 
 // Less efficient: Individual prefetches
-_prefetchCubit.prefetch('user', () => api.fetchUser());
-_prefetchCubit.prefetch('posts', () => api.fetchPosts());
+_prefetchCubit.prefetch('user'.toQueryKey(), () => api.fetchUser());
+_prefetchCubit.prefetch('posts'.toQueryKey(), () => api.fetchPosts());
 ```
 
 ### 3. Reuse Cubit Instances
@@ -391,8 +391,8 @@ class _UserCardState extends State<UserCard> {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onHover: () => _prefetchCubit.prefetch('user-data', fetchUserData),
-        onTap: () => _prefetchCubit.prefetch('user-details', fetchUserDetails),
+        onHover: () => _prefetchCubit.prefetch('user-data'.toQueryKey(), fetchUserData),
+        onTap: () => _prefetchCubit.prefetch('user-details'.toQueryKey(), fetchUserDetails),
         child: UserCardContent(),
       ),
     );
@@ -417,7 +417,7 @@ testWidgets('PrefetchBuilder prefetches on mount', (tester) async {
     MaterialApp(
       home: PrefetchBuilder(
         configs: [
-          PrefetchConfig(key: 'test-key', queryFn: fetchData),
+          PrefetchConfig(queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
         ],
         child: SizedBox(),
       ),
@@ -437,7 +437,7 @@ test('PrefetchQueryCubit prefetches correctly', () async {
     return 'test-data';
   }
 
-  await cubit.prefetch('test-key', fetchData);
+  await cubit.prefetch('test-key'.toQueryKey(), fetchData);
   
   expect(fetchCount, equals(1));
   

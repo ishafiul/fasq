@@ -17,7 +17,7 @@ class UserCard extends ConsumerWidget {
     return Card(
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, '/user/$userId'),
-        onHover: () => ref.prefetchQuery('user-$userId', () => api.fetchUser(userId)),
+        onHover: () => ref.prefetchQuery('user-$userId'.toQueryKey(), () => api.fetchUser(userId)),
         child: Column(
           children: [
             Text('User $userId'),
@@ -45,9 +45,9 @@ class Dashboard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Prefetch dashboard data
     usePrefetch(ref, [
-      PrefetchConfig(key: 'user-stats', queryFn: () => api.fetchUserStats()),
-      PrefetchConfig(key: 'recent-posts', queryFn: () => api.fetchRecentPosts()),
-      PrefetchConfig(key: 'notifications', queryFn: () => api.fetchNotifications()),
+      PrefetchConfig(queryKey: 'user-stats'.toQueryKey(), queryFn: () => api.fetchUserStats()),
+      PrefetchConfig(queryKey: 'recent-posts'.toQueryKey(), queryFn: () => api.fetchRecentPosts()),
+      PrefetchConfig(queryKey: 'notifications'.toQueryKey(), queryFn: () => api.fetchNotifications()),
     ]);
     
     return DashboardContent();
@@ -79,7 +79,7 @@ class UserList extends ConsumerWidget {
           title: Text(users[index].name),
           onTap: () {
             // Prefetch user details before navigation
-            ref.prefetchQuery('user-$userId', () => api.fetchUser(userId));
+            ref.prefetchQuery('user-$userId'.toQueryKey(), () => api.fetchUser(userId));
             Navigator.pushNamed(context, '/user/$userId');
           },
         );
@@ -107,20 +107,20 @@ class TabbedInterface extends ConsumerWidget {
               switch (index) {
                 case 0:
                   ref.prefetchQueries([
-                    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
-                    PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+                    PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
+                    PrefetchConfig(queryKey: 'comments'.toQueryKey(), queryFn: () => api.fetchComments()),
                   ]);
                   break;
                 case 1:
                   ref.prefetchQueries([
-                    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-                    PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
+                    PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
+                    PrefetchConfig(queryKey: 'comments'.toQueryKey(), queryFn: () => api.fetchComments()),
                   ]);
                   break;
                 case 2:
                   ref.prefetchQueries([
-                    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-                    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+                    PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
+                    PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
                   ]);
                   break;
               }
@@ -165,8 +165,8 @@ class UserProfile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (shouldPrefetchRelated) {
       ref.prefetchQueries([
-        PrefetchConfig(key: 'user-posts-$userId', queryFn: () => api.fetchUserPosts(userId)),
-        PrefetchConfig(key: 'user-followers-$userId', queryFn: () => api.fetchUserFollowers(userId)),
+        PrefetchConfig(queryKey: 'user-posts-$userId'.toQueryKey(), queryFn: () => api.fetchUserPosts(userId)),
+        PrefetchConfig(queryKey: 'user-followers-$userId'.toQueryKey(), queryFn: () => api.fetchUserFollowers(userId)),
       ]);
     }
     
@@ -189,7 +189,7 @@ class AppRouter {
           return Consumer(
             builder: (context, ref, child) {
               usePrefetch(ref, [
-                PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+                PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
               ]);
               return UsersPage();
             },
@@ -203,8 +203,8 @@ class AppRouter {
               return Consumer(
                 builder: (context, ref, child) {
                   usePrefetch(ref, [
-                    PrefetchConfig(key: 'user-$userId', queryFn: () => api.fetchUser(userId)),
-                    PrefetchConfig(key: 'user-posts-$userId', queryFn: () => api.fetchUserPosts(userId)),
+                    PrefetchConfig(queryKey: 'user-$userId'.toQueryKey(), queryFn: () => api.fetchUser(userId)),
+                    PrefetchConfig(queryKey: 'user-posts-$userId'.toQueryKey(), queryFn: () => api.fetchUserPosts(userId)),
                   ]);
                   return UserProfilePage(userId: userId);
                 },
@@ -244,7 +244,7 @@ GoRoute(
   path: '/dashboard',
   builder: (context, state) => PrefetchRoute(
     configs: [
-      PrefetchConfig(key: 'dashboard-data', queryFn: () => api.fetchDashboardData()),
+      PrefetchConfig(queryKey: 'dashboard-data'.toQueryKey(), queryFn: () => api.fetchDashboardData()),
     ],
     child: DashboardPage(),
   ),
@@ -272,7 +272,7 @@ class Dashboard extends ConsumerWidget {
     
     useEffect(() {
       prefetch([
-        PrefetchConfig(key: 'dashboard-data', queryFn: () => api.fetchDashboardData()),
+        PrefetchConfig(queryKey: 'dashboard-data'.toQueryKey(), queryFn: () => api.fetchDashboardData()),
       ]);
       return null;
     }, []);
@@ -290,12 +290,12 @@ For prefetching on user interactions, use the extension methods:
 
 ```dart
 // Good: Direct extension method
-onHover: () => ref.prefetchQuery('user-data', fetchUserData);
+onHover: () => ref.prefetchQuery('user-data'.toQueryKey(), fetchUserData);
 
 // Less efficient: Manual client creation
 onHover: () {
   final client = QueryClient();
-  client.prefetchQuery('user-data', fetchUserData);
+  client.prefetchQuery('user-data'.toQueryKey(), fetchUserData);
 };
 ```
 
@@ -306,13 +306,13 @@ Use `prefetchQueries` for multiple related queries:
 ```dart
 // Good: Batch prefetch
 ref.prefetchQueries([
-  PrefetchConfig(key: 'user', queryFn: () => api.fetchUser()),
-  PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+  PrefetchConfig(queryKey: 'user'.toQueryKey(), queryFn: () => api.fetchUser()),
+  PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
 ]);
 
 // Less efficient: Individual prefetches
-ref.prefetchQuery('user', () => api.fetchUser());
-ref.prefetchQuery('posts', () => api.fetchPosts());
+ref.prefetchQuery('user'.toQueryKey(), () => api.fetchUser());
+ref.prefetchQuery('posts'.toQueryKey(), () => api.fetchPosts());
 ```
 
 ### 3. Use usePrefetch for Mount-Based Prefetching
@@ -325,7 +325,7 @@ class MyWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     usePrefetch(ref, [
-      PrefetchConfig(key: 'data', queryFn: fetchData),
+      PrefetchConfig(queryKey: 'data'.toQueryKey(), queryFn: fetchData),
     ]);
     return MyWidgetContent();
   }
@@ -336,7 +336,7 @@ class MyWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useEffect(() {
-      ref.prefetchQuery('data', fetchData);
+      ref.prefetchQuery('data'.toQueryKey(), fetchData);
       return null;
     }, []);
     return MyWidgetContent();
@@ -363,7 +363,7 @@ testWidgets('PrefetchExtension works correctly', (tester) async {
         home: Consumer(
           builder: (context, ref, child) {
             return ElevatedButton(
-              onPressed: () => ref.prefetchQuery('test-key', fetchData),
+              onPressed: () => ref.prefetchQuery('test-key'.toQueryKey(), fetchData),
               child: Text('Prefetch'),
             );
           },
@@ -392,7 +392,7 @@ testWidgets('usePrefetch prefetches correctly', (tester) async {
         home: Consumer(
           builder: (context, ref, child) {
             usePrefetch(ref, [
-              PrefetchConfig(key: 'test-key', queryFn: fetchData),
+              PrefetchConfig(queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
             ]);
             return SizedBox();
           },
