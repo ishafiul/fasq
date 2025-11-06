@@ -54,7 +54,9 @@ class QueryCache {
     final hotEntry = _hotCache.get(key);
     if (hotEntry != null) {
       _metrics.recordHit();
-      return hotEntry.withAccess() as CacheEntry<T>;
+      final updated = hotEntry.withAccess();
+      _entries[key] = updated;
+      return _reconstructEntry<T>(updated);
     }
 
     final entry = _entries[key];
@@ -80,7 +82,25 @@ class QueryCache {
       _hotCache.put(key, updated);
     }
 
-    return updated as CacheEntry<T>;
+    return _reconstructEntry<T>(updated);
+  }
+
+  /// Reconstructs a CacheEntry with type T from a CacheEntry (any type).
+  ///
+  /// Preserves all metadata while ensuring type safety by reconstructing
+  /// with explicit type parameter instead of unsafe casting.
+  CacheEntry<T> _reconstructEntry<T>(CacheEntry entry) {
+    return CacheEntry<T>(
+      data: entry.data as T,
+      createdAt: entry.createdAt,
+      lastAccessedAt: entry.lastAccessedAt,
+      accessCount: entry.accessCount,
+      staleTime: entry.staleTime,
+      cacheTime: entry.cacheTime,
+      referenceCount: entry.referenceCount,
+      isSecure: entry.isSecure,
+      expiresAt: entry.expiresAt,
+    );
   }
 
   /// Sets data in the cache.
