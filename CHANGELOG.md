@@ -3,6 +3,44 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-11-06
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.3.1+1`](#fasq---v0311)
+ - [`fasq_bloc` - `v0.2.0+2`](#fasq_bloc---v0202)
+ - [`fasq_security` - `v0.1.0+2`](#fasq_security---v0102)
+ - [`fasq_hooks` - `v0.2.0+2`](#fasq_hooks---v0202)
+ - [`fasq_riverpod` - `v0.2.0+2`](#fasq_riverpod---v0202)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `fasq_security` - `v0.1.0+2`
+ - `fasq_hooks` - `v0.2.0+2`
+ - `fasq_riverpod` - `v0.2.0+2`
+
+---
+
+#### `fasq` - `v0.3.1+1`
+
+ - **FIX**: resolve cache type safety issue by reconstructing CacheEntry instead of casting (#27).
+ - **FIX**: enhance infinite query options and state management (#25).
+
+#### `fasq_bloc` - `v0.2.0+2`
+
+ - **REFACTOR**: convert cubits to abstract base classes (#26).
+
+
 ## 2025-10-27
 
 ### Changes

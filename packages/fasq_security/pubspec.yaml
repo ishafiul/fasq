@@ -1,6 +1,6 @@
 name: fasq_security
 description: "Security plugin package for FASQ with encryption, secure storage, and persistence capabilities."
-version: 0.1.0+1
+version: 0.1.0+2
 homepage: https://fasq.shafi.dev
 
 environment:
@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  fasq: ^0.3.1
+  fasq: ^0.3.1+1
   crypto: ^3.0.3
   pointycastle: ^3.7.3
   flutter_secure_storage: ^9.0.0

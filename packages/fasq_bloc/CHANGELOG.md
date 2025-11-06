@@ -1,3 +1,7 @@
+## 0.2.0+2
+
+ - **REFACTOR**: convert cubits to abstract base classes (#26).
+
 ## 0.2.0+1
 
  - Update a dependency to the latest release.
