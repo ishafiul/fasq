@@ -1,3 +1,7 @@
+## 0.2.1
+
+ - **FEAT**: add type-safe query keys support (#28).
+
 ## 0.2.0+2
 
  - **REFACTOR**: convert cubits to abstract base classes (#26).

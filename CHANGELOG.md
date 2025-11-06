@@ -15,6 +15,49 @@ Packages with breaking changes:
 
 Packages with other changes:
 
+ - [`fasq` - `v0.3.2`](#fasq---v032)
+ - [`fasq_bloc` - `v0.2.1`](#fasq_bloc---v021)
+ - [`fasq_hooks` - `v0.2.1`](#fasq_hooks---v021)
+ - [`fasq_riverpod` - `v0.2.1`](#fasq_riverpod---v021)
+ - [`fasq_security` - `v0.1.0+3`](#fasq_security---v0103)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `fasq_security` - `v0.1.0+3`
+
+---
+
+#### `fasq` - `v0.3.2`
+
+ - **FEAT**: add type-safe query keys support (#28).
+
+#### `fasq_bloc` - `v0.2.1`
+
+ - **FEAT**: add type-safe query keys support (#28).
+
+#### `fasq_hooks` - `v0.2.1`
+
+ - **FEAT**: add type-safe query keys support (#28).
+
+#### `fasq_riverpod` - `v0.2.1`
+
+ - **FEAT**: add type-safe query keys support (#28).
+
+
+## 2025-11-06
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
  - [`fasq` - `v0.3.1+1`](#fasq---v0311)
  - [`fasq_bloc` - `v0.2.0+2`](#fasq_bloc---v0202)
  - [`fasq_security` - `v0.1.0+2`](#fasq_security---v0102)

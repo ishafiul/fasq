@@ -1,3 +1,7 @@
+## 0.3.2
+
+ - **FEAT**: add type-safe query keys support (#28).
+
 ## 0.3.1+1
 
  - **FIX**: resolve cache type safety issue by reconstructing CacheEntry instead of casting (#27).
