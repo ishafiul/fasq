@@ -5,13 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 extension PrefetchExtension on WidgetRef {
   /// Prefetch a query to warm the cache.
   Future<void> prefetchQuery<T>(
-    String key,
+    QueryKey queryKey,
     Future<T> Function() queryFn, {
     QueryOptions? options,
     QueryClient? client,
   }) async {
     final queryClient = client ?? QueryClient();
-    await queryClient.prefetchQuery(key, queryFn, options: options);
+    await queryClient.prefetchQuery(queryKey, queryFn, options: options);
   }
 
   /// Prefetch multiple queries in parallel.

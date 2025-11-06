@@ -1,0 +1,564 @@
+# Type-Safe Query Keys
+
+Type-safe query keys provide compile-time type checking and better IDE support for your queries. This guide shows you how to use `TypedQueryKey` to create a fully type-safe query key system.
+
+## Why Type-Safe Query Keys?
+
+Using type-safe query keys offers several benefits:
+
+- **Compile-time safety**: Catch key mismatches at compile time
+- **Better IDE support**: Autocomplete and refactoring support
+- **Type inference**: Automatic type inference for query data
+- **Centralized management**: Single source of truth for all query keys
+- **Refactoring safety**: Rename keys across your entire codebase safely
+
+## Basic Usage
+
+### Simple String Keys
+
+For simple cases, you can use the `toQueryKey()` extension:
+
+```dart
+QueryBuilder<List<User>>(
+  queryKey: 'users'.toQueryKey(),
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) => ...,
+)
+```
+
+### Type-Safe Query Keys
+
+For better type safety, use `TypedQueryKey`:
+
+```dart
+// Define query keys in a central location
+class QueryKeys {
+  static TypedQueryKey<List<User>> get users =>
+      const TypedQueryKey<List<User>>('users', List<User>);
+
+  static TypedQueryKey<User> user(String id) =>
+      TypedQueryKey<User>('user:$id', User);
+}
+
+// Use in queries
+QueryBuilder<List<User>>(
+  queryKey: QueryKeys.users,
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) => ...,
+)
+
+QueryBuilder<User>(
+  queryKey: QueryKeys.user('123'),
+  queryFn: () => api.fetchUser('123'),
+  builder: (context, state) => ...,
+)
+```
+
+## Creating a QueryKeys Class
+
+### Basic Structure
+
+Create a centralized `QueryKeys` class to manage all your query keys:
+
+```dart
+import 'package:fasq/fasq.dart';
+
+class QueryKeys {
+  // Simple keys
+  static TypedQueryKey<List<User>> get users =>
+      const TypedQueryKey<List<User>>('users', List<User>);
+
+  static TypedQueryKey<List<Post>> get posts =>
+      const TypedQueryKey<List<Post>>('posts', List<Post>);
+
+  // Parameterized keys
+  static TypedQueryKey<User> user(String id) =>
+      TypedQueryKey<User>('user:$id', User);
+
+  static TypedQueryKey<Post> post(String id) =>
+      TypedQueryKey<Post>('post:$id', Post);
+
+  // Complex keys with multiple parameters
+  static TypedQueryKey<List<Post>> postsByUser(String userId) =>
+      TypedQueryKey<List<Post>>('posts:user:$userId', List<Post>);
+
+  static TypedQueryKey<List<Comment>> commentsByPost(String postId) =>
+      TypedQueryKey<List<Comment>>('comments:post:$postId', List<Comment>);
+}
+```
+
+### Using with Parameters
+
+For queries that depend on parameters, create factory methods:
+
+```dart
+class QueryKeys {
+  // Single parameter
+  static TypedQueryKey<User> user(String id) =>
+      TypedQueryKey<User>('user:$id', User);
+
+  // Multiple parameters
+  static TypedQueryKey<List<Post>> postsByUserAndPage(
+    String userId,
+    int page,
+  ) =>
+      TypedQueryKey<List<Post>>(
+        'posts:user:$userId:page:$page',
+        List<Post>,
+      );
+
+  // Using withParam helper
+  static TypedQueryKey<List<Post>> postsByUser(String userId) =>
+      const TypedQueryKey<List<Post>>('posts', List<Post>)
+          .withParam(userId);
+}
+```
+
+## Integration with QueryClient
+
+### Using with QueryClient Methods
+
+All `QueryClient` methods accept `QueryKey`:
+
+```dart
+final client = QueryClient();
+
+// Get query
+final query = client.getQuery<List<User>>(
+  QueryKeys.users,
+  () => api.fetchUsers(),
+);
+
+// Prefetch
+await client.prefetchQuery(
+  QueryKeys.users,
+  () => api.fetchUsers(),
+);
+
+// Invalidate
+client.invalidateQuery(QueryKeys.users);
+
+// Set data
+client.setQueryData(QueryKeys.users, userList);
+
+// Get data
+final users = client.getQueryData<List<User>>(QueryKeys.users);
+```
+
+## Integration with Widgets
+
+### QueryBuilder
+
+```dart
+QueryBuilder<List<User>>(
+  queryKey: QueryKeys.users,
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) {
+    if (state.hasData) {
+      return ListView.builder(
+        itemCount: state.data!.length,
+        itemBuilder: (context, index) {
+          final user = state.data![index]; // Type: User
+          return UserTile(user);
+        },
+      );
+    }
+    return CircularProgressIndicator();
+  },
+)
+```
+
+### Parameterized Queries
+
+```dart
+class UserProfile extends StatelessWidget {
+  final String userId;
+
+  const UserProfile({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<User>(
+      queryKey: QueryKeys.user(userId),
+      queryFn: () => api.fetchUser(userId),
+      builder: (context, state) {
+        if (state.hasData) {
+          final user = state.data!; // Type: User
+          return UserDetails(user);
+        }
+        return CircularProgressIndicator();
+      },
+    );
+  }
+}
+```
+
+## Integration with Adapters
+
+### Hooks
+
+```dart
+final state = useQuery<List<User>>(
+  QueryKeys.users,
+  () => api.fetchUsers(),
+);
+```
+
+### Bloc
+
+```dart
+class UsersCubit extends QueryCubit<List<User>> {
+  @override
+  QueryKey get queryKey => QueryKeys.users;
+
+  @override
+  Future<List<User>> Function() get queryFn => () => api.fetchUsers();
+}
+```
+
+### Riverpod
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  QueryKeys.users,
+  () => api.fetchUsers(),
+);
+```
+
+## Prefetching with Type-Safe Keys
+
+### Single Prefetch
+
+```dart
+await client.prefetchQuery(
+  QueryKeys.users,
+  () => api.fetchUsers(),
+);
+```
+
+### Multiple Prefetches
+
+```dart
+await client.prefetchQueries([
+  PrefetchConfig(
+    queryKey: QueryKeys.users,
+    queryFn: () => api.fetchUsers(),
+  ),
+  PrefetchConfig(
+    queryKey: QueryKeys.posts,
+    queryFn: () => api.fetchPosts(),
+  ),
+]);
+```
+
+## Best Practices
+
+### 1. Centralize Query Keys
+
+Keep all query keys in a single `QueryKeys` class:
+
+```dart
+// ✅ Good: Centralized
+class QueryKeys {
+  static TypedQueryKey<List<User>> get users => ...;
+}
+
+// ❌ Bad: Scattered
+final usersKey = 'users'.toQueryKey(); // In file A
+final postsKey = 'posts'.toQueryKey(); // In file B
+```
+
+### 2. Use Descriptive Names
+
+Make query key names descriptive and hierarchical:
+
+```dart
+// ✅ Good: Clear and hierarchical
+QueryKeys.user('123')
+QueryKeys.postsByUser('123')
+QueryKeys.commentsByPost('456')
+
+// ❌ Bad: Unclear
+QueryKeys.u('123')
+QueryKeys.p('123')
+```
+
+### 3. Group Related Keys
+
+Organize related keys together:
+
+```dart
+class QueryKeys {
+  // User-related keys
+  static TypedQueryKey<List<User>> get users => ...;
+  static TypedQueryKey<User> user(String id) => ...;
+  static TypedQueryKey<List<Post>> postsByUser(String userId) => ...;
+
+  // Post-related keys
+  static TypedQueryKey<List<Post>> get posts => ...;
+  static TypedQueryKey<Post> post(String id) => ...;
+  static TypedQueryKey<List<Comment>> commentsByPost(String postId) => ...;
+}
+```
+
+### 4. Use Constants for Static Keys
+
+Use `const` for keys that don't change:
+
+```dart
+class QueryKeys {
+  // ✅ Good: const for static keys
+  static const TypedQueryKey<List<User>> users =
+      TypedQueryKey<List<User>>('users', List<User>);
+
+  // ✅ Good: Factory for dynamic keys
+  static TypedQueryKey<User> user(String id) =>
+      TypedQueryKey<User>('user:$id', User);
+}
+```
+
+### 5. Type Safety First
+
+Always specify the type parameter:
+
+```dart
+// ✅ Good: Explicit type
+static TypedQueryKey<List<User>> get users =>
+    const TypedQueryKey<List<User>>('users', List<User>);
+
+// ❌ Bad: Missing type
+static TypedQueryKey get users => ...; // Type is dynamic
+```
+
+## Advanced Patterns
+
+### Nested Keys
+
+For complex data structures, use nested keys:
+
+```dart
+class QueryKeys {
+  static TypedQueryKey<List<User>> get users => ...;
+
+  static TypedQueryKey<User> user(String id) => ...;
+
+  static TypedQueryKey<List<Post>> postsByUser(String userId) =>
+      TypedQueryKey<List<Post>>('posts:user:$userId', List<Post>);
+
+  static TypedQueryKey<Post> postByUser(String userId, String postId) =>
+      TypedQueryKey<Post>('post:user:$userId:$postId', Post);
+}
+```
+
+### Key Prefixes
+
+Use prefixes to group related keys:
+
+```dart
+class QueryKeys {
+  static const String _userPrefix = 'user';
+  static const String _postPrefix = 'post';
+
+  static TypedQueryKey<User> user(String id) =>
+      TypedQueryKey<User>('$_userPrefix:$id', User);
+
+  static TypedQueryKey<List<Post>> postsByUser(String userId) =>
+      TypedQueryKey<List<Post>>('$_postPrefix:$_userPrefix:$userId', List<Post>);
+}
+```
+
+### Conditional Keys
+
+Create keys based on conditions:
+
+```dart
+class QueryKeys {
+  static TypedQueryKey<List<Post>> posts({
+    String? userId,
+    String? category,
+  }) {
+    final parts = <String>['posts'];
+    if (userId != null) parts.add('user:$userId');
+    if (category != null) parts.add('category:$category');
+    return TypedQueryKey<List<Post>>(parts.join(':'), List<Post>);
+  }
+}
+```
+
+## Migration Guide
+
+### From String Keys
+
+If you're migrating from string keys:
+
+1. Create a `QueryKeys` class
+2. Replace string keys with `TypedQueryKey` instances
+3. Update all usages to use the new keys
+
+```dart
+// Before
+QueryBuilder<List<User>>(
+  queryKey: 'users',
+  queryFn: () => api.fetchUsers(),
+  ...
+)
+
+// After
+QueryBuilder<List<User>>(
+  queryKey: QueryKeys.users,
+  queryFn: () => api.fetchUsers(),
+  ...
+)
+```
+
+### Gradual Migration
+
+You can migrate gradually:
+
+```dart
+// Temporary: Use extension for backward compatibility
+QueryBuilder<List<User>>(
+  queryKey: 'users'.toQueryKey(),
+  queryFn: () => api.fetchUsers(),
+  ...
+)
+
+// Final: Use type-safe keys
+QueryBuilder<List<User>>(
+  queryKey: QueryKeys.users,
+  queryFn: () => api.fetchUsers(),
+  ...
+)
+```
+
+## Examples
+
+### Complete Example
+
+```dart
+import 'package:fasq/fasq.dart';
+
+class User {
+  final String id;
+  final String name;
+  final String email;
+
+  User({required this.id, required this.name, required this.email});
+}
+
+class Post {
+  final String id;
+  final String title;
+  final String body;
+  final String userId;
+
+  Post({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.userId,
+  });
+}
+
+class QueryKeys {
+  static const TypedQueryKey<List<User>> users =
+      TypedQueryKey<List<User>>('users', List<User>);
+
+  static TypedQueryKey<User> user(String id) =>
+      TypedQueryKey<User>('user:$id', User);
+
+  static const TypedQueryKey<List<Post>> posts =
+      TypedQueryKey<List<Post>>('posts', List<Post>);
+
+  static TypedQueryKey<List<Post>> postsByUser(String userId) =>
+      TypedQueryKey<List<Post>>('posts:user:$userId', List<Post>);
+
+  static TypedQueryKey<Post> post(String id) =>
+      TypedQueryKey<Post>('post:$id', Post);
+}
+
+// Usage
+class UsersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<List<User>>(
+      queryKey: QueryKeys.users,
+      queryFn: () => api.fetchUsers(),
+      builder: (context, state) {
+        if (state.hasData) {
+          return ListView.builder(
+            itemCount: state.data!.length,
+            itemBuilder: (context, index) {
+              final user = state.data![index];
+              return ListTile(
+                title: Text(user.name),
+                subtitle: Text(user.email),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => UserProfile(userId: user.id),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        }
+        return CircularProgressIndicator();
+      },
+    );
+  }
+}
+
+class UserProfile extends StatelessWidget {
+  final String userId;
+
+  const UserProfile({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return QueryBuilder<User>(
+      queryKey: QueryKeys.user(userId),
+      queryFn: () => api.fetchUser(userId),
+      builder: (context, state) {
+        if (state.hasData) {
+          final user = state.data!;
+          return Scaffold(
+            appBar: AppBar(title: Text(user.name)),
+            body: Column(
+              children: [
+                Text(user.email),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => UserPosts(userId: user.id),
+                      ),
+                    );
+                  },
+                  child: Text('View Posts'),
+                ),
+              ],
+            ),
+          );
+        }
+        return CircularProgressIndicator();
+      },
+    );
+  }
+}
+```
+
+## Summary
+
+Type-safe query keys provide:
+
+- ✅ Compile-time type checking
+- ✅ Better IDE support
+- ✅ Centralized key management
+- ✅ Refactoring safety
+- ✅ Type inference
+
+Start using type-safe query keys today to make your codebase more maintainable and less error-prone!

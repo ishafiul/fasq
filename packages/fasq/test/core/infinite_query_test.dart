@@ -11,7 +11,7 @@ void main() {
     final client = QueryClient();
     int calls = 0;
     final query = client.getInfiniteQuery<List<int>, int>(
-      'test:infinite',
+      'test:infinite'.toQueryKey(),
       (page) async {
         calls++;
         await Future.delayed(const Duration(milliseconds: 10));
@@ -36,7 +36,7 @@ void main() {
   test('respects maxPages by evicting oldest', () async {
     final client = QueryClient();
     final query = client.getInfiniteQuery<List<int>, int>(
-      'test:maxpages',
+      'test:maxpages'.toQueryKey(),
       (page) async {
         await Future.delayed(const Duration(milliseconds: 10));
         return [page];
@@ -59,7 +59,7 @@ void main() {
   test('per-page error does not drop previous pages', () async {
     final client = QueryClient();
     final query = client.getInfiniteQuery<List<int>, int>(
-      'test:error-page',
+      'test:error-page'.toQueryKey(),
       (p) async {
         await Future.delayed(const Duration(milliseconds: 10));
         if (p == 2) {
@@ -86,7 +86,7 @@ void main() {
   test('removeListener prevents negative reference count', () {
     final client = QueryClient();
     final query = client.getInfiniteQuery<List<int>, int>(
-      'test:negative-refs',
+      'test:negative-refs'.toQueryKey(),
       (page) async => [page],
       options: InfiniteQueryOptions<List<int>, int>(
         getNextPageParam: (pages, last) => pages.length + 1,

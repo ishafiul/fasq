@@ -3,6 +3,7 @@ import 'dart:async';
 import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
 import 'query_client.dart';
+import 'query_key.dart';
 import 'query_options.dart';
 import 'query_state.dart';
 import 'query_status.dart';
@@ -31,6 +32,10 @@ import 'query_status.dart';
 /// ```
 class Query<T> {
   /// Unique identifier for this query.
+  final QueryKey queryKey;
+  
+  /// Unique identifier for this query (string representation).
+  /// Kept for backward compatibility.
   final String key;
 
   /// The async function that fetches the data.
@@ -60,14 +65,16 @@ class Query<T> {
   final List<Duration> _fetchHistory = [];
 
   Query({
-    required this.key,
+    required QueryKey queryKey,
     required this.queryFn,
     this.options,
     this.cache,
     this.client,
     this.onDispose,
     T? initialData,
-  }) : _currentState = QueryState<T>.idle() {
+  }) : queryKey = queryKey,
+       key = queryKey.key,
+       _currentState = QueryState<T>.idle() {
     _controller = StreamController<QueryState<T>>.broadcast();
 
     // Set initial state based on initialData and cache staleness

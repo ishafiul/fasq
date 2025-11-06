@@ -4,7 +4,7 @@ import 'package:fasq_riverpod/fasq_riverpod.dart';
 
 class InfiniteQueryNotifier<TData, TParam>
     extends StateNotifier<InfiniteQueryState<TData, TParam>> {
-  final String key;
+  final QueryKey queryKey;
   final Future<TData> Function(TParam param) queryFn;
   final InfiniteQueryOptions<TData, TParam>? options;
 
@@ -12,7 +12,7 @@ class InfiniteQueryNotifier<TData, TParam>
   StreamSubscription<InfiniteQueryState<TData, TParam>>? _subscription;
 
   InfiniteQueryNotifier({
-    required this.key,
+    required this.queryKey,
     required this.queryFn,
     this.options,
   }) : super(InfiniteQueryState<TData, TParam>.idle()) {
@@ -22,7 +22,7 @@ class InfiniteQueryNotifier<TData, TParam>
   void _initialize() {
     final client = QueryClient();
     _query =
-        client.getInfiniteQuery<TData, TParam>(key, queryFn, options: options);
+        client.getInfiniteQuery<TData, TParam>(queryKey, queryFn, options: options);
 
     _subscription = _query.stream.listen((newState) {
       if (mounted) {

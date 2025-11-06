@@ -10,7 +10,7 @@ abstract class QueryCubit<T> extends Cubit<QueryState<T>> {
     _initialize();
   }
 
-  String get key;
+  QueryKey get queryKey;
 
   Future<T> Function() get queryFn;
 
@@ -20,7 +20,7 @@ abstract class QueryCubit<T> extends Cubit<QueryState<T>> {
 
   void _initialize() {
     final queryClient = client ?? QueryClient();
-    _query = queryClient.getQuery<T>(key, queryFn, options: options);
+    _query = queryClient.getQuery<T>(queryKey, queryFn, options: options);
 
     _subscription = _query.stream.listen((newState) {
       if (!isClosed) {
@@ -37,7 +37,7 @@ abstract class QueryCubit<T> extends Cubit<QueryState<T>> {
 
   void invalidate() {
     final queryClient = client ?? QueryClient();
-    queryClient.invalidateQuery(key);
+    queryClient.invalidateQuery(queryKey);
   }
 
   @override

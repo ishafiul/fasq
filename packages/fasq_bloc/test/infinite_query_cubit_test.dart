@@ -24,7 +24,7 @@ void main() {
 
 class _TestInfiniteQueryCubit extends InfiniteQueryCubit<List<int>, int> {
   @override
-  String get key => 'bloc:infinite';
+  QueryKey get queryKey => 'bloc:infinite'.toQueryKey();
 
   @override
   Future<List<int>> Function(int param) get queryFn => (page) async {

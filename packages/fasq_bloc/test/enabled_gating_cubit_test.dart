@@ -20,7 +20,7 @@ class _TestQueryCubit extends QueryCubit<String> {
   _TestQueryCubit(this.onQueryCall);
 
   @override
-  String get key => 'bloc:enabled';
+  QueryKey get queryKey => 'bloc:enabled'.toQueryKey();
 
   @override
   Future<String> Function() get queryFn => () async {

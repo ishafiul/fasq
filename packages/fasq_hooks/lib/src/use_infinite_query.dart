@@ -4,7 +4,7 @@ import 'package:fasq_hooks/fasq_hooks.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 InfiniteQueryState<TData, TParam> useInfiniteQuery<TData, TParam>(
-  String key,
+  QueryKey queryKey,
   Future<TData> Function(TParam param) queryFn, {
   InfiniteQueryOptions<TData, TParam>? options,
 }) {
@@ -14,8 +14,8 @@ InfiniteQueryState<TData, TParam> useInfiniteQuery<TData, TParam>(
       useState<InfiniteQueryState<TData, TParam>>(InfiniteQueryState.idle());
 
   useEffect(() {
-    final query =
-        client.getInfiniteQuery<TData, TParam>(key, queryFn, options: options);
+    final query = client.getInfiniteQuery<TData, TParam>(queryKey, queryFn,
+        options: options);
 
     query.addListener();
 
@@ -29,7 +29,7 @@ InfiniteQueryState<TData, TParam> useInfiniteQuery<TData, TParam>(
       subscription.cancel();
       query.removeListener();
     };
-  }, [key]);
+  }, [queryKey.key]);
 
   return state.value;
 }

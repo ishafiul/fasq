@@ -10,7 +10,7 @@ void main() {
     final client = QueryClient();
     int calls = 0;
     final query = client.getQuery<String>(
-      'enabled:false',
+      'enabled:false'.toQueryKey(),
       () async {
         calls++;
         return 'data';
@@ -29,8 +29,9 @@ void main() {
     final client = QueryClient();
     int calls = 0;
     var enabled = false;
+    final queryKey = 'toggle'.toQueryKey();
     final q = client.getQuery<String>(
-      'toggle',
+      queryKey,
       () async {
         calls++;
         return 'ok';
@@ -44,7 +45,7 @@ void main() {
     // simulate enabling by creating a new query with same key and enabled true
     enabled = true;
     final q2 = client.getQuery<String>(
-      'toggle',
+      queryKey,
       () async {
         calls++;
         return 'ok';

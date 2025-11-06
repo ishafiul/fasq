@@ -34,9 +34,9 @@ void main() {
         HookBuilder(
           builder: (context) {
             final queries = useQueries([
-              QueryConfig('query1', fetchData1),
-              QueryConfig('query2', fetchData2),
-              QueryConfig('query3', fetchData3),
+              QueryConfig('query1'.toQueryKey(), fetchData1),
+              QueryConfig('query2'.toQueryKey(), fetchData2),
+              QueryConfig('query3'.toQueryKey(), fetchData3),
             ]);
 
             return Column(
@@ -81,10 +81,10 @@ void main() {
           builder: (context) {
             final configs = useSecondConfig
                 ? [
-                    QueryConfig('query1', fetchData1),
-                    QueryConfig('query2', fetchData2)
+                    QueryConfig('query1'.toQueryKey(), fetchData1),
+                    QueryConfig('query2'.toQueryKey(), fetchData2)
                   ]
-                : [QueryConfig('query1', fetchData1)];
+                : [QueryConfig('query1'.toQueryKey(), fetchData1)];
 
             final queries = useQueries(configs);
 
@@ -124,8 +124,8 @@ void main() {
         HookBuilder(
           builder: (context) {
             final queries = useQueries([
-              QueryConfig('success', fetchSuccess),
-              QueryConfig('error', fetchError),
+              QueryConfig('success'.toQueryKey(), fetchSuccess),
+              QueryConfig('error'.toQueryKey(), fetchError),
             ]);
 
             return Column(
@@ -159,8 +159,8 @@ void main() {
         HookBuilder(
           builder: (context) {
             final queries = useQueries([
-              QueryConfig('query1', () => fetchData('query1')),
-              QueryConfig('query2', () => fetchData('query2')),
+              QueryConfig('query1'.toQueryKey(), () => fetchData('query1')),
+              QueryConfig('query2'.toQueryKey(), () => fetchData('query2')),
             ]);
 
             return Column(
@@ -182,8 +182,8 @@ void main() {
 
       // Verify queries are cleaned up (no memory leaks)
       final client = QueryClient();
-      expect(client.hasQuery('query1'), isFalse);
-      expect(client.hasQuery('query2'), isFalse);
+      expect(client.hasQuery('query1'.toQueryKey()), isFalse);
+      expect(client.hasQuery('query2'.toQueryKey()), isFalse);
     });
 
     testWidgets('updates states independently', (tester) async {
@@ -203,8 +203,8 @@ void main() {
         HookBuilder(
           builder: (context) {
             final queries = useQueries([
-              QueryConfig('query1', fetchData1),
-              QueryConfig('query2', fetchData2),
+              QueryConfig('query1'.toQueryKey(), fetchData1),
+              QueryConfig('query2'.toQueryKey(), fetchData2),
             ]);
 
             updateCount++;
@@ -263,11 +263,11 @@ void main() {
           builder: (context) {
             final queries = useNamedQueries([
               NamedQueryConfig(
-                  name: 'users', key: 'users', queryFn: fetchUsers),
+                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', key: 'posts', queryFn: fetchPosts),
+                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
               NamedQueryConfig(
-                  name: 'comments', key: 'comments', queryFn: fetchComments),
+                  name: 'comments', queryKey: 'comments'.toQueryKey(), queryFn: fetchComments),
             ]);
 
             return Column(
@@ -314,13 +314,13 @@ void main() {
             final configs = useSecondConfig
                 ? [
                     NamedQueryConfig(
-                        name: 'users', key: 'users', queryFn: fetchUsers),
+                        name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
                     NamedQueryConfig(
-                        name: 'posts', key: 'posts', queryFn: fetchPosts),
+                        name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
                   ]
                 : [
                     NamedQueryConfig(
-                        name: 'users', key: 'users', queryFn: fetchUsers),
+                        name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
                   ];
 
             final queries = useNamedQueries(configs);
@@ -363,9 +363,9 @@ void main() {
           builder: (context) {
             final queries = useNamedQueries([
               NamedQueryConfig(
-                  name: 'success', key: 'success', queryFn: fetchSuccess),
+                  name: 'success', queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
               NamedQueryConfig(
-                  name: 'error', key: 'error', queryFn: fetchError),
+                  name: 'error', queryKey: 'error'.toQueryKey(), queryFn: fetchError),
             ]);
 
             return Column(
@@ -401,11 +401,11 @@ void main() {
             final queries = useNamedQueries([
               NamedQueryConfig(
                   name: 'query1',
-                  key: 'query1',
+                  queryKey: 'query1'.toQueryKey(),
                   queryFn: () => fetchData('query1')),
               NamedQueryConfig(
                   name: 'query2',
-                  key: 'query2',
+                  queryKey: 'query2'.toQueryKey(),
                   queryFn: () => fetchData('query2')),
             ]);
 
@@ -428,8 +428,8 @@ void main() {
 
       // Verify queries are cleaned up (no memory leaks)
       final client = QueryClient();
-      expect(client.hasQuery('query1'), isFalse);
-      expect(client.hasQuery('query2'), isFalse);
+      expect(client.hasQuery('query1'.toQueryKey()), isFalse);
+      expect(client.hasQuery('query2'.toQueryKey()), isFalse);
     });
 
     testWidgets('updates states independently', (tester) async {
@@ -450,9 +450,9 @@ void main() {
           builder: (context) {
             final queries = useNamedQueries([
               NamedQueryConfig(
-                  name: 'users', key: 'users', queryFn: fetchUsers),
+                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', key: 'posts', queryFn: fetchPosts),
+                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
             ]);
 
             updateCount++;
@@ -495,9 +495,9 @@ void main() {
           builder: (context) {
             final queries = useNamedQueries([
               NamedQueryConfig(
-                  name: 'users', key: 'users', queryFn: fetchUsers),
+                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'stats', key: 'stats', queryFn: fetchStats),
+                  name: 'stats', queryKey: 'stats'.toQueryKey(), queryFn: fetchStats),
             ]);
 
             final usersState = queries['users']!;

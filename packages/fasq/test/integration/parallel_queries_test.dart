@@ -31,9 +31,9 @@ void main() {
       final client = QueryClient();
 
       // Create multiple queries simultaneously
-      final query1 = client.getQuery('query1', fetchData1);
-      final query2 = client.getQuery('query2', fetchData2);
-      final query3 = client.getQuery('query3', fetchData3);
+      final query1 = client.getQuery('query1'.toQueryKey(), fetchData1);
+      final query2 = client.getQuery('query2'.toQueryKey(), fetchData2);
+      final query3 = client.getQuery('query3'.toQueryKey(), fetchData3);
 
       // Add listeners to trigger execution
       query1.addListener();
@@ -71,9 +71,10 @@ void main() {
       final client = QueryClient();
 
       // Create multiple queries with the same key
-      final query1 = client.getQuery('shared', fetchData);
-      final query2 = client.getQuery('shared', fetchData);
-      final query3 = client.getQuery('shared', fetchData);
+      final queryKey = 'shared'.toQueryKey();
+      final query1 = client.getQuery(queryKey, fetchData);
+      final query2 = client.getQuery(queryKey, fetchData);
+      final query3 = client.getQuery(queryKey, fetchData);
 
       // Add listeners to trigger execution
       query1.addListener();
@@ -121,9 +122,9 @@ void main() {
       final client = QueryClient();
 
       // Create queries with mixed success/error
-      final query1 = client.getQuery('success1', fetchSuccess);
-      final query2 = client.getQuery('error', fetchError);
-      final query3 = client.getQuery('success2', fetchSuccess2);
+      final query1 = client.getQuery('success1'.toQueryKey(), fetchSuccess);
+      final query2 = client.getQuery('error'.toQueryKey(), fetchError);
+      final query3 = client.getQuery('success2'.toQueryKey(), fetchSuccess2);
 
       // Add listeners to trigger execution
       query1.addListener();
@@ -178,9 +179,9 @@ void main() {
       final client = QueryClient();
 
       // Create queries with different timing
-      final query1 = client.getQuery('fast', fetchFast);
-      final query2 = client.getQuery('slow', fetchSlow);
-      final query3 = client.getQuery('error', fetchError);
+      final query1 = client.getQuery('fast'.toQueryKey(), fetchFast);
+      final query2 = client.getQuery('slow'.toQueryKey(), fetchSlow);
+      final query3 = client.getQuery('error'.toQueryKey(), fetchError);
 
       // Track state changes
       query1.stream.listen((state) {
@@ -242,9 +243,9 @@ void main() {
       }
 
       // Create queries
-      final query1 = client.getQuery('query1', () => fetchData('1'));
-      final query2 = client.getQuery('query2', () => fetchData('2'));
-      final query3 = client.getQuery('query3', () => fetchData('3'));
+      final query1 = client.getQuery('query1'.toQueryKey(), () => fetchData('1'));
+      final query2 = client.getQuery('query2'.toQueryKey(), () => fetchData('2'));
+      final query3 = client.getQuery('query3'.toQueryKey(), () => fetchData('3'));
 
       // Add listeners to some queries
       query1.addListener();
@@ -281,9 +282,9 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 200));
 
       // Queries should be cleaned up
-      expect(client.hasQuery('query1'), isFalse);
-      expect(client.hasQuery('query2'), isFalse);
-      expect(client.hasQuery('query3'), isFalse);
+      expect(client.hasQuery('query1'.toQueryKey()), isFalse);
+      expect(client.hasQuery('query2'.toQueryKey()), isFalse);
+      expect(client.hasQuery('query3'.toQueryKey()), isFalse);
     });
 
     test('cache invalidation affects all queries with same key', () async {
@@ -298,8 +299,9 @@ void main() {
       final client = QueryClient();
 
       // Create multiple queries with same key
-      final query1 = client.getQuery('shared', fetchData);
-      final query2 = client.getQuery('shared', fetchData);
+      final queryKey = 'shared'.toQueryKey();
+      final query1 = client.getQuery(queryKey, fetchData);
+      final query2 = client.getQuery(queryKey, fetchData);
 
       // Add listeners
       query1.addListener();
@@ -314,7 +316,7 @@ void main() {
       expect(query2.state.data, equals('data-1'));
 
       // Invalidate cache
-      client.invalidateQuery('shared');
+      client.invalidateQuery(queryKey);
 
       // Wait for refetch
       await Future.delayed(const Duration(milliseconds: 100));

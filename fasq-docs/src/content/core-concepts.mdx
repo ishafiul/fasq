@@ -17,7 +17,7 @@ Every query goes through these states:
 
 ```dart
 QueryBuilder<User>(
-  queryKey: 'user:123',
+  queryKey: 'user:123'.toQueryKey(),
   queryFn: () => api.fetchUser('123'),
   builder: (context, state) {
     switch (state.status) {
@@ -42,22 +42,56 @@ Query keys uniquely identify queries and are used for:
 - Invalidating queries
 - Request deduplication
 
+#### String Keys (Simple)
+
 ```dart
 // Simple key
-queryKey: 'users'
+queryKey: 'users'.toQueryKey()
 
 // Parameterized key
-queryKey: 'user:123'
+queryKey: 'user:123'.toQueryKey()
 
 // Complex key
-queryKey: 'posts:user:123:page:1'
+queryKey: 'posts:user:123:page:1'.toQueryKey()
+```
+
+#### Type-Safe Query Keys (Recommended)
+
+For better type safety and IDE support, use `TypedQueryKey`:
+
+```dart
+// Define query keys in a central location
+class QueryKeys {
+  static TypedQueryKey<List<User>> get users =>
+      const TypedQueryKey<List<User>>('users', List<User>);
+
+  static TypedQueryKey<User> user(String id) =>
+      TypedQueryKey<User>('user:$id', User);
+
+  static TypedQueryKey<List<Post>> postsByUser(String userId) =>
+      TypedQueryKey<List<Post>>('posts:user:$userId', List<Post>);
+}
+
+// Use in queries
+QueryBuilder<List<User>>(
+  queryKey: QueryKeys.users,
+  queryFn: () => api.fetchUsers(),
+  builder: (context, state) => ...,
+)
+
+QueryBuilder<User>(
+  queryKey: QueryKeys.user('123'),
+  queryFn: () => api.fetchUser('123'),
+  builder: (context, state) => ...,
+)
 ```
 
 **Best Practices:**
 - Use descriptive, hierarchical keys
 - Include parameters in keys for parameterized queries
 - Keep keys consistent across your app
-- Use arrays for complex keys: `['posts', 'user', userId, 'page', pageNumber]`
+- Prefer type-safe `TypedQueryKey` for better IDE support and type checking
+- Define query keys in a central `QueryKeys` class
 
 ## Mutations
 
@@ -139,14 +173,14 @@ This happens automatically, no configuration needed.
 ```dart
 // Widget A
 QueryBuilder<Data>(
-  queryKey: 'shared-data',
+  queryKey: 'shared-data'.toQueryKey(),
   queryFn: () => fetchData(),
   builder: (context, state) => WidgetA(state),
 )
 
 // Widget B (shares the same query!)
 QueryBuilder<Data>(
-  queryKey: 'shared-data',
+  queryKey: 'shared-data'.toQueryKey(),
   queryFn: () => fetchData(),
   builder: (context, state) => WidgetB(state),
 )
@@ -176,7 +210,7 @@ Fasq automatically refetches stale data in the background to keep your UI fresh.
 
 ```dart
 QueryBuilder<Data>(
-  queryKey: 'data',
+  queryKey: 'data'.toQueryKey(),
   queryFn: () => fetchData(),
   options: QueryOptions(staleTime: Duration(minutes: 5)),
   builder: (context, state) {
@@ -201,7 +235,7 @@ Invalidate cached data when you know it's changed:
 await api.updateUser(user);
 
 // Invalidate the cache
-QueryClient().invalidateQuery('user:123');
+QueryClient().invalidateQuery('user:123'.toQueryKey());
 
 // Or invalidate multiple
 QueryClient().invalidateQueriesWithPrefix('user:');
@@ -216,13 +250,13 @@ Set cache data manually for optimistic updates:
 
 ```dart
 // Optimistically update cache
-QueryClient().setQueryData('user:123', updatedUser);
+QueryClient().setQueryData('user:123'.toQueryKey(), updatedUser);
 
 // Make API call
 await api.updateUser(updatedUser);
 
 // Get cached data
-final cachedUser = QueryClient().getQueryData<User>('user:123');
+final cachedUser = QueryClient().getQueryData<User>('user:123'.toQueryKey());
 ```
 
 ## Error Handling
@@ -231,7 +265,7 @@ Fasq provides comprehensive error handling:
 
 ```dart
 QueryBuilder<Data>(
-  queryKey: 'data',
+  queryKey: 'data'.toQueryKey(),
   queryFn: () => fetchData(),
   options: QueryOptions(
     onError: (error) {
@@ -245,7 +279,7 @@ QueryBuilder<Data>(
         error: state.error!,
         onRetry: () {
           // Retry the query
-          QueryClient().getQueryByKey<Data>('data')?.fetch();
+          QueryClient().getQueryByKey<Data>('data'.toQueryKey())?.fetch();
         },
       );
     }

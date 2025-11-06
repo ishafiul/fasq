@@ -3,6 +3,7 @@ import 'dart:async';
 import '../cache/query_cache.dart';
 import 'infinite_query_options.dart';
 import 'infinite_query_state.dart';
+import 'query_key.dart';
 import 'query_status.dart';
 
 /// Manages infinite/paginated data fetching with support for forward and backward pagination.
@@ -38,6 +39,7 @@ import 'query_status.dart';
 /// await query.fetchNextPage();
 /// ```
 class InfiniteQuery<TData, TParam> {
+  final QueryKey queryKey;
   final String key;
   final Future<TData> Function(TParam param) queryFn;
   final InfiniteQueryOptions<TData, TParam>? options;
@@ -53,13 +55,15 @@ class InfiniteQuery<TData, TParam> {
   bool _isPrefetching = false;
 
   InfiniteQuery({
-    required this.key,
+    required QueryKey queryKey,
     required this.queryFn,
     this.options,
     this.cache,
     this.onDispose,
     List<Page<TData, TParam>>? initialPages,
-  }) : _currentState = InfiniteQueryState<TData, TParam>.idle() {
+  }) : queryKey = queryKey,
+       key = queryKey.key,
+       _currentState = InfiniteQueryState<TData, TParam>.idle() {
     if (initialPages != null && initialPages.isNotEmpty) {
       final opts = options;
       final hasNext = _computeHasNextForPages(opts, initialPages);

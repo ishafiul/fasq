@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../core/query.dart';
 import '../core/query_client.dart';
+import '../core/query_key.dart';
 import '../core/query_options.dart';
 import '../core/query_state.dart';
 
@@ -34,7 +35,7 @@ class QueryBuilder<T> extends StatefulWidget {
   /// Unique identifier for this query.
   ///
   /// Widgets with the same key share the same query instance.
-  final String queryKey;
+  final QueryKey queryKey;
 
   /// The async function to execute.
   ///

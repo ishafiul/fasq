@@ -4,7 +4,7 @@ import 'package:fasq_hooks/fasq_hooks.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 QueryState<T> useQuery<T>(
-  String key,
+  QueryKey queryKey,
   Future<T> Function() queryFn, {
   QueryOptions? options,
   QueryClient? client,
@@ -14,7 +14,7 @@ QueryState<T> useQuery<T>(
   final state = useState<QueryState<T>>(QueryState.idle());
 
   useEffect(() {
-    final query = queryClient.getQuery<T>(key, queryFn, options: options);
+    final query = queryClient.getQuery<T>(queryKey, queryFn, options: options);
 
     query.addListener();
 
@@ -28,7 +28,7 @@ QueryState<T> useQuery<T>(
       subscription.cancel();
       query.removeListener();
     };
-  }, [key]);
+  }, [queryKey.key]);
 
   return state.value;
 }
