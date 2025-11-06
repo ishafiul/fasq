@@ -1,5 +1,6 @@
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
+import 'core/query_keys.dart';
 
 class PrefetchExample extends StatefulWidget {
   const PrefetchExample({super.key});
@@ -139,7 +140,7 @@ class _PrefetchExampleState extends State<PrefetchExample> {
   Future<void> _prefetchUserData(String userId) async {
     try {
       await _client.prefetchQuery(
-        'user-$userId',
+        QueryKeys.user(userId),
         () => _simulateApiCall(userId),
         options: QueryOptions(
           staleTime: Duration(seconds: 30),
@@ -281,7 +282,7 @@ class _UserDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QueryBuilder<String>(
-      queryKey: 'user-$userId',
+      queryKey: QueryKeys.user(userId),
       queryFn: () => _simulateApiCall(userId),
       builder: (context, state) {
         return AlertDialog(
@@ -368,10 +369,11 @@ class _CacheStatusState extends State<_CacheStatus> {
 
         // Get cache entries (this is a simplified view)
         for (int i = 1; i <= 5; i++) {
-          final key = 'user-user-$i';
-          final entry = cache.get<String>(key);
+          final userId = 'user-$i';
+          final queryKey = QueryKeys.user(userId);
+          final entry = cache.get<String>(queryKey.key);
           if (entry != null) {
-            entries[key] = {
+            entries[queryKey.key] = {
               'data': entry.data,
               'isStale': entry.isStale,
               'lastUpdated': entry.createdAt,
