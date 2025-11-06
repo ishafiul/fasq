@@ -1,3 +1,4 @@
+import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 import 'core/screens/core_examples_screen.dart';
 
@@ -10,14 +11,16 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'FASQ Examples',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+    return QueryClientProvider(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'FASQ Examples',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: const HomeScreen(),
       ),
-      home: const HomeScreen(),
     );
   }
 }
