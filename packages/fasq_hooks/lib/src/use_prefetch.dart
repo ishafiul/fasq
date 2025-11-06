@@ -15,13 +15,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 /// // Prefetch on hover
 /// onHover: () => prefetch('user-123', () => api.fetchUser('123')),
 /// ```
-void Function(String, Future<T> Function(), {QueryOptions? options})
+void Function(QueryKey, Future<T> Function(), {QueryOptions? options})
     usePrefetchQuery<T>({QueryClient? client}) {
   final queryClient = client ?? QueryClient();
 
-  return useCallback((String key, Future<T> Function() queryFn,
+  return useCallback((QueryKey queryKey, Future<T> Function() queryFn,
       {QueryOptions? options}) {
-    queryClient.prefetchQuery(key, queryFn, options: options);
+    queryClient.prefetchQuery(queryKey, queryFn, options: options);
   }, []);
 }
 
