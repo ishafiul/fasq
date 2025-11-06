@@ -8,6 +8,7 @@ import '../cache/query_cache.dart';
 import '../performance/isolate_pool.dart';
 import '../persistence/persistence_options.dart';
 import 'query.dart';
+import 'query_key.dart';
 import 'query_options.dart';
 import 'infinite_query.dart';
 import 'infinite_query_options.dart';
@@ -62,6 +63,8 @@ class QueryClient with WidgetsBindingObserver {
   final QueryCache _cache;
   late final IsolatePool _isolatePool;
 
+  String _extractKey(QueryKey queryKey) => queryKey.key;
+
   /// Gets an existing query or creates a new one.
   ///
   /// If a query with the given [key] already exists, returns that query.
@@ -79,10 +82,11 @@ class QueryClient with WidgetsBindingObserver {
   /// );
   /// ```
   Query<T> getQuery<T>(
-    String key,
+    QueryKey queryKey,
     Future<T> Function() queryFn, {
     QueryOptions? options,
   }) {
+    final key = _extractKey(queryKey);
     InputValidator.validateQueryKey(key);
     if (options != null) {
       InputValidator.validateOptions(options);
@@ -99,7 +103,7 @@ class QueryClient with WidgetsBindingObserver {
     final cachedEntry = _cache.get<T>(key);
 
     final query = Query<T>(
-      key: key,
+      queryKey: queryKey,
       queryFn: queryFn,
       options: options,
       cache: _cache,
@@ -116,10 +120,11 @@ class QueryClient with WidgetsBindingObserver {
   }
 
   InfiniteQuery<TData, TParam> getInfiniteQuery<TData, TParam>(
-    String key,
+    QueryKey queryKey,
     Future<TData> Function(TParam param) queryFn, {
     InfiniteQueryOptions<TData, TParam>? options,
   }) {
+    final key = _extractKey(queryKey);
     if (_infiniteQueries.containsKey(key)) {
       final existing = _infiniteQueries[key]! as InfiniteQuery<TData, TParam>;
       if (!existing.isDisposed) {
@@ -129,7 +134,7 @@ class QueryClient with WidgetsBindingObserver {
     }
 
     final infinite = InfiniteQuery<TData, TParam>(
-      key: key,
+      queryKey: queryKey,
       queryFn: queryFn,
       options: options,
       cache: _cache,
@@ -154,26 +159,30 @@ class QueryClient with WidgetsBindingObserver {
   ///   await query.fetch();
   /// }
   /// ```
-  Query<T>? getQueryByKey<T>(String key) {
+  Query<T>? getQueryByKey<T>(QueryKey queryKey) {
+    final key = _extractKey(queryKey);
     InputValidator.validateQueryKey(key);
     return _queries[key] as Query<T>?;
   }
 
   InfiniteQuery<TData, TParam>? getInfiniteQueryByKey<TData, TParam>(
-      String key) {
+      QueryKey queryKey) {
+    final key = _extractKey(queryKey);
     return _infiniteQueries[key] as InfiniteQuery<TData, TParam>?;
   }
 
   /// Removes and disposes a query by its key.
   ///
   /// The query is immediately disposed and removed from the registry.
-  void removeQuery(String key) {
+  void removeQuery(QueryKey queryKey) {
+    final key = _extractKey(queryKey);
     InputValidator.validateQueryKey(key);
     final query = _queries.remove(key);
     query?.dispose();
   }
 
-  void removeInfiniteQuery(String key) {
+  void removeInfiniteQuery(QueryKey queryKey) {
+    final key = _extractKey(queryKey);
     final query = _infiniteQueries.remove(key);
     query?.dispose();
   }
@@ -200,7 +209,10 @@ class QueryClient with WidgetsBindingObserver {
   int get queryCount => _queries.length;
 
   /// Whether a query with the given [key] exists.
-  bool hasQuery(String key) => _queries.containsKey(key);
+  bool hasQuery(QueryKey queryKey) {
+    final key = _extractKey(queryKey);
+    return _queries.containsKey(key);
+  }
 
   /// Gets the underlying query cache instance.
   ///
@@ -213,7 +225,8 @@ class QueryClient with WidgetsBindingObserver {
   /// Invalidates a single query by key.
   ///
   /// Removes the cache entry and triggers refetch if the query is active.
-  void invalidateQuery(String key) {
+  void invalidateQuery(QueryKey queryKey) {
+    final key = _extractKey(queryKey);
     InputValidator.validateQueryKey(key);
     _cache.invalidate(key);
     final query = _queries[key];
@@ -223,15 +236,18 @@ class QueryClient with WidgetsBindingObserver {
   }
 
   /// Invalidates multiple queries atomically
-  void invalidateQueries(List<String> keys) {
-    for (final key in keys) {
-      invalidateQuery(key);
+  void invalidateQueries(List<QueryKey> queryKeys) {
+    for (final queryKey in queryKeys) {
+      invalidateQuery(queryKey);
     }
   }
 
   /// Invalidates queries matching condition
   void invalidateQueriesWhere(bool Function(String key) predicate) {
-    final keysToInvalidate = _queries.keys.where(predicate).toList();
+    final keysToInvalidate = _queries.keys
+        .where(predicate)
+        .map((key) => StringQueryKey(key))
+        .toList();
     invalidateQueries(keysToInvalidate);
   }
 
@@ -270,10 +286,11 @@ class QueryClient with WidgetsBindingObserver {
   /// // Later when the actual query mounts, it uses cached data
   /// ```
   Future<void> prefetchQuery<T>(
-    String key,
+    QueryKey queryKey,
     Future<T> Function() queryFn, {
     QueryOptions? options,
   }) async {
+    final key = _extractKey(queryKey);
     final cachedEntry = _cache.get<T>(key);
 
     if (cachedEntry != null && cachedEntry.isFresh) {
@@ -281,7 +298,7 @@ class QueryClient with WidgetsBindingObserver {
     }
 
     final query = Query<T>(
-      key: key,
+      queryKey: queryKey,
       queryFn: queryFn,
       options: options,
       cache: _cache,
@@ -313,7 +330,7 @@ class QueryClient with WidgetsBindingObserver {
   ) async {
     await Future.wait(
       configs.map((config) => prefetchQuery(
-            config.key,
+            config.queryKey,
             config.queryFn,
             options: config.options,
           )),
@@ -339,8 +356,9 @@ class QueryClient with WidgetsBindingObserver {
   /// Manually sets data in the cache.
   ///
   /// Useful for optimistic updates or pre-populating cache.
-  void setQueryData<T>(String key, T data,
+  void setQueryData<T>(QueryKey queryKey, T data,
       {bool isSecure = false, Duration? maxAge}) {
+    final key = _extractKey(queryKey);
     InputValidator.validateQueryKey(key);
     InputValidator.validateCacheData(data);
     if (maxAge != null) {
@@ -358,7 +376,8 @@ class QueryClient with WidgetsBindingObserver {
   /// Gets cached data for a query key.
   ///
   /// Returns null if not cached.
-  T? getQueryData<T>(String key) {
+  T? getQueryData<T>(QueryKey queryKey) {
+    final key = _extractKey(queryKey);
     return _cache.getData<T>(key);
   }
 

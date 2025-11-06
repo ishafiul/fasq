@@ -1,3 +1,11 @@
+## 0.2.1
+
+ - **FEAT**: add type-safe query keys support (#28).
+
+## 0.2.0+2
+
+ - Update a dependency to the latest release.
+
 ## 0.2.0+1
 
  - Update a dependency to the latest release.

@@ -8,7 +8,7 @@ The `QueryBuilder` widget is the core component for executing queries and buildi
 import 'package:fasq/fasq.dart';
 
 QueryBuilder<List<User>>(
-  queryKey: 'users',
+  queryKey: 'users'.toQueryKey(),
   queryFn: () => api.fetchUsers(),
   builder: (context, state) {
     if (state.isLoading) {
@@ -73,7 +73,7 @@ Handle different query statuses:
 
 ```dart
 QueryBuilder<User>(
-  queryKey: 'user:123',
+  queryKey: 'user:123'.toQueryKey(),
   queryFn: () => api.fetchUser('123'),
   builder: (context, state) {
     switch (state.status) {
@@ -96,7 +96,7 @@ Handle both initial loading and background refetching:
 
 ```dart
 QueryBuilder<Data>(
-  queryKey: 'data',
+  queryKey: 'data'.toQueryKey(),
   queryFn: () => fetchData(),
   builder: (context, state) {
     return Column(
@@ -119,7 +119,7 @@ Handle errors with retry functionality:
 
 ```dart
 QueryBuilder<Data>(
-  queryKey: 'data',
+  queryKey: 'data'.toQueryKey(),
   queryFn: () => fetchData(),
   builder: (context, state) {
     if (state.hasError) {
@@ -154,7 +154,7 @@ Configure query behavior with QueryOptions:
 
 ```dart
 QueryBuilder<User>(
-  queryKey: 'user:123',
+  queryKey: 'user:123'.toQueryKey(),
   queryFn: () => api.fetchUser('123'),
   options: QueryOptions(
     staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
@@ -177,7 +177,7 @@ Disable queries based on conditions:
 
 ```dart
 QueryBuilder<User>(
-  queryKey: 'user:$userId',
+  queryKey: 'user:$userId'.toQueryKey(),
   queryFn: () => api.fetchUser(userId),
   options: QueryOptions(
     enabled: userId != null, // Only fetch when userId is available
@@ -209,7 +209,7 @@ class UserProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QueryBuilder<User>(
-      queryKey: 'user:$userId', // Include parameter in key
+      queryKey: 'user:$userId'.toQueryKey(), // Include parameter in key
       queryFn: () => api.fetchUser(userId),
       builder: (context, state) {
         if (state.isLoading) return CircularProgressIndicator();
@@ -229,14 +229,14 @@ Multiple widgets can share the same query by using the same queryKey:
 ```dart
 // Widget A
 QueryBuilder<List<User>>(
-  queryKey: 'users',
+  queryKey: 'users'.toQueryKey(),
   queryFn: () => api.fetchUsers(),
   builder: (context, state) => UserList(users: state.data ?? []),
 )
 
 // Widget B (shares the same query!)
 QueryBuilder<List<User>>(
-  queryKey: 'users',
+  queryKey: 'users'.toQueryKey(),
   queryFn: () => api.fetchUsers(),
   builder: (context, state) => UserStats(count: state.data?.length ?? 0),
 )
@@ -257,7 +257,7 @@ class UserScreen extends StatelessWidget {
         ElevatedButton(
           onPressed: () {
             // Manually refetch the query
-            QueryClient().getQueryByKey<List<User>>('users')?.fetch();
+            QueryClient().getQueryByKey<List<User>>('users'.toQueryKey())?.fetch();
           },
           child: Text('Refresh'),
         ),
@@ -280,7 +280,7 @@ Invalidate queries to force refetch:
 ElevatedButton(
   onPressed: () {
     // Invalidate specific query
-    QueryClient().invalidateQuery('users');
+    QueryClient().invalidateQuery('users'.toQueryKey());
     
     // Or invalidate multiple queries
     QueryClient().invalidateQueriesWithPrefix('user:');
@@ -295,7 +295,7 @@ Full generic type support ensures compile-time safety:
 
 ```dart
 QueryBuilder<List<User>>(
-  queryKey: 'users',
+  queryKey: 'users'.toQueryKey(),
   queryFn: () => api.fetchUsers(), // Returns Future<List<User>>
   builder: (context, state) {
     // state.data is List<User>?
@@ -331,7 +331,7 @@ QueryBuilder<List<User>>(
 
 ```dart
 QueryBuilder<List<User>>(
-  queryKey: 'users',
+  queryKey: 'users'.toQueryKey(),
   queryFn: () => api.fetchUsers(),
   builder: (context, state) {
     if (state.isLoading) {
@@ -357,7 +357,7 @@ QueryBuilder<List<User>>(
 
 ```dart
 QueryBuilder<List<User>>(
-  queryKey: 'users',
+  queryKey: 'users'.toQueryKey(),
   queryFn: () => api.fetchUsers(),
   builder: (context, state) {
     if (state.isLoading) return CircularProgressIndicator();

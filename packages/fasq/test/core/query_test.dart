@@ -10,7 +10,7 @@ void main() {
   group('Query', () {
     test('initializes with idle state', () {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -24,7 +24,7 @@ void main() {
 
     test('addListener increments reference count', () {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -39,7 +39,7 @@ void main() {
 
     test('removeListener decrements reference count', () {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -55,7 +55,7 @@ void main() {
 
     test('removeListener prevents negative reference count', () {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -82,7 +82,7 @@ void main() {
 
     test('fetch transitions from idle to loading to success', () async {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async {
           await Future.delayed(Duration(milliseconds: 10));
           return 'data';
@@ -110,7 +110,7 @@ void main() {
     test('fetch transitions from idle to loading to error', () async {
       final error = Exception('test error');
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async {
           await Future.delayed(Duration(milliseconds: 10));
           throw error;
@@ -136,7 +136,7 @@ void main() {
 
     test('auto-fetches on first listener when no data', () async {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -156,7 +156,7 @@ void main() {
 
     test('does not auto-fetch if already has data', () async {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'new data',
       );
 
@@ -176,7 +176,7 @@ void main() {
     test('does not fetch when enabled is false', () async {
       var callCount = 0;
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async {
           callCount++;
           return 'data';
@@ -195,7 +195,7 @@ void main() {
     test('calls onSuccess callback on successful fetch', () async {
       var successCalled = false;
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
         options: QueryOptions(onSuccess: () => successCalled = true),
       );
@@ -212,7 +212,7 @@ void main() {
       Object? capturedError;
       final error = Exception('test error');
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => throw error,
         options: QueryOptions(onError: (e) => capturedError = e),
       );
@@ -228,7 +228,7 @@ void main() {
     test('schedules disposal after removeListener brings count to zero',
         () async {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -244,7 +244,7 @@ void main() {
 
     test('cancels disposal if listener added before timeout', () async {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -263,7 +263,7 @@ void main() {
 
     test('dispose closes stream controller', () async {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -281,7 +281,7 @@ void main() {
 
     test('does not update state after disposal', () async {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async {
           await Future.delayed(Duration(milliseconds: 100));
           return 'data';
@@ -304,7 +304,7 @@ void main() {
 
     test('ignores addListener after disposal', () {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -316,7 +316,7 @@ void main() {
 
     test('ignores removeListener after disposal', () {
       final query = Query<String>(
-        key: 'test',
+        queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
@@ -333,7 +333,7 @@ void main() {
 
       // Create a query and fetch data
       final query1 = client.getQuery<String>(
-        'test-cache-clear',
+        'test-cache-clear'.toQueryKey(),
         () async => 'cached-data',
       );
 
@@ -362,8 +362,9 @@ void main() {
       int fetchCount = 0;
 
       // Create first query
+      final queryKey = 'test-fresh-fetch'.toQueryKey();
       final query1 = client.getQuery<String>(
-        'test-fresh-fetch',
+        queryKey,
         () async {
           fetchCount++;
           return 'data-$fetchCount';
@@ -382,7 +383,7 @@ void main() {
 
       // Create new query with same key
       final query2 = client.getQuery<String>(
-        'test-fresh-fetch',
+        queryKey,
         () async {
           fetchCount++;
           return 'data-$fetchCount';

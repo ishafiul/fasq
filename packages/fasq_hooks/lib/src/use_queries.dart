@@ -6,7 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 /// Configuration for a single query in a parallel query setup.
 class QueryConfig<T> {
   /// Unique identifier for this query.
-  final String key;
+  final QueryKey queryKey;
 
   /// Function that returns a Future with the data.
   final Future<T> Function() queryFn;
@@ -14,7 +14,7 @@ class QueryConfig<T> {
   /// Optional configuration for this query.
   final QueryOptions? options;
 
-  const QueryConfig(this.key, this.queryFn, {this.options});
+  const QueryConfig(this.queryKey, this.queryFn, {this.options});
 }
 
 /// Hook that executes multiple queries in parallel and returns their states.
@@ -40,7 +40,7 @@ List<QueryState<dynamic>> useQueries(List<QueryConfig> configs,
 
   useEffect(() {
     final queries = configs
-        .map((config) => queryClient.getQuery(config.key, config.queryFn,
+        .map((config) => queryClient.getQuery(config.queryKey, config.queryFn,
             options: config.options))
         .toList();
 
@@ -82,7 +82,7 @@ class NamedQueryConfig<T> {
   final String name;
 
   /// Unique identifier for this query.
-  final String key;
+  final QueryKey queryKey;
 
   /// Function that returns a Future with the data.
   final Future<T> Function() queryFn;
@@ -92,7 +92,7 @@ class NamedQueryConfig<T> {
 
   const NamedQueryConfig({
     required this.name,
-    required this.key,
+    required this.queryKey,
     required this.queryFn,
     this.options,
   });
@@ -123,7 +123,7 @@ Map<String, QueryState<dynamic>> useNamedQueries(
     final queries = <String, Query>{};
     for (final config in configs) {
       queries[config.name] =
-          client.getQuery(config.key, config.queryFn, options: config.options);
+          client.getQuery(config.queryKey, config.queryFn, options: config.options);
       queries[config.name]!.addListener();
     }
 

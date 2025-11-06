@@ -21,7 +21,7 @@ void main() {
         MaterialApp(
           home: HookBuilder(
             builder: (context) {
-              final state = useQuery('test-key', fetchData);
+              final state = useQuery('test-key'.toQueryKey(), fetchData);
               capturedState = state;
               return Text(state.data ?? 'loading');
             },
@@ -51,7 +51,7 @@ void main() {
         MaterialApp(
           home: HookBuilder(
             builder: (context) {
-              final state = useQuery('test-error', fetchData);
+              final state = useQuery('test-error'.toQueryKey(), fetchData);
               capturedState = state;
 
               if (state.hasError) {
@@ -85,13 +85,15 @@ void main() {
             children: [
               HookBuilder(
                 builder: (context) {
-                  final state = useQuery('shared-key', fetchData);
+                  final queryKey = 'shared-key'.toQueryKey();
+                  final state = useQuery(queryKey, fetchData);
                   return Text('Widget1: ${state.data ?? "loading"}');
                 },
               ),
               HookBuilder(
                 builder: (context) {
-                  final state = useQuery('shared-key', fetchData);
+                  final queryKey = 'shared-key'.toQueryKey();
+                  final state = useQuery(queryKey, fetchData);
                   return Text('Widget2: ${state.data ?? "loading"}');
                 },
               ),
@@ -108,11 +110,11 @@ void main() {
     });
 
     testWidgets('resubscribes when key changes', (tester) async {
-      var key = 'key1';
+      var key = 'key1'.toQueryKey();
 
       Future<String> fetchData() async {
         await Future.delayed(const Duration(milliseconds: 50));
-        return 'data for $key';
+        return 'data for ${key.key}';
       }
 
       await tester.pumpWidget(
@@ -128,7 +130,7 @@ void main() {
                       Text(state.data ?? 'loading'),
                       ElevatedButton(
                         onPressed: () {
-                          setState(() => key = 'key2');
+                          setState(() => key = 'key2'.toQueryKey());
                         },
                         child: const Text('Change Key'),
                       ),
@@ -160,7 +162,8 @@ void main() {
         MaterialApp(
           home: HookBuilder(
             builder: (context) {
-              final state = useQuery('disposal-test', fetchData);
+              final queryKey = 'disposal-test'.toQueryKey();
+              final state = useQuery(queryKey, fetchData);
               return Text(state.data ?? 'loading');
             },
           ),
@@ -169,7 +172,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final queryBefore = QueryClient().getQueryByKey('disposal-test');
+      final queryKey = 'disposal-test'.toQueryKey();
+      final queryBefore = QueryClient().getQueryByKey(queryKey);
       expect(queryBefore, isNotNull);
       expect(queryBefore?.referenceCount, greaterThan(0));
 
@@ -178,7 +182,7 @@ void main() {
 
       await Future.delayed(const Duration(seconds: 6));
 
-      final queryAfter = QueryClient().getQueryByKey('disposal-test');
+      final queryAfter = QueryClient().getQueryByKey(queryKey);
       expect(queryAfter, isNull);
     });
   });

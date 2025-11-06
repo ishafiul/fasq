@@ -6,9 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('usePrefetchQuery', () {
     testWidgets('returns stable callback', (tester) async {
-      late void Function(String, Future<String> Function(),
+      late void Function(QueryKey, Future<String> Function(),
           {QueryOptions? options}) prefetch1;
-      late void Function(String, Future<String> Function(),
+      late void Function(QueryKey, Future<String> Function(),
           {QueryOptions? options}) prefetch2;
 
       await tester.pumpWidget(
@@ -29,7 +29,7 @@ void main() {
     });
 
     testWidgets('prefetch callback works correctly', (tester) async {
-      late void Function(String, Future<String> Function(),
+      late void Function(QueryKey, Future<String> Function(),
           {QueryOptions? options}) prefetch;
       int fetchCount = 0;
 
@@ -49,7 +49,7 @@ void main() {
         ),
       );
 
-      prefetch('test-key', fetchData);
+      prefetch('test-key'.toQueryKey(), fetchData);
       await tester.pump();
 
       expect(fetchCount, equals(1));
@@ -70,7 +70,7 @@ void main() {
           home: HookBuilder(
             builder: (context) {
               usePrefetchOnMount([
-                PrefetchConfig(key: 'test-key', queryFn: fetchData),
+                PrefetchConfig(queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
               ]);
               return const SizedBox();
             },
@@ -102,8 +102,8 @@ void main() {
           home: HookBuilder(
             builder: (context) {
               usePrefetchOnMount([
-                PrefetchConfig(key: 'test-key-1', queryFn: fetchData1),
-                PrefetchConfig(key: 'test-key-2', queryFn: fetchData2),
+                PrefetchConfig(queryKey: 'test-key-1'.toQueryKey(), queryFn: fetchData1),
+                PrefetchConfig(queryKey: 'test-key-2'.toQueryKey(), queryFn: fetchData2),
               ]);
               return const SizedBox();
             },
@@ -130,7 +130,7 @@ void main() {
           home: HookBuilder(
             builder: (context) {
               usePrefetchOnMount([
-                PrefetchConfig(key: 'test-key', queryFn: fetchData),
+                PrefetchConfig(queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
               ]);
               return const SizedBox();
             },

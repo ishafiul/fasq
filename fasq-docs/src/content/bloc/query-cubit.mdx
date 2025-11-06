@@ -13,7 +13,7 @@ import 'package:fasq_bloc/fasq_bloc.dart';
 
 class UsersQueryCubit extends QueryCubit<List<User>> {
   @override
-  String get key => 'users';
+  QueryKey get queryKey => 'users'.toQueryKey();
 
   @override
   Future<List<User>> Function() get queryFn => () => api.fetchUsers();
@@ -62,7 +62,7 @@ Configure query behavior by overriding the `options` getter:
 ```dart
 class UsersQueryCubit extends QueryCubit<List<User>> {
   @override
-  String get key => 'users';
+  QueryKey get queryKey => 'users'.toQueryKey();
 
   @override
   Future<List<User>> Function() get queryFn => () => api.fetchUsers();
@@ -93,7 +93,7 @@ class UserProfileQueryCubit extends QueryCubit<User> {
   UserProfileQueryCubit(this.userId);
 
   @override
-  String get key => 'user:$userId';
+  QueryKey get queryKey => 'user:$userId'.toQueryKey();
 
   @override
   Future<User> Function() get queryFn => () => api.fetchUser(userId);
@@ -135,7 +135,7 @@ class UserProfileQueryCubit extends QueryCubit<User?> {
   UserProfileQueryCubit(this.userId);
 
   @override
-  String get key => 'user:$userId';
+  QueryKey get queryKey => 'user:$userId'.toQueryKey();
 
   @override
   Future<User?> Function() get queryFn => () => api.fetchUser(userId!);
@@ -186,7 +186,7 @@ class UserPostsQueryCubit extends QueryCubit<List<Post>> {
   UserPostsQueryCubit(this.userId);
 
   @override
-  String get key => 'posts:user:$userId';
+  QueryKey get queryKey => 'posts:user:$userId'.toQueryKey();
 
   @override
   Future<List<Post>> Function() get queryFn => () => api.fetchUserPosts(userId);
@@ -391,7 +391,7 @@ Full generic type support ensures compile-time safety:
 ```dart
 class UsersQueryCubit extends QueryCubit<List<User>> {
   @override
-  String get key => 'users';
+  QueryKey get queryKey => 'users'.toQueryKey();
 
   @override
   Future<List<User>> Function() get queryFn => () => api.fetchUsers();

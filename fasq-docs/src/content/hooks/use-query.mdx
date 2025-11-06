@@ -11,7 +11,7 @@ import 'package:fasq_hooks/fasq_hooks.dart';
 class UsersScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    final usersState = useQuery('users', () => api.fetchUsers());
+    final usersState = useQuery('users'.toQueryKey(), () => api.fetchUsers());
     
     if (usersState.isLoading) return CircularProgressIndicator();
     if (usersState.hasError) return Text('Error: ${usersState.error}');
@@ -26,7 +26,7 @@ class UsersScreen extends HookWidget {
 
 ### Required Parameters
 
-- **`key`** - Unique identifier for the query
+- **`queryKey`** - Unique identifier for the query (QueryKey)
 - **`queryFn`** - Async function that fetches the data
 
 ### Optional Parameters
@@ -57,7 +57,7 @@ Configure query behavior with QueryOptions:
 
 ```dart
 final usersState = useQuery(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
   options: QueryOptions(
     staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
@@ -86,7 +86,7 @@ class UserProfile extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final userState = useQuery(
-      'user:$userId',
+      'user:$userId'.toQueryKey(),
       () => api.fetchUser(userId!),
       options: QueryOptions(
         enabled: userId != null, // Only fetch when userId is available
@@ -118,7 +118,7 @@ class UserProfile extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final userState = useQuery(
-      'user:$userId', // Include parameter in key
+      'user:$userId'.toQueryKey(), // Include parameter in key
       () => api.fetchUser(userId),
     );
     
@@ -144,13 +144,13 @@ class UserPosts extends HookWidget {
   Widget build(BuildContext context) {
     // First fetch user
     final userState = useQuery(
-      'user:$userId',
+      'user:$userId'.toQueryKey(),
       () => api.fetchUser(userId),
     );
     
     // Then fetch posts when user is available
     final postsState = useQuery(
-      'posts:user:$userId',
+      'posts:user:$userId'.toQueryKey(),
       () => api.fetchUserPosts(userId),
       options: QueryOptions(
         enabled: userState.hasData, // Only fetch when user is loaded
@@ -176,7 +176,7 @@ Trigger manual refetches:
 class UserScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    final usersState = useQuery('users', () => api.fetchUsers());
+    final usersState = useQuery('users'.toQueryKey(), () => api.fetchUsers());
     final queryClient = useQueryClient();
     
     return Column(
@@ -184,7 +184,7 @@ class UserScreen extends HookWidget {
         ElevatedButton(
           onPressed: () {
             // Manually refetch the query
-            queryClient.getQueryByKey<List<User>>('users')?.fetch();
+            queryClient.getQueryByKey<List<User>>('users'.toQueryKey())?.fetch();
           },
           child: Text('Refresh'),
         ),
@@ -204,7 +204,7 @@ class UsersScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final usersState = useQuery(
-      'users',
+      'users'.toQueryKey(),
       () => api.fetchUsers(),
       options: QueryOptions(
         onError: (error) {
@@ -245,7 +245,7 @@ Handle background refetching with `isFetching`:
 class UsersScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    final usersState = useQuery('users', () => api.fetchUsers());
+    final usersState = useQuery('users'.toQueryKey(), () => api.fetchUsers());
     
     return Column(
       children: [

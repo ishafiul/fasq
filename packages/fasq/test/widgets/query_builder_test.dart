@@ -12,7 +12,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'test',
+            queryKey: 'test'.toQueryKey(),
             queryFn: () async {
               await Future.delayed(Duration(milliseconds: 50));
               return 'test data';
@@ -33,7 +33,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'test',
+            queryKey: 'test'.toQueryKey(),
             queryFn: () async {
               await Future.delayed(Duration(milliseconds: 100));
               return 'data';
@@ -56,7 +56,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'test',
+            queryKey: 'test'.toQueryKey(),
             queryFn: () async {
               await Future.delayed(Duration(milliseconds: 10));
               return 'success data';
@@ -79,7 +79,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'test',
+            queryKey: 'test'.toQueryKey(),
             queryFn: () async {
               await Future.delayed(Duration(milliseconds: 10));
               throw Exception('test error');
@@ -106,7 +106,7 @@ void main() {
           home: Column(
             children: [
               QueryBuilder<String>(
-                queryKey: 'shared',
+                queryKey: 'shared'.toQueryKey(),
                 queryFn: () async {
                   fetchCount++;
                   return 'shared data';
@@ -116,7 +116,7 @@ void main() {
                 },
               ),
               QueryBuilder<String>(
-                queryKey: 'shared',
+                queryKey: 'shared'.toQueryKey(),
                 queryFn: () async {
                   fetchCount++;
                   return 'shared data';
@@ -141,14 +141,14 @@ void main() {
 
     testWidgets('disposes subscription on widget disposal', (tester) async {
       final query = QueryClient().getQuery<String>(
-        'test',
+        'test'.toQueryKey(),
         () async => 'data',
       );
 
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'test',
+            queryKey: 'test'.toQueryKey(),
             queryFn: () async => 'data',
             builder: (context, state) => Text('Data: ${state.data}'),
           ),
@@ -170,7 +170,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'test',
+            queryKey: 'test'.toQueryKey(),
             queryFn: () async {
               fetchCount++;
               return 'data';
@@ -195,7 +195,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<int>(
-            queryKey: 'counter',
+            queryKey: 'counter'.toQueryKey(),
             queryFn: () async {
               await Future.delayed(Duration(milliseconds: 50));
               return 42;
@@ -226,7 +226,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'test',
+            queryKey: 'test'.toQueryKey(),
             queryFn: () async => 'data',
             builder: (context, state) => Text('Data: ${state.data}'),
           ),
@@ -239,7 +239,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'test',
+            queryKey: 'test'.toQueryKey(),
             queryFn: () async => 'data',
             builder: (context, state) => Text('Data: ${state.data}'),
           ),

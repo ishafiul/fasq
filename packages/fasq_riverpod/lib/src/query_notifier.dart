@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:fasq_riverpod/fasq_riverpod.dart';
 
 class QueryNotifier<T> extends StateNotifier<QueryState<T>> {
-  final String key;
+  final QueryKey queryKey;
   final Future<T> Function() queryFn;
   final QueryOptions? options;
   final QueryClient? client;
@@ -12,7 +12,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>> {
   StreamSubscription<QueryState<T>>? _subscription;
 
   QueryNotifier({
-    required this.key,
+    required this.queryKey,
     required this.queryFn,
     this.options,
     this.client,
@@ -22,7 +22,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>> {
 
   void _initialize() {
     final queryClient = client ?? QueryClient();
-    _query = queryClient.getQuery<T>(key, queryFn, options: options);
+    _query = queryClient.getQuery<T>(queryKey, queryFn, options: options);
 
     _subscription = _query.stream.listen((newState) {
       if (mounted) {
@@ -39,7 +39,7 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>> {
 
   void invalidate() {
     final queryClient = client ?? QueryClient();
-    queryClient.invalidateQuery(key);
+    queryClient.invalidateQuery(queryKey);
   }
 
   @override

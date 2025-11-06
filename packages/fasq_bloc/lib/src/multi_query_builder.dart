@@ -7,7 +7,7 @@ import 'package:fasq/fasq.dart';
 /// Configuration for a single query in a MultiQueryBuilder.
 class MultiQueryConfig {
   /// Unique identifier for this query.
-  final String key;
+  final QueryKey queryKey;
 
   /// Function that returns a Future with the data.
   final Future<dynamic> Function() queryFn;
@@ -16,7 +16,7 @@ class MultiQueryConfig {
   final QueryOptions? options;
 
   const MultiQueryConfig({
-    required this.key,
+    required this.queryKey,
     required this.queryFn,
     this.options,
   });
@@ -129,7 +129,7 @@ class _MultiQueryBuilderState extends State<MultiQueryBuilder> {
     // Create queries for each config
     for (final config in widget.configs) {
       final query = client.getQuery(
-        config.key,
+        config.queryKey,
         config.queryFn,
         options: config.options,
       );
@@ -179,7 +179,7 @@ class NamedQueryConfig {
   final String name;
 
   /// Unique identifier for this query.
-  final String key;
+  final QueryKey queryKey;
 
   /// Function that returns a Future with the data.
   final Future<dynamic> Function() queryFn;
@@ -189,7 +189,7 @@ class NamedQueryConfig {
 
   const NamedQueryConfig({
     required this.name,
-    required this.key,
+    required this.queryKey,
     required this.queryFn,
     this.options,
   });
@@ -308,7 +308,7 @@ class _NamedMultiQueryBuilderState extends State<NamedMultiQueryBuilder> {
     // Create queries for each config
     for (final config in widget.configs) {
       final query = client.getQuery(
-        config.key,
+        config.queryKey,
         config.queryFn,
         options: config.options,
       );

@@ -13,11 +13,11 @@ class PrefetchQueryCubit extends Cubit<void> {
 
   /// Prefetch a single query.
   Future<void> prefetch<T>(
-    String key,
+    QueryKey queryKey,
     Future<T> Function() queryFn, {
     QueryOptions? options,
   }) async {
-    await _client.prefetchQuery(key, queryFn, options: options);
+    await _client.prefetchQuery(queryKey, queryFn, options: options);
   }
 
   /// Prefetch multiple queries in parallel.

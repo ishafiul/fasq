@@ -1,3 +1,12 @@
+## 0.3.2
+
+ - **FEAT**: add type-safe query keys support (#28).
+
+## 0.3.1+1
+
+ - **FIX**: resolve cache type safety issue by reconstructing CacheEntry instead of casting (#27).
+ - **FIX**: enhance infinite query options and state management (#25).
+
 ## 0.3.1
 
  - **REFACTOR**(performance): simplify isolate pool initialization (#24).
