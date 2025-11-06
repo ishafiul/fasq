@@ -11,7 +11,7 @@ abstract class InfiniteQueryCubit<TData, TParam>
     _initialize();
   }
 
-  String get key;
+  QueryKey get queryKey;
 
   Future<TData> Function(TParam param) get queryFn;
 
@@ -20,7 +20,7 @@ abstract class InfiniteQueryCubit<TData, TParam>
   void _initialize() {
     final client = QueryClient();
     _query =
-        client.getInfiniteQuery<TData, TParam>(key, queryFn, options: options);
+        client.getInfiniteQuery<TData, TParam>(queryKey, queryFn, options: options);
 
     _subscription = _query.stream.listen((newState) {
       if (!isClosed) {
