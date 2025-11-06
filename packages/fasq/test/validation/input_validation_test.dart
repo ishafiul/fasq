@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fasq/fasq.dart';
 import 'package:fasq/src/core/validation/input_validator.dart';
 import 'package:fasq/src/core/query_options.dart';
 import 'package:fasq/src/cache/query_cache.dart';
@@ -221,21 +222,21 @@ void main() {
         // Valid query
         expect(
           () =>
-              client.getQuery<String>('valid-key', () => Future.value('data')),
+              client.getQuery<String>('valid-key'.toQueryKey(), () => Future.value('data')),
           returnsNormally,
         );
 
         // Invalid key
         expect(
-          () => client.getQuery<String>(
-              'invalid@key', () => Future.value('data')),
+              () => client.getQuery<String>(
+              'invalid@key'.toQueryKey(), () => Future.value('data')),
           throwsA(isA<ArgumentError>()),
         );
 
         // Invalid options
         expect(
           () => client.getQuery<String>(
-            'valid-key',
+            'valid-key'.toQueryKey(),
             () => Future.value('data'),
             options: QueryOptions(staleTime: Duration(seconds: -1)),
           ),
@@ -276,26 +277,26 @@ void main() {
       test('setQueryData validates inputs', () {
         // Valid data
         expect(
-          () => client.setQueryData<String>('valid-key', 'data'),
+          () => client.setQueryData<String>('valid-key'.toQueryKey(), 'data'),
           returnsNormally,
         );
 
         // Invalid key
         expect(
-          () => client.setQueryData<String>('invalid@key', 'data'),
+          () => client.setQueryData<String>('invalid@key'.toQueryKey(), 'data'),
           throwsA(isA<ArgumentError>()),
         );
 
         // Invalid data
         expect(
-          () => client.setQueryData<Function>('valid-key', () => 'data'),
+          () => client.setQueryData<Function>('valid-key'.toQueryKey(), () => 'data'),
           throwsA(isA<ArgumentError>()),
         );
 
         // Invalid maxAge
         expect(
           () => client.setQueryData<String>(
-            'valid-key',
+            'valid-key'.toQueryKey(),
             'data',
             maxAge: Duration(seconds: -1),
           ),

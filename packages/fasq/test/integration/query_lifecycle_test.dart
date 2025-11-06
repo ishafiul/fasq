@@ -16,7 +16,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: QueryBuilder<String>(
-              queryKey: 'lifecycle-test',
+              queryKey: 'lifecycle-test'.toQueryKey(),
               queryFn: () async {
                 fetchCount++;
                 await Future.delayed(Duration(milliseconds: 50));
@@ -52,7 +52,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: QueryBuilder<String>(
-              queryKey: 'error-test',
+              queryKey: 'error-test'.toQueryKey(),
               queryFn: () async {
                 if (shouldFail) {
                   throw Exception('Initial error');
@@ -74,7 +74,7 @@ void main() {
       expect(find.text('Error occurred'), findsOneWidget);
 
       shouldFail = false;
-      final query = QueryClient().getQueryByKey<String>('error-test');
+      final query = QueryClient().getQueryByKey<String>('error-test'.toQueryKey());
       await query!.fetch();
       await tester.pumpAndSettle();
 
@@ -87,7 +87,7 @@ void main() {
       Widget buildQuery() {
         return MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'rapid-nav',
+            queryKey: 'rapid-nav'.toQueryKey(),
             queryFn: () async {
               fetchCount++;
               await Future.delayed(Duration(milliseconds: 50));
@@ -118,7 +118,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             home: QueryBuilder<int>(
-              queryKey: 'query-$i',
+              queryKey: 'query-$i'.toQueryKey(),
               queryFn: () async => i,
               builder: (context, state) => Text('${state.data ?? 0}'),
             ),
@@ -143,7 +143,7 @@ void main() {
           home: Column(
             children: [
               QueryBuilder<String>(
-                queryKey: 'shared-query',
+                queryKey: 'shared-query'.toQueryKey(),
                 queryFn: () async {
                   fetchCount++;
                   await Future.delayed(Duration(milliseconds: 50));
@@ -152,7 +152,7 @@ void main() {
                 builder: (context, state) => Text('A: ${state.data}'),
               ),
               QueryBuilder<String>(
-                queryKey: 'shared-query',
+                queryKey: 'shared-query'.toQueryKey(),
                 queryFn: () async {
                   fetchCount++;
                   return 'shared';
@@ -160,7 +160,7 @@ void main() {
                 builder: (context, state) => Text('B: ${state.data}'),
               ),
               QueryBuilder<String>(
-                queryKey: 'shared-query',
+                queryKey: 'shared-query'.toQueryKey(),
                 queryFn: () async {
                   fetchCount++;
                   return 'shared';
@@ -190,7 +190,7 @@ void main() {
               return Column(
                 children: [
                   QueryBuilder<int>(
-                    queryKey: 'persist-test',
+                    queryKey: 'persist-test'.toQueryKey(),
                     queryFn: () async => 42,
                     builder: (context, state) {
                       buildCount++;
@@ -227,12 +227,12 @@ void main() {
           home: Column(
             children: [
               QueryBuilder<int>(
-                queryKey: 'query-1',
+                queryKey: 'query-1'.toQueryKey(),
                 queryFn: () async => 1,
                 builder: (context, state) => Text('Q1: ${state.data}'),
               ),
               QueryBuilder<int>(
-                queryKey: 'query-2',
+                queryKey: 'query-2'.toQueryKey(),
                 queryFn: () async => 2,
                 builder: (context, state) => Text('Q2: ${state.data}'),
               ),
@@ -255,7 +255,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: QueryBuilder<String>(
-            queryKey: 'callback-test',
+            queryKey: 'callback-test'.toQueryKey(),
             queryFn: () async => 'success',
             options: QueryOptions(
               onSuccess: () => successCalled = true,

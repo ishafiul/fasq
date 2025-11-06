@@ -33,9 +33,9 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(key: 'query1', queryFn: fetchData1),
-              MultiQueryConfig(key: 'query2', queryFn: fetchData2),
-              MultiQueryConfig(key: 'query3', queryFn: fetchData3),
+              MultiQueryConfig(queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
+              MultiQueryConfig(queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
+              MultiQueryConfig(queryKey: 'query3'.toQueryKey(), queryFn: fetchData3),
             ],
             builder: (context, state) {
               return Column(
@@ -82,8 +82,8 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(key: 'query1', queryFn: fetchData1),
-              MultiQueryConfig(key: 'query2', queryFn: fetchData2),
+              MultiQueryConfig(queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
+              MultiQueryConfig(queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
             ],
             builder: (context, state) {
               allLoading = state.isAllLoading;
@@ -137,8 +137,8 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(key: 'success', queryFn: fetchSuccess),
-              MultiQueryConfig(key: 'error', queryFn: fetchError),
+              MultiQueryConfig(queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
+              MultiQueryConfig(queryKey: 'error'.toQueryKey(), queryFn: fetchError),
             ],
             builder: (context, state) {
               return Column(
@@ -176,9 +176,9 @@ void main() {
           home: MultiQueryBuilder(
             configs: [
               MultiQueryConfig(
-                  key: 'query1', queryFn: () => fetchData('query1')),
+                  queryKey: 'query1'.toQueryKey(), queryFn: () => fetchData('query1')),
               MultiQueryConfig(
-                  key: 'query2', queryFn: () => fetchData('query2')),
+                  queryKey: 'query2'.toQueryKey(), queryFn: () => fetchData('query2')),
             ],
             builder: (context, state) {
               return Column(
@@ -201,8 +201,8 @@ void main() {
 
       // Verify queries are cleaned up (no memory leaks)
       final client = QueryClient();
-      expect(client.hasQuery('query1'), isFalse);
-      expect(client.hasQuery('query2'), isFalse);
+      expect(client.hasQuery('query1'.toQueryKey()), isFalse);
+      expect(client.hasQuery('query2'.toQueryKey()), isFalse);
     });
 
     testWidgets('updates states independently', (tester) async {
@@ -222,8 +222,8 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(key: 'query1', queryFn: fetchData1),
-              MultiQueryConfig(key: 'query2', queryFn: fetchData2),
+              MultiQueryConfig(queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
+              MultiQueryConfig(queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
             ],
             builder: (context, state) {
               updateCount++;
@@ -266,8 +266,8 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(key: 'list', queryFn: fetchList),
-              MultiQueryConfig(key: 'map', queryFn: fetchMap),
+              MultiQueryConfig(queryKey: 'list'.toQueryKey(), queryFn: fetchList),
+              MultiQueryConfig(queryKey: 'map'.toQueryKey(), queryFn: fetchMap),
             ],
             builder: (context, state) {
               final listState = state.getState<List<String>>(0);
@@ -327,11 +327,11 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', key: 'users', queryFn: fetchUsers),
+                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', key: 'posts', queryFn: fetchPosts),
+                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
               NamedQueryConfig(
-                  name: 'comments', key: 'comments', queryFn: fetchComments),
+                  name: 'comments', queryKey: 'comments'.toQueryKey(), queryFn: fetchComments),
             ],
             builder: (context, state) {
               return Column(
@@ -384,9 +384,9 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', key: 'users', queryFn: fetchUsers),
+                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', key: 'posts', queryFn: fetchPosts),
+                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
             ],
             builder: (context, state) {
               allLoading = state.isAllLoading;
@@ -441,9 +441,9 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'success', key: 'success', queryFn: fetchSuccess),
+                  name: 'success', queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
               NamedQueryConfig(
-                  name: 'error', key: 'error', queryFn: fetchError),
+                  name: 'error', queryKey: 'error'.toQueryKey(), queryFn: fetchError),
             ],
             builder: (context, state) {
               return Column(
@@ -482,11 +482,11 @@ void main() {
             configs: [
               NamedQueryConfig(
                   name: 'query1',
-                  key: 'query1',
+                  queryKey: 'query1'.toQueryKey(),
                   queryFn: () => fetchData('query1')),
               NamedQueryConfig(
                   name: 'query2',
-                  key: 'query2',
+                  queryKey: 'query2'.toQueryKey(),
                   queryFn: () => fetchData('query2')),
             ],
             builder: (context, state) {
@@ -510,8 +510,8 @@ void main() {
 
       // Verify queries are cleaned up (no memory leaks)
       final client = QueryClient();
-      expect(client.hasQuery('query1'), isFalse);
-      expect(client.hasQuery('query2'), isFalse);
+      expect(client.hasQuery('query1'.toQueryKey()), isFalse);
+      expect(client.hasQuery('query2'.toQueryKey()), isFalse);
     });
 
     testWidgets('updates states independently', (tester) async {
@@ -532,9 +532,9 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', key: 'users', queryFn: fetchUsers),
+                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', key: 'posts', queryFn: fetchPosts),
+                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
             ],
             builder: (context, state) {
               updateCount++;
@@ -578,9 +578,9 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', key: 'users', queryFn: fetchUsers),
+                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', key: 'posts', queryFn: fetchPosts),
+                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
             ],
             builder: (context, state) {
               return Column(
@@ -633,9 +633,9 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', key: 'users', queryFn: fetchUsers),
+                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'stats', key: 'stats', queryFn: fetchStats),
+                  name: 'stats', queryKey: 'stats'.toQueryKey(), queryFn: fetchStats),
             ],
             builder: (context, state) {
               final usersState = state.getState<List<String>>('users');

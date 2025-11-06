@@ -15,7 +15,7 @@ void main() {
         return 'prefetched data';
       }
 
-      await client.prefetchQuery('test-key', fetchData);
+      await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
 
       final cache = client.cache;
       final entry = cache.get<String>('test-key');
@@ -35,10 +35,10 @@ void main() {
         return 'data';
       }
 
-      await client.prefetchQuery('test-key', fetchData);
+      await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
       expect(fetchCount, equals(1));
 
-      await client.prefetchQuery('test-key', fetchData);
+      await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
       expect(fetchCount, equals(1));
     });
 
@@ -57,7 +57,7 @@ void main() {
         return 'data-$fetchCount';
       }
 
-      await client.prefetchQuery('test-key', fetchData);
+      await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
       expect(fetchCount, equals(1));
 
       final cache = client.cache;
@@ -66,7 +66,7 @@ void main() {
 
       await Future.delayed(const Duration(milliseconds: 150));
 
-      await client.prefetchQuery('test-key', fetchData);
+      await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
       expect(fetchCount, equals(2));
 
       final entry2 = cache.get<String>('test-key');
@@ -82,7 +82,7 @@ void main() {
       }
 
       await client.prefetchQuery(
-        'test-key',
+        'test-key'.toQueryKey(),
         fetchData,
         options: QueryOptions(
           staleTime: const Duration(minutes: 5),
@@ -108,7 +108,7 @@ void main() {
       }
 
       expect(
-          () => client.prefetchQuery('test-key', fetchError), throwsException);
+          () => client.prefetchQuery('test-key'.toQueryKey(), fetchError), throwsException);
     });
 
     test('prefetched data is used by subsequent queries', () async {
@@ -119,9 +119,10 @@ void main() {
         return 'prefetched data';
       }
 
-      await client.prefetchQuery('test-key', fetchData);
+      final queryKey = 'test-key'.toQueryKey();
+      await client.prefetchQuery(queryKey, fetchData);
 
-      final query = client.getQuery<String>('test-key', fetchData);
+      final query = client.getQuery<String>(queryKey, fetchData);
       query.addListener();
 
       await Future.delayed(const Duration(milliseconds: 10));
@@ -140,11 +141,12 @@ void main() {
         return 'data';
       }
 
-      expect(client.hasQuery('test-key'), isFalse);
+      final queryKey = 'test-key'.toQueryKey();
+      expect(client.hasQuery(queryKey), isFalse);
 
-      await client.prefetchQuery('test-key', fetchData);
+      await client.prefetchQuery(queryKey, fetchData);
 
-      expect(client.hasQuery('test-key'), isFalse);
+      expect(client.hasQuery(queryKey), isFalse);
     });
   });
 
@@ -178,9 +180,9 @@ void main() {
       final start = DateTime.now();
 
       await client.prefetchQueries([
-        PrefetchConfig(key: 'key1', queryFn: fetchData1),
-        PrefetchConfig(key: 'key2', queryFn: fetchData2),
-        PrefetchConfig(key: 'key3', queryFn: fetchData3),
+        PrefetchConfig(queryKey: 'key1'.toQueryKey(), queryFn: fetchData1),
+        PrefetchConfig(queryKey: 'key2'.toQueryKey(), queryFn: fetchData2),
+        PrefetchConfig(queryKey: 'key3'.toQueryKey(), queryFn: fetchData3),
       ]);
 
       final duration = DateTime.now().difference(start);
@@ -212,8 +214,8 @@ void main() {
 
       try {
         await client.prefetchQueries([
-          PrefetchConfig(key: 'success', queryFn: fetchSuccess),
-          PrefetchConfig(key: 'error', queryFn: fetchError),
+          PrefetchConfig(queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
+          PrefetchConfig(queryKey: 'error'.toQueryKey(), queryFn: fetchError),
         ]);
       } catch (e) {
         // Expected error, test passed
@@ -241,12 +243,12 @@ void main() {
 
       await client.prefetchQueries([
         PrefetchConfig(
-          key: 'key1',
+          queryKey: 'key1'.toQueryKey(),
           queryFn: fetchData,
           options: QueryOptions(staleTime: const Duration(minutes: 1)),
         ),
         PrefetchConfig(
-          key: 'key2',
+          queryKey: 'key2'.toQueryKey(),
           queryFn: fetchData,
           options: QueryOptions(staleTime: const Duration(minutes: 5)),
         ),
@@ -270,15 +272,15 @@ void main() {
       }
 
       await client.prefetchQueries([
-        PrefetchConfig(key: 'key1', queryFn: fetchData),
-        PrefetchConfig(key: 'key2', queryFn: fetchData),
+        PrefetchConfig(queryKey: 'key1'.toQueryKey(), queryFn: fetchData),
+        PrefetchConfig(queryKey: 'key2'.toQueryKey(), queryFn: fetchData),
       ]);
 
       expect(fetchCount, equals(2));
 
       await client.prefetchQueries([
-        PrefetchConfig(key: 'key1', queryFn: fetchData),
-        PrefetchConfig(key: 'key2', queryFn: fetchData),
+        PrefetchConfig(queryKey: 'key1'.toQueryKey(), queryFn: fetchData),
+        PrefetchConfig(queryKey: 'key2'.toQueryKey(), queryFn: fetchData),
       ]);
 
       expect(fetchCount, equals(2));
@@ -287,25 +289,27 @@ void main() {
 
   group('PrefetchConfig', () {
     test('creates config with required fields', () {
+      final queryKey = 'test'.toQueryKey();
       final config = PrefetchConfig(
-        key: 'test',
+        queryKey: queryKey,
         queryFn: () async => 'data',
       );
 
-      expect(config.key, equals('test'));
+      expect(config.queryKey.key, equals('test'));
       expect(config.queryFn, isNotNull);
       expect(config.options, isNull);
     });
 
     test('creates config with options', () {
       final options = QueryOptions(staleTime: const Duration(minutes: 5));
+      final queryKey = 'test'.toQueryKey();
       final config = PrefetchConfig(
-        key: 'test',
+        queryKey: queryKey,
         queryFn: () async => 'data',
         options: options,
       );
 
-      expect(config.key, equals('test'));
+      expect(config.queryKey.key, equals('test'));
       expect(config.queryFn, isNotNull);
       expect(config.options, equals(options));
     });
