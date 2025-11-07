@@ -1,90 +1,29 @@
 import 'package:fasq/fasq.dart';
-
-class User {
-  final String id;
-  final String name;
-  final String email;
-
-  User({required this.id, required this.name, required this.email});
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      email: json['email'] as String,
-    );
-  }
-}
-
-class Post {
-  final String id;
-  final String title;
-  final String body;
-  final String userId;
-
-  Post({
-    required this.id,
-    required this.title,
-    required this.body,
-    required this.userId,
-  });
-
-  factory Post.fromJson(Map<String, dynamic> json) {
-    return Post(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      body: json['body'] as String,
-      userId: json['userId'] as String,
-    );
-  }
-}
-
-class Todo {
-  final String id;
-  final String title;
-  final bool completed;
-  final String userId;
-
-  Todo({
-    required this.id,
-    required this.title,
-    required this.completed,
-    required this.userId,
-  });
-
-  factory Todo.fromJson(Map<String, dynamic> json) {
-    return Todo(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      completed: json['completed'] as bool,
-      userId: json['userId'] as String,
-    );
-  }
-}
+import 'package:fasq_example/services/models.dart';
 
 class QueryKeys {
   static TypedQueryKey<List<User>> get users =>
       const TypedQueryKey<List<User>>('users', List<User>);
 
-  static TypedQueryKey<User> user(String id) =>
+  static TypedQueryKey<User> user(Object id) =>
       TypedQueryKey<User>('user:$id', User);
 
   static TypedQueryKey<List<Post>> get posts =>
       const TypedQueryKey<List<Post>>('posts', List<Post>);
 
-  static TypedQueryKey<List<Post>> postsByUser(String userId) =>
+  static TypedQueryKey<List<Post>> postsByUser(Object userId) =>
       TypedQueryKey<List<Post>>('posts:user:$userId', List<Post>);
 
-  static TypedQueryKey<Post> post(String id) =>
+  static TypedQueryKey<Post> post(Object id) =>
       TypedQueryKey<Post>('post:$id', Post);
 
   static TypedQueryKey<List<Todo>> get todos =>
       const TypedQueryKey<List<Todo>>('todos', List<Todo>);
 
-  static TypedQueryKey<List<Todo>> todosByUser(String userId) =>
+  static TypedQueryKey<List<Todo>> todosByUser(Object userId) =>
       TypedQueryKey<List<Todo>>('todos:user:$userId', List<Todo>);
 
-  static TypedQueryKey<Todo> todo(String id) =>
+  static TypedQueryKey<Todo> todo(Object id) =>
       TypedQueryKey<Todo>('todo:$id', Todo);
 
   static const TypedQueryKey<List<User>> prefetchUsers =
@@ -95,6 +34,52 @@ class QueryKeys {
 
   static const TypedQueryKey<List<Todo>> prefetchTodos =
       TypedQueryKey<List<Todo>>('prefetch-todos', List<Todo>);
+
+  static const TypedQueryKey<List<User>> usersStaleDemo =
+      TypedQueryKey<List<User>>('users-stale-demo', List<User>);
+
+  static const TypedQueryKey<List<Todo>> todosRefetchOnMountDemo =
+      TypedQueryKey<List<Todo>>('todos-refetch-on-mount-demo', List<Todo>);
+
+  static const TypedQueryKey<List<User>> usersEnabledDemo =
+      TypedQueryKey<List<User>>('users-enabled-demo', List<User>);
+
+  static const TypedQueryKey<List<User>> usersCallbacksDemo =
+      TypedQueryKey<List<User>>('users-callbacks-demo', List<User>);
+
+  static const TypedQueryKey<List<Post>> postsCacheDemo =
+      TypedQueryKey<List<Post>>('posts-cache-demo', List<Post>);
+
+  static TypedQueryKey<List<Category>> get categories =>
+      const TypedQueryKey<List<Category>>('categories', List<Category>);
+
+  static TypedQueryKey<List<Product>> productsByCategory(int categoryId) =>
+      TypedQueryKey<List<Product>>('products:$categoryId', List<Product>);
+
+  static const TypedQueryKey<User> regularUserProfile =
+      TypedQueryKey<User>('user-regular', User);
+
+  static const TypedQueryKey<User> secureUserProfile =
+      TypedQueryKey<User>('user-secure', User);
+
+  static const TypedQueryKey<User> userProfile =
+      TypedQueryKey<User>('user-profile', User);
+
+  static const TypedQueryKey<List<Todo>> userTodos =
+      TypedQueryKey<List<Todo>>('user-todos', List<Todo>);
+
+  static const TypedQueryKey<List<Post>> userPosts =
+      TypedQueryKey<List<Post>>('user-posts', List<Post>);
+
+  static const TypedQueryKey<List<Post>> postsInfiniteScroll =
+      TypedQueryKey<List<Post>>('posts-infinite-scroll', List<Post>);
+
+  static const TypedQueryKey<List<Post>> postsLoadMore =
+      TypedQueryKey<List<Post>>('posts-load-more', List<Post>);
+
+  static const TypedQueryKey<List<Post>> postsPageNumber =
+      TypedQueryKey<List<Post>>('posts-page-number', List<Post>);
+
+  static const TypedQueryKey<List<Post>> postsCursor =
+      TypedQueryKey<List<Post>>('posts-cursor', List<Post>);
 }
-
-
