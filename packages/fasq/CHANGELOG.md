@@ -1,3 +1,8 @@
+## 0.3.3
+
+- **FIX**: align docs, entrypoints, and tests around typed QueryKey usage (#30).
+- **FIX**: add Flutter example apps for fasq, bloc, hooks, and riverpod packages (#30).
+
 ## 0.3.2
 
  - **FEAT**: add type-safe query keys support (#28).

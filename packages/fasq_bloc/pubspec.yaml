@@ -1,6 +1,6 @@
 name: fasq_bloc
 description: Bloc/Cubit adapter for FASQ (Flutter Async State Query) - async state management with Bloc
-version: 0.2.1
+version: 0.2.2
 repository: https://github.com/ishafiul/fasq
 homepage: https://fasq.shafi.dev
 
