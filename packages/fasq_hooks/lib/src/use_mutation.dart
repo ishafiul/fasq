@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:fasq_hooks/fasq_hooks.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+/// Creates a FASQ [Mutation] and exposes its state through a hook.
+///
+/// The returned [UseMutationResult] provides imperative mutate/reset callbacks
+/// together with reactive status flags that update as the mutation progresses.
 UseMutationResult<TData, TVariables> useMutation<TData, TVariables>(
   Future<TData> Function(TVariables variables) mutationFn, {
   void Function(TData data)? onSuccess,
@@ -39,6 +43,10 @@ UseMutationResult<TData, TVariables> useMutation<TData, TVariables>(
   );
 }
 
+/// Convenience wrapper returned by [useMutation].
+///
+/// Exposes the imperative [mutate] and [reset] callbacks alongside the latest
+/// [MutationState] and boolean helpers for common checks.
 class UseMutationResult<TData, TVariables> {
   final Future<void> Function(TVariables) mutate;
   final void Function() reset;

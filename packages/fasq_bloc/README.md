@@ -167,9 +167,18 @@ Execute multiple queries in parallel using `MultiQueryBuilder` or `NamedMultiQue
 ```dart
 MultiQueryBuilder(
   configs: [
-    MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
-    MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
-    MultiQueryConfig(key: 'comments', queryFn: () => api.fetchComments()),
+    MultiQueryConfig(
+      queryKey: 'users'.toQueryKey(),
+      queryFn: () => api.fetchUsers(),
+    ),
+    MultiQueryConfig(
+      queryKey: 'posts'.toQueryKey(),
+      queryFn: () => api.fetchPosts(),
+    ),
+    MultiQueryConfig(
+      queryKey: 'comments'.toQueryKey(),
+      queryFn: () => api.fetchComments(),
+    ),
   ],
   builder: (context, state) {
     return Column(
@@ -186,9 +195,21 @@ MultiQueryBuilder(
 
 NamedMultiQueryBuilder(
   configs: [
-    NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
-    NamedQueryConfig(name: 'posts', key: 'posts', queryFn: () => api.fetchPosts()),
-    NamedQueryConfig(name: 'comments', key: 'comments', queryFn: () => api.fetchComments()),
+    NamedQueryConfig(
+      name: 'users',
+      queryKey: 'users'.toQueryKey(),
+      queryFn: () => api.fetchUsers(),
+    ),
+    NamedQueryConfig(
+      name: 'posts',
+      queryKey: 'posts'.toQueryKey(),
+      queryFn: () => api.fetchPosts(),
+    ),
+    NamedQueryConfig(
+      name: 'comments',
+      queryKey: 'comments'.toQueryKey(),
+      queryFn: () => api.fetchComments(),
+    ),
   ],
   builder: (context, state) {
     return Column(
@@ -211,8 +232,14 @@ Warm the cache before data is needed:
 ```dart
 PrefetchBuilder(
   configs: [
-    PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-    PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+    PrefetchConfig(
+      queryKey: 'users'.toQueryKey(),
+      queryFn: () => api.fetchUsers(),
+    ),
+    PrefetchConfig(
+      queryKey: 'posts'.toQueryKey(),
+      queryFn: () => api.fetchPosts(),
+    ),
   ],
   child: YourScreen(),
 )

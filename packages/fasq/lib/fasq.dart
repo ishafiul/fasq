@@ -1,3 +1,10 @@
+/// Entry point for the FASQ (Flutter Async State Query) package.
+///
+/// Exported APIs cover query/mutation primitives, caching, pagination,
+/// performance tooling, persistence, and Flutter widgets for integrating
+/// async data flows into applications.
+library;
+
 export 'src/cache/cache_config.dart';
 export 'src/cache/cache_entry.dart';
 export 'src/cache/cache_metrics.dart';

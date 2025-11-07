@@ -79,8 +79,14 @@ class MultiQueryState {
 /// ```dart
 /// MultiQueryBuilder(
 ///   configs: [
-///     MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
-///     MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+///     MultiQueryConfig(
+///       queryKey: 'users'.toQueryKey(),
+///       queryFn: () => api.fetchUsers(),
+///     ),
+///     MultiQueryConfig(
+///       queryKey: 'posts'.toQueryKey(),
+///       queryFn: () => api.fetchPosts(),
+///     ),
 ///   ],
 ///   builder: (context, state) {
 ///     if (state.isAllLoading) return CircularProgressIndicator();
@@ -258,8 +264,16 @@ class NamedQueryState {
 /// ```dart
 /// NamedMultiQueryBuilder(
 ///   configs: [
-///     NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
-///     NamedQueryConfig(name: 'posts', key: 'posts', queryFn: () => api.fetchPosts()),
+///     NamedQueryConfig(
+///       name: 'users',
+///       queryKey: 'users'.toQueryKey(),
+///       queryFn: () => api.fetchUsers(),
+///     ),
+///     NamedQueryConfig(
+///       name: 'posts',
+///       queryKey: 'posts'.toQueryKey(),
+///       queryFn: () => api.fetchPosts(),
+///     ),
 ///   ],
 ///   builder: (context, state) {
 ///     if (state.isAllLoading) return CircularProgressIndicator();

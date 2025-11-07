@@ -55,15 +55,14 @@ class InfiniteQuery<TData, TParam> {
   bool _isPrefetching = false;
 
   InfiniteQuery({
-    required QueryKey queryKey,
+    required this.queryKey,
     required this.queryFn,
     this.options,
     this.cache,
     this.onDispose,
     List<Page<TData, TParam>>? initialPages,
-  }) : queryKey = queryKey,
-       key = queryKey.key,
-       _currentState = InfiniteQueryState<TData, TParam>.idle() {
+  })  : key = queryKey.key,
+        _currentState = InfiniteQueryState<TData, TParam>.idle() {
     if (initialPages != null && initialPages.isNotEmpty) {
       final opts = options;
       final hasNext = _computeHasNextForPages(opts, initialPages);

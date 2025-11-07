@@ -2,6 +2,10 @@ import 'dart:async';
 
 import 'package:fasq_bloc/fasq_bloc.dart';
 
+/// Base cubit that wraps a FASQ [Mutation].
+///
+/// Emits [MutationState] changes as the mutation runs and exposes helper
+/// methods [mutate] and [reset] for subclasses.
 abstract class MutationCubit<TData, TVariables>
     extends Cubit<MutationState<TData>> {
   late final Mutation<TData, TVariables> _mutation;

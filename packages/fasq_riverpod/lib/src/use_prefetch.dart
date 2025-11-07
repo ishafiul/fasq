@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///   @override
 ///   Widget build(BuildContext context, WidgetRef ref) {
 ///     ref.prefetchQueries([
-///       PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
+///       PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
 ///     ]);
 ///
 ///     return YourWidget();

@@ -11,7 +11,7 @@ void main() {
     addTearDown(container.dispose);
 
     final provider = infiniteQueryProvider<List<int>, int>(
-      'riverpod:infinite',
+      'riverpod:infinite'.toQueryKey(),
       (page) async {
         await Future.delayed(const Duration(milliseconds: 5));
         return [page];

@@ -32,8 +32,14 @@ void Function(QueryKey, Future<T> Function(), {QueryOptions? options})
 /// Example:
 /// ```dart
 /// usePrefetchOnMount([
-///   PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-///   PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+///   PrefetchConfig(
+///     queryKey: 'users'.toQueryKey(),
+///     queryFn: () => api.fetchUsers(),
+///   ),
+///   PrefetchConfig(
+///     queryKey: 'posts'.toQueryKey(),
+///     queryFn: () => api.fetchPosts(),
+///   ),
 /// ]);
 /// ```
 void usePrefetchOnMount(List<PrefetchConfig> configs, {QueryClient? client}) {

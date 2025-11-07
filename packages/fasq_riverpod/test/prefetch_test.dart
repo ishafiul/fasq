@@ -18,7 +18,8 @@ void main() {
             home: Consumer(
               builder: (context, ref, child) {
                 return ElevatedButton(
-                  onPressed: () => ref.prefetchQuery('test-key', fetchData),
+                  onPressed: () =>
+                      ref.prefetchQuery('test-key'.toQueryKey(), fetchData),
                   child: const Text('Prefetch'),
                 );
               },
@@ -54,8 +55,14 @@ void main() {
               builder: (context, ref, child) {
                 return ElevatedButton(
                   onPressed: () => ref.prefetchQueries([
-                    PrefetchConfig(key: 'test-key-1', queryFn: fetchData1),
-                    PrefetchConfig(key: 'test-key-2', queryFn: fetchData2),
+                    PrefetchConfig(
+                      queryKey: 'test-key-1'.toQueryKey(),
+                      queryFn: fetchData1,
+                    ),
+                    PrefetchConfig(
+                      queryKey: 'test-key-2'.toQueryKey(),
+                      queryFn: fetchData2,
+                    ),
                   ]),
                   child: const Text('Prefetch All'),
                 );
@@ -88,7 +95,10 @@ void main() {
             home: Consumer(
               builder: (context, ref, child) {
                 usePrefetch(ref, [
-                  PrefetchConfig(key: 'test-key', queryFn: fetchData),
+                  PrefetchConfig(
+                    queryKey: 'test-key'.toQueryKey(),
+                    queryFn: fetchData,
+                  ),
                 ]);
                 return const SizedBox();
               },
@@ -122,8 +132,14 @@ void main() {
             home: Consumer(
               builder: (context, ref, child) {
                 usePrefetch(ref, [
-                  PrefetchConfig(key: 'test-key-1', queryFn: fetchData1),
-                  PrefetchConfig(key: 'test-key-2', queryFn: fetchData2),
+                  PrefetchConfig(
+                    queryKey: 'test-key-1'.toQueryKey(),
+                    queryFn: fetchData1,
+                  ),
+                  PrefetchConfig(
+                    queryKey: 'test-key-2'.toQueryKey(),
+                    queryFn: fetchData2,
+                  ),
                 ]);
                 return const SizedBox();
               },

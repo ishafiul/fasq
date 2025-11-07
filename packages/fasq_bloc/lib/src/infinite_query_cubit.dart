@@ -2,6 +2,10 @@ import 'dart:async';
 
 import 'package:fasq_bloc/fasq_bloc.dart';
 
+/// Base cubit that manages a paginated FASQ [InfiniteQuery].
+///
+/// Subclasses declare pagination parameters and can call helper methods like
+/// [fetchNextPage] to drive loading from the UI.
 abstract class InfiniteQueryCubit<TData, TParam>
     extends Cubit<InfiniteQueryState<TData, TParam>> {
   late final InfiniteQuery<TData, TParam> _query;

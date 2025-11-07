@@ -56,9 +56,12 @@ Execute multiple queries in parallel using `combineQueries` or `combineNamedQuer
 
 ```dart
 // Index-based access
-final usersProvider = queryProvider('users', () => api.fetchUsers());
-final postsProvider = queryProvider('posts', () => api.fetchPosts());
-final commentsProvider = queryProvider('comments', () => api.fetchComments());
+final usersProvider =
+    queryProvider('users'.toQueryKey(), () => api.fetchUsers());
+final postsProvider =
+    queryProvider('posts'.toQueryKey(), () => api.fetchPosts());
+final commentsProvider =
+    queryProvider('comments'.toQueryKey(), () => api.fetchComments());
 final dashboardProvider = combineQueries([usersProvider, postsProvider, commentsProvider]);
 
 class Dashboard extends ConsumerWidget {
@@ -122,8 +125,14 @@ class MyWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     usePrefetch(ref, [
-      PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-      PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+      PrefetchConfig(
+        queryKey: 'users'.toQueryKey(),
+        queryFn: () => api.fetchUsers(),
+      ),
+      PrefetchConfig(
+        queryKey: 'posts'.toQueryKey(),
+        queryFn: () => api.fetchPosts(),
+      ),
     ]);
     
     return YourWidget();

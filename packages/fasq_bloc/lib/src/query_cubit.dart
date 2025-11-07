@@ -2,6 +2,11 @@ import 'dart:async';
 
 import 'package:fasq_bloc/fasq_bloc.dart';
 
+/// Base cubit that mirrors a FASQ [Query] lifecycle.
+///
+/// Subclasses provide the [queryKey] and [queryFn] (and optionally options or a
+/// custom client). The cubit automatically listens to query updates and emits
+/// the latest [QueryState].
 abstract class QueryCubit<T> extends Cubit<QueryState<T>> {
   late final Query<T> _query;
   StreamSubscription<QueryState<T>>? _subscription;

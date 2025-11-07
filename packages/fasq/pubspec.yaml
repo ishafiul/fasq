@@ -1,5 +1,5 @@
 name: fasq
-description: FASQ (Flutter Async State Query) - A powerful async state management library for Flutter. Handles API calls, database queries, file operations, and any async operation with intelligent caching, automatic refetching, and error recovery.
+description: FASQ (Flutter Async State Query) delivers caching-first async data management for Flutter with smart refetching, error recovery, and unified APIs.
 version: 0.3.2
 repository: https://github.com/ishafiul/fasq
 issue_tracker: https://github.com/ishafiul/fasq/issues

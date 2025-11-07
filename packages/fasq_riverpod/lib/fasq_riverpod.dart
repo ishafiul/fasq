@@ -1,3 +1,9 @@
+/// Riverpod integration helpers for FASQ queries, mutations, and prefetching.
+///
+/// Exported providers, notifiers, and extensions make it easy to manage async
+/// data via Riverpod while reusing the FASQ caching layer.
+library;
+
 export 'src/query_notifier.dart';
 export 'src/query_provider.dart';
 export 'src/mutation_notifier.dart';
