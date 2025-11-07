@@ -9,8 +9,14 @@ import 'prefetch_cubit.dart';
 /// ```dart
 /// PrefetchBuilder(
 ///   configs: [
-///     PrefetchConfig(key: 'users', queryFn: () => api.fetchUsers()),
-///     PrefetchConfig(key: 'posts', queryFn: () => api.fetchPosts()),
+///     PrefetchConfig(
+///       queryKey: 'users'.toQueryKey(),
+///       queryFn: () => api.fetchUsers(),
+///     ),
+///     PrefetchConfig(
+///       queryKey: 'posts'.toQueryKey(),
+///       queryFn: () => api.fetchPosts(),
+///     ),
 ///   ],
 ///   child: YourWidget(),
 /// )

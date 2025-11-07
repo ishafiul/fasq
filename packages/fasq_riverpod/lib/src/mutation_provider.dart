@@ -1,5 +1,9 @@
 import 'package:fasq_riverpod/fasq_riverpod.dart';
 
+/// Creates a Riverpod [StateNotifierProvider] backed by a FASQ [Mutation].
+///
+/// The provider exposes [MutationState] updates and allows imperative mutate
+/// calls via the underlying [MutationNotifier].
 StateNotifierProvider<MutationNotifier<T, TVariables>, MutationState<T>>
     mutationProvider<T, TVariables>(
   Future<T> Function(TVariables variables) mutationFn, {

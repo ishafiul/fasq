@@ -33,7 +33,7 @@ import 'query_status.dart';
 class Query<T> {
   /// Unique identifier for this query.
   final QueryKey queryKey;
-  
+
   /// Unique identifier for this query (string representation).
   /// Kept for backward compatibility.
   final String key;
@@ -65,16 +65,15 @@ class Query<T> {
   final List<Duration> _fetchHistory = [];
 
   Query({
-    required QueryKey queryKey,
+    required this.queryKey,
     required this.queryFn,
     this.options,
     this.cache,
     this.client,
     this.onDispose,
     T? initialData,
-  }) : queryKey = queryKey,
-       key = queryKey.key,
-       _currentState = QueryState<T>.idle() {
+  })  : key = queryKey.key,
+        _currentState = QueryState<T>.idle() {
     _controller = StreamController<QueryState<T>>.broadcast();
 
     // Set initial state based on initialData and cache staleness

@@ -109,9 +109,12 @@ class NamedQueriesState {
 ///
 /// Example:
 /// ```dart
-/// final usersProvider = queryProvider('users', () => api.fetchUsers());
-/// final postsProvider = queryProvider('posts', () => api.fetchPosts());
-/// final commentsProvider = queryProvider('comments', () => api.fetchComments());
+/// final usersProvider =
+///     queryProvider('users'.toQueryKey(), () => api.fetchUsers());
+/// final postsProvider =
+///     queryProvider('posts'.toQueryKey(), () => api.fetchPosts());
+/// final commentsProvider =
+///     queryProvider('comments'.toQueryKey(), () => api.fetchComments());
 /// final combinedProvider = combineQueries([usersProvider, postsProvider, commentsProvider]);
 ///
 /// class Dashboard extends ConsumerWidget {
@@ -149,9 +152,12 @@ Provider<CombinedQueriesState> combineQueries(
 ///
 /// Example:
 /// ```dart
-/// final usersProvider = queryProvider('users', () => api.fetchUsers());
-/// final postsProvider = queryProvider('posts', () => api.fetchPosts());
-/// final commentsProvider = queryProvider('comments', () => api.fetchComments());
+/// final usersProvider =
+///     queryProvider('users'.toQueryKey(), () => api.fetchUsers());
+/// final postsProvider =
+///     queryProvider('posts'.toQueryKey(), () => api.fetchPosts());
+/// final commentsProvider =
+///     queryProvider('comments'.toQueryKey(), () => api.fetchComments());
 /// final combinedProvider = combineNamedQueries({
 ///   'users': usersProvider,
 ///   'posts': postsProvider,

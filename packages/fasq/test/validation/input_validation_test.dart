@@ -1,9 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq/fasq.dart';
 import 'package:fasq/src/core/validation/input_validator.dart';
-import 'package:fasq/src/core/query_options.dart';
-import 'package:fasq/src/cache/query_cache.dart';
-import 'package:fasq/src/core/query_client.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -221,14 +218,14 @@ void main() {
       test('QueryClient validates inputs', () {
         // Valid query
         expect(
-          () =>
-              client.getQuery<String>('valid-key'.toQueryKey(), () => Future.value('data')),
+          () => client.getQuery<String>(
+              'valid-key'.toQueryKey(), () => Future.value('data')),
           returnsNormally,
         );
 
         // Invalid key
         expect(
-              () => client.getQuery<String>(
+          () => client.getQuery<String>(
               'invalid@key'.toQueryKey(), () => Future.value('data')),
           throwsA(isA<ArgumentError>()),
         );
@@ -289,7 +286,8 @@ void main() {
 
         // Invalid data
         expect(
-          () => client.setQueryData<Function>('valid-key'.toQueryKey(), () => 'data'),
+          () => client.setQueryData<Function>(
+              'valid-key'.toQueryKey(), () => 'data'),
           throwsA(isA<ArgumentError>()),
         );
 

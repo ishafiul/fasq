@@ -138,9 +138,9 @@ void main() {
           return true;
         }
 
-        final provider1 = queryProvider('query1', fetchData1);
-        final provider2 = queryProvider('query2', fetchData2);
-        final provider3 = queryProvider('query3', fetchData3);
+        final provider1 = queryProvider('query1'.toQueryKey(), fetchData1);
+        final provider2 = queryProvider('query2'.toQueryKey(), fetchData2);
+        final provider3 = queryProvider('query3'.toQueryKey(), fetchData3);
         final combinedProvider =
             combineQueries([provider1, provider2, provider3]);
 
@@ -209,8 +209,8 @@ void main() {
           throw Exception('Test error');
         }
 
-        final provider1 = queryProvider('success', fetchSuccess);
-        final provider2 = queryProvider('error', fetchError);
+        final provider1 = queryProvider('success'.toQueryKey(), fetchSuccess);
+        final provider2 = queryProvider('error'.toQueryKey(), fetchError);
         final combinedProvider = combineQueries([provider1, provider2]);
 
         await tester.pumpWidget(
@@ -244,7 +244,7 @@ void main() {
       testWidgets('works with 5+ providers', (tester) async {
         final providers = List.generate(
             5,
-            (i) => queryProvider('query$i', () async {
+            (i) => queryProvider('query$i'.toQueryKey(), () async {
                   await Future.delayed(Duration(milliseconds: 50 + i * 10));
                   return 'data$i';
                 }));
@@ -296,9 +296,10 @@ void main() {
           return true;
         }
 
-        final usersProvider = queryProvider('users', fetchUsers);
-        final postsProvider = queryProvider('posts', fetchPosts);
-        final commentsProvider = queryProvider('comments', fetchComments);
+        final usersProvider = queryProvider('users'.toQueryKey(), fetchUsers);
+        final postsProvider = queryProvider('posts'.toQueryKey(), fetchPosts);
+        final commentsProvider =
+            queryProvider('comments'.toQueryKey(), fetchComments);
         final combinedProvider = combineNamedQueries({
           'users': usersProvider,
           'posts': postsProvider,
@@ -370,8 +371,8 @@ void main() {
           return 42;
         }
 
-        final usersProvider = queryProvider('users', fetchUsers);
-        final postsProvider = queryProvider('posts', fetchPosts);
+        final usersProvider = queryProvider('users'.toQueryKey(), fetchUsers);
+        final postsProvider = queryProvider('posts'.toQueryKey(), fetchPosts);
         final combinedProvider = combineNamedQueries({
           'users': usersProvider,
           'posts': postsProvider,
@@ -427,8 +428,8 @@ void main() {
           return 'data';
         }
 
-        final provider1 = queryProvider('query1', fetchData);
-        final provider2 = queryProvider('query2', fetchData);
+        final provider1 = queryProvider('query1'.toQueryKey(), fetchData);
+        final provider2 = queryProvider('query2'.toQueryKey(), fetchData);
         final combinedProvider = combineQueries([provider1, provider2]);
 
         await tester.pumpWidget(
@@ -454,8 +455,8 @@ void main() {
 
         // Verify queries are cleaned up
         final client = QueryClient();
-        expect(client.hasQuery('query1'), isFalse);
-        expect(client.hasQuery('query2'), isFalse);
+        expect(client.hasQuery('query1'.toQueryKey()), isFalse);
+        expect(client.hasQuery('query2'.toQueryKey()), isFalse);
       });
     });
   });

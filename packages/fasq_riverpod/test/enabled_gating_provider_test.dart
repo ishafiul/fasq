@@ -7,7 +7,7 @@ void main() {
   test('queryProvider respects enabled=false (stays idle)', () async {
     int calls = 0;
     final provider = queryProvider<String>(
-      'rp:enabled',
+      'rp:enabled'.toQueryKey(),
       () async {
         calls++;
         return 'ok';

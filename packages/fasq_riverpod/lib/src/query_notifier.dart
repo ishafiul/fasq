@@ -2,6 +2,10 @@ import 'dart:async';
 
 import 'package:fasq_riverpod/fasq_riverpod.dart';
 
+/// Bridges a FASQ [Query] to Riverpod's [StateNotifier] API.
+///
+/// Listens to query updates, exposes the current [QueryState], and supports
+/// imperative refetch/invalidations from consumers.
 class QueryNotifier<T> extends StateNotifier<QueryState<T>> {
   final QueryKey queryKey;
   final Future<T> Function() queryFn;
