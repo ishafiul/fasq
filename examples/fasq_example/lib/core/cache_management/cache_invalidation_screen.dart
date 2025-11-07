@@ -4,6 +4,7 @@ import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class CacheInvalidationScreen extends StatefulWidget {
   const CacheInvalidationScreen({super.key});
@@ -40,7 +41,7 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
   void _initializeQueries() {
     // User Query
     _userQuery = Query<User>(
-      key: 'user-profile',
+      queryKey: QueryKeys.userProfile,
       queryFn: () => ApiService.fetchUser(1),
       cache: _queryClient.cache,
     );
@@ -56,7 +57,7 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
 
     // Todos Query
     _todosQuery = Query<List<Todo>>(
-      key: 'user-todos',
+      queryKey: QueryKeys.userTodos,
       queryFn: ApiService.fetchTodos,
       cache: _queryClient.cache,
     );
@@ -72,7 +73,7 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
 
     // Posts Query
     _postsQuery = Query<List<Post>>(
-      key: 'user-posts',
+      queryKey: QueryKeys.userPosts,
       queryFn: ApiService.fetchPosts,
       cache: _queryClient.cache,
     );
@@ -93,7 +94,7 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
   }
 
   void _invalidateUser() {
-    _queryClient.invalidateQuery('user-profile');
+    _queryClient.invalidateQuery(QueryKeys.userProfile);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Invalidated user query - refetching...'),
@@ -103,7 +104,7 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
   }
 
   void _invalidateTodos() {
-    _queryClient.invalidateQuery('user-todos');
+    _queryClient.invalidateQuery(QueryKeys.userTodos);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Invalidated todos query - refetching...'),
@@ -113,7 +114,7 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
   }
 
   void _invalidatePosts() {
-    _queryClient.invalidateQuery('user-posts');
+    _queryClient.invalidateQuery(QueryKeys.userPosts);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Invalidated posts query - refetching...'),
@@ -123,8 +124,9 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
   }
 
   void _invalidateAll() {
-    _queryClient
-        .invalidateQueries(['user-profile', 'user-todos', 'user-posts']);
+    _queryClient.invalidateQueries(
+      [QueryKeys.userProfile, QueryKeys.userTodos, QueryKeys.userPosts],
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Invalidated all queries - refetching...'),
@@ -175,13 +177,13 @@ class _CacheInvalidationScreenState extends State<CacheInvalidationScreen> {
           'Demonstrates cache invalidation strategies. Invalidate specific queries, multiple queries, or queries matching patterns. Invalidated queries are automatically refetched if they are active.',
       codeSnippet: '''
 // Invalidate a single query
-queryClient.invalidateQuery('user-profile');
+queryClient.invalidateQuery(QueryKeys.userProfile);
 
 // Invalidate multiple queries at once
 queryClient.invalidateQueries([
-  'user-profile',
-  'user-todos',
-  'user-posts',
+  QueryKeys.userProfile,
+  QueryKeys.userTodos,
+  QueryKeys.userPosts,
 ]);
 
 // Invalidate all queries with a prefix

@@ -4,6 +4,7 @@ import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class SharedQueriesScreen extends StatefulWidget {
   const SharedQueriesScreen({super.key});
@@ -75,17 +76,15 @@ final queryClient = QueryClient();
 
 // Widget 1
 QueryBuilder<User>(
-  key: 'user-1',
+  queryKey: QueryKeys.user(1),
   queryFn: () => api.fetchUser(1),
-  cache: queryClient.cache,
   builder: (context, state) => Text(state.data?.name ?? 'Loading...'),
 )
 
 // Widget 2 - Same query key = shared data
 QueryBuilder<User>(
-  key: 'user-1', // Same key!
+  queryKey: QueryKeys.user(1), // Same key!
   queryFn: () => api.fetchUser(1),
-  cache: queryClient.cache,
   builder: (context, state) => Text(state.data?.name ?? 'Loading...'),
 )
 
@@ -252,7 +251,7 @@ QueryBuilder<User>(
 
   Widget _buildSharedQueryWidget(int index) {
     final query = _queryClient.getQuery<User>(
-      'shared-user-1',
+      QueryKeys.user(1),
       () async {
         _fetchCount++;
         _addLog('🌐 Widget #${index + 1} - Network request #$_fetchCount');

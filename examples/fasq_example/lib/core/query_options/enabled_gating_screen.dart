@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class EnabledGatingScreen extends StatefulWidget {
   const EnabledGatingScreen({super.key});
@@ -25,7 +26,7 @@ class _EnabledGatingScreenState extends State<EnabledGatingScreen> {
       codeSnippet: '''
 // Query is disabled by default
 QueryBuilder<List<User>>(
-  queryKey: 'users-enabled-demo',
+  queryKey: QueryKeys.usersEnabledDemo,
   queryFn: () => ApiService.fetchUsers(),
   options: QueryOptions(
     enabled: false, // Query won't execute until enabled
@@ -53,7 +54,7 @@ setState(() {
           const SizedBox(height: 16),
           Expanded(
             child: QueryBuilder<List<User>>(
-              queryKey: 'users-enabled-demo',
+              queryKey: QueryKeys.usersEnabledDemo,
               queryFn: () => _fetchUsers(),
               options: QueryOptions(
                 enabled: _queryEnabled,
@@ -100,7 +101,7 @@ setState(() {
                         _queryEnabled = true;
                       });
                       QueryClient()
-                          .getQueryByKey<List<User>>('users-enabled-demo')
+                          .getQueryByKey<List<User>>(QueryKeys.usersEnabledDemo)
                           ?.fetch();
                     },
                   );

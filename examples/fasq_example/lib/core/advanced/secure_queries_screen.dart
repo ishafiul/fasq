@@ -4,6 +4,7 @@ import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class SecureQueriesScreen extends StatefulWidget {
   const SecureQueriesScreen({super.key});
@@ -32,7 +33,7 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
   void _initializeQueries() {
     // Regular Query (non-secure)
     _regularQuery = Query<User>(
-      key: 'user-regular',
+      queryKey: QueryKeys.regularUserProfile,
       queryFn: () => ApiService.fetchUser(1),
       cache: _queryClient.cache,
       options: QueryOptions(
@@ -53,7 +54,7 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
 
     // Secure Query
     _secureQuery = Query<User>(
-      key: 'user-secure',
+      queryKey: QueryKeys.secureUserProfile,
       queryFn: () => ApiService.fetchUser(2),
       cache: _queryClient.cache,
       options: QueryOptions(
@@ -98,8 +99,10 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
   }
 
   void _checkCacheStatus() {
-    final regularEntry = _queryClient.cache.inspectEntry('user-regular');
-    final secureEntry = _queryClient.cache.inspectEntry('user-secure');
+    final regularEntry =
+        _queryClient.cache.inspectEntry(QueryKeys.regularUserProfile.key);
+    final secureEntry =
+        _queryClient.cache.inspectEntry(QueryKeys.secureUserProfile.key);
 
     if (regularEntry != null) {
       _addLog('Regular: cached, age: ${regularEntry.age.inSeconds}s');
@@ -150,7 +153,7 @@ class _SecureQueriesScreenState extends State<SecureQueriesScreen> {
       codeSnippet: '''
 // Regular Query
 Query<User>(
-  key: 'user',
+  queryKey: QueryKeys.regularUserProfile,
   queryFn: () => api.fetchUser(1),
   options: QueryOptions(
     staleTime: Duration(minutes: 5),
@@ -160,7 +163,7 @@ Query<User>(
 
 // Secure Query
 Query<User>(
-  key: 'user-secure',
+  queryKey: QueryKeys.secureUserProfile,
   queryFn: () => api.fetchUser(1),
   options: QueryOptions(
     isSecure: true,

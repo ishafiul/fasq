@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class StaleTimeScreen extends StatefulWidget {
   const StaleTimeScreen({super.key});
@@ -30,7 +31,7 @@ class _StaleTimeScreenState extends State<StaleTimeScreen> {
           'Demonstrates how stale time controls when data is considered fresh vs stale. Fresh data serves instantly from cache, while stale data triggers background refetch.',
       codeSnippet: '''
 QueryBuilder<List<User>>(
-  queryKey: 'users-stale-demo',
+  queryKey: QueryKeys.usersStaleDemo,
   queryFn: () => ApiService.fetchUsers(),
   options: QueryOptions(
     staleTime: Duration(seconds: 10), // Fresh for 10 seconds
@@ -70,7 +71,7 @@ QueryBuilder<List<User>>(
           const SizedBox(height: 16),
           Expanded(
             child: QueryBuilder<List<User>>(
-              queryKey: 'users-stale-demo',
+              queryKey: QueryKeys.usersStaleDemo,
               queryFn: () => _fetchUsersWithTimestamp(),
               options: QueryOptions(
                 staleTime: staleTime,
@@ -111,9 +112,9 @@ QueryBuilder<List<User>>(
                 // Capture debug information for UI display
                 final client = QueryClient();
                 final cacheEntry =
-                    client.cache.get<List<User>>('users-stale-demo');
+                    client.cache.get<List<User>>(QueryKeys.usersStaleDemo.key);
                 final existingQuery =
-                    client.getQueryByKey<List<User>>('users-stale-demo');
+                    client.getQueryByKey<List<User>>(QueryKeys.usersStaleDemo);
 
                 // Update debug info using WidgetsBinding to avoid setState during build
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -335,7 +336,7 @@ QueryBuilder<List<User>>(
                 children: [
                   ElevatedButton.icon(
                     onPressed: () {
-                      QueryClient().invalidateQuery('users-stale-demo');
+                      QueryClient().invalidateQuery(QueryKeys.usersStaleDemo);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Row(
@@ -363,7 +364,7 @@ QueryBuilder<List<User>>(
                   const SizedBox(height: 8),
                   ElevatedButton.icon(
                     onPressed: () {
-                      QueryClient().removeQuery('users-stale-demo');
+                      QueryClient().removeQuery(QueryKeys.usersStaleDemo);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Row(

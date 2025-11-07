@@ -4,6 +4,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class LoadMoreButtonScreen extends StatefulWidget {
   const LoadMoreButtonScreen({super.key});
@@ -26,7 +27,7 @@ class _LoadMoreButtonScreenState extends State<LoadMoreButtonScreen> {
   void _initializeQuery() {
     final client = QueryClient();
     _query = client.getInfiniteQuery<List<Post>, int>(
-      'posts-load-more',
+      QueryKeys.postsLoadMore,
       (page) => _fetchPostsWithPage(page),
       options: InfiniteQueryOptions<List<Post>, int>(
         getNextPageParam: (pages, lastPageData) {
@@ -74,7 +75,7 @@ class _LoadMoreButtonScreenState extends State<LoadMoreButtonScreen> {
           'Demonstrates manual pagination using InfiniteQuery with a "Load More" button. Posts are loaded incrementally only when the user clicks the button.',
       codeSnippet: '''
 final query = QueryClient().getInfiniteQuery<List<Post>, int>(
-  'posts-load-more',
+  QueryKeys.postsLoadMore,
   (page) => fetchPostsWithPage(page),
   options: InfiniteQueryOptions<List<Post>, int>(
     getNextPageParam: (pages, lastPageData) {

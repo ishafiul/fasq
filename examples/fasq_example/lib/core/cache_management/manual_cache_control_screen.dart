@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
+import '../query_keys.dart';
 
 class ManualCacheControlScreen extends StatefulWidget {
   const ManualCacheControlScreen({super.key});
@@ -26,19 +27,20 @@ class _ManualCacheControlScreenState extends State<ManualCacheControlScreen> {
   }
 
   Future<void> _fetchInitialData() async {
-    final queries = [
-      ('users', () => ApiService.fetchUsers()),
-      ('todos', () => ApiService.fetchTodos()),
-      ('posts', () => ApiService.fetchPosts()),
+    final queries = <(TypedQueryKey<dynamic>, Future<dynamic> Function())>[
+      (QueryKeys.users, () => ApiService.fetchUsers()),
+      (QueryKeys.todos, () => ApiService.fetchTodos()),
+      (QueryKeys.posts, () => ApiService.fetchPosts()),
     ];
 
-    for (final (key, queryFn) in queries) {
+    for (final (queryKey, queryFn) in queries) {
       final query = Query(
-        key: key,
+        queryKey: queryKey,
         queryFn: queryFn,
         cache: _queryClient.cache,
       );
 
+      final key = queryKey.key;
       _queries[key] = query;
 
       query.stream.listen((state) {

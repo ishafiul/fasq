@@ -5,6 +5,7 @@ import 'package:fasq/src/cache/cache_config.dart';
 import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
+import '../query_keys.dart';
 
 class EvictionPoliciesScreen extends StatefulWidget {
   const EvictionPoliciesScreen({super.key});
@@ -70,15 +71,27 @@ class _EvictionPoliciesScreenState extends State<EvictionPoliciesScreen> {
     );
   }
 
-  void _addQuery(String key, Future<dynamic> Function() queryFn) async {
+  void _addQuery(TypedQueryKey<dynamic> queryKey) async {
+    final key = queryKey.key;
     if (_queries.containsKey(key)) {
       // Already exists, just refetch
       _queries[key]!.fetch();
       return;
     }
 
+    Future<dynamic> Function() queryFn;
+    if (queryKey == QueryKeys.user(1)) {
+      queryFn = () => ApiService.fetchUser(1);
+    } else if (queryKey == QueryKeys.posts) {
+      queryFn = ApiService.fetchPosts;
+    } else if (queryKey == QueryKeys.todos) {
+      queryFn = ApiService.fetchTodos;
+    } else {
+      throw ArgumentError('Unsupported query key: ${queryKey.key}');
+    }
+
     final query = Query(
-      key: key,
+      queryKey: queryKey,
       queryFn: queryFn,
       cache: _queryClient.cache,
     );
@@ -430,31 +443,31 @@ final queryClient = QueryClient();
           runSpacing: 8,
           children: [
             ElevatedButton.icon(
-              onPressed: () => _addQuery('User', () => ApiService.fetchUser(1)),
+              onPressed: () => _addQuery(QueryKeys.user(1)),
               icon: const Icon(Icons.person),
               label: const Text('Add User'),
             ),
             ElevatedButton.icon(
               onPressed: () =>
-                  _addQuery('Todos', () => ApiService.fetchTodos()),
+                  _addQuery(QueryKeys.todos),
               icon: const Icon(Icons.list),
               label: const Text('Add Todos'),
             ),
             ElevatedButton.icon(
               onPressed: () =>
-                  _addQuery('Posts', () => ApiService.fetchPosts()),
+                  _addQuery(QueryKeys.posts),
               icon: const Icon(Icons.article),
               label: const Text('Add Posts'),
             ),
             ElevatedButton.icon(
               onPressed: () =>
-                  _addQuery('More Todos', () => ApiService.fetchTodos()),
+                  _addQuery(QueryKeys.todos),
               icon: const Icon(Icons.list_alt),
               label: const Text('Add More'),
             ),
             ElevatedButton.icon(
               onPressed: () =>
-                  _addQuery('Extra Posts', () => ApiService.fetchPosts()),
+                  _addQuery(QueryKeys.posts),
               icon: const Icon(Icons.article_outlined),
               label: const Text('Add More'),
             ),

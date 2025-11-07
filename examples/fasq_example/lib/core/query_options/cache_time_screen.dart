@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class CacheTimeScreen extends StatefulWidget {
   const CacheTimeScreen({super.key});
@@ -24,7 +25,7 @@ class _CacheTimeScreenState extends State<CacheTimeScreen> {
           'Demonstrates how cacheTime controls how long data remains in cache after unmounting. Navigate away and back to see cached data served instantly without refetching.',
       codeSnippet: '''
 QueryBuilder<List<Post>>(
-  queryKey: 'posts-cache-demo',
+  queryKey: QueryKeys.postsCacheDemo,
   queryFn: () => ApiService.fetchPosts(),
   options: QueryOptions(
     cacheTime: Duration(seconds: 30), // Data stays in cache for 30s
@@ -54,7 +55,7 @@ QueryBuilder<List<Post>>(
           const SizedBox(height: 16),
           Expanded(
             child: QueryBuilder<List<Post>>(
-              queryKey: 'posts-cache-demo',
+  queryKey: QueryKeys.postsCacheDemo,
               queryFn: () => _fetchPosts(),
               options: QueryOptions(
                 cacheTime: cacheTime,
@@ -78,7 +79,7 @@ QueryBuilder<List<Post>>(
                       } else if (state.hasData) {
                         final client = QueryClient();
                         final cacheEntry =
-                            client.cache.get<List<Post>>('posts-cache-demo');
+                            client.cache.get<List<Post>>(QueryKeys.postsCacheDemo.key);
                         if (cacheEntry != null) {
                           _statusMessage =
                               '✅ Data loaded from ${cacheEntry.isFresh ? "fresh cache" : "stale cache"} (age: ${cacheEntry.age.inSeconds}s)';
@@ -265,8 +266,8 @@ QueryBuilder<List<Post>>(
                   const SizedBox(height: 8),
                   ElevatedButton.icon(
                     onPressed: () {
-                      QueryClient().removeQuery('posts-cache-demo');
-                      QueryClient().invalidateQuery('posts-cache-demo');
+                      QueryClient().removeQuery(QueryKeys.postsCacheDemo);
+                      QueryClient().invalidateQuery(QueryKeys.postsCacheDemo);
                       setState(() {
                         _firstFetchTime = null;
                       });
@@ -309,7 +310,7 @@ QueryBuilder<List<Post>>(
 
   Widget _buildCacheInfo() {
     final client = QueryClient();
-    final cacheEntry = client.cache.get<List<Post>>('posts-cache-demo');
+    final cacheEntry = client.cache.get<List<Post>>(QueryKeys.postsCacheDemo.key);
 
     return Container(
       padding: const EdgeInsets.all(12),

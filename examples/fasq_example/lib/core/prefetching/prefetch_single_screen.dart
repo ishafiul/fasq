@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
 import '../../widgets/example_scaffold.dart';
+import '../query_keys.dart';
 
 class PrefetchSingleScreen extends StatelessWidget {
   const PrefetchSingleScreen({super.key});
@@ -54,7 +55,7 @@ class _PrefetchSingleContentState extends State<_PrefetchSingleContent> {
 
     try {
       await queryClient.prefetchQuery<List<User>>(
-        'prefetch-users',
+        QueryKeys.prefetchUsers,
         () => ApiService.fetchUsers(),
       );
 
@@ -81,7 +82,7 @@ class _PrefetchSingleContentState extends State<_PrefetchSingleContent> {
     final queryClient = context.queryClient;
     if (queryClient == null) return;
 
-    queryClient.cache.remove('prefetch-users');
+    queryClient.cache.remove(QueryKeys.prefetchUsers.key);
     _addLog('🗑️ Cleared prefetched data');
     _updateCacheStatus();
   }
@@ -177,7 +178,7 @@ await queryClient.prefetchQuery<List<User>>(
 
     final info = queryClient.cache.getCacheInfo();
     final keys = queryClient.cache.getCacheKeys();
-    final hasPrefetched = keys.contains('prefetch-users');
+    final hasPrefetched = keys.contains(QueryKeys.prefetchUsers.key);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -270,7 +271,7 @@ await queryClient.prefetchQuery<List<User>>(
     }
 
     final keys = queryClient.cache.getCacheKeys();
-    final hasPrefetched = keys.contains('prefetch-users');
+    final hasPrefetched = keys.contains(QueryKeys.prefetchUsers.key);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,10 +407,10 @@ class _UsersPageState extends State<_UsersPage> {
     _initialized = true;
 
     final hasCache =
-        queryClient.cache.getCacheKeys().contains('prefetch-users');
+        queryClient.cache.getCacheKeys().contains(QueryKeys.prefetchUsers.key);
 
     _usersQuery = queryClient.getQuery<List<User>>(
-      'prefetch-users',
+      QueryKeys.prefetchUsers,
       () => ApiService.fetchUsers(),
     );
 

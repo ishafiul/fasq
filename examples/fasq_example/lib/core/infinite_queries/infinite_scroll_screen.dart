@@ -4,6 +4,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class InfiniteScrollScreen extends StatefulWidget {
   const InfiniteScrollScreen({super.key});
@@ -28,7 +29,7 @@ class _InfiniteScrollScreenState extends State<InfiniteScrollScreen> {
   void _initializeQuery() {
     final client = QueryClient();
     _query = client.getInfiniteQuery<List<Post>, int>(
-      'posts-infinite-scroll',
+      QueryKeys.postsInfiniteScroll,
       (page) => _fetchPostsWithPage(page),
       options: InfiniteQueryOptions<List<Post>, int>(
         getNextPageParam: (pages, lastPageData) {
@@ -95,7 +96,7 @@ class _InfiniteScrollScreenState extends State<InfiniteScrollScreen> {
           'Demonstrates infinite scroll pagination using InfiniteQuery. Posts are automatically loaded as the user scrolls near the bottom of the list. No manual buttons required.',
       codeSnippet: '''
 final query = QueryClient().getInfiniteQuery<List<Post>, int>(
-  'posts-infinite-scroll',
+  QueryKeys.postsInfiniteScroll,
   (page) => fetchPostsWithPage(page),
   options: InfiniteQueryOptions<List<Post>, int>(
     getNextPageParam: (pages, lastPageData) {

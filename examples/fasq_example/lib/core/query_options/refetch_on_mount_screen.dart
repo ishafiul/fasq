@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class RefetchOnMountScreen extends StatefulWidget {
   const RefetchOnMountScreen({super.key});
@@ -31,7 +32,7 @@ class _RefetchOnMountScreenState extends State<RefetchOnMountScreen> {
           'Demonstrates how refetchOnMount forces fresh data fetch every time the component mounts, even if cached data is available. Useful for ensuring data freshness on navigation.',
       codeSnippet: '''
 QueryBuilder<List<Todo>>(
-  queryKey: 'todos-refetch-on-mount-demo',
+  queryKey: QueryKeys.todosRefetchOnMountDemo,
   queryFn: () => ApiService.fetchTodos(),
   options: QueryOptions(
     refetchOnMount: true, // Always refetch when component mounts
@@ -63,7 +64,7 @@ QueryBuilder<List<Todo>>(
           Expanded(
             child: _refetchOnMount
                 ? QueryBuilder<List<Todo>>(
-                    queryKey: 'todos-refetch-on-mount-demo',
+                    queryKey: QueryKeys.todosRefetchOnMountDemo,
                     queryFn: () => _fetchTodos(),
                     options: QueryOptions(
                       staleTime: const Duration(seconds: 10),
@@ -81,7 +82,7 @@ QueryBuilder<List<Todo>>(
                       if (mounted) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           final query = QueryClient().getQueryByKey<List<Todo>>(
-                              'todos-refetch-on-mount-demo');
+                              QueryKeys.todosRefetchOnMountDemo);
                           if (query != null &&
                               state.hasData &&
                               _mountCount > 1) {
@@ -118,7 +119,7 @@ QueryBuilder<List<Todo>>(
                           onRetry: () {
                             QueryClient()
                                 .getQueryByKey<List<Todo>>(
-                                    'todos-refetch-on-mount-demo')
+                                    QueryKeys.todosRefetchOnMountDemo)
                                 ?.fetch();
                           },
                         );
@@ -138,7 +139,7 @@ QueryBuilder<List<Todo>>(
                     },
                   )
                 : QueryBuilder<List<Todo>>(
-                    queryKey: 'todos-refetch-on-mount-demo',
+                    queryKey: QueryKeys.todosRefetchOnMountDemo,
                     queryFn: () => _fetchTodos(),
                     options: QueryOptions(
                       staleTime: const Duration(seconds: 10),
@@ -179,7 +180,7 @@ QueryBuilder<List<Todo>>(
                           onRetry: () {
                             QueryClient()
                                 .getQueryByKey<List<Todo>>(
-                                    'todos-refetch-on-mount-demo')
+                                    QueryKeys.todosRefetchOnMountDemo)
                                 ?.fetch();
                           },
                         );
@@ -360,7 +361,7 @@ QueryBuilder<List<Todo>>(
                 child: ElevatedButton.icon(
                   onPressed: () {
                     QueryClient()
-                        .invalidateQuery('todos-refetch-on-mount-demo');
+                        .invalidateQuery(QueryKeys.todosRefetchOnMountDemo);
                     setState(() {
                       _mountCount = 0;
                       _lastFetchTime = null;

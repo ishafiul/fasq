@@ -4,6 +4,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class PageNumberPaginationScreen extends StatefulWidget {
   const PageNumberPaginationScreen({super.key});
@@ -30,7 +31,7 @@ class _PageNumberPaginationScreenState
     final client = QueryClient();
     const maxPages = 5;
     _query = client.getInfiniteQuery<List<Post>, int>(
-      'posts-page-number',
+      QueryKeys.postsPageNumber,
       (page) => _fetchPostsWithPage(page),
       options: InfiniteQueryOptions<List<Post>, int>(
         getNextPageParam: (pages, lastPageData) {
@@ -105,7 +106,7 @@ class _PageNumberPaginationScreenState
           'Demonstrates true page number-based pagination using InfiniteQuery. Shows one page at a time with Previous/Next buttons and clickable page number indicators. Users can jump to specific pages or navigate sequentially.',
       codeSnippet: '''
 final query = QueryClient().getInfiniteQuery<List<Post>, int>(
-  'posts-page-number',
+  QueryKeys.postsPageNumber,
   (page) => fetchPostsWithPage(page),
   options: InfiniteQueryOptions<List<Post>, int>(
     getNextPageParam: (pages, lastPageData) {

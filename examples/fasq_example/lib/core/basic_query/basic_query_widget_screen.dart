@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class BasicQueryWidgetScreen extends StatelessWidget {
   const BasicQueryWidgetScreen({super.key});
@@ -15,7 +16,7 @@ class BasicQueryWidgetScreen extends StatelessWidget {
           'Demonstrates basic QueryBuilder widget usage with loading, error, and success states.',
       codeSnippet: '''
 QueryBuilder<List<User>>(
-  queryKey: 'users',
+  queryKey: QueryKeys.users,
   queryFn: () => ApiService.fetchUsers(),
   builder: (context, state) {
     if (state.isLoading) {
@@ -47,7 +48,7 @@ QueryBuilder<List<User>>(
   },
 )''',
       child: QueryBuilder<List<User>>(
-        queryKey: 'users',
+        queryKey: QueryKeys.users,
         queryFn: () => ApiService.fetchUsers(),
         builder: (context, state) {
           if (state.isLoading) {

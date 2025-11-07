@@ -4,6 +4,7 @@ import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class RequestDeduplicationScreen extends StatefulWidget {
   const RequestDeduplicationScreen({super.key});
@@ -32,7 +33,7 @@ class _RequestDeduplicationScreenState
 
   void _initializeQuery() {
     _usersQuery = Query<List<User>>(
-      key: 'users',
+      queryKey: QueryKeys.users,
       queryFn: () async {
         _fetchCount++;
         _addLog('🌐 Network request #$_fetchCount - Fetching users...');

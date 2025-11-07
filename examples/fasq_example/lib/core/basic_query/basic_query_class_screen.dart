@@ -3,8 +3,8 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
-/// TODO: hass some issue. need to investigate
 class BasicQueryClassScreen extends StatefulWidget {
   const BasicQueryClassScreen({super.key});
 
@@ -14,25 +14,22 @@ class BasicQueryClassScreen extends StatefulWidget {
 
 class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
   late Query<List<User>> _query;
-  int _referenceCount =
-      0; // Start with 0, will be incremented when listener is added
+  int _referenceCount = 0;
 
   @override
   void initState() {
     super.initState();
-    // Use QueryClient to get/create the query with proper caching
-    final client = QueryClient();
+    final client = context.queryClient ?? QueryClient();
     _query = client.getQuery<List<User>>(
-      'users-class',
+      QueryKeys.users,
       () => ApiService.fetchUsers(),
       options: QueryOptions(
-        staleTime: const Duration(seconds: 5), // Cache for 5 seconds
-        cacheTime: const Duration(seconds: 10), // Keep in cache for 10 seconds
+        staleTime: const Duration(seconds: 5),
+        cacheTime: const Duration(seconds: 10),
       ),
     );
-    _query.addListener(); // Add initial listener for StreamBuilder
-    _referenceCount++; // Increment UI reference count to match
-    // Don't call fetch() manually - let addListener() handle it
+    _query.addListener();
+    _referenceCount++;
   }
 
   @override
@@ -68,31 +65,28 @@ class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
       codeSnippet: '''
 class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
   late Query<List<User>> _query;
-  int _referenceCount = 0; // Start with 0, will be incremented when listener is added
+  int _referenceCount = 0;
 
   @override
   void initState() {
     super.initState();
-    // Use QueryClient to get/create the query with proper caching
-    final client = QueryClient();
+    final client = context.queryClient ?? QueryClient();
     _query = client.getQuery<List<User>>(
-      'users-class',
+      QueryKeys.users,
       () => ApiService.fetchUsers(),
       options: QueryOptions(
-        staleTime: const Duration(seconds: 5), // Cache for 5 seconds
-        cacheTime: const Duration(seconds: 10), // Keep in cache for 10 seconds
+        staleTime: const Duration(seconds: 5),
+        cacheTime: const Duration(seconds: 10),
       ),
     );
-    _query.addListener(); // Add initial listener for StreamBuilder
-    _referenceCount++; // Increment UI reference count to match
-    // Don't call fetch() manually - let addListener() handle it
+    _query.addListener();
+    _referenceCount++;
   }
 
   @override
   void dispose() {
-    _query.removeListener(); // Remove the initial listener
-    _referenceCount--; // Decrement UI reference count to match
-    // Don't dispose the query manually - let QueryClient handle it
+    _query.removeListener();
+    _referenceCount--;
     super.dispose();
   }
 
@@ -133,7 +127,6 @@ class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
         if (state.hasData) {
           return Column(
             children: [
-              // Reference count controls
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -154,7 +147,6 @@ class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
                   ),
                 ),
               ),
-              // User list
               Expanded(
                 child: ListView.builder(
                   itemCount: state.data!.length,

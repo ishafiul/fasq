@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class UserPostsScreen extends StatefulWidget {
   const UserPostsScreen({super.key});
@@ -23,13 +24,13 @@ class _UserPostsScreenState extends State<UserPostsScreen> {
       codeSnippet: '''
 // Users query (independent)
 final usersQuery = useQuery(
-  'users',
+  QueryKeys.users,
   () => api.fetchUsers(),
 );
 
 // Posts query (dependent on user selection)
 final postsQuery = useQuery(
-  'posts:user:\$_selectedUserId',
+  QueryKeys.postsByUser(\$_selectedUserId!),
   () => api.fetchUserPosts(\$_selectedUserId!),
   options: QueryOptions(
     enabled: \$_selectedUserId != null,
@@ -58,7 +59,7 @@ final postsQuery = useQuery(
 
   Widget _buildUsersSection() {
     return QueryBuilder<List<User>>(
-      queryKey: 'users',
+      queryKey: QueryKeys.users,
       queryFn: () => ApiService.fetchUsers(),
       builder: (context, state) {
         if (state.isLoading) {
@@ -208,7 +209,7 @@ final postsQuery = useQuery(
 
     return QueryBuilder<List<Post>>(
       key: ValueKey('posts:user:$_selectedUserId'),
-      queryKey: 'posts:user:$_selectedUserId',
+      queryKey: QueryKeys.postsByUser(_selectedUserId!),
       queryFn: () => ApiService.fetchUserPosts(_selectedUserId!),
       options: QueryOptions(
         enabled: _selectedUserId != null,

@@ -4,6 +4,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class CursorPaginationScreen extends StatefulWidget {
   const CursorPaginationScreen({super.key});
@@ -27,7 +28,7 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
     final client = QueryClient();
     const maxPages = 5;
     _query = client.getInfiniteQuery<List<Post>, String?>(
-      'posts-cursor',
+      QueryKeys.postsCursor,
       (cursor) => _fetchPostsWithCursor(cursor),
       options: InfiniteQueryOptions<List<Post>, String?>(
         getNextPageParam: (pages, lastPageData) {
@@ -92,7 +93,7 @@ class _CursorPaginationScreenState extends State<CursorPaginationScreen> {
           'Demonstrates true cursor-based pagination using InfiniteQuery. Posts are queried directly using WHERE id < cursor, providing stable pagination windows that remain consistent even when data changes.',
       codeSnippet: '''
 final query = QueryClient().getInfiniteQuery<List<Post>, String?>(
-  'posts-cursor',
+  QueryKeys.postsCursor,
   (cursor) => fetchPostsWithCursor(cursor),
   options: InfiniteQueryOptions<List<Post>, String?>(
     getNextPageParam: (pages, lastPageData) {

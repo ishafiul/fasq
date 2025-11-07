@@ -1,5 +1,6 @@
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
+import '../query_keys.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
 import '../../widgets/example_scaffold.dart';
@@ -56,15 +57,15 @@ class _PrefetchMultipleContentState extends State<_PrefetchMultipleContent> {
     try {
       await queryClient.prefetchQueries([
         PrefetchConfig<List<User>>(
-          key: 'prefetch-users',
+          queryKey: QueryKeys.prefetchUsers,
           queryFn: () => ApiService.fetchUsers(),
         ),
         PrefetchConfig<List<Post>>(
-          key: 'prefetch-posts',
+          queryKey: QueryKeys.prefetchPosts,
           queryFn: () => ApiService.fetchPosts(),
         ),
         PrefetchConfig<List<Todo>>(
-          key: 'prefetch-todos',
+          queryKey: QueryKeys.prefetchTodos,
           queryFn: () => ApiService.fetchTodos(),
         ),
       ]);
@@ -92,9 +93,9 @@ class _PrefetchMultipleContentState extends State<_PrefetchMultipleContent> {
     final queryClient = context.queryClient;
     if (queryClient == null) return;
 
-    queryClient.cache.remove('prefetch-users');
-    queryClient.cache.remove('prefetch-posts');
-    queryClient.cache.remove('prefetch-todos');
+    queryClient.cache.remove(QueryKeys.prefetchUsers.key);
+    queryClient.cache.remove(QueryKeys.prefetchPosts.key);
+    queryClient.cache.remove(QueryKeys.prefetchTodos.key);
     _addLog('🗑️ Cleared prefetched data');
     _updateCacheStatus();
   }
@@ -349,7 +350,7 @@ await queryClient.prefetchQueries([
                 leading: const Icon(Icons.people, color: Colors.blue),
                 title: const Text('Users Page'),
                 subtitle: Text(
-                  keys.contains('prefetch-users')
+                  keys.contains(QueryKeys.prefetchUsers.key)
                       ? '✅ Prefetched - will load instantly'
                       : '❌ Not prefetched - will fetch from network',
                   style: TextStyle(
@@ -373,7 +374,7 @@ await queryClient.prefetchQueries([
                 leading: const Icon(Icons.article, color: Colors.orange),
                 title: const Text('Posts Page'),
                 subtitle: Text(
-                  keys.contains('prefetch-posts')
+                  keys.contains(QueryKeys.prefetchPosts.key)
                       ? '✅ Prefetched - will load instantly'
                       : '❌ Not prefetched - will fetch from network',
                   style: TextStyle(
@@ -397,7 +398,7 @@ await queryClient.prefetchQueries([
                 leading: const Icon(Icons.checklist, color: Colors.purple),
                 title: const Text('Todos Page'),
                 subtitle: Text(
-                  keys.contains('prefetch-todos')
+                  keys.contains(QueryKeys.prefetchTodos.key)
                       ? '✅ Prefetched - will load instantly'
                       : '❌ Not prefetched - will fetch from network',
                   style: TextStyle(
@@ -506,10 +507,10 @@ class _UsersPageState extends State<_UsersPage> {
     _initialized = true;
 
     final hasCache =
-        queryClient.cache.getCacheKeys().contains('prefetch-users');
+        queryClient.cache.getCacheKeys().contains(QueryKeys.prefetchUsers.key);
 
     _usersQuery = queryClient.getQuery<List<User>>(
-      'prefetch-users',
+      QueryKeys.prefetchUsers,
       () => ApiService.fetchUsers(),
     );
 
@@ -660,10 +661,10 @@ class _PostsPageState extends State<_PostsPage> {
     _initialized = true;
 
     final hasCache =
-        queryClient.cache.getCacheKeys().contains('prefetch-posts');
+        queryClient.cache.getCacheKeys().contains(QueryKeys.prefetchPosts.key);
 
     _postsQuery = queryClient.getQuery<List<Post>>(
-      'prefetch-posts',
+      QueryKeys.prefetchPosts,
       () => ApiService.fetchPosts(),
     );
 
@@ -816,10 +817,10 @@ class _TodosPageState extends State<_TodosPage> {
     _initialized = true;
 
     final hasCache =
-        queryClient.cache.getCacheKeys().contains('prefetch-todos');
+        queryClient.cache.getCacheKeys().contains(QueryKeys.prefetchTodos.key);
 
     _todosQuery = queryClient.getQuery<List<Todo>>(
-      'prefetch-todos',
+      QueryKeys.prefetchTodos,
       () => ApiService.fetchTodos(),
     );
 

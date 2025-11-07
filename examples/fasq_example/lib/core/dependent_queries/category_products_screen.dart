@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class CategoryProductsScreen extends StatefulWidget {
   const CategoryProductsScreen({super.key});
@@ -23,13 +24,13 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       codeSnippet: '''
 // Categories query (independent)
 final categoriesQuery = QueryClient().getQuery<List<Category>>(
-  'categories',
+  QueryKeys.categories,
   () => api.fetchCategories(),
 );
 
 // Products query (dependent on category selection)
 final productsQuery = QueryClient().getQuery<List<Product>>(
-  'products:\$_selectedCategoryId',
+  QueryKeys.productsByCategory(\$_selectedCategoryId!),
   () => api.fetchProducts(\$_selectedCategoryId!),
   options: QueryOptions(
     enabled: \$_selectedCategoryId != null,
@@ -51,7 +52,7 @@ final productsQuery = QueryClient().getQuery<List<Product>>(
 
   Widget _buildCategoriesSection() {
     return QueryBuilder<List<Category>>(
-      queryKey: 'categories',
+      queryKey: QueryKeys.categories,
       queryFn: () => ApiService.fetchCategories(),
       builder: (context, state) {
         if (state.isLoading) {
@@ -150,7 +151,7 @@ final productsQuery = QueryClient().getQuery<List<Product>>(
 
     return QueryBuilder<List<Product>>(
       key: ValueKey('products:$_selectedCategoryId'),
-      queryKey: 'products:$_selectedCategoryId',
+      queryKey: QueryKeys.productsByCategory(_selectedCategoryId!),
       queryFn: () => ApiService.fetchProducts(_selectedCategoryId!),
       options: QueryOptions(
         enabled: _selectedCategoryId != null,

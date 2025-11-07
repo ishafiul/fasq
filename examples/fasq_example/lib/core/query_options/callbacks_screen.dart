@@ -3,6 +3,7 @@ import 'package:fasq/fasq.dart';
 import '../../widgets/example_scaffold.dart';
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../query_keys.dart';
 
 class CallbacksScreen extends StatefulWidget {
   const CallbacksScreen({super.key});
@@ -49,7 +50,7 @@ class _CallbacksScreenState extends State<CallbacksScreen> {
           'Demonstrates onSuccess and onError callbacks that execute when queries complete or fail. Use callbacks for analytics, logging, notifications, and user feedback.',
       codeSnippet: '''
 QueryBuilder<List<User>>(
-  queryKey: 'users-callbacks-demo',
+  queryKey: QueryKeys.usersCallbacksDemo,
   queryFn: () => ApiService.fetchUsers(),
   options: QueryOptions(
     onSuccess: () {
@@ -85,7 +86,7 @@ QueryBuilder<List<User>>(
           const SizedBox(height: 16),
           Expanded(
             child: QueryBuilder<List<User>>(
-              queryKey: 'users-callbacks-demo',
+  queryKey: QueryKeys.usersCallbacksDemo,
               queryFn: () => _fetchUsers(),
               options: QueryOptions(
                 onSuccess: () {
@@ -113,7 +114,7 @@ QueryBuilder<List<User>>(
                     message: state.error.toString(),
                     onRetry: () {
                       QueryClient()
-                          .getQueryByKey<List<User>>('users-callbacks-demo')
+                          .getQueryByKey<List<User>>(QueryKeys.usersCallbacksDemo)
                           ?.fetch();
                     },
                   );
@@ -421,7 +422,7 @@ QueryBuilder<List<User>>(
                 child: ElevatedButton.icon(
                   onPressed: () {
                     QueryClient()
-                        .getQueryByKey<List<User>>('users-callbacks-demo')
+                        .getQueryByKey<List<User>>(QueryKeys.usersCallbacksDemo)
                         ?.fetch();
                   },
                   icon: const Icon(Icons.refresh),
