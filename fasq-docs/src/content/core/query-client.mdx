@@ -5,22 +5,24 @@ The `QueryClient` is the central hub for managing all queries, mutations, and th
 ## Basic Usage
 
 ```dart
-final messengerKey = GlobalKey<ScaffoldMessengerState>();
 final queryClient = QueryClient(
   config: const CacheConfig(
     defaultCacheTime: Duration(minutes: 10),
   ),
 );
 
+final messenger = EffectMessenger();
+
 void main() {
-  queryClient.addObserver(GlobalQueryEffects(
-    messengerKey: messengerKey,
+  GlobalQueryEffects.install(
     client: queryClient,
-  ));
+    messenger: messenger,
+    resolveMessage: AppStrings.toast,
+  );
 
   runApp(MyApp(
     client: queryClient,
-    messengerKey: messengerKey,
+    messengerKey: messenger.key,
   ));
 }
 
@@ -50,13 +52,30 @@ class MyApp extends StatelessWidget {
 
 ```dart
 class GlobalQueryEffects extends QueryClientObserver {
-  GlobalQueryEffects({
-    required this.messengerKey,
+  GlobalQueryEffects._({
     required this.client,
+    required this.messenger,
+    this.resolveMessage,
   });
 
-  final GlobalKey<ScaffoldMessengerState> messengerKey;
   final QueryClient client;
+  final EffectMessenger messenger;
+  final String Function(String messageId)? resolveMessage;
+
+  static GlobalQueryEffects install({
+    required QueryClient client,
+    required EffectMessenger messenger,
+    String Function(String messageId)? resolveMessage,
+  }) {
+    final effects = GlobalQueryEffects._(
+      client: client,
+      messenger: messenger,
+      resolveMessage: resolveMessage,
+    );
+
+    client.addObserver(effects);
+    return effects;
+  }
 
   @override
   void onMutationSuccess(
@@ -64,12 +83,14 @@ class GlobalQueryEffects extends QueryClientObserver {
     MutationMeta? meta,
     BuildContext? context,
   ) {
-    final text = meta?.successMessageId;
-    if (text != null) {
-      final messenger = context != null && context.mounted
-          ? ScaffoldMessenger.of(context)
-          : messengerKey.currentState;
-      messenger?.showSnackBar(SnackBar(content: Text(text)));
+    final messageId = meta?.successMessageId;
+    if (messageId != null) {
+      final resolved = resolveMessage?.call(messageId) ?? messageId;
+      final state = context != null && context.mounted
+          ? ScaffoldMessenger.maybeOf(context)
+          : messenger.key.currentState;
+
+      state?.showSnackBar(SnackBar(content: Text(resolved)));
     }
 
     for (final key in meta?.invalidateKeys ?? const []) {
@@ -79,7 +100,11 @@ class GlobalQueryEffects extends QueryClientObserver {
 }
 ```
 
+`EffectMessenger` is a lightweight helper that wraps a `GlobalKey<ScaffoldMessengerState>`; feel free to implement your own messenger to route toast/snackbar delivery.
+
 `MutationBuilder` and `QueryBuilder` automatically capture the current `BuildContext` and forward it to observers. When mutations run outside the widget tree, the observer still fires with `context == null`, so global services (scaffold messenger, navigator, auth) can take over.
+
+`EffectMessenger` is optional—when omitted, observers will use the forwarded `BuildContext` and silently skip UI work if no messenger or context is available.
 
 ## Cache Management
 
