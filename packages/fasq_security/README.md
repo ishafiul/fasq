@@ -15,8 +15,8 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  fasq: ^0.2.0
-  fasq_security: ^0.0.1
+  fasq: ^0.3.4
+  fasq_security: ^0.1.1
 ```
 
 ## Usage
