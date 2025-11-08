@@ -18,6 +18,7 @@ class _IsolateWorker {
 
   /// The current task being processed
   IsolateTask<dynamic, dynamic>? _currentTask;
+  StreamSubscription<dynamic>? _currentSubscription;
 
   /// Queue of pending tasks for this worker
   final List<IsolateTask<dynamic, dynamic>> _taskQueue = [];
@@ -45,26 +46,91 @@ class _IsolateWorker {
       return task.completer.future;
     }
 
-    _currentTask = task;
-    _sendPort!.send(task);
-
-    return task.completer.future.then((result) {
-      _currentTask = null;
-      _processNextTask();
-      return result;
-    }).catchError((error) {
-      _currentTask = null;
-      _processNextTask();
-      throw error;
-    });
+    _runTask(task);
+    return task.completer.future;
   }
 
   /// Process the next task in the queue
   void _processNextTask() {
     if (_taskQueue.isNotEmpty && _currentTask == null) {
       final nextTask = _taskQueue.removeAt(0);
-      execute(nextTask);
+      _runTask(nextTask);
     }
+  }
+
+  void _runTask(IsolateTask<dynamic, dynamic> task) {
+    if (_sendPort == null) {
+      task.completeError(IsolateExecutionException('Isolate not ready'));
+      _processNextTask();
+      return;
+    }
+
+    _currentTask = task;
+    final responsePort = ReceivePort();
+    _currentSubscription = responsePort.listen((message) {
+      _handleResponse(task, message);
+      _cleanupCurrentTask();
+      responsePort.close();
+    });
+
+    final taskMessage = _TaskMessage(
+      callback: task.callback,
+      argument: task.message,
+      replyPort: responsePort.sendPort,
+    );
+
+    try {
+      _sendPort!.send(taskMessage);
+    } catch (error, stackTrace) {
+      _currentSubscription?.cancel();
+      responsePort.close();
+      _currentSubscription = null;
+      _currentTask = null;
+      task.completeError(
+        IsolateExecutionException(
+          'Failed to send task to isolate',
+          error,
+        ),
+        stackTrace,
+      );
+      _processNextTask();
+    }
+  }
+
+  void _handleResponse(
+    IsolateTask<dynamic, dynamic> task,
+    dynamic message,
+  ) {
+    if (task.isCancelled) {
+      return;
+    }
+
+    if (message is _TaskSuccess) {
+      task.complete(message.result);
+      return;
+    }
+
+    if (message is _TaskError) {
+      final stack = message.stackTrace != null
+          ? StackTrace.fromString(message.stackTrace!)
+          : null;
+      task.completeError(
+        IsolateExecutionException('Task execution failed', message.error),
+        stack,
+      );
+      return;
+    }
+
+    task.completeError(
+      IsolateExecutionException('Received unknown response from isolate'),
+    );
+  }
+
+  void _cleanupCurrentTask() {
+    _currentSubscription?.cancel();
+    _currentSubscription = null;
+    _currentTask = null;
+    _processNextTask();
   }
 
   /// Dispose the worker and its isolate
@@ -80,6 +146,8 @@ class _IsolateWorker {
     _taskQueue.clear();
 
     // Cancel current task
+    _currentSubscription?.cancel();
+    _currentSubscription = null;
     _currentTask?.cancel();
     _currentTask = null;
 
@@ -106,23 +174,13 @@ void _isolateEntryPoint(SendPort sendPort) {
       return;
     }
 
-    if (message is IsolateTask<dynamic, dynamic>) {
-      try {
-        final result = message.callback(message.message);
-
-        // Handle both sync and async results
-        if (result is Future) {
-          result.then((value) {
-            message.complete(value);
-          }).catchError((error, stackTrace) {
-            message.completeError(error, stackTrace);
-          });
-        } else {
-          message.complete(result);
-        }
-      } catch (error, stackTrace) {
-        message.completeError(error, stackTrace);
-      }
+    if (message is _TaskMessage) {
+      Future.sync(() => Function.apply(message.callback, [message.argument]))
+          .then((value) {
+        message.replyPort.send(_TaskSuccess(value));
+      }).catchError((error, stackTrace) {
+        message.replyPort.send(_TaskError(error, stackTrace?.toString()));
+      });
     }
   });
 }
@@ -160,7 +218,8 @@ class IsolatePool {
   ///
   /// The callback function must be a top-level function or static method
   /// that can be serialized and sent to an isolate.
-  Future<R> execute<T, R>(R Function(T message) callback, T message) async {
+  Future<R> execute<T, R>(
+      FutureOr<R> Function(T message) callback, T message) async {
     if (_isDisposed) {
       throw IsolateExecutionException('Isolate pool is disposed');
     }
@@ -304,4 +363,32 @@ class IsolatePoolStatus {
         'queued: $totalQueuedTasks, '
         'utilization: ${utilizationPercentage.toStringAsFixed(1)}%)';
   }
+}
+
+/// Message sent to worker isolate to execute work.
+class _TaskMessage {
+  final Function callback;
+  final dynamic argument;
+  final SendPort replyPort;
+
+  const _TaskMessage({
+    required this.callback,
+    required this.argument,
+    required this.replyPort,
+  });
+}
+
+/// Successful result returned from worker isolate.
+class _TaskSuccess {
+  final dynamic result;
+
+  const _TaskSuccess(this.result);
+}
+
+/// Error result returned from worker isolate.
+class _TaskError {
+  final Object error;
+  final String? stackTrace;
+
+  const _TaskError(this.error, this.stackTrace);
 }

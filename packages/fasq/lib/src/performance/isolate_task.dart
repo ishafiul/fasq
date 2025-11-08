@@ -6,7 +6,7 @@ import 'dart:async';
 /// for executing work in an isolate.
 class IsolateTask<T, R> {
   /// The callback function to execute in the isolate
-  final R Function(T message) callback;
+  final FutureOr<R> Function(T message) callback;
 
   /// The input data to pass to the callback
   final T message;
