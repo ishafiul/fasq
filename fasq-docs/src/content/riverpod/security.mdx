@@ -84,19 +84,20 @@ class SecureMutationWidget extends ConsumerWidget {
 Configure security features globally using `QueryClientProvider`:
 
 ```dart
-QueryClientProvider(
-  config: CacheConfig(
+final secureClient = QueryClient(
+  config: const CacheConfig(
     defaultStaleTime: Duration(minutes: 5),
     defaultCacheTime: Duration(minutes: 10),
   ),
-  persistenceOptions: PersistenceOptions(
-    enabled: true,
-    encryptionKey: 'your-encryption-key',
-  ),
-  child: MaterialApp(
+  persistenceOptions: const PersistenceOptions(enabled: true),
+);
+
+QueryClientProvider(
+  client: secureClient,
+  child: const MaterialApp(
     home: MyApp(),
   ),
-)
+);
 ```
 
 ### Accessing Configured Client
@@ -148,16 +149,17 @@ Here's a complete example showing security features in a Riverpod-based app:
 class SecureApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return QueryClientProvider(
-      config: CacheConfig(
+    final secureClient = QueryClient(
+      config: const CacheConfig(
         defaultStaleTime: Duration(minutes: 5),
         defaultCacheTime: Duration(minutes: 10),
       ),
-      persistenceOptions: PersistenceOptions(
-        enabled: true,
-        encryptionKey: 'your-secure-encryption-key',
-      ),
-      child: MaterialApp(
+      persistenceOptions: const PersistenceOptions(enabled: true),
+    );
+
+    return QueryClientProvider(
+      client: secureClient,
+      child: const MaterialApp(
         home: SecureHomeScreen(),
       ),
     );

@@ -5,6 +5,7 @@ import '../cache/query_cache.dart';
 import 'query_client.dart';
 import 'query_key.dart';
 import 'query_options.dart';
+import 'query_snapshot.dart';
 import 'query_state.dart';
 import 'query_status.dart';
 
@@ -202,31 +203,37 @@ class Query<T> {
       final cachedEntry = cache!.get<T>(key);
 
       if (cachedEntry != null && cachedEntry.isFresh) {
+        final previous = _currentState;
         _updateState(QueryState.success(
           cachedEntry.data,
           dataUpdatedAt: cachedEntry.createdAt,
           isStale: false,
         ));
+        _notifySuccess(previous);
         return;
       }
 
       if (cachedEntry != null && cachedEntry.isStale) {
+        final previous = _currentState;
         _updateState(QueryState.success(
           cachedEntry.data,
           dataUpdatedAt: cachedEntry.createdAt,
           isFetching: true,
           isStale: true,
         ));
+        _notifySuccess(previous);
 
         _fetchAndCache(isBackgroundRefetch: true);
         return;
       }
     }
 
+    final previous = _currentState;
     _updateState(_currentState.copyWith(
       status: QueryStatus.loading,
       isFetching: false,
     ));
+    _notifyLoading(previous);
 
     await _fetchAndCache(isBackgroundRefetch: false);
   }
@@ -236,7 +243,9 @@ class Query<T> {
       try {
         // Emit state update for background refetch to show isFetching: true
         if (isBackgroundRefetch) {
+          final previous = _currentState;
           _updateState(_currentState.copyWith(isFetching: true));
+          _notifyLoading(previous);
         }
 
         // Start performance tracking
@@ -283,6 +292,7 @@ class Query<T> {
           }
         }
         if (!_isDisposed) {
+          final previous = _currentState;
           final now = DateTime.now();
           _updateState(QueryState.success(
             data,
@@ -299,11 +309,14 @@ class Query<T> {
             maxAge: options?.maxAge,
           );
           options?.onSuccess?.call();
+          _notifySuccess(previous);
         }
       } catch (error, stackTrace) {
         if (!_isDisposed) {
+          final previous = _currentState;
           if (!isBackgroundRefetch) {
             _updateState(QueryState.error(error, stackTrace));
+            _notifyError(previous);
           } else {
             _updateState(_currentState.copyWith(isFetching: false));
           }
@@ -328,16 +341,20 @@ class Query<T> {
           }
         }
         if (!_isDisposed) {
+          final previous = _currentState;
           _updateState(QueryState.success(
             data,
             dataUpdatedAt: DateTime.now(),
             isStale: false, // Fresh data after successful fetch
           ));
           options?.onSuccess?.call();
+          _notifySuccess(previous);
         }
       } catch (error, stackTrace) {
         if (!_isDisposed) {
+          final previous = _currentState;
           _updateState(QueryState.error(error, stackTrace));
+          _notifyError(previous);
           options?.onError?.call(error);
         }
       }
@@ -357,6 +374,31 @@ class Query<T> {
     if (!_controller.isClosed) {
       _controller.add(newState);
     }
+  }
+
+  QuerySnapshot<T> _snapshot(QueryState<T> previousState) {
+    return QuerySnapshot<T>(
+      queryKey: queryKey,
+      previousState: previousState,
+      currentState: _currentState,
+      options: options,
+    );
+  }
+
+  void _notifyLoading(QueryState<T> previousState) {
+    client?.notifyQueryLoading(_snapshot(previousState), options?.meta, null);
+  }
+
+  void _notifySuccess(QueryState<T> previousState) {
+    final snapshot = _snapshot(previousState);
+    client?.notifyQuerySuccess(snapshot, options?.meta, null);
+    client?.notifyQuerySettled(snapshot, options?.meta, null);
+  }
+
+  void _notifyError(QueryState<T> previousState) {
+    final snapshot = _snapshot(previousState);
+    client?.notifyQueryError(snapshot, options?.meta, null);
+    client?.notifyQuerySettled(snapshot, options?.meta, null);
   }
 
   void _scheduleDisposal() {

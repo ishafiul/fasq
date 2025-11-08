@@ -1,3 +1,5 @@
+import 'mutation_meta.dart';
+
 class MutationOptions<T, TVariables> {
   final void Function(T data)? onSuccess;
   final void Function(Object error)? onError;
@@ -6,6 +8,7 @@ class MutationOptions<T, TVariables> {
   final int? maxRetries;
   final void Function(TVariables variables)? onQueued;
   final int priority; // Higher number = higher priority
+  final MutationMeta? meta;
 
   const MutationOptions({
     this.onSuccess,
@@ -15,5 +18,6 @@ class MutationOptions<T, TVariables> {
     this.maxRetries,
     this.onQueued,
     this.priority = 0,
+    this.meta,
   });
 }

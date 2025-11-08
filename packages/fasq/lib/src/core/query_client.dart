@@ -7,9 +7,14 @@ import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
 import '../performance/isolate_pool.dart';
 import '../persistence/persistence_options.dart';
+import 'mutation_meta.dart';
+import 'mutation_snapshot.dart';
 import 'query.dart';
+import 'query_client_observer.dart';
 import 'query_key.dart';
+import 'query_meta.dart';
 import 'query_options.dart';
+import 'query_snapshot.dart';
 import 'infinite_query.dart';
 import 'infinite_query_options.dart';
 import 'prefetch_config.dart';
@@ -33,6 +38,8 @@ import 'validation/input_validator.dart';
 /// ```
 class QueryClient with WidgetsBindingObserver {
   static QueryClient? _instance;
+
+  static QueryClient? get maybeInstance => _instance;
 
   /// Returns the singleton instance of [QueryClient].
   factory QueryClient({
@@ -62,8 +69,102 @@ class QueryClient with WidgetsBindingObserver {
   final Map<String, InfiniteQuery> _infiniteQueries = {};
   final QueryCache _cache;
   late final IsolatePool _isolatePool;
+  final List<QueryClientObserver> _observers = [];
 
   String _extractKey(QueryKey queryKey) => queryKey.key;
+
+  void addObserver(QueryClientObserver observer) {
+    if (_observers.contains(observer)) return;
+    _observers.add(observer);
+  }
+
+  void removeObserver(QueryClientObserver observer) {
+    _observers.remove(observer);
+  }
+
+  void clearObservers() {
+    _observers.clear();
+  }
+
+  void notifyMutationLoading(
+    MutationSnapshot<dynamic, dynamic> snapshot,
+    MutationMeta? meta,
+    BuildContext? context,
+  ) {
+    for (final observer in _observers) {
+      observer.onMutationLoading(snapshot, meta, context);
+    }
+  }
+
+  void notifyMutationSuccess(
+    MutationSnapshot<dynamic, dynamic> snapshot,
+    MutationMeta? meta,
+    BuildContext? context,
+  ) {
+    for (final observer in _observers) {
+      observer.onMutationSuccess(snapshot, meta, context);
+    }
+  }
+
+  void notifyMutationError(
+    MutationSnapshot<dynamic, dynamic> snapshot,
+    MutationMeta? meta,
+    BuildContext? context,
+  ) {
+    for (final observer in _observers) {
+      observer.onMutationError(snapshot, meta, context);
+    }
+  }
+
+  void notifyMutationSettled(
+    MutationSnapshot<dynamic, dynamic> snapshot,
+    MutationMeta? meta,
+    BuildContext? context,
+  ) {
+    for (final observer in _observers) {
+      observer.onMutationSettled(snapshot, meta, context);
+    }
+  }
+
+  void notifyQueryLoading(
+    QuerySnapshot<dynamic> snapshot,
+    QueryMeta? meta,
+    BuildContext? context,
+  ) {
+    for (final observer in _observers) {
+      observer.onQueryLoading(snapshot, meta, context);
+    }
+  }
+
+  void notifyQuerySuccess(
+    QuerySnapshot<dynamic> snapshot,
+    QueryMeta? meta,
+    BuildContext? context,
+  ) {
+    for (final observer in _observers) {
+      observer.onQuerySuccess(snapshot, meta, context);
+    }
+  }
+
+  void notifyQueryError(
+    QuerySnapshot<dynamic> snapshot,
+    QueryMeta? meta,
+    BuildContext? context,
+  ) {
+    for (final observer in _observers) {
+      observer.onQueryError(snapshot, meta, context);
+    }
+  }
+
+  void notifyQuerySettled(
+    QuerySnapshot<dynamic> snapshot,
+    QueryMeta? meta,
+    BuildContext? context,
+  ) {
+    for (final observer in _observers) {
+      observer.onQuerySettled(snapshot, meta, context);
+    }
+  }
 
   /// Gets an existing query or creates a new one.
   ///
@@ -427,7 +528,7 @@ class QueryClient with WidgetsBindingObserver {
   ///
   /// Only use this in tests to get a fresh instance.
   static void resetForTesting() {
-    _instance?.dispose();
+    _instance?..clearObservers()..dispose();
     _instance = null;
   }
 }

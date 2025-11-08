@@ -541,6 +541,7 @@ QueryBuilder<T>(
 - `queryFn` - Function that returns a Future with the data
 - `builder` - Function that builds UI from query state
 - `options` - Optional configuration
+- Emits global observer events with current `BuildContext` on loading/success/error
 
 ### MutationBuilder
 
@@ -563,6 +564,7 @@ MutationBuilder<T, TVariables>(
 - `context` - BuildContext
 - `state` - Current MutationState<T>
 - `mutate` - Function to execute the mutation
+- Automatically forwards state transitions to registered `QueryClientObserver`s with a fresh `BuildContext`
 
 ### MutationState
 
@@ -588,13 +590,63 @@ MutationOptions<T, TVariables>({
   void Function(T data)? onSuccess,
   void Function(Object error)? onError,
   void Function(T data, TVariables variables)? onMutate,
+  bool queueWhenOffline = false,
+  int? maxRetries,
+  void Function(TVariables variables)? onQueued,
+  int priority = 0,
+  MutationMeta? meta,
 })
 ```
 
-**Callbacks:**
-- `onSuccess` - Called when mutation succeeds
-- `onError` - Called when mutation fails
-- `onMutate` - Called with result and variables (for optimistic updates)
+**Key parameters:**
+- `onSuccess`, `onError`, `onMutate`, `onQueued` - Local callbacks for UI-specific work
+- `queueWhenOffline`, `maxRetries`, `priority` - Offline queue behaviour
+- `meta` - Declarative, side-effect free metadata consumed by global observers
+
+### MutationMeta
+
+Declarative metadata describing global side effects for a mutation. Attach to `MutationOptions.meta` to centralise behaviour.
+
+```dart
+const MutationMeta(
+  successMessageId: 'profileSaved',
+  errorMessageId: 'profileSaveFailed',
+  invalidateKeys: [StringQueryKey('profile')],
+  refetchKeys: [StringQueryKey('profile:detail')],
+  logoutOnError: true,
+)
+```
+
+Fields:
+- `successMessageId` / `errorMessageId` - Lookup keys for snackbars/toasts
+- `invalidateKeys` / `refetchKeys` - Cache actions handled globally
+- `logoutOnError` - Flag for auth reset workflows
+
+### QueryMeta
+
+The query counterpart mirrors `MutationMeta`, attached via `QueryOptions.meta` to describe success/error messages, invalidation, refetch, and logout behaviour for fetches.
+
+### QueryClientObserver
+
+Register observers to receive events whenever queries or mutations transition:
+
+```dart
+class GlobalQueryEffects extends QueryClientObserver {
+  @override
+  void onMutationSuccess(
+    MutationSnapshot snapshot,
+    MutationMeta? meta,
+    BuildContext? context,
+  ) {
+    // Use context (when available) or fall back to global services
+  }
+}
+
+final client = QueryClient();
+client.addObserver(GlobalQueryEffects());
+```
+
+`MutationBuilder` and `QueryBuilder` automatically capture a fresh `BuildContext` and forward it to observers on loading/success/error transitions. Manual `Mutation`/`Query` usages still trigger the same notifications with `context == null`, enabling headless handlers.
 
 ### QueryState
 
@@ -620,6 +672,13 @@ QueryOptions({
   bool enabled = true,
   VoidCallback? onSuccess,
   void Function(Object error)? onError,
+  Duration? staleTime,
+  Duration? cacheTime,
+  bool refetchOnMount = false,
+  bool isSecure = false,
+  Duration? maxAge,
+  PerformanceOptions? performance,
+  QueryMeta? meta,
 })
 ```
 
@@ -627,6 +686,7 @@ QueryOptions({
 - `enabled` - Whether the query should execute (default: true)
 - `onSuccess` - Callback called on successful fetch
 - `onError` - Callback called on fetch error
+- `meta` - Declarative configuration for global observers (messages, invalidation, logout)
 
 ### QueryClient
 
@@ -854,40 +914,112 @@ QueryBuilder<String>(
 - ✅ Duration values (non-negative)
 - ✅ Clear, actionable error messages
 
+### Global Effects & Manual QueryClient Setup
+
+Create a `QueryClient` once, register observers, then provide it to the widget tree. Builders will forward context automatically.
+
+```dart
+final messengerKey = GlobalKey<ScaffoldMessengerState>();
+final queryClient = QueryClient(
+  config: const CacheConfig(
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+);
+
+class GlobalQueryEffects extends QueryClientObserver {
+  GlobalQueryEffects(this.messenger, this.client);
+
+  final GlobalKey<ScaffoldMessengerState> messenger;
+  final QueryClient client;
+
+  @override
+  void onMutationSuccess(
+    MutationSnapshot snapshot,
+    MutationMeta? meta,
+    BuildContext? context,
+  ) {
+    final messageId = meta?.successMessageId;
+    if (messageId != null) {
+      final target = context != null && context.mounted
+          ? ScaffoldMessenger.of(context)
+          : messenger.currentState;
+      target?.showSnackBar(SnackBar(content: Text(_resolve(messageId))));
+    }
+
+    for (final key in meta?.invalidateKeys ?? const []) {
+      client.invalidateQuery(key);
+    }
+  }
+
+  String _resolve(String id) => switch (id) {
+        'profileSaved' => 'Profile updated',
+        _ => id,
+      };
+}
+
+void main() {
+  queryClient.addObserver(GlobalQueryEffects(messengerKey, queryClient));
+
+  runApp(MyApp(
+    client: queryClient,
+    messengerKey: messengerKey,
+  ));
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({required this.client, required this.messengerKey, super.key});
+
+  final QueryClient client;
+  final GlobalKey<ScaffoldMessengerState> messengerKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return QueryClientProvider(
+      client: client,
+      child: MaterialApp(
+        scaffoldMessengerKey: messengerKey,
+        home: const HomeScreen(),
+      ),
+    );
+  }
+}
+```
+
 ### Security Configuration
 
 Configure security features globally:
 
 ```dart
-final client = QueryClient(
-  config: CacheConfig(
+final secureClient = QueryClient(
+  config: const CacheConfig(
     defaultStaleTime: Duration(minutes: 5),
     defaultCacheTime: Duration(minutes: 10),
   ),
-  persistenceOptions: PersistenceOptions(
+  persistenceOptions: const PersistenceOptions(
     enabled: true,
   ),
 );
 
 QueryClientProvider(
-  client: client,
-  child: MyApp(),
-)
+  client: secureClient,
+  child: const MyApp(),
+);
 
 // Access configured client in widgets
 class MyWidget extends StatelessWidget {
+  const MyWidget({super.key});
+
   @override
   Widget build(BuildContext context) {
-    final client = context.queryClient; // Gets configured QueryClient
-    
+    final client = context.queryClient;
+
     return QueryBuilder<String>(
-      queryKey: 'secure-data',
+      queryKey: StringQueryKey('secure-data'),
       queryFn: () => fetchSecureData(),
       options: QueryOptions(
         isSecure: true,
-        maxAge: Duration(minutes: 30),
+        maxAge: const Duration(minutes: 30),
       ),
-      client: client, // Use configured client
       builder: (context, state) => Text('${state.data}'),
     );
   }
