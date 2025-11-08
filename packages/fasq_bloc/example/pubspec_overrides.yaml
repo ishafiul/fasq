@@ -1,0 +1,6 @@
+# melos_managed_dependency_overrides: fasq,fasq_bloc
+dependency_overrides:
+  fasq:
+    path: ../../fasq
+  fasq_bloc:
+    path: ..

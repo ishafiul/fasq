@@ -1,4 +1,26 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
+import { DEFAULT_DESCRIPTION, SITE_URL, defaultImage } from '../lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Fasq | Flutter Async State Query',
+  description: DEFAULT_DESCRIPTION,
+  alternates: {
+    canonical: SITE_URL
+  },
+  openGraph: {
+    url: SITE_URL,
+    title: 'Fasq | Flutter Async State Query',
+    description: DEFAULT_DESCRIPTION,
+    images: [defaultImage]
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Fasq | Flutter Async State Query',
+    description: DEFAULT_DESCRIPTION,
+    images: [defaultImage.url]
+  }
+}
 
 export default function IndexPage() {
   return (
