@@ -5,49 +5,81 @@ The `QueryClient` is the central hub for managing all queries, mutations, and th
 ## Basic Usage
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:fasq/fasq.dart';
+final messengerKey = GlobalKey<ScaffoldMessengerState>();
+final queryClient = QueryClient(
+  config: const CacheConfig(
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+);
 
 void main() {
-  runApp(MyApp());
+  queryClient.addObserver(GlobalQueryEffects(
+    messengerKey: messengerKey,
+    client: queryClient,
+  ));
+
+  runApp(MyApp(
+    client: queryClient,
+    messengerKey: messengerKey,
+  ));
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({
+    required this.client,
+    required this.messengerKey,
+    super.key,
+  });
+
+  final QueryClient client;
+  final GlobalKey<ScaffoldMessengerState> messengerKey;
+
   @override
   Widget build(BuildContext context) {
     return QueryClientProvider(
+      client: client,
       child: MaterialApp(
+        scaffoldMessengerKey: messengerKey,
         title: 'Fasq App',
-        home: HomePage(),
-      ),
-    );
-  }
-}
-
-class HomePage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Fasq App')),
-      body: Center(
-        child: Column(
-          children: [
-            Text('Welcome to Fasq!'),
-            ElevatedButton(
-              onPressed: () {
-                // Access QueryClient instance
-                final queryClient = QueryClient();
-                print('QueryClient initialized');
-              },
-              child: Text('Access QueryClient'),
-            ),
-          ],
-        ),
+        home: const HomePage(),
       ),
     );
   }
 }
 ```
+
+```dart
+class GlobalQueryEffects extends QueryClientObserver {
+  GlobalQueryEffects({
+    required this.messengerKey,
+    required this.client,
+  });
+
+  final GlobalKey<ScaffoldMessengerState> messengerKey;
+  final QueryClient client;
+
+  @override
+  void onMutationSuccess(
+    MutationSnapshot snapshot,
+    MutationMeta? meta,
+    BuildContext? context,
+  ) {
+    final text = meta?.successMessageId;
+    if (text != null) {
+      final messenger = context != null && context.mounted
+          ? ScaffoldMessenger.of(context)
+          : messengerKey.currentState;
+      messenger?.showSnackBar(SnackBar(content: Text(text)));
+    }
+
+    for (final key in meta?.invalidateKeys ?? const []) {
+      client.invalidateQuery(key);
+    }
+  }
+}
+```
+
+`MutationBuilder` and `QueryBuilder` automatically capture the current `BuildContext` and forward it to observers. When mutations run outside the widget tree, the observer still fires with `context == null`, so global services (scaffold messenger, navigator, auth) can take over.
 
 ## Cache Management
 

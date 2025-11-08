@@ -1,18 +1,49 @@
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
+
+import 'core/global_effects.dart';
 import 'core/screens/core_examples_screen.dart';
 
+final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
+final QueryClient _queryClient = QueryClient(
+  config: const CacheConfig(
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+);
+
+late final GlobalQueryEffects _globalEffects = GlobalQueryEffects(
+  client: _queryClient,
+  scaffoldMessengerKey: _scaffoldMessengerKey,
+  onLogout: _handleLogout,
+  resolveMessage: _resolveMessage,
+);
+
 void main() {
-  runApp(const MyApp());
+  _queryClient.addObserver(_globalEffects);
+  runApp(MyApp(
+    client: _queryClient,
+    scaffoldMessengerKey: _scaffoldMessengerKey,
+  ));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({
+    super.key,
+    required this.client,
+    required this.scaffoldMessengerKey,
+  });
+
+  final QueryClient client;
+  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey;
 
   @override
   Widget build(BuildContext context) {
     return QueryClientProvider(
+      client: client,
       child: MaterialApp(
+        scaffoldMessengerKey: scaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
         title: 'FASQ Examples',
         theme: ThemeData(
@@ -160,4 +191,16 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+void _handleLogout() {
+  _queryClient.clearSecureCache();
+}
+
+String _resolveMessage(String messageId) {
+  return switch (messageId) {
+    'profileSaved' => 'Profile updated',
+    'profileSaveFailed' => 'Profile update failed',
+    _ => messageId,
+  };
 }

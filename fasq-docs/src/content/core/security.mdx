@@ -53,17 +53,18 @@ Perfect for storing:
 Optional encryption for persisted cache data using platform-specific secure storage:
 
 ```dart
-QueryClientProvider(
-  config: CacheConfig(
+final secureClient = QueryClient(
+  config: const CacheConfig(
     defaultStaleTime: Duration(minutes: 5),
     defaultCacheTime: Duration(minutes: 10),
   ),
-  persistenceOptions: PersistenceOptions(
-    enabled: true,
-    encryptionKey: 'your-secure-encryption-key',
-  ),
-  child: MyApp(),
-)
+  persistenceOptions: const PersistenceOptions(enabled: true),
+);
+
+QueryClientProvider(
+  client: secureClient,
+  child: const MyApp(),
+);
 ```
 
 ### Encryption Features
@@ -138,34 +139,34 @@ QueryBuilder<String>(
 Configure security features globally using `QueryClientProvider`:
 
 ```dart
-QueryClientProvider(
-  config: CacheConfig(
+final secureClient = QueryClient(
+  config: const CacheConfig(
     defaultStaleTime: Duration(minutes: 5),
     defaultCacheTime: Duration(minutes: 10),
   ),
-  persistenceOptions: PersistenceOptions(
-    enabled: true,
-    encryptionKey: 'your-encryption-key',
-  ),
+  persistenceOptions: const PersistenceOptions(enabled: true),
+);
+
+QueryClientProvider(
+  client: secureClient,
   child: MaterialApp(
-    home: MyApp(),
+    home: const MyApp(),
   ),
-)
+);
 
 // Access configured client in widgets
 class MyWidget extends StatelessWidget {
+  const MyWidget({super.key});
+
   @override
   Widget build(BuildContext context) {
-    final client = context.queryClient; // Gets configured QueryClient
-    
     return QueryBuilder<String>(
-      queryKey: 'secure-data',
+      queryKey: StringQueryKey('secure-data'),
       queryFn: () => fetchSecureData(),
       options: QueryOptions(
         isSecure: true,
-        maxAge: Duration(minutes: 30),
+        maxAge: const Duration(minutes: 30),
       ),
-      client: client, // Use configured client
       builder: (context, state) => Text('${state.data}'),
     );
   }

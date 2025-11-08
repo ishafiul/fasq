@@ -226,13 +226,14 @@ QueryBuilder<String>(
 Optional encryption for persisted cache data:
 
 ```dart
+final secureClient = QueryClient(
+  persistenceOptions: const PersistenceOptions(enabled: true),
+);
+
 QueryClientProvider(
-  persistenceOptions: PersistenceOptions(
-    enabled: true,
-    encryptionKey: 'your-encryption-key',
-  ),
-  child: MyApp(),
-)
+  client: secureClient,
+  child: const MyApp(),
+);
 ```
 
 ### Input Validation
