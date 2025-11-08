@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'query_meta.dart';
 import 'validation/input_validator.dart';
 
 /// Performance configuration options for a query.
@@ -155,6 +156,7 @@ class QueryOptions {
 
   /// Performance configuration for this query
   final PerformanceOptions? performance;
+  final QueryMeta? meta;
 
   QueryOptions({
     this.enabled = true,
@@ -166,6 +168,7 @@ class QueryOptions {
     this.isSecure = false,
     this.maxAge,
     this.performance,
+    this.meta,
   }) {
     // Validate durations
     InputValidator.validateDuration(staleTime, 'staleTime');
@@ -191,6 +194,7 @@ class QueryOptions {
     bool? isSecure,
     Duration? maxAge,
     PerformanceOptions? performance,
+    QueryMeta? meta,
   }) {
     return QueryOptions(
       enabled: enabled ?? this.enabled,
@@ -202,6 +206,7 @@ class QueryOptions {
       isSecure: isSecure ?? this.isSecure,
       maxAge: maxAge ?? this.maxAge,
       performance: performance ?? this.performance,
+      meta: meta ?? this.meta,
     );
   }
 }

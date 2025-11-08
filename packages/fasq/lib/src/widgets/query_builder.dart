@@ -6,6 +6,7 @@ import '../core/query.dart';
 import '../core/query_client.dart';
 import '../core/query_key.dart';
 import '../core/query_options.dart';
+import '../core/query_snapshot.dart';
 import '../core/query_state.dart';
 
 /// A widget that executes an async operation and builds UI based on its state.
@@ -66,15 +67,28 @@ class QueryBuilder<T> extends StatefulWidget {
 class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
   late Query<T> _query;
   StreamSubscription<QueryState<T>>? _subscription;
+  late QueryState<T> _state;
+  QueryClient? _client;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
+    _client = QueryClient.maybeInstance ?? QueryClient();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) {
+      return;
+    }
+    _initialized = true;
     _initializeQuery();
   }
 
   void _initializeQuery() {
-    final client = QueryClient();
+    final client = _client ?? QueryClient();
     _query = client.getQuery<T>(
       widget.queryKey,
       widget.queryFn,
@@ -82,8 +96,12 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
     );
 
     _query.addListener();
+    _state = _query.state;
     _subscription = _query.stream.listen((state) {
       if (mounted) {
+        final previous = _state;
+        _state = state;
+        _emitContextNotifications(previous, state);
         setState(() {});
       }
     });
@@ -105,6 +123,43 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
 
   @override
   Widget build(BuildContext context) {
-    return widget.builder(context, _query.state);
+    return widget.builder(context, _state);
+  }
+
+  void _emitContextNotifications(
+    QueryState<T> previous,
+    QueryState<T> current,
+  ) {
+    final client = _client;
+    if (client == null || !mounted) {
+      return;
+    }
+
+    final snapshot = QuerySnapshot<T>(
+      queryKey: widget.queryKey,
+      previousState: previous,
+      currentState: current,
+      options: widget.options,
+    );
+    final meta = widget.options?.meta;
+
+    final enteredLoading = (!previous.isLoading && current.isLoading) ||
+        (!previous.isFetching && current.isFetching);
+    if (enteredLoading) {
+      client.notifyQueryLoading(snapshot, meta, context);
+    }
+
+    final becameSuccess = (!previous.isSuccess && current.isSuccess) ||
+        (previous.isFetching && !current.isFetching && current.isSuccess);
+    if (becameSuccess) {
+      client.notifyQuerySuccess(snapshot, meta, context);
+      client.notifyQuerySettled(snapshot, meta, context);
+    }
+
+    final becameError = !previous.hasError && current.hasError;
+    if (becameError) {
+      client.notifyQueryError(snapshot, meta, context);
+      client.notifyQuerySettled(snapshot, meta, context);
+    }
   }
 }
