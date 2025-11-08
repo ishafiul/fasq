@@ -613,37 +613,33 @@ const MutationMeta(
   errorMessageId: 'profileSaveFailed',
   invalidateKeys: [StringQueryKey('profile')],
   refetchKeys: [StringQueryKey('profile:detail')],
-  logoutOnError: true,
+  triggerCriticalHandler: true,
 )
 ```
 
 Fields:
 - `successMessageId` / `errorMessageId` - Lookup keys for snackbars/toasts
 - `invalidateKeys` / `refetchKeys` - Cache actions handled globally
-- `logoutOnError` - Flag for auth reset workflows
+- `triggerCriticalHandler` - Request the registered critical handler to run (logout, navigation, analytics, etc.)
 
 ### QueryMeta
 
-The query counterpart mirrors `MutationMeta`, attached via `QueryOptions.meta` to describe success/error messages, invalidation, refetch, and logout behaviour for fetches.
+The query counterpart mirrors `MutationMeta`, attached via `QueryOptions.meta` to describe success/error messages, invalidation, refetch, and whether the critical handler should run for fetch failures.
 
 ### QueryClientObserver
 
 Register observers to receive events whenever queries or mutations transition:
 
 ```dart
-class GlobalQueryEffects extends QueryClientObserver {
-  @override
-  void onMutationSuccess(
-    MutationSnapshot snapshot,
-    MutationMeta? meta,
-    BuildContext? context,
-  ) {
-    // Use context (when available) or fall back to global services
-  }
-}
-
 final client = QueryClient();
-client.addObserver(GlobalQueryEffects());
+final messenger = EffectMessenger();
+
+GlobalQueryEffects.install(
+  client: client,
+  messenger: messenger,
+  resolveMessage: (id) => AppStrings.toast(id),
+  onMutationCritical: (snapshot, meta) => authController.reset(),
+);
 ```
 
 `MutationBuilder` and `QueryBuilder` automatically capture a fresh `BuildContext` and forward it to observers on loading/success/error transitions. Manual `Mutation`/`Query` usages still trigger the same notifications with `context == null`, enabling headless handlers.
@@ -686,7 +682,7 @@ QueryOptions({
 - `enabled` - Whether the query should execute (default: true)
 - `onSuccess` - Callback called on successful fetch
 - `onError` - Callback called on fetch error
-- `meta` - Declarative configuration for global observers (messages, invalidation, logout)
+- `meta` - Declarative configuration for global observers (messages, invalidation, critical handler)
 
 ### QueryClient
 
@@ -919,50 +915,25 @@ QueryBuilder<String>(
 Create a `QueryClient` once, register observers, then provide it to the widget tree. Builders will forward context automatically.
 
 ```dart
-final messengerKey = GlobalKey<ScaffoldMessengerState>();
 final queryClient = QueryClient(
   config: const CacheConfig(
     defaultCacheTime: Duration(minutes: 10),
   ),
 );
 
-class GlobalQueryEffects extends QueryClientObserver {
-  GlobalQueryEffects(this.messenger, this.client);
-
-  final GlobalKey<ScaffoldMessengerState> messenger;
-  final QueryClient client;
-
-  @override
-  void onMutationSuccess(
-    MutationSnapshot snapshot,
-    MutationMeta? meta,
-    BuildContext? context,
-  ) {
-    final messageId = meta?.successMessageId;
-    if (messageId != null) {
-      final target = context != null && context.mounted
-          ? ScaffoldMessenger.of(context)
-          : messenger.currentState;
-      target?.showSnackBar(SnackBar(content: Text(_resolve(messageId))));
-    }
-
-    for (final key in meta?.invalidateKeys ?? const []) {
-      client.invalidateQuery(key);
-    }
-  }
-
-  String _resolve(String id) => switch (id) {
-        'profileSaved' => 'Profile updated',
-        _ => id,
-      };
-}
+final messenger = EffectMessenger();
 
 void main() {
-  queryClient.addObserver(GlobalQueryEffects(messengerKey, queryClient));
+  GlobalQueryEffects.install(
+    client: queryClient,
+    messenger: messenger,
+    resolveMessage: AppStrings.toast,
+    onMutationCritical: (snapshot, meta) => authController.reset(),
+  );
 
   runApp(MyApp(
     client: queryClient,
-    messengerKey: messengerKey,
+    messengerKey: messenger.key,
   ));
 }
 
@@ -984,6 +955,8 @@ class MyApp extends StatelessWidget {
   }
 }
 ```
+
+`EffectMessenger` is optional—if you omit it, observers rely on the forwarded `BuildContext`; when neither context nor messenger is available the UI notification is skipped.
 
 ### Security Configuration
 
