@@ -1,3 +1,11 @@
+## 0.3.4
+
+ - **FEAT**: allow typed meta messages (#34).
+ - **FEAT**: refine global query effects (#33).
+ - **FEAT**: add context-aware query observers (#32).
+ - **FEAT**: allow injecting manual query client (#31).
+ - **FEAT**: update SEO and metadata handling.
+
 ## 0.3.3
 
 - **FIX**: align docs, entrypoints, and tests around typed QueryKey usage (#30).

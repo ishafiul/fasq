@@ -3,6 +3,52 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-11-08
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.3.4`](#fasq---v034)
+ - [`fasq_bloc` - `v0.2.3`](#fasq_bloc---v023)
+ - [`fasq_hooks` - `v0.2.3`](#fasq_hooks---v023)
+ - [`fasq_riverpod` - `v0.2.3`](#fasq_riverpod---v023)
+ - [`fasq_security` - `v0.1.1`](#fasq_security---v011)
+
+---
+
+#### `fasq` - `v0.3.4`
+
+ - **FEAT**: allow typed meta messages (#34).
+ - **FEAT**: refine global query effects (#33).
+ - **FEAT**: add context-aware query observers (#32).
+ - **FEAT**: allow injecting manual query client (#31).
+ - **FEAT**: update SEO and metadata handling.
+
+#### `fasq_bloc` - `v0.2.3`
+
+ - **FEAT**: update SEO and metadata handling.
+ - **FEAT**: example app (#23).
+
+#### `fasq_hooks` - `v0.2.3`
+
+ - **FEAT**: update SEO and metadata handling.
+
+#### `fasq_riverpod` - `v0.2.3`
+
+ - **FEAT**: update SEO and metadata handling.
+
+#### `fasq_security` - `v0.1.1`
+
+ - **FEAT**: example app (#23).
+
+
 ## 2025-11-06
 
 ### Changes

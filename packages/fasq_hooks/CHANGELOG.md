@@ -1,3 +1,7 @@
+## 0.2.3
+
+ - **FEAT**: update SEO and metadata handling.
+
 ## 0.2.2
 
 - **FIX**: align docs, entrypoints, and tests around typed QueryKey usage (#30).
