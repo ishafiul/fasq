@@ -4,6 +4,8 @@ import 'package:fasq_security/src/providers/drift_persistence_provider.dart';
 import 'package:fasq_security/src/exceptions/persistence_exception.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('DriftPersistenceProvider', () {
     late DriftPersistenceProvider provider;
     late MockEncryptionProvider mockEncryptionProvider;
@@ -12,6 +14,11 @@ void main() {
       provider = DriftPersistenceProvider();
       mockEncryptionProvider = MockEncryptionProvider();
       await provider.initialize();
+      await provider.clear();
+    });
+
+    tearDown(() async {
+      await provider.dispose();
     });
 
     group('updateEncryptionKey', () {
