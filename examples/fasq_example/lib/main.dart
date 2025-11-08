@@ -197,10 +197,6 @@ void _handleCriticalMutation(
   _queryClient.clearSecureCache();
 }
 
-String _resolveMessage(String messageId) {
-  return switch (messageId) {
-    'profileSaved' => 'Profile updated',
-    'profileSaveFailed' => 'Profile update failed',
-    _ => messageId,
-  };
+String _resolveMessage(String message) {
+  return message;
 }

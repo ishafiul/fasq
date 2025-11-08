@@ -54,4 +54,3 @@ class QueryClientObserver {
     BuildContext? context,
   ) {}
 }
-
