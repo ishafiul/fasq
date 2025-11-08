@@ -216,7 +216,6 @@ class QueryClient with WidgetsBindingObserver {
       client: this,
       onDispose: () {
         _queries.remove(key);
-        // Don't clear cache on disposal - let cacheTime handle cleanup
       },
       initialData: cachedEntry?.data,
     );

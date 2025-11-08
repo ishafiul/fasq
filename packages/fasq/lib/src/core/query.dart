@@ -402,6 +402,10 @@ class Query<T> {
 
     _isDisposed = true;
     _disposeTimer?.cancel();
+    _disposeTimer = null;
+
+    cache?.remove(key);
+
     _controller.close();
     onDispose?.call();
   }
