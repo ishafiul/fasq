@@ -859,15 +859,18 @@ QueryBuilder<String>(
 Configure security features globally:
 
 ```dart
-QueryClientProvider(
+final client = QueryClient(
   config: CacheConfig(
     defaultStaleTime: Duration(minutes: 5),
     defaultCacheTime: Duration(minutes: 10),
   ),
   persistenceOptions: PersistenceOptions(
     enabled: true,
-    encryptionKey: 'your-encryption-key',
   ),
+);
+
+QueryClientProvider(
+  client: client,
   child: MyApp(),
 )
 
