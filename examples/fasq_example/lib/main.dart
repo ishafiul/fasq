@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 import 'core/global_effects.dart';
 import 'core/screens/core_examples_screen.dart';
 
-final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
-    GlobalKey<ScaffoldMessengerState>();
-
-import 'core/screens/core_examples_screen.dart';
+final EffectMessenger _messenger = EffectMessenger();
 
 final QueryClient _queryClient = QueryClient(
   config: const CacheConfig(
@@ -15,18 +12,16 @@ final QueryClient _queryClient = QueryClient(
   ),
 );
 
-late final GlobalQueryEffects _globalEffects = GlobalQueryEffects(
-  client: _queryClient,
-  scaffoldMessengerKey: _scaffoldMessengerKey,
-  onLogout: _handleLogout,
-  resolveMessage: _resolveMessage,
-);
-
 void main() {
-  _queryClient.addObserver(_globalEffects);
+  GlobalQueryEffects.install(
+    client: _queryClient,
+    messenger: _messenger,
+    resolveMessage: _resolveMessage,
+    onMutationCritical: _handleCriticalMutation,
+  );
   runApp(MyApp(
     client: _queryClient,
-    scaffoldMessengerKey: _scaffoldMessengerKey,
+    scaffoldMessengerKey: _messenger.key,
   ));
 }
 
@@ -195,7 +190,10 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-void _handleLogout() {
+void _handleCriticalMutation(
+  MutationSnapshot<dynamic, dynamic> snapshot,
+  MutationMeta meta,
+) {
   _queryClient.clearSecureCache();
 }
 

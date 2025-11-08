@@ -6,12 +6,12 @@ class MutationMeta {
     this.errorMessageId,
     this.invalidateKeys = const [],
     this.refetchKeys = const [],
-    this.logoutOnError = false,
+    this.triggerCriticalHandler = false,
   });
 
   final String? successMessageId;
   final String? errorMessageId;
   final List<QueryKey> invalidateKeys;
   final List<QueryKey> refetchKeys;
-  final bool logoutOnError;
+  final bool triggerCriticalHandler;
 }
