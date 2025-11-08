@@ -22,6 +22,59 @@ void main() {
       query.dispose();
     });
 
+    test('does not transform data when data transform disabled', () async {
+      final query = Query<String>(
+        queryKey: 'transform-default'.toQueryKey(),
+        queryFn: () async => 'raw',
+      );
+
+      await query.fetch();
+
+      expect(query.state.data, 'raw');
+
+      query.dispose();
+    });
+
+    test('applies custom data transformer when enabled', () async {
+      final query = Query<String>(
+        queryKey: 'transform-enabled'.toQueryKey(),
+        queryFn: () async => 'raw',
+        options: QueryOptions(
+          performance: PerformanceOptions(
+            enableDataTransform: true,
+            dataTransformer: (value) => '${value}_transformed',
+          ),
+        ),
+      );
+
+      await query.fetch();
+
+      expect(query.state.data, 'raw_transformed');
+
+      query.dispose();
+    });
+
+    test('falls back to original data when transformer throws', () async {
+      final query = Query<String>(
+        queryKey: 'transform-error'.toQueryKey(),
+        queryFn: () async => 'raw',
+        options: QueryOptions(
+          performance: PerformanceOptions(
+            enableDataTransform: true,
+            dataTransformer: (value) {
+              throw StateError('bad transform');
+            },
+          ),
+        ),
+      );
+
+      await query.fetch();
+
+      expect(query.state.data, 'raw');
+
+      query.dispose();
+    });
+
     test('addListener increments reference count', () {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),

@@ -18,7 +18,7 @@ class DriftPersistenceProvider implements PersistenceProvider {
     if (_initialized) return;
 
     try {
-      _database = CacheDatabase();
+      _database = await CacheDatabase.open();
       _initialized = true;
     } catch (e) {
       throw PersistenceException('Failed to initialize database: $e');
@@ -231,5 +231,13 @@ class DriftPersistenceProvider implements PersistenceProvider {
     } catch (e) {
       return 0;
     }
+  }
+
+  Future<void> dispose() async {
+    if (!_initialized) {
+      return;
+    }
+    await _database.close();
+    _initialized = false;
   }
 }
