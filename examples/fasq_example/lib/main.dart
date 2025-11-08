@@ -7,6 +7,8 @@ import 'core/screens/core_examples_screen.dart';
 final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
+import 'core/screens/core_examples_screen.dart';
+
 final QueryClient _queryClient = QueryClient(
   config: const CacheConfig(
     defaultCacheTime: Duration(minutes: 10),

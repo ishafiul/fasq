@@ -22,12 +22,31 @@ import '../persistence/persistence_options.dart';
 ///   child: MyApp(),
 /// )
 /// ```
+///
+/// Provide an existing client instead to reuse global configuration:
+/// ```dart
+/// final client = QueryClient(
+///   config: CacheConfig(
+///     defaultCacheTime: const Duration(minutes: 10),
+///   ),
+/// );
+///
+/// QueryClientProvider(
+///   client: client,
+///   child: MyApp(),
+/// )
+/// ```
 class QueryClientProvider extends StatefulWidget {
   /// Cache configuration for the QueryClient.
   final CacheConfig? config;
 
   /// Persistence options for encrypted cache storage.
   final PersistenceOptions? persistenceOptions;
+
+  /// Optional pre-configured [QueryClient] instance to reuse.
+  ///
+  /// When provided, [config] and [persistenceOptions] are ignored.
+  final QueryClient? client;
 
   /// The widget below this widget in the tree.
   final Widget child;
@@ -36,8 +55,12 @@ class QueryClientProvider extends StatefulWidget {
     super.key,
     this.config,
     this.persistenceOptions,
+    this.client,
     required this.child,
-  });
+  }) : assert(
+          client == null || (config == null && persistenceOptions == null),
+          'Provide either a client or configuration values, not both.',
+        );
 
   @override
   State<QueryClientProvider> createState() => _QueryClientProviderState();
@@ -45,10 +68,18 @@ class QueryClientProvider extends StatefulWidget {
 
 class _QueryClientProviderState extends State<QueryClientProvider> {
   late final QueryClient _client;
+  late final bool _ownsClient;
 
   @override
   void initState() {
     super.initState();
+    if (widget.client != null) {
+      _client = widget.client!;
+      _ownsClient = false;
+      return;
+    }
+
+    _ownsClient = true;
     _client = QueryClient(
       config: widget.config,
       persistenceOptions: widget.persistenceOptions,
@@ -57,7 +88,9 @@ class _QueryClientProviderState extends State<QueryClientProvider> {
 
   @override
   void dispose() {
-    _client.dispose();
+    if (_ownsClient) {
+      _client.dispose();
+    }
     super.dispose();
   }
 
