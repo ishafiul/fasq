@@ -86,7 +86,7 @@ QueryBuilder<List<User>>(
           const SizedBox(height: 16),
           Expanded(
             child: QueryBuilder<List<User>>(
-  queryKey: QueryKeys.usersCallbacksDemo,
+              queryKey: QueryKeys.usersCallbacksDemo,
               queryFn: () => _fetchUsers(),
               options: QueryOptions(
                 onSuccess: () {
@@ -114,7 +114,8 @@ QueryBuilder<List<User>>(
                     message: state.error.toString(),
                     onRetry: () {
                       QueryClient()
-                          .getQueryByKey<List<User>>(QueryKeys.usersCallbacksDemo)
+                          .getQueryByKey<List<User>>(
+                              QueryKeys.usersCallbacksDemo)
                           ?.fetch();
                     },
                   );

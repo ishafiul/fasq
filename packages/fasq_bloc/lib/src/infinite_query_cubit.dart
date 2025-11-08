@@ -23,8 +23,8 @@ abstract class InfiniteQueryCubit<TData, TParam>
 
   void _initialize() {
     final client = QueryClient();
-    _query =
-        client.getInfiniteQuery<TData, TParam>(queryKey, queryFn, options: options);
+    _query = client.getInfiniteQuery<TData, TParam>(queryKey, queryFn,
+        options: options);
 
     _subscription = _query.stream.listen((newState) {
       if (!isClosed) {

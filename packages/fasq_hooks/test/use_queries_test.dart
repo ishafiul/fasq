@@ -263,11 +263,17 @@ void main() {
           builder: (context) {
             final queries = useNamedQueries([
               NamedQueryConfig(
-                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                  name: 'users',
+                  queryKey: 'users'.toQueryKey(),
+                  queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
+                  name: 'posts',
+                  queryKey: 'posts'.toQueryKey(),
+                  queryFn: fetchPosts),
               NamedQueryConfig(
-                  name: 'comments', queryKey: 'comments'.toQueryKey(), queryFn: fetchComments),
+                  name: 'comments',
+                  queryKey: 'comments'.toQueryKey(),
+                  queryFn: fetchComments),
             ]);
 
             return Column(
@@ -314,13 +320,19 @@ void main() {
             final configs = useSecondConfig
                 ? [
                     NamedQueryConfig(
-                        name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                        name: 'users',
+                        queryKey: 'users'.toQueryKey(),
+                        queryFn: fetchUsers),
                     NamedQueryConfig(
-                        name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
+                        name: 'posts',
+                        queryKey: 'posts'.toQueryKey(),
+                        queryFn: fetchPosts),
                   ]
                 : [
                     NamedQueryConfig(
-                        name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                        name: 'users',
+                        queryKey: 'users'.toQueryKey(),
+                        queryFn: fetchUsers),
                   ];
 
             final queries = useNamedQueries(configs);
@@ -363,9 +375,13 @@ void main() {
           builder: (context) {
             final queries = useNamedQueries([
               NamedQueryConfig(
-                  name: 'success', queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
+                  name: 'success',
+                  queryKey: 'success'.toQueryKey(),
+                  queryFn: fetchSuccess),
               NamedQueryConfig(
-                  name: 'error', queryKey: 'error'.toQueryKey(), queryFn: fetchError),
+                  name: 'error',
+                  queryKey: 'error'.toQueryKey(),
+                  queryFn: fetchError),
             ]);
 
             return Column(
@@ -450,9 +466,13 @@ void main() {
           builder: (context) {
             final queries = useNamedQueries([
               NamedQueryConfig(
-                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                  name: 'users',
+                  queryKey: 'users'.toQueryKey(),
+                  queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
+                  name: 'posts',
+                  queryKey: 'posts'.toQueryKey(),
+                  queryFn: fetchPosts),
             ]);
 
             updateCount++;
@@ -495,9 +515,13 @@ void main() {
           builder: (context) {
             final queries = useNamedQueries([
               NamedQueryConfig(
-                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                  name: 'users',
+                  queryKey: 'users'.toQueryKey(),
+                  queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'stats', queryKey: 'stats'.toQueryKey(), queryFn: fetchStats),
+                  name: 'stats',
+                  queryKey: 'stats'.toQueryKey(),
+                  queryFn: fetchStats),
             ]);
 
             final usersState = queries['users']!;

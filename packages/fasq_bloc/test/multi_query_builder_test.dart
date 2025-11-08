@@ -33,9 +33,12 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
-              MultiQueryConfig(queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
-              MultiQueryConfig(queryKey: 'query3'.toQueryKey(), queryFn: fetchData3),
+              MultiQueryConfig(
+                  queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
+              MultiQueryConfig(
+                  queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
+              MultiQueryConfig(
+                  queryKey: 'query3'.toQueryKey(), queryFn: fetchData3),
             ],
             builder: (context, state) {
               return Column(
@@ -82,8 +85,10 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
-              MultiQueryConfig(queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
+              MultiQueryConfig(
+                  queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
+              MultiQueryConfig(
+                  queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
             ],
             builder: (context, state) {
               allLoading = state.isAllLoading;
@@ -137,8 +142,10 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
-              MultiQueryConfig(queryKey: 'error'.toQueryKey(), queryFn: fetchError),
+              MultiQueryConfig(
+                  queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
+              MultiQueryConfig(
+                  queryKey: 'error'.toQueryKey(), queryFn: fetchError),
             ],
             builder: (context, state) {
               return Column(
@@ -176,9 +183,11 @@ void main() {
           home: MultiQueryBuilder(
             configs: [
               MultiQueryConfig(
-                  queryKey: 'query1'.toQueryKey(), queryFn: () => fetchData('query1')),
+                  queryKey: 'query1'.toQueryKey(),
+                  queryFn: () => fetchData('query1')),
               MultiQueryConfig(
-                  queryKey: 'query2'.toQueryKey(), queryFn: () => fetchData('query2')),
+                  queryKey: 'query2'.toQueryKey(),
+                  queryFn: () => fetchData('query2')),
             ],
             builder: (context, state) {
               return Column(
@@ -222,8 +231,10 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
-              MultiQueryConfig(queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
+              MultiQueryConfig(
+                  queryKey: 'query1'.toQueryKey(), queryFn: fetchData1),
+              MultiQueryConfig(
+                  queryKey: 'query2'.toQueryKey(), queryFn: fetchData2),
             ],
             builder: (context, state) {
               updateCount++;
@@ -266,7 +277,8 @@ void main() {
         MaterialApp(
           home: MultiQueryBuilder(
             configs: [
-              MultiQueryConfig(queryKey: 'list'.toQueryKey(), queryFn: fetchList),
+              MultiQueryConfig(
+                  queryKey: 'list'.toQueryKey(), queryFn: fetchList),
               MultiQueryConfig(queryKey: 'map'.toQueryKey(), queryFn: fetchMap),
             ],
             builder: (context, state) {
@@ -327,11 +339,17 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                  name: 'users',
+                  queryKey: 'users'.toQueryKey(),
+                  queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
+                  name: 'posts',
+                  queryKey: 'posts'.toQueryKey(),
+                  queryFn: fetchPosts),
               NamedQueryConfig(
-                  name: 'comments', queryKey: 'comments'.toQueryKey(), queryFn: fetchComments),
+                  name: 'comments',
+                  queryKey: 'comments'.toQueryKey(),
+                  queryFn: fetchComments),
             ],
             builder: (context, state) {
               return Column(
@@ -384,9 +402,13 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                  name: 'users',
+                  queryKey: 'users'.toQueryKey(),
+                  queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
+                  name: 'posts',
+                  queryKey: 'posts'.toQueryKey(),
+                  queryFn: fetchPosts),
             ],
             builder: (context, state) {
               allLoading = state.isAllLoading;
@@ -441,9 +463,13 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'success', queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
+                  name: 'success',
+                  queryKey: 'success'.toQueryKey(),
+                  queryFn: fetchSuccess),
               NamedQueryConfig(
-                  name: 'error', queryKey: 'error'.toQueryKey(), queryFn: fetchError),
+                  name: 'error',
+                  queryKey: 'error'.toQueryKey(),
+                  queryFn: fetchError),
             ],
             builder: (context, state) {
               return Column(
@@ -532,9 +558,13 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                  name: 'users',
+                  queryKey: 'users'.toQueryKey(),
+                  queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
+                  name: 'posts',
+                  queryKey: 'posts'.toQueryKey(),
+                  queryFn: fetchPosts),
             ],
             builder: (context, state) {
               updateCount++;
@@ -578,9 +608,13 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                  name: 'users',
+                  queryKey: 'users'.toQueryKey(),
+                  queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'posts', queryKey: 'posts'.toQueryKey(), queryFn: fetchPosts),
+                  name: 'posts',
+                  queryKey: 'posts'.toQueryKey(),
+                  queryFn: fetchPosts),
             ],
             builder: (context, state) {
               return Column(
@@ -633,9 +667,13 @@ void main() {
           home: NamedMultiQueryBuilder(
             configs: [
               NamedQueryConfig(
-                  name: 'users', queryKey: 'users'.toQueryKey(), queryFn: fetchUsers),
+                  name: 'users',
+                  queryKey: 'users'.toQueryKey(),
+                  queryFn: fetchUsers),
               NamedQueryConfig(
-                  name: 'stats', queryKey: 'stats'.toQueryKey(), queryFn: fetchStats),
+                  name: 'stats',
+                  queryKey: 'stats'.toQueryKey(),
+                  queryFn: fetchStats),
             ],
             builder: (context, state) {
               final usersState = state.getState<List<String>>('users');

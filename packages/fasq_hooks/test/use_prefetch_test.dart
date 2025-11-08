@@ -70,7 +70,8 @@ void main() {
           home: HookBuilder(
             builder: (context) {
               usePrefetchOnMount([
-                PrefetchConfig(queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
+                PrefetchConfig(
+                    queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
               ]);
               return const SizedBox();
             },
@@ -102,8 +103,10 @@ void main() {
           home: HookBuilder(
             builder: (context) {
               usePrefetchOnMount([
-                PrefetchConfig(queryKey: 'test-key-1'.toQueryKey(), queryFn: fetchData1),
-                PrefetchConfig(queryKey: 'test-key-2'.toQueryKey(), queryFn: fetchData2),
+                PrefetchConfig(
+                    queryKey: 'test-key-1'.toQueryKey(), queryFn: fetchData1),
+                PrefetchConfig(
+                    queryKey: 'test-key-2'.toQueryKey(), queryFn: fetchData2),
               ]);
               return const SizedBox();
             },
@@ -130,7 +133,8 @@ void main() {
           home: HookBuilder(
             builder: (context) {
               usePrefetchOnMount([
-                PrefetchConfig(queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
+                PrefetchConfig(
+                    queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
               ]);
               return const SizedBox();
             },

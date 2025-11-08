@@ -36,8 +36,10 @@ void main() {
       }
 
       await cubit.prefetchAll([
-        PrefetchConfig(queryKey: 'test-key-1'.toQueryKey(), queryFn: fetchData1),
-        PrefetchConfig(queryKey: 'test-key-2'.toQueryKey(), queryFn: fetchData2),
+        PrefetchConfig(
+            queryKey: 'test-key-1'.toQueryKey(), queryFn: fetchData1),
+        PrefetchConfig(
+            queryKey: 'test-key-2'.toQueryKey(), queryFn: fetchData2),
       ]);
 
       expect(fetchCount1, equals(1));
@@ -60,7 +62,8 @@ void main() {
         MaterialApp(
           home: PrefetchBuilder(
             configs: [
-              PrefetchConfig(queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
+              PrefetchConfig(
+                  queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
             ],
             child: const SizedBox(),
           ),
@@ -90,8 +93,10 @@ void main() {
         MaterialApp(
           home: PrefetchBuilder(
             configs: [
-              PrefetchConfig(queryKey: 'test-key-1'.toQueryKey(), queryFn: fetchData1),
-              PrefetchConfig(queryKey: 'test-key-2'.toQueryKey(), queryFn: fetchData2),
+              PrefetchConfig(
+                  queryKey: 'test-key-1'.toQueryKey(), queryFn: fetchData1),
+              PrefetchConfig(
+                  queryKey: 'test-key-2'.toQueryKey(), queryFn: fetchData2),
             ],
             child: const SizedBox(),
           ),

@@ -74,7 +74,8 @@ void main() {
       expect(find.text('Error occurred'), findsOneWidget);
 
       shouldFail = false;
-      final query = QueryClient().getQueryByKey<String>('error-test'.toQueryKey());
+      final query =
+          QueryClient().getQueryByKey<String>('error-test'.toQueryKey());
       await query!.fetch();
       await tester.pumpAndSettle();
 

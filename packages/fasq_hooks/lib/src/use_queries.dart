@@ -122,8 +122,8 @@ Map<String, QueryState<dynamic>> useNamedQueries(
   useEffect(() {
     final queries = <String, Query>{};
     for (final config in configs) {
-      queries[config.name] =
-          client.getQuery(config.queryKey, config.queryFn, options: config.options);
+      queries[config.name] = client.getQuery(config.queryKey, config.queryFn,
+          options: config.options);
       queries[config.name]!.addListener();
     }
 

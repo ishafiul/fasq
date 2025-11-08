@@ -55,7 +55,7 @@ QueryBuilder<List<Post>>(
           const SizedBox(height: 16),
           Expanded(
             child: QueryBuilder<List<Post>>(
-  queryKey: QueryKeys.postsCacheDemo,
+              queryKey: QueryKeys.postsCacheDemo,
               queryFn: () => _fetchPosts(),
               options: QueryOptions(
                 cacheTime: cacheTime,
@@ -78,8 +78,8 @@ QueryBuilder<List<Post>>(
                             '🔄 Loading... First network request in progress';
                       } else if (state.hasData) {
                         final client = QueryClient();
-                        final cacheEntry =
-                            client.cache.get<List<Post>>(QueryKeys.postsCacheDemo.key);
+                        final cacheEntry = client.cache
+                            .get<List<Post>>(QueryKeys.postsCacheDemo.key);
                         if (cacheEntry != null) {
                           _statusMessage =
                               '✅ Data loaded from ${cacheEntry.isFresh ? "fresh cache" : "stale cache"} (age: ${cacheEntry.age.inSeconds}s)';
@@ -310,7 +310,8 @@ QueryBuilder<List<Post>>(
 
   Widget _buildCacheInfo() {
     final client = QueryClient();
-    final cacheEntry = client.cache.get<List<Post>>(QueryKeys.postsCacheDemo.key);
+    final cacheEntry =
+        client.cache.get<List<Post>>(QueryKeys.postsCacheDemo.key);
 
     return Container(
       padding: const EdgeInsets.all(12),

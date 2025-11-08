@@ -27,4 +27,3 @@ class StringQueryKey extends QueryKey {
 extension StringQueryKeyExtension on String {
   QueryKey toQueryKey() => StringQueryKey(this);
 }
-

@@ -98,7 +98,8 @@ void main() {
     test('removeQuery with non-existent key does not throw', () {
       final client = QueryClient();
 
-      expect(() => client.removeQuery('non-existent'.toQueryKey()), returnsNormally);
+      expect(() => client.removeQuery('non-existent'.toQueryKey()),
+          returnsNormally);
     });
 
     test('clear disposes all queries', () {

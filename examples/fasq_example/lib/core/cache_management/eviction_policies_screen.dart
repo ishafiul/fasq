@@ -448,26 +448,22 @@ final queryClient = QueryClient();
               label: const Text('Add User'),
             ),
             ElevatedButton.icon(
-              onPressed: () =>
-                  _addQuery(QueryKeys.todos),
+              onPressed: () => _addQuery(QueryKeys.todos),
               icon: const Icon(Icons.list),
               label: const Text('Add Todos'),
             ),
             ElevatedButton.icon(
-              onPressed: () =>
-                  _addQuery(QueryKeys.posts),
+              onPressed: () => _addQuery(QueryKeys.posts),
               icon: const Icon(Icons.article),
               label: const Text('Add Posts'),
             ),
             ElevatedButton.icon(
-              onPressed: () =>
-                  _addQuery(QueryKeys.todos),
+              onPressed: () => _addQuery(QueryKeys.todos),
               icon: const Icon(Icons.list_alt),
               label: const Text('Add More'),
             ),
             ElevatedButton.icon(
-              onPressed: () =>
-                  _addQuery(QueryKeys.posts),
+              onPressed: () => _addQuery(QueryKeys.posts),
               icon: const Icon(Icons.article_outlined),
               label: const Text('Add More'),
             ),

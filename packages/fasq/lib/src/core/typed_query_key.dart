@@ -17,4 +17,3 @@ class TypedQueryKey<T> extends QueryKey {
   TypedQueryKey<T> withParams(List<String> params) =>
       TypedQueryKey<T>('$_key:${params.join(":")}', _type);
 }
-

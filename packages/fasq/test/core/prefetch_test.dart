@@ -107,8 +107,8 @@ void main() {
         throw Exception('Prefetch error');
       }
 
-      expect(
-          () => client.prefetchQuery('test-key'.toQueryKey(), fetchError), throwsException);
+      expect(() => client.prefetchQuery('test-key'.toQueryKey(), fetchError),
+          throwsException);
     });
 
     test('prefetched data is used by subsequent queries', () async {
@@ -214,7 +214,8 @@ void main() {
 
       try {
         await client.prefetchQueries([
-          PrefetchConfig(queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
+          PrefetchConfig(
+              queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
           PrefetchConfig(queryKey: 'error'.toQueryKey(), queryFn: fetchError),
         ]);
       } catch (e) {

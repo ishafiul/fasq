@@ -243,9 +243,12 @@ void main() {
       }
 
       // Create queries
-      final query1 = client.getQuery('query1'.toQueryKey(), () => fetchData('1'));
-      final query2 = client.getQuery('query2'.toQueryKey(), () => fetchData('2'));
-      final query3 = client.getQuery('query3'.toQueryKey(), () => fetchData('3'));
+      final query1 =
+          client.getQuery('query1'.toQueryKey(), () => fetchData('1'));
+      final query2 =
+          client.getQuery('query2'.toQueryKey(), () => fetchData('2'));
+      final query3 =
+          client.getQuery('query3'.toQueryKey(), () => fetchData('3'));
 
       // Add listeners to some queries
       query1.addListener();
