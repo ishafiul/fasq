@@ -49,6 +49,13 @@ QueryBuilder<List<User>>(
 )''',
       child: QueryBuilder<List<User>>(
         queryKey: QueryKeys.users,
+        options: QueryOptions(
+            meta: QueryMeta(
+          successMessage: "Users loaded successfully",
+          errorMessage: "Failed to load users",
+          invalidateKeys: [QueryKeys.users],
+          triggerCriticalHandler: true,
+        )),
         queryFn: () => ApiService.fetchUsers(),
         builder: (context, state) {
           if (state.isLoading) {

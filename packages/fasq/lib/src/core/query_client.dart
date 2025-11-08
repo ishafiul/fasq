@@ -528,7 +528,9 @@ class QueryClient with WidgetsBindingObserver {
   ///
   /// Only use this in tests to get a fresh instance.
   static void resetForTesting() {
-    _instance?..clearObservers()..dispose();
+    _instance
+      ?..clearObservers()
+      ..dispose();
     _instance = null;
   }
 }

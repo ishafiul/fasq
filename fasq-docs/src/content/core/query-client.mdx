@@ -60,12 +60,13 @@ class GlobalQueryEffects extends QueryClientObserver {
 
   final QueryClient client;
   final EffectMessenger messenger;
-  final String Function(String messageId)? resolveMessage;
+  final String Function(String message)? resolveMessage;
 
   static GlobalQueryEffects install({
     required QueryClient client,
     required EffectMessenger messenger,
-    String Function(String messageId)? resolveMessage,
+    String Function(String message)? resolveMessage,
+    String Function(String message)? resolveMessage,
   }) {
     final effects = GlobalQueryEffects._(
       client: client,
@@ -83,9 +84,9 @@ class GlobalQueryEffects extends QueryClientObserver {
     MutationMeta? meta,
     BuildContext? context,
   ) {
-    final messageId = meta?.successMessageId;
-    if (messageId != null) {
-      final resolved = resolveMessage?.call(messageId) ?? messageId;
+    final message = meta?.successMessage;
+    if (message != null) {
+      final resolved = resolveMessage?.call(message) ?? message;
       final state = context != null && context.mounted
           ? ScaffoldMessenger.maybeOf(context)
           : messenger.key.currentState;

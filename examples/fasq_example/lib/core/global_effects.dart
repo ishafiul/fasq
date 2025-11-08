@@ -28,7 +28,7 @@ class GlobalQueryEffects extends QueryClientObserver {
 
   final QueryClient client;
   final EffectMessenger? messenger;
-  final String Function(String messageId)? resolveMessage;
+  final String Function(String message)? resolveMessage;
   final void Function(
     MutationSnapshot<dynamic, dynamic> snapshot,
     MutationMeta meta,
@@ -41,7 +41,7 @@ class GlobalQueryEffects extends QueryClientObserver {
   static GlobalQueryEffects install({
     required QueryClient client,
     EffectMessenger? messenger,
-    String Function(String messageId)? resolveMessage,
+    String Function(String message)? resolveMessage,
     void Function(
       MutationSnapshot<dynamic, dynamic> snapshot,
       MutationMeta meta,
@@ -69,7 +69,7 @@ class GlobalQueryEffects extends QueryClientObserver {
     MutationMeta? meta,
     BuildContext? context,
   ) {
-    _showMessage(meta?.successMessageId, context);
+    _showMessage(meta?.successMessage, context);
     _invalidate(meta);
     _refetch(meta);
   }
@@ -80,7 +80,7 @@ class GlobalQueryEffects extends QueryClientObserver {
     MutationMeta? meta,
     BuildContext? context,
   ) {
-    _showMessage(meta?.errorMessageId, context);
+    _showMessage(meta?.errorMessage, context);
     _maybeTriggerCritical(snapshot, meta);
   }
 
@@ -99,7 +99,7 @@ class GlobalQueryEffects extends QueryClientObserver {
     QueryMeta? meta,
     BuildContext? context,
   ) {
-    _showMessage(meta?.successMessageId, context);
+    _showMessage(meta?.successMessage, context);
     _invalidate(meta);
   }
 
@@ -109,13 +109,13 @@ class GlobalQueryEffects extends QueryClientObserver {
     QueryMeta? meta,
     BuildContext? context,
   ) {
-    _showMessage(meta?.errorMessageId, context);
+    _showMessage(meta?.errorMessage, context);
     _maybeTriggerCriticalQuery(snapshot, meta);
   }
 
-  void _showMessage(String? messageId, BuildContext? context) {
-    if (messageId == null) return;
-    final resolved = resolveMessage?.call(messageId) ?? messageId;
+  void _showMessage(String? message, BuildContext? context) {
+    if (message == null) return;
+    final resolved = resolveMessage?.call(message) ?? message;
 
     final contextualMessenger = _messengerFromContext(context);
     if (contextualMessenger != null) {
