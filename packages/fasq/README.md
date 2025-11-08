@@ -609,8 +609,8 @@ Declarative metadata describing global side effects for a mutation. Attach to `M
 
 ```dart
 const MutationMeta(
-  successMessageId: 'profileSaved',
-  errorMessageId: 'profileSaveFailed',
+  successMessage: 'Profile updated',
+  errorMessage: 'Profile update failed',
   invalidateKeys: [StringQueryKey('profile')],
   refetchKeys: [StringQueryKey('profile:detail')],
   triggerCriticalHandler: true,
@@ -618,7 +618,7 @@ const MutationMeta(
 ```
 
 Fields:
-- `successMessageId` / `errorMessageId` - Lookup keys for snackbars/toasts
+- `successMessage` / `errorMessage` - Display messages (localise/transform via `resolveMessage`)
 - `invalidateKeys` / `refetchKeys` - Cache actions handled globally
 - `triggerCriticalHandler` - Request the registered critical handler to run (logout, navigation, analytics, etc.)
 
@@ -927,7 +927,7 @@ void main() {
   GlobalQueryEffects.install(
     client: queryClient,
     messenger: messenger,
-    resolveMessage: AppStrings.toast,
+  resolveMessage: AppStrings.toast,
     onMutationCritical: (snapshot, meta) => authController.reset(),
   );
 
