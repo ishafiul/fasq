@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'query_meta.dart';
 import 'validation/input_validator.dart';
@@ -31,6 +33,12 @@ class PerformanceOptions {
   /// Backoff multiplier for retries
   final double retryBackoffMultiplier;
 
+  /// Enable custom data transformation hook
+  final bool enableDataTransform;
+
+  /// Custom data transformer executed when [enableDataTransform] is true
+  final FutureOr<dynamic> Function(dynamic data)? dataTransformer;
+
   const PerformanceOptions({
     this.enableMetrics = true,
     this.fetchTimeoutMs,
@@ -40,6 +48,8 @@ class PerformanceOptions {
     this.maxRetries = 3,
     this.initialRetryDelay = const Duration(seconds: 1),
     this.retryBackoffMultiplier = 2.0,
+    this.enableDataTransform = false,
+    this.dataTransformer,
   })  : assert(fetchTimeoutMs == null || fetchTimeoutMs > 0,
             'fetchTimeoutMs must be positive'),
         assert(isolateThreshold == null || isolateThreshold > 0,
@@ -58,6 +68,8 @@ class PerformanceOptions {
     int? maxRetries,
     Duration? initialRetryDelay,
     double? retryBackoffMultiplier,
+    bool? enableDataTransform,
+    FutureOr<dynamic> Function(dynamic data)? dataTransformer,
   }) {
     return PerformanceOptions(
       enableMetrics: enableMetrics ?? this.enableMetrics,
@@ -69,6 +81,8 @@ class PerformanceOptions {
       initialRetryDelay: initialRetryDelay ?? this.initialRetryDelay,
       retryBackoffMultiplier:
           retryBackoffMultiplier ?? this.retryBackoffMultiplier,
+      enableDataTransform: enableDataTransform ?? this.enableDataTransform,
+      dataTransformer: dataTransformer ?? this.dataTransformer,
     );
   }
 
@@ -77,6 +91,7 @@ class PerformanceOptions {
     return 'PerformanceOptions('
         'metrics: $enableMetrics, '
         'autoIsolate: $autoIsolate, '
+        'dataTransform: $enableDataTransform, '
         'hotCache: $enableHotCache, '
         'retries: $maxRetries)';
   }

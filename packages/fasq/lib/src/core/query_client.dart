@@ -7,6 +7,7 @@ import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
 import '../performance/isolate_pool.dart';
 import '../persistence/persistence_options.dart';
+import '../security/security_plugin.dart';
 import 'mutation_meta.dart';
 import 'mutation_snapshot.dart';
 import 'query.dart';
@@ -45,10 +46,12 @@ class QueryClient with WidgetsBindingObserver {
   factory QueryClient({
     CacheConfig? config,
     PersistenceOptions? persistenceOptions,
+    SecurityPlugin? securityPlugin,
   }) {
     _instance ??= QueryClient._internal(
       config: config,
       persistenceOptions: persistenceOptions,
+      securityPlugin: securityPlugin,
     );
     return _instance!;
   }
@@ -56,9 +59,11 @@ class QueryClient with WidgetsBindingObserver {
   QueryClient._internal({
     CacheConfig? config,
     PersistenceOptions? persistenceOptions,
+    SecurityPlugin? securityPlugin,
   }) : _cache = QueryCache(
           config: config,
           persistenceOptions: persistenceOptions,
+          securityPlugin: securityPlugin,
         ) {
     WidgetsBinding.instance.addObserver(this);
     _isolatePool =

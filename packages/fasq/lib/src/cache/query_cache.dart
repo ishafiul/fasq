@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'async_lock.dart';
 import 'cache_config.dart';
@@ -12,7 +13,10 @@ import 'eviction/lfu_eviction.dart';
 import 'eviction/lru_eviction.dart';
 import 'hot_cache.dart';
 import '../persistence/persistence_options.dart';
+import '../security/encryption_provider.dart';
+import '../security/persistence_provider.dart';
 import '../security/security_plugin.dart';
+import '../security/security_provider.dart';
 import '../core/validation/input_validator.dart';
 
 /// Core cache storage and management for queries.
@@ -29,19 +33,32 @@ class QueryCache {
   late final HotCache<CacheEntry> _hotCache;
 
   bool _isInitialized = false;
+  SecurityProvider? _securityProvider;
+  EncryptionProvider? _encryptionProvider;
+  PersistenceProvider? _persistenceProvider;
+  Future<void>? _persistenceInitFuture;
 
   Timer? _gcTimer;
   Timer? _persistenceGcTimer;
+
+  bool get _persistenceReady =>
+      _isInitialized &&
+      _securityProvider != null &&
+      _encryptionProvider != null &&
+      _persistenceProvider != null;
+
+  Future<void> get persistenceInitialization =>
+      _persistenceInitFuture ?? Future.value();
 
   QueryCache({
     CacheConfig? config,
     this.persistenceOptions,
     this.securityPlugin,
   }) : config = config ?? const CacheConfig() {
-    _hotCache = HotCache<CacheEntry>(
-        maxSize: (config ?? const CacheConfig()).performance.hotCacheSize);
+    _hotCache =
+        HotCache<CacheEntry>(maxSize: this.config.performance.hotCacheSize);
     _startGarbageCollection();
-    _initializePersistence();
+    _persistenceInitFuture = _initializePersistence();
   }
 
   /// Gets a cache entry if it exists.
@@ -138,7 +155,7 @@ class QueryCache {
     if (persistenceOptions?.enabled == true &&
         !isSecure &&
         securityPlugin != null) {
-      _persistEntry(key, entry);
+      unawaited(_persistEntry(key, entry));
     }
 
     if (_shouldEvict()) {
@@ -149,19 +166,29 @@ class QueryCache {
   /// Removes a cache entry by key.
   void remove(String key) {
     InputValidator.validateQueryKey(key);
-    _entries.remove(key);
+    final removed = _entries.remove(key);
+    if (removed != null) {
+      _hotCache.remove(key);
+      if (_persistenceReady) {
+        unawaited(_removeFromPersistence(key));
+      }
+    }
   }
 
-  /// Clears all cache entries.
-  void clear() {
+  void _clearInMemory() {
     _entries.clear();
     _hotCache.clear();
     _inFlightRequests.clear();
     _metrics.reset();
+  }
+
+  /// Clears all cache entries.
+  void clear() {
+    _clearInMemory();
 
     // Clear persistence if enabled
-    if (persistenceOptions?.enabled == true && securityPlugin != null) {
-      _clearPersistence();
+    if (_persistenceReady) {
+      unawaited(_clearPersistence());
     }
   }
 
@@ -176,6 +203,7 @@ class QueryCache {
 
     for (final key in keysToRemove) {
       _entries.remove(key);
+      _hotCache.remove(key);
     }
   }
 
@@ -183,14 +211,7 @@ class QueryCache {
   ///
   /// Removes the entry, forcing a refetch on next access.
   void invalidate(String key) {
-    InputValidator.validateQueryKey(key);
-    _entries.remove(key);
-    _hotCache.remove(key);
-
-    // Remove from persistence if enabled
-    if (persistenceOptions?.enabled == true && securityPlugin != null) {
-      _removeFromPersistence(key);
-    }
+    remove(key);
   }
 
   /// Invalidates all cache entries with keys starting with the prefix.
@@ -215,14 +236,10 @@ class QueryCache {
   /// Invalidates multiple queries in a single operation
   void invalidateMultiple(List<String> keys) {
     for (final key in keys) {
-      _entries.remove(key);
-      _hotCache.remove(key);
+      remove(key);
     }
-    _metrics.recordEviction();
-
-    // Remove from persistence if enabled
-    if (persistenceOptions?.enabled == true && securityPlugin != null) {
-      _removeMultipleFromPersistence(keys);
+    if (keys.isNotEmpty) {
+      _metrics.recordEviction();
     }
   }
 
@@ -394,18 +411,10 @@ class QueryCache {
     _persistenceGcTimer?.cancel();
     _persistenceGcTimer = null;
 
-    // Cancel all in-flight requests
-    // Note: We can't cancel futures, but we can clean up the map
-    _inFlightRequests.clear();
-
     // Clean up all locks
     _locks.clear();
 
-    // Clear hot cache
-    _hotCache.clear();
-
-    clearSecureEntries(); // Clear secure data before full clear
-    clear();
+    _clearInMemory();
   }
 
   /// Initializes persistence if enabled.
@@ -413,31 +422,54 @@ class QueryCache {
     if (persistenceOptions?.enabled != true || securityPlugin == null) return;
 
     try {
+      if (!securityPlugin!.isSupported) {
+        _logPersistenceError(
+          'Security plugin ${securityPlugin!.name} is not supported on this platform',
+          UnsupportedError('Security plugin not supported'),
+        );
+        return;
+      }
+
       await securityPlugin!.initialize();
+      _securityProvider = securityPlugin!.createStorageProvider();
+      _encryptionProvider = securityPlugin!.createEncryptionProvider();
+      _persistenceProvider = securityPlugin!.createPersistenceProvider();
+
+      await _securityProvider!.initialize();
+      await _persistenceProvider!.initialize();
+
       _isInitialized = true;
       _startPersistenceGarbageCollection();
       await _loadPersistedEntries();
-    } catch (e) {
+    } catch (e, stackTrace) {
       _isInitialized = false;
+      _securityProvider = null;
+      _encryptionProvider = null;
+      _persistenceProvider = null;
+      _logPersistenceError(
+        'Failed to initialize persistence',
+        e,
+        stackTrace,
+      );
     }
   }
 
   /// Starts garbage collection for persisted data.
   void _startPersistenceGarbageCollection() {
-    if (!_isInitialized || securityPlugin == null) return;
-
-    _persistenceGcTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+    if (!_persistenceReady) return;
+    final interval =
+        persistenceOptions?.gcInterval ?? const Duration(minutes: 5);
+    _persistenceGcTimer = Timer.periodic(interval, (_) {
       _runPersistenceGarbageCollection();
     });
   }
 
   /// Runs garbage collection on persisted data.
   Future<void> _runPersistenceGarbageCollection() async {
-    if (!_isInitialized || securityPlugin == null) return;
+    if (!_persistenceReady) return;
 
     try {
-      final persistenceProvider = securityPlugin!.createPersistenceProvider();
-      final allKeys = await persistenceProvider.getAllKeys();
+      final allKeys = await _persistenceProvider!.getAllKeys();
       final keysToRemove = <String>[];
 
       for (final key in allKeys) {
@@ -449,25 +481,28 @@ class QueryCache {
       }
 
       if (keysToRemove.isNotEmpty) {
-        await persistenceProvider.removeMultiple(keysToRemove);
+        await _persistenceProvider!.removeMultiple(keysToRemove);
       }
-    } catch (e) {
-      // Persistence garbage collection failed, continue silently
+    } catch (e, stackTrace) {
+      _logPersistenceError(
+        'Failed to run persistence garbage collection',
+        e,
+        stackTrace,
+      );
     }
   }
 
   /// Persists a cache entry to disk.
   Future<void> _persistEntry(String key, CacheEntry entry) async {
-    if (!_isInitialized || securityPlugin == null) return;
+    if (_persistenceInitFuture != null) {
+      await _persistenceInitFuture;
+    }
+    if (!_persistenceReady) return;
 
     try {
-      final persistenceProvider = securityPlugin!.createPersistenceProvider();
-      final encryptionProvider = securityPlugin!.createEncryptionProvider();
-      final securityProvider = securityPlugin!.createStorageProvider();
-
       // Get or generate encryption key
-      String? encryptionKey = await securityProvider.getEncryptionKey();
-      encryptionKey ??= await securityProvider.generateAndStoreKey();
+      String? encryptionKey = await _securityProvider!.getEncryptionKey();
+      encryptionKey ??= await _securityProvider!.generateAndStoreKey();
 
       // Serialize the entry to JSON
       final entryJson = jsonEncode(entry.toJson());
@@ -475,76 +510,73 @@ class QueryCache {
 
       // Encrypt the data
       final encryptedData =
-          await encryptionProvider.encrypt(entryBytes, encryptionKey);
+          await _encryptionProvider!.encrypt(entryBytes, encryptionKey);
 
       // Persist the encrypted data
-      await persistenceProvider.persist(key, encryptedData);
-    } catch (e) {
-      // Persistence failed, continue without persisting this entry
+      await _persistenceProvider!.persist(key, encryptedData);
+    } catch (e, stackTrace) {
+      _logPersistenceError(
+        'Failed to persist cache entry for key $key',
+        e,
+        stackTrace,
+      );
     }
   }
 
   /// Removes an entry from persistence.
   Future<void> _removeFromPersistence(String key) async {
-    if (!_isInitialized || securityPlugin == null) return;
+    if (_persistenceInitFuture != null) {
+      await _persistenceInitFuture;
+    }
+    if (!_persistenceReady) return;
 
     try {
-      final persistenceProvider = securityPlugin!.createPersistenceProvider();
-      await persistenceProvider.remove(key);
-    } catch (e) {
-      // Persistence removal failed, continue silently
+      await _persistenceProvider!.remove(key);
+    } catch (e, stackTrace) {
+      _logPersistenceError(
+        'Failed to remove persisted cache entry for key $key',
+        e,
+        stackTrace,
+      );
     }
   }
 
   /// Removes multiple entries from persistence.
-  Future<void> _removeMultipleFromPersistence(List<String> keys) async {
-    if (!_isInitialized || securityPlugin == null) return;
-
-    try {
-      final persistenceProvider = securityPlugin!.createPersistenceProvider();
-      await persistenceProvider.removeMultiple(keys);
-    } catch (e) {
-      // Persistence removal failed, continue silently
-    }
-  }
-
   /// Clears all persisted data.
   Future<void> _clearPersistence() async {
-    if (!_isInitialized || securityPlugin == null) return;
+    if (!_persistenceReady) return;
 
     try {
-      final persistenceProvider = securityPlugin!.createPersistenceProvider();
-      await persistenceProvider.clear();
-    } catch (e) {
-      // Persistence clear failed, continue silently
+      await _persistenceProvider!.clear();
+    } catch (e, stackTrace) {
+      _logPersistenceError(
+        'Failed to clear persisted cache entries',
+        e,
+        stackTrace,
+      );
     }
   }
 
   /// Loads persisted entries on initialization.
   Future<void> _loadPersistedEntries() async {
-    if (!_isInitialized || securityPlugin == null) return;
+    if (!_persistenceReady) return;
 
     try {
-      final persistenceProvider = securityPlugin!.createPersistenceProvider();
-      final encryptionProvider = securityPlugin!.createEncryptionProvider();
-      final securityProvider = securityPlugin!.createStorageProvider();
-
-      // Get encryption key
-      final encryptionKey = await securityProvider.getEncryptionKey();
+      final encryptionKey = await _securityProvider!.getEncryptionKey();
       if (encryptionKey == null) {
         // No key means no persisted data
         return;
       }
 
-      final allKeys = await persistenceProvider.getAllKeys();
+      final allKeys = await _persistenceProvider!.getAllKeys();
 
       for (final key in allKeys) {
-        final encryptedData = await persistenceProvider.retrieve(key);
+        final encryptedData = await _persistenceProvider!.retrieve(key);
         if (encryptedData != null) {
           try {
             // Decrypt the data
-            final decryptedBytes =
-                await encryptionProvider.decrypt(encryptedData, encryptionKey);
+            final decryptedBytes = await _encryptionProvider!
+                .decrypt(encryptedData, encryptionKey);
             final entryJson = utf8.decode(decryptedBytes);
             final entryMap = jsonDecode(entryJson) as Map<String, dynamic>;
 
@@ -555,14 +587,43 @@ class QueryCache {
             if (!entry.isExpired) {
               _entries[key] = entry;
             }
-          } catch (e) {
-            // Remove corrupted entry
-            await persistenceProvider.remove(key);
+          } catch (e, stackTrace) {
+            try {
+              await _persistenceProvider!.remove(key);
+            } catch (removeError, removeStack) {
+              _logPersistenceError(
+                'Failed to remove corrupted cache entry for key $key',
+                removeError,
+                removeStack,
+              );
+            }
+            _logPersistenceError(
+              'Failed to load persisted cache entry for key $key',
+              e,
+              stackTrace,
+            );
           }
         }
       }
-    } catch (e) {
-      // Failed to load persisted entries, continue without them
+    } catch (e, stackTrace) {
+      _logPersistenceError(
+        'Failed to load persisted cache entries',
+        e,
+        stackTrace,
+      );
     }
+  }
+
+  void _logPersistenceError(
+    String message,
+    Object error, [
+    StackTrace? stackTrace,
+  ]) {
+    developer.log(
+      message,
+      name: 'FASQ.QueryCache',
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 }

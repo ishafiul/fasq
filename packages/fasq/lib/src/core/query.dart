@@ -131,21 +131,25 @@ class Query<T> {
         referenceCount: _referenceCount,
       );
 
-  /// Estimate the size of data in bytes for performance decisions
-  int _estimateDataSize<U>(U data) {
-    if (data == null) return 0;
+  Future<T> _maybeTransformData(T data) async {
+    final performance = options?.performance;
+    if (performance == null || !performance.enableDataTransform) {
+      return data;
+    }
 
-    if (data is String) {
-      return data.length * 2; // UTF-16 encoding
-    } else if (data is List<int>) {
-      return data.length;
-    } else if (data is Map) {
-      return data.toString().length * 2;
-    } else if (data is List) {
-      return data.toString().length * 2;
-    } else {
-      // Fallback: serialize to string and estimate
-      return data.toString().length * 2;
+    final transformer = performance.dataTransformer;
+    if (transformer == null) {
+      return data;
+    }
+
+    try {
+      final result = await Future.sync(() => transformer(data));
+      if (result == null) {
+        return data;
+      }
+      return result as T;
+    } catch (_) {
+      return data;
     }
   }
 
@@ -252,29 +256,7 @@ class Query<T> {
         _lastFetchStart = DateTime.now();
 
         var data = await cache!.deduplicate<T>(key, queryFn);
-
-        // Apply isolate transform if configured
-        if (options?.performance?.autoIsolate == true &&
-            options?.performance?.isolateThreshold != null) {
-          // Check if data size exceeds threshold for isolate execution
-          final dataSize = _estimateDataSize(data);
-          if (dataSize > options!.performance!.isolateThreshold!) {
-            // Execute in isolate if available
-            if (client != null) {
-              try {
-                final transformedData =
-                    await client!.isolatePool.executeIfNeeded(
-                  _heavyDataTransform<T>,
-                  data,
-                  threshold: options!.performance!.isolateThreshold!,
-                );
-                data = transformedData;
-              } catch (e) {
-                // Fallback to main thread if isolate fails
-              }
-            }
-          }
-        }
+        data = await _maybeTransformData(data);
 
         // Record fetch timing
         if (_lastFetchStart != null) {
@@ -328,7 +310,8 @@ class Query<T> {
         // Start performance tracking for direct query execution
         _lastFetchStart = DateTime.now();
 
-        final data = await queryFn();
+        var data = await queryFn();
+        data = await _maybeTransformData(data);
 
         // Record fetch timing
         if (_lastFetchStart != null) {
@@ -422,69 +405,4 @@ class Query<T> {
     _controller.close();
     onDispose?.call();
   }
-}
-
-/// Heavy data transformation function for isolate execution.
-///
-/// This function performs computationally expensive operations like:
-/// - Deep JSON parsing and validation
-/// - Data normalization and transformation
-/// - Complex data structure manipulation
-/// - Memory-intensive operations
-T _heavyDataTransform<T>(T data) {
-  if (data == null) return data;
-
-  // For JSON strings, perform heavy parsing and validation
-  if (data is String) {
-    try {
-      // Simulate heavy JSON processing
-      final parsed = data.split('').map((c) => c.codeUnitAt(0)).toList();
-      final processed = parsed.map((code) => code * 2).toList();
-      final result = String.fromCharCodes(processed.map((code) => code ~/ 2));
-
-      // Additional heavy processing
-      final words = result.split(' ');
-      final transformed = words.map((word) => word.toUpperCase()).join(' ');
-
-      return transformed as T;
-    } catch (e) {
-      // Return original data if processing fails
-      return data;
-    }
-  }
-
-  // For lists, perform heavy processing on each element
-  if (data is List) {
-    try {
-      final processed = data.map((item) {
-        if (item is String) {
-          return item.toUpperCase();
-        } else if (item is Map) {
-          return Map.fromEntries(item.entries
-              .map((e) => MapEntry(e.key.toString().toUpperCase(), e.value)));
-        }
-        return item;
-      }).toList();
-
-      return processed as T;
-    } catch (e) {
-      return data;
-    }
-  }
-
-  // For maps, perform heavy processing
-  if (data is Map) {
-    try {
-      final processed = Map.fromEntries(data.entries.map((e) => MapEntry(
-          e.key.toString().toUpperCase(),
-          e.value is String ? (e.value as String).toUpperCase() : e.value)));
-
-      return processed as T;
-    } catch (e) {
-      return data;
-    }
-  }
-
-  // For other types, return as-is
-  return data;
 }
