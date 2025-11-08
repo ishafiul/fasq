@@ -1,17 +1,27 @@
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
+
 import 'core/screens/core_examples_screen.dart';
 
+final QueryClient _queryClient = QueryClient(
+  config: const CacheConfig(
+    defaultCacheTime: Duration(minutes: 10),
+  ),
+);
+
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp(client: _queryClient));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.client});
+
+  final QueryClient client;
 
   @override
   Widget build(BuildContext context) {
     return QueryClientProvider(
+      client: client,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'FASQ Examples',
