@@ -3,6 +3,45 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-11-09
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.3.5`](#fasq---v035)
+ - [`fasq_security` - `v0.1.2`](#fasq_security---v012)
+ - [`fasq_bloc` - `v0.2.3+1`](#fasq_bloc---v0231)
+ - [`fasq_hooks` - `v0.2.3+1`](#fasq_hooks---v0231)
+ - [`fasq_riverpod` - `v0.2.3+1`](#fasq_riverpod---v0231)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `fasq_bloc` - `v0.2.3+1`
+ - `fasq_hooks` - `v0.2.3+1`
+ - `fasq_riverpod` - `v0.2.3+1`
+
+---
+
+#### `fasq` - `v0.3.5`
+
+ - **FEAT**: harden persistence across cache layers (#36).
+ - **DOCS**: sync readme versions (#35).
+
+#### `fasq_security` - `v0.1.2`
+
+ - **FEAT**: harden persistence across cache layers (#36).
+ - **DOCS**: sync readme versions (#35).
+
+
 ## 2025-11-08
 
 ### Changes

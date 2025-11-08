@@ -1,3 +1,8 @@
+## 0.1.2
+
+ - **FEAT**: harden persistence across cache layers (#36).
+ - **DOCS**: sync readme versions (#35).
+
 ## 0.1.1
 
  - **FEAT**: example app (#23).

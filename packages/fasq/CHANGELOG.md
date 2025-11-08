@@ -1,3 +1,8 @@
+## 0.3.5
+
+ - **FEAT**: harden persistence across cache layers (#36).
+ - **DOCS**: sync readme versions (#35).
+
 ## 0.3.4
 
  - **FEAT**: allow typed meta messages (#34).
