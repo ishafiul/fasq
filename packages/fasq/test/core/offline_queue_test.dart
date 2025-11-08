@@ -7,9 +7,9 @@ void main() {
   group('OfflineQueueManager', () {
     late OfflineQueueManager queueManager;
 
-    setUp(() {
+    setUp(() async {
       queueManager = OfflineQueueManager.instance;
-      queueManager.clear();
+      await queueManager.resetForTesting();
     });
 
     test('should enqueue mutation entry', () async {
@@ -65,6 +65,24 @@ void main() {
 
       final ids = queueManager.entries.map((e) => e.id).toList();
       expect(ids[0], isNot(equals(ids[1])));
+    });
+
+    test('should persist entries to disk and reload them', () async {
+      await queueManager.enqueue(
+        'persist-key',
+        'persist-mutation',
+        {'value': 42},
+      );
+      final persistedId = queueManager.entries.first.id;
+
+      queueManager.clearInMemoryOnly();
+      expect(queueManager.length, equals(0));
+
+      await queueManager.load();
+
+      expect(queueManager.length, equals(1));
+      expect(queueManager.entries.first.id, equals(persistedId));
+      expect(queueManager.entries.first.variables, equals({'value': 42}));
     });
   });
 
