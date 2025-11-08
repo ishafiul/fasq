@@ -1,4 +1,4 @@
-# Security Features 🔒
+# Security Features 
 
 FASQ includes comprehensive security features for production applications, ensuring sensitive data is protected and preventing common security vulnerabilities.
 
@@ -34,10 +34,10 @@ QueryBuilder<String>(
 
 ### Security Benefits
 
-- ✅ **Never persisted to disk** - Secure entries are memory-only
-- ✅ **Automatic cleanup** - Cleared on app background/termination
-- ✅ **Strict TTL enforcement** - Expired secure entries are immediately removed
-- ✅ **Not exposed in DevTools** - Secure data is hidden from debugging tools
+- **Never persisted to disk** - Secure entries are memory-only
+- **Automatic cleanup** - Cleared on app background/termination
+- **Strict TTL enforcement** - Expired secure entries are immediately removed
+- **Not exposed in DevTools** - Secure data is hidden from debugging tools
 
 ### Use Cases
 
@@ -69,24 +69,24 @@ QueryClientProvider(
 
 ### Encryption Features
 
-- ✅ **AES-GCM encryption** for data at rest
-- ✅ **Platform-specific key storage**:
+- **AES-GCM encryption** for data at rest
+- **Platform-specific key storage**:
   - iOS: Keychain
   - Android: EncryptedSharedPreferences
   - Desktop: Platform-specific secure storage
-- ✅ **Isolate-based encryption** for large data (>50KB)
-- ✅ **Automatic key generation** and management
+- **Isolate-based encryption** for large data (>50KB)
+- **Automatic key generation** and management
 
 ### Platform Support
 
 | Platform | Key Storage | Status |
 |----------|-------------|---------|
-| iOS | Keychain | ✅ Supported |
-| Android | EncryptedSharedPreferences | ✅ Supported |
-| macOS | Keychain | ✅ Supported |
-| Windows | Credential Manager | ✅ Supported |
-| Linux | Secret Service | ✅ Supported |
-| Web | Not supported | ❌ Throws error |
+| iOS | Keychain | Supported |
+| Android | EncryptedSharedPreferences | Supported |
+| macOS | Keychain | Supported |
+| Windows | Credential Manager | Supported |
+| Linux | Secret Service | Supported |
+| Web | Not supported | Throws error |
 
 ## Input Validation
 
@@ -95,28 +95,28 @@ Comprehensive validation prevents injection attacks and malformed data:
 ```dart
 // Valid query keys
 QueryBuilder<String>(
-  queryKey: 'user:123',        // ✅ Valid
+  queryKey: 'user:123',        // Valid
   queryFn: () => fetchUser(),
 )
 
 // Invalid query keys throw clear errors
 QueryBuilder<String>(
-  queryKey: 'user@123',        // ❌ Throws: "Query key must contain only alphanumeric, colon, hyphen, underscore"
+  queryKey: 'user@123',        // Throws: "Query key must contain only alphanumeric, colon, hyphen, underscore"
   queryFn: () => fetchUser(),
 )
 ```
 
 ### Validation Coverage
 
-- ✅ **Query keys** - Alphanumeric, colon, hyphen, underscore only
-- ✅ **Cache data** - No functions or closures allowed
-- ✅ **Duration values** - Non-negative durations only
-- ✅ **Clear error messages** - Actionable validation feedback
+- **Query keys** - Alphanumeric, colon, hyphen, underscore only
+- **Cache data** - No functions or closures allowed
+- **Duration values** - Non-negative durations only
+- **Clear error messages** - Actionable validation feedback
 
 ### Valid Query Key Patterns
 
 ```dart
-// ✅ Valid patterns
+// Valid patterns
 'user:123'
 'posts-list'
 'profile_data'
@@ -127,7 +127,7 @@ QueryBuilder<String>(
 'KEY_WITH_CAPS'
 '12345'
 
-// ❌ Invalid patterns
+// Invalid patterns
 'user@123'           // Special characters
 'key with spaces'    // Spaces
 'key.with.dots'      // Dots
@@ -272,11 +272,11 @@ The key rotation process is atomic and safe:
 
 ### Safety Features
 
-- ✅ **Atomic operation** - Key only updated after successful re-encryption
-- ✅ **Rollback on failure** - Old key restored if process fails
-- ✅ **Graceful degradation** - Continues if individual entries fail
-- ✅ **Progress tracking** - Optional callback for UI feedback
-- ✅ **Early exit** - No operation if key hasn't changed
+- **Atomic operation** - Key only updated after successful re-encryption
+- **Rollback on failure** - Old key restored if process fails
+- **Graceful degradation** - Continues if individual entries fail
+- **Progress tracking** - Optional callback for UI feedback
+- **Early exit** - No operation if key hasn't changed
 
 ### When to Rotate Keys
 
@@ -289,7 +289,7 @@ Rotate encryption keys:
 ### Best Practices for Key Rotation
 
 ```dart
-// ✅ Good - Rotate during maintenance window
+// Good - Rotate during maintenance window
 Future<void> rotateEncryptionKey() async {
   try {
     // Show loading indicator
@@ -312,7 +312,7 @@ Future<void> rotateEncryptionKey() async {
   }
 }
 
-// ❌ Bad - Don't rotate during active usage
+// Bad - Don't rotate during active usage
 Future<void> badKeyRotation() async {
   // This could cause data loss if app terminates during rotation
   await persister.updateEncryptionKey(newKey);
@@ -343,13 +343,13 @@ try {
 Always mark sensitive data as secure:
 
 ```dart
-// ✅ Good - Sensitive data marked as secure
+// Good - Sensitive data marked as secure
 QueryOptions(
   isSecure: true,
   maxAge: Duration(minutes: 15),
 )
 
-// ❌ Bad - Sensitive data not marked as secure
+// Bad - Sensitive data not marked as secure
 QueryOptions(
   isSecure: false, // Sensitive data could be persisted
 )
@@ -360,13 +360,13 @@ QueryOptions(
 Use reasonable TTL values for secure entries:
 
 ```dart
-// ✅ Good - Short TTL for sensitive data
+// Good - Short TTL for sensitive data
 QueryOptions(
   isSecure: true,
   maxAge: Duration(minutes: 15), // Short-lived tokens
 )
 
-// ❌ Bad - Too long TTL for sensitive data
+// Bad - Too long TTL for sensitive data
 QueryOptions(
   isSecure: true,
   maxAge: Duration(hours: 24), // Too long for sensitive data
@@ -378,13 +378,13 @@ QueryOptions(
 Generate strong encryption keys:
 
 ```dart
-// ✅ Good - Strong encryption key
+// Good - Strong encryption key
 PersistenceOptions(
   enabled: true,
   encryptionKey: 'your-very-long-and-secure-encryption-key-here',
 )
 
-// ❌ Bad - Weak encryption key
+// Bad - Weak encryption key
 PersistenceOptions(
   enabled: true,
   encryptionKey: '123', // Too short and weak
@@ -396,10 +396,10 @@ PersistenceOptions(
 Always validate query keys and data:
 
 ```dart
-// ✅ Good - Valid query key
+// Good - Valid query key
 queryKey: 'user:123'
 
-// ❌ Bad - Invalid query key
+// Bad - Invalid query key
 queryKey: 'user@123' // Will throw validation error
 ```
 
@@ -529,7 +529,7 @@ QueryCubit<String>(
 
 > **⚠️ Deprecation Notice**: The built-in security features are deprecated and will be removed in a future version. Please migrate to the `fasq_security` package for continued support and enhanced features.
 
-## Security Package (fasq_security) 🔐
+## Security Package (fasq_security) 
 
 FASQ now includes a dedicated security package (`fasq_security`) that provides enterprise-grade security features with a flexible plugin architecture. This package replaces the built-in security features with a more robust, extensible solution.
 
@@ -537,12 +537,12 @@ FASQ now includes a dedicated security package (`fasq_security`) that provides e
 
 The `fasq_security` package provides:
 
-- **🔒 Military-grade encryption** - AES-256-GCM with authenticated encryption
-- **🛡️ Platform-specific secure storage** - Keychain, EncryptedSharedPreferences, etc.
-- **💾 SQLite persistence** - Type-safe database operations with Drift
-- **🔧 Plugin architecture** - Customizable security providers
-- **⚡ High performance** - Isolate-based encryption for large data
-- **🔄 Key rotation** - Secure re-encryption of existing data
+- **Military-grade encryption** - AES-256-GCM with authenticated encryption
+- **️ Platform-specific secure storage** - Keychain, EncryptedSharedPreferences, etc.
+- **SQLite persistence** - Type-safe database operations with Drift
+- **Plugin architecture** - Customizable security providers
+- **High performance** - Isolate-based encryption for large data
+- **Key rotation** - Secure re-encryption of existing data
 
 ### Installation
 
@@ -883,11 +883,11 @@ await securityPlugin.updateEncryptionKey('new-key');
 
 | Platform | Secure Storage | Encryption | Persistence | Status |
 |----------|---------------|------------|-------------|---------|
-| iOS | Keychain | AES-256-GCM | SQLite | ✅ Supported |
-| Android | EncryptedSharedPreferences | AES-256-GCM | SQLite | ✅ Supported |
-| macOS | Keychain | AES-256-GCM | SQLite | ✅ Supported |
-| Windows | Credential Manager | AES-256-GCM | SQLite | ✅ Supported |
-| Linux | Secret Service | AES-256-GCM | SQLite | ✅ Supported |
+| iOS | Keychain | AES-256-GCM | SQLite | Supported |
+| Android | EncryptedSharedPreferences | AES-256-GCM | SQLite | Supported |
+| macOS | Keychain | AES-256-GCM | SQLite | Supported |
+| Windows | Credential Manager | AES-256-GCM | SQLite | Supported |
+| Linux | Secret Service | AES-256-GCM | SQLite | Supported |
 | Web | Not supported | AES-256-GCM | Not supported | ⚠️ Limited |
 
 ### Performance Considerations

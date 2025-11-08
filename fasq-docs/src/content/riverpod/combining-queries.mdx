@@ -298,7 +298,7 @@ class ErrorHandlingDashboard extends ConsumerWidget {
 ### Stable Provider Lists
 
 ```dart
-// ✅ Good: Stable list reference
+// Good: Stable list reference
 class Dashboard extends ConsumerWidget {
   static final _providers = [
     usersProvider,
@@ -314,7 +314,7 @@ class Dashboard extends ConsumerWidget {
   }
 }
 
-// ❌ Avoid: Creating new list on each render
+// Avoid: Creating new list on each render
 class Dashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -332,7 +332,7 @@ class Dashboard extends ConsumerWidget {
 ### Memoized Provider Maps
 
 ```dart
-// ✅ Good: Memoized map for named queries
+// Good: Memoized map for named queries
 class NamedDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -387,7 +387,7 @@ testWidgets('combineQueries works correctly', (tester) async {
 
 ### 1. Provider List Changes
 ```dart
-// ❌ Bad: Changing provider list on each render
+// Bad: Changing provider list on each render
 Widget build(BuildContext context, WidgetRef ref) {
   final providers = [usersProvider];
   if (someCondition) providers.add(postsProvider);
@@ -396,7 +396,7 @@ Widget build(BuildContext context, WidgetRef ref) {
   // ...
 }
 
-// ✅ Good: Stable provider list
+// Good: Stable provider list
 Widget build(BuildContext context, WidgetRef ref) {
   final providers = someCondition 
     ? [usersProvider, postsProvider]
@@ -409,13 +409,13 @@ Widget build(BuildContext context, WidgetRef ref) {
 
 ### 2. Index Out of Bounds
 ```dart
-// ❌ Bad: Assuming specific indices exist
+// Bad: Assuming specific indices exist
 Widget build(BuildContext context, WidgetRef ref) {
   final combined = ref.watch(dashboardProvider);
   return UsersList(combined.getState<List<User>>(0)); // Could crash
 }
 
-// ✅ Good: Check bounds
+// Good: Check bounds
 Widget build(BuildContext context, WidgetRef ref) {
   final combined = ref.watch(dashboardProvider);
   if (combined.length > 0) {
@@ -427,7 +427,7 @@ Widget build(BuildContext context, WidgetRef ref) {
 
 ### 3. Missing Error Handling
 ```dart
-// ❌ Bad: No error handling
+// Bad: No error handling
 Widget build(BuildContext context, WidgetRef ref) {
   final combined = ref.watch(dashboardProvider);
   return Column(
@@ -438,7 +438,7 @@ Widget build(BuildContext context, WidgetRef ref) {
   );
 }
 
-// ✅ Good: Handle errors
+// Good: Handle errors
 Widget build(BuildContext context, WidgetRef ref) {
   final combined = ref.watch(dashboardProvider);
   

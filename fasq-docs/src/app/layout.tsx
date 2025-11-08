@@ -56,12 +56,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </div>
       }
       projectLink="https://github.com/ishafiul/fasq"
-    />
+    >
+      <a
+        href="https://pub.dev/packages/fasq"
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          paddingLeft: '12px',
+          fontWeight: 600
+        }}
+      >
+        <img src="/pub-dev-logo.svg" alt="Pub.dev" style={{ height: '18px', width: 'auto' }} />
+      </a>
+    </Navbar>
   )
   const pageMap = await getPageMap()
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <Head faviconGlyph="✦" />
+      <Head faviconGlyph="F" />
       <body>
         <Script id="fasq-organization" type="application/ld+json" strategy="beforeInteractive">
           {JSON.stringify(organizationJsonLd)}

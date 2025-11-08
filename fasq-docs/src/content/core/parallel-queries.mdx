@@ -222,14 +222,14 @@ if (combined.hasError('posts')) return PostErrorWidget();
 
 ### 1. Use for Truly Independent Data
 ```dart
-// ✅ Good: Independent data sources
+// Good: Independent data sources
 final queries = useQueries([
   QueryConfig('users', () => api.fetchUsers()),
   QueryConfig('posts', () => api.fetchPosts()),
   QueryConfig('settings', () => api.fetchSettings()),
 ]);
 
-// ❌ Avoid: Dependent data (use dependent queries instead)
+// Avoid: Dependent data (use dependent queries instead)
 final queries = useQueries([
   QueryConfig('user', () => api.fetchUser()),
   QueryConfig('user-posts', () => api.fetchUserPosts(userId)), // Depends on user

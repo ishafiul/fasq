@@ -1,4 +1,4 @@
-# Security Features with fasq_hooks 🔒
+# Security Features with fasq_hooks 
 
 fasq_hooks supports all FASQ security features through QueryClient configuration, enabling secure data handling in your hooks-based applications.
 
@@ -43,10 +43,10 @@ class SecureDataWidget extends HookWidget {
 
 ### Security Benefits
 
-- ✅ **Never persisted to disk** - Secure entries are memory-only
-- ✅ **Automatic cleanup** - Cleared on app background/termination
-- ✅ **Strict TTL enforcement** - Expired secure entries are immediately removed
-- ✅ **Not exposed in DevTools** - Secure data is hidden from debugging tools
+- **Never persisted to disk** - Secure entries are memory-only
+- **Automatic cleanup** - Cleared on app background/termination
+- **Strict TTL enforcement** - Expired secure entries are immediately removed
+- **Not exposed in DevTools** - Secure data is hidden from debugging tools
 
 ## Secure Mutations with useMutation
 
@@ -330,7 +330,7 @@ class MyWidget extends HookWidget {
 ### 1. Always Use Configured Client
 
 ```dart
-// ✅ Good - Use configured client
+// Good - Use configured client
 final client = useQueryClient();
 final query = useQuery<String>(
   'secure-data',
@@ -338,7 +338,7 @@ final query = useQuery<String>(
   client: client,
 )
 
-// ❌ Bad - Using default client without security config
+// Bad - Using default client without security config
 final query = useQuery<String>(
   'secure-data',
   () => fetchData(),
@@ -349,13 +349,13 @@ final query = useQuery<String>(
 ### 2. Mark Sensitive Data as Secure
 
 ```dart
-// ✅ Good - Sensitive data marked as secure
+// Good - Sensitive data marked as secure
 QueryOptions(
   isSecure: true,
   maxAge: Duration(minutes: 15),
 )
 
-// ❌ Bad - Sensitive data not marked as secure
+// Bad - Sensitive data not marked as secure
 QueryOptions(
   isSecure: false, // Sensitive data could be persisted
 )
@@ -364,13 +364,13 @@ QueryOptions(
 ### 3. Use Appropriate TTL Values
 
 ```dart
-// ✅ Good - Short TTL for sensitive data
+// Good - Short TTL for sensitive data
 QueryOptions(
   isSecure: true,
   maxAge: Duration(minutes: 15), // Short-lived tokens
 )
 
-// ❌ Bad - Too long TTL for sensitive data
+// Bad - Too long TTL for sensitive data
 QueryOptions(
   isSecure: true,
   maxAge: Duration(hours: 24), // Too long for sensitive data

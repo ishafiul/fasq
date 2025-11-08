@@ -8,7 +8,7 @@ Fasq treats async operation state as fundamentally different from synchronous cl
 
 ## Why Use Fasq?
 
-### 🚀 **Drastically Reduce Boilerplate**
+### **Drastically Reduce Boilerplate**
 
 Instead of writing 50+ lines of code for each async operation, Fasq handles loading states, error handling, caching, and refetching automatically.
 
@@ -83,7 +83,7 @@ class UserScreen extends StatelessWidget {
 }
 ```
 
-### ⚡ **Intelligent Caching**
+### **Intelligent Caching**
 
 Fasq automatically caches your data and serves it instantly on subsequent requests. Configure how long data stays fresh, and Fasq handles the rest.
 
@@ -105,7 +105,7 @@ QueryBuilder<UserProfile>(
 - After 5 min: serves from cache, refetches in background
 - After 10 min inactive: cache cleared, next access fetches fresh
 
-### 🔄 **Request Deduplication**
+### **Request Deduplication**
 
 When multiple widgets request the same data simultaneously, only one network request is made. All requesters receive the same result.
 
@@ -127,7 +127,7 @@ QueryBuilder<Data>(
 
 Only ONE fetch happens, both widgets receive the same state.
 
-### 🎯 **Type Safety**
+### **Type Safety**
 
 Full generic type support ensures compile-time safety for your data.
 
@@ -148,14 +148,14 @@ QueryBuilder<List<User>>(
 
 Fasq works with your existing state management solution:
 
-### 🎣 **Hooks** (flutter_hooks)
+### **Hooks** (flutter_hooks)
 ```dart
 final usersState = useQuery('users', () => api.fetchUsers());
 if (usersState.isLoading) return Loading();
 return UserList(usersState.data!);
 ```
 
-### 🧊 **Bloc** (flutter_bloc)
+### **Bloc** (flutter_bloc)
 ```dart
 BlocProvider(
   create: (_) => QueryCubit(key: 'users', queryFn: () => api.fetchUsers()),
@@ -165,7 +165,7 @@ BlocProvider(
 )
 ```
 
-### 🔌 **Riverpod** (flutter_riverpod)
+### **Riverpod** (flutter_riverpod)
 ```dart
 final usersProvider = queryProvider('users', () => api.fetchUsers());
 
@@ -179,7 +179,7 @@ class UsersScreen extends ConsumerWidget {
 }
 ```
 
-### ⚡ **Core** (QueryBuilder)
+### **Core** (QueryBuilder)
 ```dart
 QueryBuilder<List<User>>(
   queryKey: 'users',
@@ -190,17 +190,17 @@ QueryBuilder<List<User>>(
 
 ## What Fasq Handles For You
 
-- ✅ **Loading States** - Automatic loading indicators
-- ✅ **Error Handling** - Consistent error states and recovery
-- ✅ **Caching** - Intelligent cache with configurable policies
-- ✅ **Background Refetching** - Keep data fresh automatically
-- ✅ **Request Deduplication** - Prevent duplicate network calls
-- ✅ **Memory Management** - Automatic cleanup and eviction
-- ✅ **Type Safety** - Full generic type support
-- ✅ **Thread Safety** - Concurrent access protection
-- ✅ **Security Features** - Secure cache entries, encrypted persistence, input validation
+- **Loading States** - Automatic loading indicators
+- **Error Handling** - Consistent error states and recovery
+- **Caching** - Intelligent cache with configurable policies
+- **Background Refetching** - Keep data fresh automatically
+- **Request Deduplication** - Prevent duplicate network calls
+- **Memory Management** - Automatic cleanup and eviction
+- **Type Safety** - Full generic type support
+- **Thread Safety** - Concurrent access protection
+- **Security Features** - Secure cache entries, encrypted persistence, input validation
 
-## Security Features 🔒
+## Security Features 
 
 Fasq includes comprehensive security features for production applications:
 
@@ -240,26 +240,26 @@ QueryClientProvider(
 Comprehensive validation prevents injection attacks:
 
 ```dart
-// ✅ Valid query keys
+// Valid query keys
 queryKey: 'user:123'        // Alphanumeric, colon, hyphen, underscore only
 
-// ❌ Invalid query keys throw clear errors
+// Invalid query keys throw clear errors
 queryKey: 'user@123'        // Special characters not allowed
 ```
 
 **Security Benefits:**
-- ✅ Never persisted to disk for secure entries
-- ✅ AES-GCM encryption for data at rest
-- ✅ Platform-specific secure key storage
-- ✅ Automatic cleanup on app lifecycle events
-- ✅ Input validation preventing injection attacks
+- Never persisted to disk for secure entries
+- AES-GCM encryption for data at rest
+- Platform-specific secure key storage
+- Automatic cleanup on app lifecycle events
+- Input validation preventing injection attacks
 
 ## What Fasq Doesn't Do
 
-- ❌ **Local State Management** - Use your existing solution for UI state
-- ❌ **HTTP Client** - Works with any Future-returning function
-- ❌ **Serialization** - You handle JSON parsing
-- ❌ **GraphQL** - Focuses on REST/HTTP APIs (for now)
+- **Local State Management** - Use your existing solution for UI state
+- **HTTP Client** - Works with any Future-returning function
+- **Serialization** - You handle JSON parsing
+- **GraphQL** - Focuses on REST/HTTP APIs (for now)
 
 ## Next Steps
 

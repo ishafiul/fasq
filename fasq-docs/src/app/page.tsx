@@ -54,7 +54,7 @@ export default function IndexPage() {
             transition: 'background-color 0.3s'
           }}
         >
-          📚 Documentation
+          Documentation
         </Link>
         <Link 
           href="/docs/quick-start" 
@@ -68,7 +68,7 @@ export default function IndexPage() {
             transition: 'background-color 0.3s'
           }}
         >
-          🚀 Quick Start
+          Quick Start
         </Link>
         <Link 
           href="/docs/examples" 
@@ -82,7 +82,7 @@ export default function IndexPage() {
             transition: 'background-color 0.3s'
           }}
         >
-          💡 Examples
+          Examples
         </Link>
       </div>
       
@@ -102,7 +102,7 @@ export default function IndexPage() {
         <h2 style={{ fontSize: 32, marginBottom: 40, color: '#ffffff' }}>Choose Your Integration</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', textAlign: 'left', marginBottom: 60 }}>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#ffffff' }}>🎣 Hooks Adapter</h3>
+            <h3 style={{ color: '#ffffff' }}>Hooks Adapter</h3>
             <p style={{ color: '#d0d0d0' }}>Use Fasq with flutter_hooks for declarative data fetching. Perfect for functional components and modern Flutter development.</p>
             <div style={{ marginTop: 15 }}>
               <code style={{ backgroundColor: '#2a2a2a', color: '#667eea', padding: '4px 8px', borderRadius: '4px', fontSize: '14px' }}>
@@ -112,7 +112,7 @@ export default function IndexPage() {
             <Link href="/docs/hooks" style={{ color: '#667eea', textDecoration: 'none', fontWeight: 'bold' }}>Learn more →</Link>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#ffffff' }}>🧊 Bloc Adapter</h3>
+            <h3 style={{ color: '#ffffff' }}>Bloc Adapter</h3>
             <p style={{ color: '#d0d0d0' }}>Integrate Fasq with flutter_bloc for structured state management. Ideal for complex applications with clear separation of concerns.</p>
             <div style={{ marginTop: 15 }}>
               <code style={{ backgroundColor: '#2a2a2a', color: '#667eea', padding: '4px 8px', borderRadius: '4px', fontSize: '14px' }}>
@@ -122,7 +122,7 @@ export default function IndexPage() {
             <Link href="/docs/bloc" style={{ color: '#667eea', textDecoration: 'none', fontWeight: 'bold' }}>Learn more →</Link>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#ffffff' }}>🔌 Riverpod Adapter</h3>
+            <h3 style={{ color: '#ffffff' }}>Riverpod Adapter</h3>
             <p style={{ color: '#d0d0d0' }}>Leverage Fasq with flutter_riverpod for compile-safe providers and dependency injection. Great for scalable applications.</p>
             <div style={{ marginTop: 15 }}>
               <code style={{ backgroundColor: '#2a2a2a', color: '#667eea', padding: '4px 8px', borderRadius: '4px', fontSize: '14px' }}>
@@ -132,7 +132,7 @@ export default function IndexPage() {
             <Link href="/docs/riverpod" style={{ color: '#667eea', textDecoration: 'none', fontWeight: 'bold' }}>Learn more →</Link>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#ffffff' }}>⚡ Core Package</h3>
+            <h3 style={{ color: '#ffffff' }}>Core Package</h3>
             <p style={{ color: '#d0d0d0' }}>Use Fasq&apos;s core widgets directly for maximum flexibility. Perfect for custom implementations and learning the fundamentals.</p>
             <div style={{ marginTop: 15 }}>
               <code style={{ backgroundColor: '#2a2a2a', color: '#667eea', padding: '4px 8px', borderRadius: '4px', fontSize: '14px' }}>
@@ -146,27 +146,27 @@ export default function IndexPage() {
         <h2 style={{ fontSize: 32, marginBottom: 40, color: '#ffffff' }}>Key Features</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', textAlign: 'left', marginBottom: 60 }}>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#667eea' }}>⚡ Intelligent Caching</h3>
+            <h3 style={{ color: '#667eea' }}>Intelligent Caching</h3>
             <p style={{ color: '#d0d0d0' }}>Automatic caching with configurable staleness detection. Data is cached intelligently and served instantly when available.</p>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#667eea' }}>🔄 Request Deduplication</h3>
+            <h3 style={{ color: '#667eea' }}>Request Deduplication</h3>
             <p style={{ color: '#d0d0d0' }}>Multiple requests for the same data automatically deduplicated. Only one network call per unique query.</p>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#667eea' }}>🎯 Type Safety</h3>
+            <h3 style={{ color: '#667eea' }}>Type Safety</h3>
             <p style={{ color: '#d0d0d0' }}>Full generic type support with compile-time safety. Catch errors at development time, not runtime.</p>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#667eea' }}>🚀 Background Refetching</h3>
+            <h3 style={{ color: '#667eea' }}>Background Refetching</h3>
             <p style={{ color: '#d0d0d0' }}>Stale data served instantly while fresh data loads in the background. Users never wait for data they already have.</p>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#667eea' }}>🔄 Optimistic Updates</h3>
+            <h3 style={{ color: '#667eea' }}>Optimistic Updates</h3>
             <p style={{ color: '#d0d0d0' }}>Update UI immediately and rollback on error. Provide instant feedback for better user experience.</p>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#667eea' }}>🛠️ Error Handling</h3>
+            <h3 style={{ color: '#667eea' }}>Error Handling</h3>
             <p style={{ color: '#d0d0d0' }}>Comprehensive error handling with retry mechanisms, fallback strategies, and user-friendly error messages.</p>
           </div>
         </div>
@@ -202,7 +202,7 @@ class UserProfile extends HookWidget {
         <div style={{ backgroundColor: '#1a1a1a', padding: '30px', borderRadius: '12px', marginBottom: 60, border: '1px solid #333' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px', textAlign: 'left' }}>
             <div>
-              <h3 style={{ color: '#4ade80', fontSize: '20px', marginBottom: '15px' }}>✅ Choose FASQ if you have:</h3>
+              <h3 style={{ color: '#4ade80', fontSize: '20px', marginBottom: '15px' }}>Choose FASQ if you have:</h3>
               <ul style={{ color: '#d0d0d0', lineHeight: '1.8', paddingLeft: '20px' }}>
                 <li>Multiple API endpoints to manage</li>
                 <li>Complex caching requirements</li>
@@ -213,7 +213,7 @@ class UserProfile extends HookWidget {
               </ul>
             </div>
             <div>
-              <h3 style={{ color: '#f87171', fontSize: '20px', marginBottom: '15px' }}>❌ Consider alternatives if you:</h3>
+              <h3 style={{ color: '#f87171', fontSize: '20px', marginBottom: '15px' }}>Consider alternatives if you:</h3>
               <ul style={{ color: '#d0d0d0', lineHeight: '1.8', paddingLeft: '20px' }}>
                 <li>Have simple, single API calls</li>
                 <li>Need micro-level performance control</li>
@@ -235,17 +235,17 @@ class UserProfile extends HookWidget {
         <h2 style={{ fontSize: 32, marginBottom: 40, color: '#ffffff' }}>Get Started</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', textAlign: 'left' }}>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#ffffff' }}>📖 Learn the Basics</h3>
+            <h3 style={{ color: '#ffffff' }}>Learn the Basics</h3>
             <p style={{ color: '#d0d0d0' }}>Start with our comprehensive documentation covering core concepts, installation, and basic usage patterns.</p>
             <Link href="/docs/core-concepts" style={{ color: '#667eea', textDecoration: 'none', fontWeight: 'bold' }}>Read Documentation →</Link>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#ffffff' }}>🚀 Try Examples</h3>
+            <h3 style={{ color: '#ffffff' }}>Try Examples</h3>
             <p style={{ color: '#d0d0d0' }}>Explore real-world examples including REST APIs, GraphQL, authentication, and database integration.</p>
             <Link href="/docs/examples" style={{ color: '#667eea', textDecoration: 'none', fontWeight: 'bold' }}>View Examples →</Link>
           </div>
           <div style={{ padding: '20px', border: '1px solid #333', borderRadius: '8px', backgroundColor: '#1a1a1a' }}>
-            <h3 style={{ color: '#ffffff' }}>🔧 Choose Your Adapter</h3>
+            <h3 style={{ color: '#ffffff' }}>Choose Your Adapter</h3>
             <p style={{ color: '#d0d0d0' }}>Pick the integration that fits your project: Hooks, Bloc, Riverpod, or use the core package directly.</p>
             <Link href="/docs/installation" style={{ color: '#667eea', textDecoration: 'none', fontWeight: 'bold' }}>Install Now →</Link>
           </div>

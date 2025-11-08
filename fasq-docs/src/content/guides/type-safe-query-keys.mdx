@@ -258,12 +258,12 @@ await client.prefetchQueries([
 Keep all query keys in a single `QueryKeys` class:
 
 ```dart
-// ✅ Good: Centralized
+// Good: Centralized
 class QueryKeys {
   static TypedQueryKey<List<User>> get users => ...;
 }
 
-// ❌ Bad: Scattered
+// Bad: Scattered
 final usersKey = 'users'.toQueryKey(); // In file A
 final postsKey = 'posts'.toQueryKey(); // In file B
 ```
@@ -273,12 +273,12 @@ final postsKey = 'posts'.toQueryKey(); // In file B
 Make query key names descriptive and hierarchical:
 
 ```dart
-// ✅ Good: Clear and hierarchical
+// Good: Clear and hierarchical
 QueryKeys.user('123')
 QueryKeys.postsByUser('123')
 QueryKeys.commentsByPost('456')
 
-// ❌ Bad: Unclear
+// Bad: Unclear
 QueryKeys.u('123')
 QueryKeys.p('123')
 ```
@@ -307,11 +307,11 @@ Use `const` for keys that don't change:
 
 ```dart
 class QueryKeys {
-  // ✅ Good: const for static keys
+  // Good: const for static keys
   static const TypedQueryKey<List<User>> users =
       TypedQueryKey<List<User>>('users', List<User>);
 
-  // ✅ Good: Factory for dynamic keys
+  // Good: Factory for dynamic keys
   static TypedQueryKey<User> user(String id) =>
       TypedQueryKey<User>('user:$id', User);
 }
@@ -322,11 +322,11 @@ class QueryKeys {
 Always specify the type parameter:
 
 ```dart
-// ✅ Good: Explicit type
+// Good: Explicit type
 static TypedQueryKey<List<User>> get users =>
     const TypedQueryKey<List<User>>('users', List<User>);
 
-// ❌ Bad: Missing type
+// Bad: Missing type
 static TypedQueryKey get users => ...; // Type is dynamic
 ```
 
@@ -555,10 +555,10 @@ class UserProfile extends StatelessWidget {
 
 Type-safe query keys provide:
 
-- ✅ Compile-time type checking
-- ✅ Better IDE support
-- ✅ Centralized key management
-- ✅ Refactoring safety
-- ✅ Type inference
+- Compile-time type checking
+- Better IDE support
+- Centralized key management
+- Refactoring safety
+- Type inference
 
 Start using type-safe query keys today to make your codebase more maintainable and less error-prone!
