@@ -2,7 +2,7 @@
 
 A powerful async state management library for Flutter. Handles API calls, database queries, file operations, and any async operation with intelligent caching, automatic refetching, and error recovery.
 
-**Current Version:** 0.2.0  
+**Current Version:** 0.3.4  
 **Status:** Production Ready
 
 ## Features
@@ -30,7 +30,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  fasq: ^0.2.0
+  fasq: ^0.3.4
 ```
 
 ## Quick Start
