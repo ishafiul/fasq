@@ -27,4 +27,6 @@ abstract class EncryptionProvider {
   /// [key] The key to validate
   /// Returns true if the key is valid, false otherwise
   bool isValidKey(String key);
+
+  Future<void> dispose();
 }

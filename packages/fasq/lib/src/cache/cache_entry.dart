@@ -30,6 +30,9 @@ class CacheEntry<T> {
   /// When this secure entry expires (enforced TTL).
   final DateTime? expiresAt;
 
+  /// Whether this entry represents a cached value (even if the value is null).
+  final bool hasValue;
+
   const CacheEntry({
     required this.data,
     required this.createdAt,
@@ -40,6 +43,7 @@ class CacheEntry<T> {
     this.referenceCount = 0,
     this.isSecure = false,
     this.expiresAt,
+    this.hasValue = true,
   });
 
   /// Creates a new cache entry with current timestamp.
@@ -49,7 +53,12 @@ class CacheEntry<T> {
     required Duration cacheTime,
     bool isSecure = false,
     Duration? maxAge,
+    bool hasValue = true,
   }) {
+    assert(
+      !isSecure || maxAge != null,
+      'Secure cache entries must specify maxAge.',
+    );
     final now = DateTime.now();
     return CacheEntry<T>(
       data: data,
@@ -60,6 +69,7 @@ class CacheEntry<T> {
       cacheTime: cacheTime,
       isSecure: isSecure,
       expiresAt: isSecure && maxAge != null ? now.add(maxAge) : null,
+      hasValue: hasValue,
     );
   }
 
@@ -134,6 +144,7 @@ class CacheEntry<T> {
     int? referenceCount,
     bool? isSecure,
     DateTime? expiresAt,
+    bool? hasValue,
   }) {
     return CacheEntry<T>(
       data: data ?? this.data,
@@ -145,6 +156,7 @@ class CacheEntry<T> {
       referenceCount: referenceCount ?? this.referenceCount,
       isSecure: isSecure ?? this.isSecure,
       expiresAt: expiresAt ?? this.expiresAt,
+      hasValue: hasValue ?? this.hasValue,
     );
   }
 
@@ -156,42 +168,10 @@ class CacheEntry<T> {
     );
   }
 
-  /// Converts this cache entry to a JSON-serializable map.
-  Map<String, dynamic> toJson() {
-    return {
-      'data': data,
-      'createdAt': createdAt.toIso8601String(),
-      'lastAccessedAt': lastAccessedAt.toIso8601String(),
-      'accessCount': accessCount,
-      'staleTime': staleTime.inMilliseconds,
-      'cacheTime': cacheTime.inMilliseconds,
-      'referenceCount': referenceCount,
-      'isSecure': isSecure,
-      'expiresAt': expiresAt?.toIso8601String(),
-    };
-  }
-
-  /// Creates a cache entry from a JSON map.
-  factory CacheEntry.fromJson(Map<String, dynamic> json) {
-    return CacheEntry<T>(
-      data: json['data'] as T,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      lastAccessedAt: DateTime.parse(json['lastAccessedAt'] as String),
-      accessCount: json['accessCount'] as int,
-      staleTime: Duration(milliseconds: json['staleTime'] as int),
-      cacheTime: Duration(milliseconds: json['cacheTime'] as int),
-      referenceCount: json['referenceCount'] as int? ?? 0,
-      isSecure: json['isSecure'] as bool? ?? false,
-      expiresAt: json['expiresAt'] != null
-          ? DateTime.parse(json['expiresAt'] as String)
-          : null,
-    );
-  }
-
   @override
   String toString() {
     return 'CacheEntry<$T>(age: $age, accessCount: $accessCount, '
         'isFresh: $isFresh, refCount: $referenceCount, '
-        'isSecure: $isSecure, isExpired: $isExpired)';
+        'isSecure: $isSecure, isExpired: $isExpired, hasValue: $hasValue)';
   }
 }

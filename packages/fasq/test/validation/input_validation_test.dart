@@ -210,9 +210,9 @@ void main() {
         client = QueryClient();
       });
 
-      tearDown(() {
-        cache.dispose();
-        client.dispose();
+      tearDown(() async {
+        await cache.dispose();
+        await client.dispose();
       });
 
       test('QueryClient validates inputs', () {

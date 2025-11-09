@@ -28,4 +28,7 @@ abstract class SecurityPlugin {
 
   /// Initializes the security plugin and all its providers.
   Future<void> initialize();
+
+  /// Whether [initialize] already prepares the created providers.
+  bool get initializesProviders => false;
 }

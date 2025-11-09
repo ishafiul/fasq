@@ -1,3 +1,5 @@
+import 'cache_data_codec.dart';
+
 /// Configuration options for cache persistence.
 ///
 /// Controls whether and how cache data is persisted to disk,
@@ -13,25 +15,30 @@ class PersistenceOptions {
   /// Defaults to 5 minutes if not specified.
   final Duration? gcInterval;
 
+  final CacheDataCodecRegistry codecRegistry;
+
   const PersistenceOptions({
     this.enabled = false,
     this.gcInterval,
-  });
+    CacheDataCodecRegistry? codecRegistry,
+  }) : codecRegistry = codecRegistry ?? const CacheDataCodecRegistry();
 
   /// Creates a copy with updated values.
   PersistenceOptions copyWith({
     bool? enabled,
     Duration? gcInterval,
+    CacheDataCodecRegistry? codecRegistry,
   }) {
     return PersistenceOptions(
       enabled: enabled ?? this.enabled,
       gcInterval: gcInterval ?? this.gcInterval,
+      codecRegistry: codecRegistry ?? this.codecRegistry,
     );
   }
 
   @override
   String toString() {
-    return 'PersistenceOptions(enabled: $enabled, gcInterval: $gcInterval)';
+    return 'PersistenceOptions(enabled: $enabled, gcInterval: $gcInterval, codecs: ${codecRegistry.serializers.length})';
   }
 
   @override
@@ -39,11 +46,12 @@ class PersistenceOptions {
     if (identical(this, other)) return true;
     return other is PersistenceOptions &&
         other.enabled == enabled &&
-        other.gcInterval == gcInterval;
+        other.gcInterval == gcInterval &&
+        other.codecRegistry == codecRegistry;
   }
 
   @override
   int get hashCode {
-    return Object.hash(enabled, gcInterval);
+    return Object.hash(enabled, gcInterval, codecRegistry);
   }
 }

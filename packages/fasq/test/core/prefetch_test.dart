@@ -3,8 +3,8 @@ import 'package:fasq/fasq.dart';
 
 void main() {
   group('QueryClient Prefetch', () {
-    setUp(() {
-      QueryClient.resetForTesting();
+    setUp(() async {
+      await QueryClient.resetForTesting();
     });
 
     test('prefetchQuery populates cache correctly', () async {
@@ -151,8 +151,8 @@ void main() {
   });
 
   group('QueryClient Prefetch Multiple', () {
-    setUp(() {
-      QueryClient.resetForTesting();
+    setUp(() async {
+      await QueryClient.resetForTesting();
     });
 
     test('prefetchQueries executes all prefetches in parallel', () async {

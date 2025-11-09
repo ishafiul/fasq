@@ -21,6 +21,9 @@ class QueryState<T> {
   /// The data returned by the async operation, or null if not yet loaded.
   final T? data;
 
+  /// Whether the query has produced a value (even if the value is null).
+  final bool hasValue;
+
   /// The error that occurred during the async operation, or null if no error.
   final Object? error;
 
@@ -44,6 +47,7 @@ class QueryState<T> {
 
   const QueryState({
     this.data,
+    this.hasValue = false,
     this.error,
     this.stackTrace,
     required this.status,
@@ -54,7 +58,10 @@ class QueryState<T> {
 
   /// Creates an idle state (query not started yet).
   factory QueryState.idle() {
-    return QueryState<T>(status: QueryStatus.idle);
+    return QueryState<T>(
+      status: QueryStatus.idle,
+      hasValue: false,
+    );
   }
 
   /// Creates a loading state.
@@ -65,19 +72,24 @@ class QueryState<T> {
     return QueryState<T>(
       status: QueryStatus.loading,
       data: data,
+      hasValue: data != null,
       isFetching: isFetching,
       isStale: isStale,
     );
   }
 
   /// Creates a success state with [data].
-  factory QueryState.success(T data,
-      {DateTime? dataUpdatedAt,
-      bool isFetching = false,
-      bool isStale = false}) {
+  factory QueryState.success(
+    T data, {
+    DateTime? dataUpdatedAt,
+    bool isFetching = false,
+    bool isStale = false,
+    bool hasValue = true,
+  }) {
     return QueryState<T>(
       status: QueryStatus.success,
       data: data,
+      hasValue: hasValue,
       dataUpdatedAt: dataUpdatedAt ?? DateTime.now(),
       isFetching: isFetching,
       isStale: isStale,
@@ -90,6 +102,7 @@ class QueryState<T> {
       status: QueryStatus.error,
       error: error,
       stackTrace: stackTrace,
+      hasValue: false,
     );
   }
 
@@ -100,7 +113,7 @@ class QueryState<T> {
   bool get hasError => error != null;
 
   /// Whether data is available.
-  bool get hasData => data != null;
+  bool get hasData => hasValue;
 
   /// Whether the query completed successfully.
   bool get isSuccess => status == QueryStatus.success;
@@ -110,6 +123,7 @@ class QueryState<T> {
 
   QueryState<T> copyWith({
     T? data,
+    bool? hasValue,
     Object? error,
     StackTrace? stackTrace,
     QueryStatus? status,
@@ -119,6 +133,7 @@ class QueryState<T> {
   }) {
     return QueryState<T>(
       data: data ?? this.data,
+      hasValue: hasValue ?? this.hasValue,
       error: error ?? this.error,
       stackTrace: stackTrace ?? this.stackTrace,
       status: status ?? this.status,
@@ -134,6 +149,7 @@ class QueryState<T> {
 
     return other is QueryState<T> &&
         other.data == data &&
+        other.hasValue == hasValue &&
         other.error == error &&
         other.stackTrace == stackTrace &&
         other.status == status &&
@@ -145,6 +161,7 @@ class QueryState<T> {
   int get hashCode {
     return Object.hash(
       data,
+      hasValue,
       error,
       stackTrace,
       status,

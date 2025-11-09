@@ -39,6 +39,7 @@ export 'src/pagination/cursor_pagination.dart';
 export 'src/performance/isolate_pool.dart';
 export 'src/performance/isolate_task.dart';
 export 'src/performance/performance_monitor.dart';
+export 'src/persistence/cache_data_codec.dart';
 export 'src/persistence/persistence_options.dart';
 export 'src/security/security_plugin.dart';
 export 'src/security/security_provider.dart';
