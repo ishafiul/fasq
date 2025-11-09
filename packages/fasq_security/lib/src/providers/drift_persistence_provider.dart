@@ -10,8 +10,18 @@ import '../exceptions/persistence_exception.dart';
 /// Provides efficient encrypted data persistence with batch operations,
 /// ACID compliance, and optimized indexing for cache operations.
 class DriftPersistenceProvider implements PersistenceProvider {
+  DriftPersistenceProvider({void Function()? onDispose})
+      : _onDispose = onDispose;
+
   late CacheDatabase _database;
   bool _initialized = false;
+  final void Function()? _onDispose;
+
+  bool get isInitialized => _initialized;
+  bool get isDisposed => !_initialized;
+
+  @override
+  bool get supportsEncryptionKeyRotation => true;
 
   @override
   Future<void> initialize() async {
@@ -26,13 +36,22 @@ class DriftPersistenceProvider implements PersistenceProvider {
   }
 
   @override
-  Future<void> persist(String key, List<int> encryptedData) async {
+  Future<void> persist(
+    String key,
+    List<int> encryptedData, {
+    DateTime? createdAt,
+    DateTime? expiresAt,
+  }) async {
     if (!_initialized) {
       throw PersistenceException('Provider not initialized');
     }
 
     try {
-      await _database.insertCacheEntries({key: encryptedData});
+      await _database.insertCacheEntries(
+        {key: encryptedData},
+        createdAt: createdAt != null ? {key: createdAt} : null,
+        expiresAt: {key: expiresAt},
+      );
     } catch (e) {
       throw PersistenceException('Failed to persist data for key $key: $e');
     }
@@ -118,13 +137,21 @@ class DriftPersistenceProvider implements PersistenceProvider {
   }
 
   @override
-  Future<void> persistMultiple(Map<String, List<int>> entries) async {
+  Future<void> persistMultiple(
+    Map<String, List<int>> entries, {
+    Map<String, DateTime?>? createdAt,
+    Map<String, DateTime?>? expiresAt,
+  }) async {
     if (!_initialized) {
       throw PersistenceException('Provider not initialized');
     }
 
     try {
-      await _database.insertCacheEntries(entries);
+      await _database.insertCacheEntries(
+        entries,
+        createdAt: createdAt,
+        expiresAt: expiresAt,
+      );
     } catch (e) {
       throw PersistenceException('Failed to persist multiple entries: $e');
     }
@@ -143,17 +170,8 @@ class DriftPersistenceProvider implements PersistenceProvider {
     }
   }
 
-  /// Updates the encryption key by re-encrypting all existing data.
-  ///
-  /// This re-encrypts all existing data with the new key to ensure data
-  /// remains accessible after the key change. The process is atomic - if
-  /// re-encryption fails, the old key is restored.
-  ///
-  /// [oldKey] The current encryption key
-  /// [newKey] The new encryption key to use
-  /// [encryptionProvider] The encryption provider to use for re-encryption
-  /// [onProgress] Optional callback for progress tracking during re-encryption
-  Future<void> updateEncryptionKey(
+  @override
+  Future<void> rotateEncryptionKey(
     String oldKey,
     String newKey,
     EncryptionProvider encryptionProvider, {
@@ -168,52 +186,78 @@ class DriftPersistenceProvider implements PersistenceProvider {
     }
 
     try {
-      // 1. Get all existing persisted keys
       final existingKeys = await getAllKeys();
       onProgress?.call(0, existingKeys.length);
 
-      // 2. Create temporary storage for re-encrypted data
       final reEncryptedData = <String, List<int>>{};
+      final createdAtMap = <String, DateTime?>{};
+      final expiresAtMap = <String, DateTime?>{};
+      final failedKeys = <String>[];
       int processedCount = 0;
+      const batchSize = 50;
 
-      // 3. Re-encrypt all existing data
+      Future<void> flushBatch() async {
+        if (reEncryptedData.isEmpty) {
+          return;
+        }
+        await persistMultiple(
+          Map<String, List<int>>.from(reEncryptedData),
+          createdAt: Map<String, DateTime?>.from(createdAtMap),
+          expiresAt: Map<String, DateTime?>.from(expiresAtMap),
+        );
+        reEncryptedData.clear();
+        createdAtMap.clear();
+        expiresAtMap.clear();
+        await Future<void>.delayed(Duration.zero);
+      }
+
       for (final key in existingKeys) {
         try {
-          // Retrieve encrypted data with old key
           final encryptedData = await retrieve(key);
-          if (encryptedData != null) {
-            // Decrypt with old key
-            final decryptedData = await encryptionProvider.decrypt(
-              encryptedData,
-              oldKey,
-            );
-
-            // Encrypt with new key
-            final newEncryptedData = await encryptionProvider.encrypt(
-              decryptedData,
-              newKey,
-            );
-
-            // Store in temporary map
-            reEncryptedData[key] = newEncryptedData;
+          if (encryptedData == null) {
+            continue;
           }
-        } catch (e) {
-          // Log warning but continue with other keys
-          // Failed to re-encrypt key, skip this entry
+
+          final metadata = await _database.getMetadata(key);
+          if (metadata == null) {
+            failedKeys.add(key);
+            continue;
+          }
+
+          final decryptedData = await encryptionProvider.decrypt(
+            encryptedData,
+            oldKey,
+          );
+          final newEncryptedData = await encryptionProvider.encrypt(
+            decryptedData,
+            newKey,
+          );
+
+          reEncryptedData[key] = newEncryptedData;
+          createdAtMap[key] = metadata.createdAt;
+          expiresAtMap[key] = metadata.expiresAt;
+
+          if (reEncryptedData.length >= batchSize) {
+            await flushBatch();
+          }
+        } catch (_) {
+          failedKeys.add(key);
         }
 
         processedCount++;
         onProgress?.call(processedCount, existingKeys.length);
+
+        if (processedCount % batchSize == 0) {
+          await Future<void>.delayed(Duration.zero);
+        }
       }
 
-      // 4. Persist all re-encrypted data
-      await persistMultiple(reEncryptedData);
+      await flushBatch();
 
-      // 5. Clean up any failed re-encryptions by removing old data
-      for (final key in existingKeys) {
-        if (!reEncryptedData.containsKey(key)) {
-          await remove(key);
-        }
+      if (failedKeys.isNotEmpty) {
+        throw PersistenceException(
+          'Failed to re-encrypt keys: ${failedKeys.join(', ')}',
+        );
       }
     } catch (e) {
       throw PersistenceException('Failed to update encryption key: $e');
@@ -233,11 +277,13 @@ class DriftPersistenceProvider implements PersistenceProvider {
     }
   }
 
+  @override
   Future<void> dispose() async {
     if (!_initialized) {
       return;
     }
     await _database.close();
     _initialized = false;
+    _onDispose?.call();
   }
 }
