@@ -2,8 +2,8 @@ import 'package:fasq_bloc/fasq_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  setUp(() {
-    QueryClient.resetForTesting();
+  setUp(() async {
+    await QueryClient.resetForTesting();
   });
 
   test('InfiniteQueryCubit wires methods to core', () async {

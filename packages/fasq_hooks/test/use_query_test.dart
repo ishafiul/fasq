@@ -4,8 +4,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  tearDown(() {
-    QueryClient.resetForTesting();
+  tearDown(() async {
+    await QueryClient.resetForTesting();
   });
 
   group('useQuery', () {

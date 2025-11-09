@@ -4,8 +4,8 @@ import 'package:fasq_bloc/fasq_bloc.dart';
 
 void main() {
   group('MultiQueryBuilder', () {
-    setUp(() {
-      QueryClient.resetForTesting();
+    setUp(() async {
+      await QueryClient.resetForTesting();
     });
 
     testWidgets('executes all queries independently', (tester) async {
@@ -309,8 +309,8 @@ void main() {
   });
 
   group('NamedMultiQueryBuilder', () {
-    setUp(() {
-      QueryClient.resetForTesting();
+    setUp(() async {
+      await QueryClient.resetForTesting();
     });
 
     testWidgets('executes all named queries independently', (tester) async {
