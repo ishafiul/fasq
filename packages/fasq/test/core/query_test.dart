@@ -2,9 +2,9 @@ import 'package:fasq/fasq.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  setUp(() {
+  setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    QueryClient.resetForTesting();
+    await QueryClient.resetForTesting();
   });
 
   group('Query', () {

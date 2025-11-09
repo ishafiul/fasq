@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:fasq/fasq.dart';
@@ -33,7 +32,7 @@ void main() {
 
       expect(plugin.persistence.snapshot.containsKey('user:1'), isTrue);
 
-      cache1.dispose();
+      await cache1.dispose();
 
       final cache2 = QueryCache(
         persistenceOptions: const PersistenceOptions(enabled: true),
@@ -46,7 +45,7 @@ void main() {
       expect(entry, isNotNull);
       expect(entry!.data, 'alice');
 
-      cache2.dispose();
+      await cache2.dispose();
     });
 
     test('does not persist secure entries', () async {
@@ -66,7 +65,7 @@ void main() {
 
       expect(plugin.persistence.snapshot.containsKey('secure-token'), isFalse);
 
-      cache.dispose();
+      await cache.dispose();
     });
 
     test('remove deletes persisted entry', () async {
@@ -85,7 +84,7 @@ void main() {
 
       expect(plugin.persistence.snapshot.containsKey('session'), isFalse);
 
-      cache.dispose();
+      await cache.dispose();
     });
 
     test('clear removes persisted entries', () async {
@@ -105,7 +104,52 @@ void main() {
 
       expect(plugin.persistence.snapshot, isEmpty);
 
-      cache.dispose();
+      await cache.dispose();
+    });
+
+    test('custom serializer restores typed data', () async {
+      final codecRegistry =
+          const CacheDataCodecRegistry().registerSerializer<_SerializableUser>(
+        CacheDataSerializer<_SerializableUser>(
+          encode: (value) => value.toJson(),
+          decode: (json) =>
+              _SerializableUser.fromJson(json as Map<String, dynamic>),
+        ),
+      );
+
+      final cache1 = QueryCache(
+        persistenceOptions: PersistenceOptions(
+          enabled: true,
+          codecRegistry: codecRegistry,
+        ),
+        securityPlugin: plugin,
+      );
+      await cache1.persistenceInitialization;
+
+      cache1.set<_SerializableUser>(
+        'user:1',
+        const _SerializableUser(id: 1, name: 'Alice'),
+      );
+      await _drainMicrotasks();
+      await cache1.dispose();
+
+      final cache2 = QueryCache(
+        persistenceOptions: PersistenceOptions(
+          enabled: true,
+          codecRegistry: codecRegistry,
+        ),
+        securityPlugin: plugin,
+      );
+      await cache2.persistenceInitialization;
+      await _drainMicrotasks();
+
+      final entry = cache2.get<_SerializableUser>('user:1');
+      expect(entry, isNotNull);
+      expect(entry!.data, isA<_SerializableUser>());
+      expect(entry.data.id, 1);
+      expect(entry.data.name, 'Alice');
+
+      await cache2.dispose();
     });
   });
 }
@@ -131,6 +175,9 @@ class _FakeSecurityPlugin implements SecurityPlugin {
 
   @override
   bool get isSupported => true;
+
+  @override
+  bool get initializesProviders => false;
 
   @override
   Future<void> initialize() async {
@@ -215,6 +262,9 @@ class _FakeEncryptionProvider implements EncryptionProvider {
 
   @override
   bool isValidKey(String key) => key.isNotEmpty;
+
+  @override
+  Future<void> dispose() async {}
 }
 
 class _FakePersistenceProvider implements PersistenceProvider {
@@ -227,7 +277,12 @@ class _FakePersistenceProvider implements PersistenceProvider {
   Future<void> initialize() async {}
 
   @override
-  Future<void> persist(String key, List<int> encryptedData) async {
+  Future<void> persist(
+    String key,
+    List<int> encryptedData, {
+    DateTime? createdAt,
+    DateTime? expiresAt,
+  }) async {
     _storage[key] = List<int>.from(encryptedData);
   }
 
@@ -263,7 +318,11 @@ class _FakePersistenceProvider implements PersistenceProvider {
   }
 
   @override
-  Future<void> persistMultiple(Map<String, List<int>> entries) async {
+  Future<void> persistMultiple(
+    Map<String, List<int>> entries, {
+    Map<String, DateTime?>? createdAt,
+    Map<String, DateTime?>? expiresAt,
+  }) async {
     entries.forEach((key, value) {
       _storage[key] = List<int>.from(value);
     });
@@ -274,5 +333,41 @@ class _FakePersistenceProvider implements PersistenceProvider {
     for (final key in keys) {
       _storage.remove(key);
     }
+  }
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  bool get supportsEncryptionKeyRotation => true;
+
+  @override
+  Future<void> rotateEncryptionKey(
+    String oldKey,
+    String newKey,
+    EncryptionProvider encryptionProvider, {
+    void Function(int current, int total)? onProgress,
+  }) async {}
+}
+
+class _SerializableUser {
+  const _SerializableUser({
+    required this.id,
+    required this.name,
+  });
+
+  final int id;
+  final String name;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+      };
+
+  static _SerializableUser fromJson(Map<String, dynamic> json) {
+    return _SerializableUser(
+      id: (json['id'] as num).toInt(),
+      name: json['name'] as String,
+    );
   }
 }

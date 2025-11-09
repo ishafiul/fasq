@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +19,12 @@ class CacheDatabase {
     final database = NativeDatabase(
       file,
       logStatements: false,
+      setup: (db) {
+        db.execute('PRAGMA journal_mode=WAL');
+        db.execute('PRAGMA synchronous=NORMAL');
+        db.execute('PRAGMA cache_size=10000');
+        db.execute('PRAGMA busy_timeout=5000');
+      },
     );
     final instance = CacheDatabase._(database, file.path);
     await instance._createSchema();
@@ -95,28 +100,40 @@ class CacheDatabase {
     return result;
   }
 
-  Future<void> insertCacheEntries(Map<String, List<int>> entries) async {
+  Future<void> insertCacheEntries(
+    Map<String, List<int>> entries, {
+    Map<String, DateTime?>? createdAt,
+    Map<String, DateTime?>? expiresAt,
+  }) async {
     if (entries.isEmpty) {
       return;
     }
 
-    final createdAt = DateTime.now();
-    for (final entry in entries.entries) {
-      final createdAtMs = createdAt.millisecondsSinceEpoch;
-      final expiresAt =
-          createdAt.add(const Duration(days: 7)).millisecondsSinceEpoch;
+    final now = DateTime.now();
+    await _db.runCustom('BEGIN IMMEDIATE TRANSACTION');
+    try {
+      for (final entry in entries.entries) {
+        final created = createdAt?[entry.key] ?? now;
+        final expires = expiresAt?[entry.key];
+        final createdAtMs = created.millisecondsSinceEpoch;
+        final expiresAtMs = expires?.millisecondsSinceEpoch;
 
-      await _db.runInsert(
-        'INSERT OR REPLACE INTO cache_entries '
-        '(cache_key, encrypted_data, created_at, expires_at) '
-        'VALUES (?1, ?2, ?3, ?4)',
-        [
-          entry.key,
-          Uint8List.fromList(entry.value),
-          createdAtMs,
-          expiresAt,
-        ],
-      );
+        await _db.runInsert(
+          'INSERT OR REPLACE INTO cache_entries '
+          '(cache_key, encrypted_data, created_at, expires_at) '
+          'VALUES (?1, ?2, ?3, ?4)',
+          [
+            entry.key,
+            Uint8List.fromList(entry.value),
+            createdAtMs,
+            expiresAtMs,
+          ],
+        );
+      }
+      await _db.runCustom('COMMIT');
+    } catch (error) {
+      await _db.runCustom('ROLLBACK');
+      rethrow;
     }
   }
 
@@ -160,6 +177,31 @@ class CacheDatabase {
     await _db.runDelete('DELETE FROM cache_entries', const []);
   }
 
+  Future<CacheEntryMetadata?> getMetadata(String key) async {
+    final rows = await _db.runSelect(
+      'SELECT created_at, expires_at FROM cache_entries WHERE cache_key = ?',
+      [key],
+    );
+
+    if (rows.isEmpty) {
+      return null;
+    }
+
+    final row = rows.first;
+    final createdAt = DateTime.fromMillisecondsSinceEpoch(
+      row['created_at'] as int,
+      isUtc: false,
+    );
+    final expiresAtRaw = row['expires_at'] as int?;
+
+    return CacheEntryMetadata(
+      createdAt: createdAt,
+      expiresAt: expiresAtRaw != null
+          ? DateTime.fromMillisecondsSinceEpoch(expiresAtRaw)
+          : null,
+    );
+  }
+
   Future<int> cleanupExpired() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     return _db.runDelete(
@@ -173,4 +215,14 @@ class CacheDatabase {
   }
 
   String get path => _path;
+}
+
+class CacheEntryMetadata {
+  const CacheEntryMetadata({
+    required this.createdAt,
+    required this.expiresAt,
+  });
+
+  final DateTime createdAt;
+  final DateTime? expiresAt;
 }

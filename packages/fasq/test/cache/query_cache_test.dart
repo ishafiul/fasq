@@ -9,8 +9,8 @@ void main() {
       cache = QueryCache();
     });
 
-    tearDown(() {
-      cache.dispose();
+    tearDown(() async {
+      await cache.dispose();
     });
 
     test('get returns null for non-existent key', () {
@@ -249,7 +249,7 @@ void main() {
       expect(metrics.hitRate, closeTo(0.33, 0.01));
     });
 
-    test('eviction triggers when cache exceeds size', () {
+    test('eviction triggers when cache exceeds size', () async {
       final smallCache = QueryCache(
         config: const CacheConfig(
           maxCacheSize: 100,
@@ -263,10 +263,10 @@ void main() {
       expect(smallCache.entryCount, lessThan(20));
       expect(smallCache.currentSize, lessThanOrEqualTo(100));
 
-      smallCache.dispose();
+      await smallCache.dispose();
     });
 
-    test('eviction preserves active entries', () {
+    test('eviction preserves active entries', () async {
       final smallCache = QueryCache(
         config: const CacheConfig(
           maxCacheSize: 100,
@@ -281,7 +281,7 @@ void main() {
 
       expect(smallCache.entryCount, greaterThan(0));
 
-      smallCache.dispose();
+      await smallCache.dispose();
     });
   });
 }

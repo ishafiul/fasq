@@ -4,8 +4,8 @@ import 'package:fasq_riverpod/fasq_riverpod.dart';
 
 void main() {
   group('Dynamic Query Combiners', () {
-    setUp(() {
-      QueryClient.resetForTesting();
+    setUp(() async {
+      await QueryClient.resetForTesting();
     });
 
     group('CombinedQueriesState', () {

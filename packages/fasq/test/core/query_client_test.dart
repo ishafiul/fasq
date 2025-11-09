@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('QueryClient', () {
-    tearDown(() {
-      QueryClient.resetForTesting();
+    tearDown(() async {
+      await QueryClient.resetForTesting();
     });
 
     test('is a singleton', () {

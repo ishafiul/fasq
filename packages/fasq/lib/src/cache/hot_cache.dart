@@ -134,6 +134,7 @@ class HotCache<T> {
         totalAccesses: 0,
         oldestEntry: null,
         newestEntry: null,
+        maxSize: maxSize,
       );
     }
 
@@ -159,6 +160,7 @@ class HotCache<T> {
       totalAccesses: totalAccesses,
       oldestEntry: oldestEntry,
       newestEntry: newestEntry,
+      maxSize: maxSize,
     );
   }
 
@@ -214,6 +216,7 @@ class HotCacheOverallStats {
   final int totalAccesses;
   final DateTime? oldestEntry;
   final DateTime? newestEntry;
+  final int maxSize;
 
   const HotCacheOverallStats({
     required this.totalEntries,
@@ -221,6 +224,7 @@ class HotCacheOverallStats {
     required this.totalAccesses,
     required this.oldestEntry,
     required this.newestEntry,
+    required this.maxSize,
   });
 
   /// Hit rate based on access patterns
@@ -229,7 +233,7 @@ class HotCacheOverallStats {
 
   /// Cache utilization percentage
   double get utilizationPercentage =>
-      (totalEntries / 50) * 100; // Assuming max size of 50
+      maxSize > 0 ? (totalEntries / maxSize) * 100 : 0.0;
 
   @override
   String toString() {

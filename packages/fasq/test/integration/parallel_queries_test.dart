@@ -3,8 +3,8 @@ import 'package:fasq/fasq.dart';
 
 void main() {
   group('Parallel Queries - Core Behavior', () {
-    setUp(() {
-      QueryClient.resetForTesting();
+    setUp(() async {
+      await QueryClient.resetForTesting();
     });
 
     test('all queries execute independently', () async {

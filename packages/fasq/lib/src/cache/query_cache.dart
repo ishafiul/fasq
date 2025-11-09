@@ -12,6 +12,7 @@ import 'eviction/fifo_eviction.dart';
 import 'eviction/lfu_eviction.dart';
 import 'eviction/lru_eviction.dart';
 import 'hot_cache.dart';
+import '../persistence/cache_data_codec.dart';
 import '../persistence/persistence_options.dart';
 import '../security/encryption_provider.dart';
 import '../security/persistence_provider.dart';
@@ -31,6 +32,10 @@ class QueryCache {
   final Map<String, AsyncLock> _locks = {};
   final CacheMetrics _metrics = CacheMetrics();
   late final HotCache<CacheEntry> _hotCache;
+  Future<void>? _globalPersistenceOperation;
+  final Map<String, Future<void>> _persistOperations = {};
+  final Map<String, int> _entryVersions = {};
+  int _versionCounter = 0;
 
   bool _isInitialized = false;
   SecurityProvider? _securityProvider;
@@ -40,6 +45,8 @@ class QueryCache {
 
   Timer? _gcTimer;
   Timer? _persistenceGcTimer;
+  final CacheDataCodecRegistry _codecRegistry;
+  final AsyncLock _encryptionKeyLock = AsyncLock();
 
   bool get _persistenceReady =>
       _isInitialized &&
@@ -54,7 +61,9 @@ class QueryCache {
     CacheConfig? config,
     this.persistenceOptions,
     this.securityPlugin,
-  }) : config = config ?? const CacheConfig() {
+  })  : config = config ?? const CacheConfig(),
+        _codecRegistry = (persistenceOptions?.codecRegistry ??
+            const CacheDataCodecRegistry()) {
     _hotCache =
         HotCache<CacheEntry>(maxSize: this.config.performance.hotCacheSize);
     _startGarbageCollection();
@@ -117,6 +126,7 @@ class QueryCache {
       referenceCount: entry.referenceCount,
       isSecure: entry.isSecure,
       expiresAt: entry.expiresAt,
+      hasValue: entry.hasValue,
     );
   }
 
@@ -137,6 +147,11 @@ class QueryCache {
     InputValidator.validateDuration(staleTime, 'staleTime');
     InputValidator.validateDuration(cacheTime, 'cacheTime');
     InputValidator.validateDuration(maxAge, 'maxAge');
+    if (isSecure && maxAge == null) {
+      throw ArgumentError(
+        'Secure cache entries require maxAge for TTL enforcement',
+      );
+    }
 
     final entry = CacheEntry<T>.create(
       data: data,
@@ -144,18 +159,21 @@ class QueryCache {
       cacheTime: cacheTime ?? config.defaultCacheTime,
       isSecure: isSecure,
       maxAge: maxAge,
+      hasValue: true,
     );
 
     _entries[key] = entry;
+    final version = _nextEntryVersion();
+    _entryVersions[key] = version;
 
     // Remove from hot cache to force re-promotion
     _hotCache.remove(key);
 
-    // Persist non-secure entries if persistence is enabled
+    // Queue persistence without blocking
     if (persistenceOptions?.enabled == true &&
         !isSecure &&
         securityPlugin != null) {
-      unawaited(_persistEntry(key, entry));
+      _queuePersistence(key, entry, version);
     }
 
     if (_shouldEvict()) {
@@ -169,8 +187,10 @@ class QueryCache {
     final removed = _entries.remove(key);
     if (removed != null) {
       _hotCache.remove(key);
+      _entryVersions.remove(key);
+      _persistOperations.remove(key);
       if (_persistenceReady) {
-        unawaited(_removeFromPersistence(key));
+        _removePersistenceAsync(key);
       }
     }
   }
@@ -180,6 +200,10 @@ class QueryCache {
     _hotCache.clear();
     _inFlightRequests.clear();
     _metrics.reset();
+    _entryVersions.clear();
+    _persistOperations.clear();
+    _globalPersistenceOperation = null;
+    _versionCounter = 0;
   }
 
   /// Clears all cache entries.
@@ -188,7 +212,7 @@ class QueryCache {
 
     // Clear persistence if enabled
     if (_persistenceReady) {
-      unawaited(_clearPersistence());
+      _clearPersistenceAsync();
     }
   }
 
@@ -204,6 +228,8 @@ class QueryCache {
     for (final key in keysToRemove) {
       _entries.remove(key);
       _hotCache.remove(key);
+      _entryVersions.remove(key);
+      _persistOperations.remove(key);
     }
   }
 
@@ -368,6 +394,9 @@ class QueryCache {
 
     for (final key in keysToEvict) {
       _entries.remove(key);
+      _hotCache.remove(key);
+      _entryVersions.remove(key);
+      _persistOperations.remove(key);
       _metrics.recordEviction();
     }
   }
@@ -381,6 +410,11 @@ class QueryCache {
       case EvictionPolicy.fifo:
         return const FIFOEviction();
     }
+  }
+
+  int _nextEntryVersion() {
+    _versionCounter += 1;
+    return _versionCounter;
   }
 
   void _startGarbageCollection() {
@@ -405,7 +439,7 @@ class QueryCache {
   }
 
   /// Disposes the cache and cleans up all resources.
-  void dispose() {
+  Future<void> dispose() async {
     _gcTimer?.cancel();
     _gcTimer = null;
     _persistenceGcTimer?.cancel();
@@ -415,6 +449,7 @@ class QueryCache {
     _locks.clear();
 
     _clearInMemory();
+    await _disposePersistenceResources();
   }
 
   /// Initializes persistence if enabled.
@@ -435,8 +470,10 @@ class QueryCache {
       _encryptionProvider = securityPlugin!.createEncryptionProvider();
       _persistenceProvider = securityPlugin!.createPersistenceProvider();
 
-      await _securityProvider!.initialize();
-      await _persistenceProvider!.initialize();
+      if (securityPlugin!.initializesProviders != true) {
+        await _securityProvider!.initialize();
+        await _persistenceProvider!.initialize();
+      }
 
       _isInitialized = true;
       _startPersistenceGarbageCollection();
@@ -451,6 +488,7 @@ class QueryCache {
         e,
         stackTrace,
       );
+      Error.throwWithStackTrace(e, stackTrace);
     }
   }
 
@@ -472,10 +510,12 @@ class QueryCache {
       final allKeys = await _persistenceProvider!.getAllKeys();
       final keysToRemove = <String>[];
 
+      final entriesSnapshot = Map<String, CacheEntry>.from(_entries);
+      final now = DateTime.now();
+
       for (final key in allKeys) {
-        // Check if the entry should be garbage collected
-        final entry = _entries[key];
-        if (entry == null || entry.shouldGarbageCollect(DateTime.now())) {
+        final entry = entriesSnapshot[key];
+        if (entry == null || entry.shouldGarbageCollect(now)) {
           keysToRemove.add(key);
         }
       }
@@ -492,69 +532,178 @@ class QueryCache {
     }
   }
 
-  /// Persists a cache entry to disk.
-  Future<void> _persistEntry(String key, CacheEntry entry) async {
-    if (_persistenceInitFuture != null) {
-      await _persistenceInitFuture;
-    }
-    if (!_persistenceReady) return;
-
+  Map<String, dynamic>? _buildPersistedEntryPayload(
+    String key,
+    CacheEntry entry,
+  ) {
     try {
-      // Get or generate encryption key
-      String? encryptionKey = await _securityProvider!.getEncryptionKey();
-      encryptionKey ??= await _securityProvider!.generateAndStoreKey();
+      final encoded = _codecRegistry.serialize(entry.data);
+      if (encoded == null) {
+        _logPersistenceError(
+          'Skipping persistence for key $key: unsupported data type ${entry.data.runtimeType}',
+          UnsupportedError('No serializer for ${entry.data.runtimeType}'),
+        );
+        return null;
+      }
 
-      // Serialize the entry to JSON
-      final entryJson = jsonEncode(entry.toJson());
-      final entryBytes = utf8.encode(entryJson);
-
-      // Encrypt the data
-      final encryptedData =
-          await _encryptionProvider!.encrypt(entryBytes, encryptionKey);
-
-      // Persist the encrypted data
-      await _persistenceProvider!.persist(key, encryptedData);
-    } catch (e, stackTrace) {
+      return {
+        'data': encoded.payload,
+        'dataType': encoded.typeKey,
+        'createdAt': entry.createdAt.toIso8601String(),
+        'lastAccessedAt': entry.lastAccessedAt.toIso8601String(),
+        'accessCount': entry.accessCount,
+        'staleTime': entry.staleTime.inMilliseconds,
+        'cacheTime': entry.cacheTime.inMilliseconds,
+        'referenceCount': entry.referenceCount,
+        'isSecure': entry.isSecure,
+        'expiresAt': entry.expiresAt?.toIso8601String(),
+        'hasValue': entry.hasValue,
+      };
+    } catch (error, stackTrace) {
       _logPersistenceError(
-        'Failed to persist cache entry for key $key',
-        e,
+        'Failed to serialize cache entry for key $key',
+        error,
         stackTrace,
       );
+      return null;
     }
+  }
+
+  CacheEntry<dynamic>? _decodePersistedEntry(
+    String key,
+    Map<String, dynamic> json,
+  ) {
+    try {
+      final typeKey = json['dataType'] as String?;
+      final rawData = json['data'];
+      final data = _codecRegistry.deserialize(typeKey, rawData);
+      if (data == null) {
+        return null;
+      }
+
+      final createdAt = DateTime.parse(json['createdAt'] as String);
+      final lastAccessRaw = json['lastAccessedAt'] as String?;
+      final lastAccessedAt =
+          lastAccessRaw != null ? DateTime.parse(lastAccessRaw) : createdAt;
+      final accessCountRaw = json['accessCount'];
+      final accessCount = accessCountRaw is num ? accessCountRaw.toInt() : 0;
+      final staleTimeRaw = json['staleTime'];
+      final cacheTimeRaw = json['cacheTime'];
+      final referenceCountRaw = json['referenceCount'];
+      final hasValueRaw =
+          json.containsKey('hasValue') ? json['hasValue'] : true;
+
+      return CacheEntry<dynamic>(
+        data: data,
+        createdAt: createdAt,
+        lastAccessedAt: lastAccessedAt,
+        accessCount: accessCount,
+        staleTime: staleTimeRaw is num
+            ? Duration(milliseconds: staleTimeRaw.toInt())
+            : config.defaultStaleTime,
+        cacheTime: cacheTimeRaw is num
+            ? Duration(milliseconds: cacheTimeRaw.toInt())
+            : config.defaultCacheTime,
+        referenceCount:
+            referenceCountRaw is num ? referenceCountRaw.toInt() : 0,
+        isSecure: json['isSecure'] as bool? ?? false,
+        expiresAt: json['expiresAt'] != null
+            ? DateTime.parse(json['expiresAt'] as String)
+            : null,
+        hasValue: hasValueRaw is bool ? hasValueRaw : true,
+      );
+    } catch (error, stackTrace) {
+      _logPersistenceError(
+        'Failed to deserialize cache entry for key $key',
+        error,
+        stackTrace,
+      );
+      return null;
+    }
+  }
+
+  /// Persists a cache entry to disk.
+  Future<void> _persistEntry(
+    String key,
+    CacheEntry entry,
+    int version,
+  ) async {
+    if (!await _ensurePersistenceReady()) {
+      return;
+    }
+
+    if (_entryVersions[key] != version) {
+      return;
+    }
+
+    final payload = _buildPersistedEntryPayload(key, entry);
+    if (payload == null) {
+      return;
+    }
+
+    final encryptionKey = await _getValidEncryptionKey();
+
+    final entryJson = jsonEncode(payload);
+    final entryBytes = utf8.encode(entryJson);
+
+    final encryptedData =
+        await _encryptionProvider!.encrypt(entryBytes, encryptionKey);
+
+    if (_entryVersions[key] != version) {
+      return;
+    }
+
+    final persistenceExpiresAt =
+        entry.expiresAt ?? entry.createdAt.add(entry.cacheTime);
+
+    await _persistenceProvider!.persist(
+      key,
+      encryptedData,
+      createdAt: entry.createdAt,
+      expiresAt: persistenceExpiresAt,
+    );
   }
 
   /// Removes an entry from persistence.
   Future<void> _removeFromPersistence(String key) async {
-    if (_persistenceInitFuture != null) {
-      await _persistenceInitFuture;
+    if (!await _ensurePersistenceReady()) {
+      return;
     }
-    if (!_persistenceReady) return;
 
-    try {
-      await _persistenceProvider!.remove(key);
-    } catch (e, stackTrace) {
-      _logPersistenceError(
-        'Failed to remove persisted cache entry for key $key',
-        e,
-        stackTrace,
-      );
-    }
+    await _persistenceProvider!.remove(key);
   }
 
   /// Removes multiple entries from persistence.
   /// Clears all persisted data.
   Future<void> _clearPersistence() async {
-    if (!_persistenceReady) return;
-
-    try {
-      await _persistenceProvider!.clear();
-    } catch (e, stackTrace) {
-      _logPersistenceError(
-        'Failed to clear persisted cache entries',
-        e,
-        stackTrace,
-      );
+    if (!await _ensurePersistenceReady()) {
+      return;
     }
+
+    await _persistenceProvider!.clear();
+  }
+
+  Future<String> _getValidEncryptionKey() async {
+    return _encryptionKeyLock.synchronized(() async {
+      try {
+        var key = await _securityProvider!.getEncryptionKey();
+
+        if (key == null || key.isEmpty) {
+          key = await _securityProvider!.generateAndStoreKey();
+        }
+
+        if (!_encryptionProvider!.isValidKey(key)) {
+          key = await _securityProvider!.generateAndStoreKey();
+          if (!_encryptionProvider!.isValidKey(key)) {
+            throw Exception('Generated encryption key is invalid');
+          }
+        }
+
+        return key;
+      } catch (error, stackTrace) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+    });
   }
 
   /// Loads persisted entries on initialization.
@@ -564,7 +713,6 @@ class QueryCache {
     try {
       final encryptionKey = await _securityProvider!.getEncryptionKey();
       if (encryptionKey == null) {
-        // No key means no persisted data
         return;
       }
 
@@ -580,12 +728,17 @@ class QueryCache {
             final entryJson = utf8.decode(decryptedBytes);
             final entryMap = jsonDecode(entryJson) as Map<String, dynamic>;
 
-            // Recreate the cache entry
-            final entry = CacheEntry.fromJson(entryMap);
+            final entry = _decodePersistedEntry(key, entryMap);
+            if (entry == null) {
+              await _persistenceProvider!.remove(key);
+              continue;
+            }
 
-            // Only load if not expired
             if (!entry.isExpired) {
               _entries[key] = entry;
+              _entryVersions[key] = _nextEntryVersion();
+            } else {
+              await _persistenceProvider!.remove(key);
             }
           } catch (e, stackTrace) {
             try {
@@ -614,6 +767,80 @@ class QueryCache {
     }
   }
 
+  void _queuePersistence(String key, CacheEntry entry, int version) {
+    _enqueuePersistenceOperation(
+      key,
+      () => _persistEntry(key, entry, version),
+      'Failed to persist cache entry for key $key',
+    );
+  }
+
+  void _removePersistenceAsync(String key) {
+    _enqueuePersistenceOperation(
+      key,
+      () => _removeFromPersistence(key),
+      'Failed to remove persisted cache entry for key $key',
+    );
+  }
+
+  void _clearPersistenceAsync() {
+    _enqueueGlobalPersistenceOperation(
+      () => _clearPersistence(),
+      'Failed to clear persisted cache entries',
+    );
+  }
+
+  void _enqueuePersistenceOperation(
+    String key,
+    Future<void> Function() task,
+    String errorMessage,
+  ) {
+    final previous = _persistOperations[key];
+    final base = (previous ?? Future<void>.value()).catchError((_) {});
+    final operation = base.then((_) => task());
+    final handled = operation.catchError((error, stackTrace) {
+      _logPersistenceError(
+        errorMessage,
+        error,
+        stackTrace,
+      );
+    });
+
+    _persistOperations[key] = handled.whenComplete(() {
+      if (_persistOperations[key] == handled) {
+        _persistOperations.remove(key);
+      }
+    });
+  }
+
+  void _enqueueGlobalPersistenceOperation(
+    Future<void> Function() task,
+    String errorMessage,
+  ) {
+    final previous = _globalPersistenceOperation;
+    final base = (previous ?? Future<void>.value()).catchError((_) {});
+    final operation = base.then((_) => task());
+    _globalPersistenceOperation = operation.catchError((error, stackTrace) {
+      _logPersistenceError(
+        errorMessage,
+        error,
+        stackTrace,
+      );
+    });
+  }
+
+  Future<bool> _ensurePersistenceReady() async {
+    final initFuture = _persistenceInitFuture;
+    if (initFuture != null) {
+      try {
+        await initFuture;
+      } catch (_) {
+        return false;
+      }
+    }
+    return _persistenceReady;
+  }
+
   void _logPersistenceError(
     String message,
     Object error, [
@@ -625,5 +852,35 @@ class QueryCache {
       error: error,
       stackTrace: stackTrace,
     );
+  }
+
+  Future<void> _disposePersistenceResources() async {
+    final initFuture = _persistenceInitFuture;
+    if (initFuture != null) {
+      try {
+        await initFuture;
+      } catch (_) {}
+    }
+
+    final tasks = <Future<void>>[];
+
+    final persistence = _persistenceProvider;
+    if (persistence != null) {
+      tasks.add(persistence.dispose());
+    }
+
+    final encryption = _encryptionProvider;
+    if (encryption != null) {
+      tasks.add(encryption.dispose());
+    }
+
+    if (tasks.isNotEmpty) {
+      await Future.wait(tasks);
+    }
+
+    _persistenceProvider = null;
+    _encryptionProvider = null;
+    _securityProvider = null;
+    _isInitialized = false;
   }
 }

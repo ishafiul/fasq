@@ -70,6 +70,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
   late QueryState<T> _state;
   QueryClient? _client;
   bool _initialized = false;
+  bool _hasQuery = false;
 
   @override
   void initState() {
@@ -89,14 +90,31 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
 
   void _initializeQuery() {
     final client = _client ?? QueryClient();
-    _query = client.getQuery<T>(
+    final query = client.getQuery<T>(
       widget.queryKey,
       widget.queryFn,
       options: widget.options,
     );
+    final forceRefetch = widget.options?.refetchOnMount ?? false;
+    _attachQuery(
+      query,
+      shouldFetch: true,
+      forceRefetch: forceRefetch,
+    );
+  }
+
+  void _attachQuery(
+    Query<T> query, {
+    required bool shouldFetch,
+    bool forceRefetch = false,
+  }) {
+    _detachCurrentQuery();
+
+    _query = query;
+    _hasQuery = true;
+    _state = _query.state;
 
     _query.addListener();
-    _state = _query.state;
     _subscription = _query.stream.listen((state) {
       if (mounted) {
         final previous = _state;
@@ -106,19 +124,70 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       }
     });
 
-    // Trigger fetch to check for staleness and update state
-    _query.fetch();
-
-    if (mounted) {
+    if (shouldFetch) {
+      _query.fetch(forceRefetch: forceRefetch);
+    } else if (mounted) {
       setState(() {});
+    }
+  }
+
+  void _detachCurrentQuery() {
+    _subscription?.cancel();
+    _subscription = null;
+
+    if (_hasQuery) {
+      _query.removeListener();
+      _hasQuery = false;
     }
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
-    _query.removeListener();
+    _detachCurrentQuery();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant QueryBuilder<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_initialized) {
+      return;
+    }
+
+    final keyChanged = widget.queryKey != oldWidget.queryKey;
+    final fnChanged = widget.queryFn != oldWidget.queryFn;
+    final optionsChanged = !identical(widget.options, oldWidget.options);
+
+    if (!keyChanged && !fnChanged && !optionsChanged) {
+      return;
+    }
+
+    final client = _client ?? QueryClient();
+
+    if (optionsChanged && !keyChanged) {
+      final existing = client.getQueryByKey<T>(widget.queryKey);
+      final isExclusivelyOwned = existing != null &&
+          existing.referenceCount <= 1 &&
+          existing == _query;
+      if (isExclusivelyOwned) {
+        client.removeQuery(widget.queryKey);
+      }
+    }
+
+    final newQuery = client.getQuery<T>(
+      widget.queryKey,
+      widget.queryFn,
+      options: widget.options,
+    );
+
+    final shouldFetch = keyChanged || fnChanged || optionsChanged;
+    final forceRefetch =
+        (widget.options?.refetchOnMount ?? false) || keyChanged || fnChanged;
+    _attachQuery(
+      newQuery,
+      shouldFetch: shouldFetch,
+      forceRefetch: forceRefetch,
+    );
   }
 
   @override

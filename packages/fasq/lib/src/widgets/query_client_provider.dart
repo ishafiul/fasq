@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import '../core/query_client.dart';
 import '../cache/cache_config.dart';
@@ -89,7 +91,7 @@ class _QueryClientProviderState extends State<QueryClientProvider> {
   @override
   void dispose() {
     if (_ownsClient) {
-      _client.dispose();
+      unawaited(_client.dispose());
     }
     super.dispose();
   }

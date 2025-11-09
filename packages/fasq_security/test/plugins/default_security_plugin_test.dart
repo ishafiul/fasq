@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq_security/src/plugins/default_security_plugin.dart';
 
@@ -98,10 +100,10 @@ void main() {
 
       test('updates encryption key successfully', () async {
         try {
-          // First generate a key
           await plugin.storageProvider.generateAndStoreKey();
 
-          const newKey = 'new-encryption-key';
+          final newKey =
+              base64Encode(List<int>.generate(32, (index) => index + 1));
           await plugin.updateEncryptionKey(newKey);
 
           expect(
@@ -109,7 +111,6 @@ void main() {
             equals(newKey),
           );
         } catch (e) {
-          // Expected to fail in unit test environment due to platform channel
           expect(e, isA<Exception>());
         }
       });
@@ -120,11 +121,9 @@ void main() {
         await plugin.initialize();
 
         try {
-          // Test storage provider
           final key = await plugin.storageProvider.generateAndStoreKey();
           expect(key, isNotEmpty);
 
-          // Test encryption provider
           final testData = [1, 2, 3, 4, 5];
           final encrypted = await plugin.encryptionProvider.encrypt(
             testData,
@@ -136,14 +135,12 @@ void main() {
           );
           expect(decrypted, equals(testData));
 
-          // Test persistence provider
           await plugin.persistenceProvider.persist('test-key', encrypted);
           final retrieved = await plugin.persistenceProvider.retrieve(
             'test-key',
           );
           expect(retrieved, equals(encrypted));
         } catch (e) {
-          // Expected to fail in unit test environment due to platform channel
           expect(e, isA<Exception>());
         }
       });

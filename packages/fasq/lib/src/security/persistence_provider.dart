@@ -1,3 +1,5 @@
+import 'encryption_provider.dart';
+
 /// Abstract interface for encrypted data persistence operations.
 ///
 /// Implementations should provide secure storage for encrypted cache data
@@ -10,7 +12,12 @@ abstract class PersistenceProvider {
   ///
   /// [key] The cache key
   /// [encryptedData] The encrypted data to store
-  Future<void> persist(String key, List<int> encryptedData);
+  Future<void> persist(
+    String key,
+    List<int> encryptedData, {
+    DateTime? createdAt,
+    DateTime? expiresAt,
+  });
 
   /// Retrieves encrypted data for a key.
   ///
@@ -46,10 +53,25 @@ abstract class PersistenceProvider {
   /// Persists multiple encrypted data entries efficiently.
   ///
   /// [entries] Map of key to encrypted data to store
-  Future<void> persistMultiple(Map<String, List<int>> entries);
+  Future<void> persistMultiple(
+    Map<String, List<int>> entries, {
+    Map<String, DateTime?>? createdAt,
+    Map<String, DateTime?>? expiresAt,
+  });
 
   /// Removes multiple keys efficiently.
   ///
   /// [keys] List of cache keys to remove
   Future<void> removeMultiple(List<String> keys);
+
+  Future<void> dispose();
+
+  bool get supportsEncryptionKeyRotation;
+
+  Future<void> rotateEncryptionKey(
+    String oldKey,
+    String newKey,
+    EncryptionProvider encryptionProvider, {
+    void Function(int current, int total)? onProgress,
+  });
 }

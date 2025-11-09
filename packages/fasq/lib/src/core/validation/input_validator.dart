@@ -34,7 +34,7 @@ class InputValidator {
   /// Throws [ArgumentError] if the data is invalid.
   static void validateCacheData<T>(T data) {
     if (data == null) {
-      throw ArgumentError('Cache data cannot be null');
+      return;
     }
 
     // Check for functions or closures

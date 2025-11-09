@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../cache/cache_entry.dart';
 import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
 import 'query_client.dart';
@@ -56,6 +57,7 @@ class Query<T> {
 
   QueryState<T> _currentState;
   late final StreamController<QueryState<T>> _controller;
+  final List<StreamSubscription<QueryState<T>>> _subscriptions = [];
   int _referenceCount = 0;
   Timer? _disposeTimer;
   bool _isDisposed = false;
@@ -72,46 +74,48 @@ class Query<T> {
     this.cache,
     this.client,
     this.onDispose,
-    T? initialData,
+    CacheEntry<T>? initialEntry,
   })  : key = queryKey.key,
         _currentState = QueryState<T>.idle() {
     _controller = StreamController<QueryState<T>>.broadcast();
 
-    // Set initial state based on initialData and cache staleness
-    _currentState = _createInitialState(initialData);
-
-    // If no initial data and no cached data, start in loading state
-    if (initialData == null && cache != null && cache!.get<T>(key) == null) {
-      _currentState = QueryState<T>.loading();
-    }
+    // Set initial state based on cache snapshot and staleness
+    _currentState = _createInitialState(initialEntry);
   }
 
-  /// Creates the initial state, checking cache staleness if initialData is provided
-  QueryState<T> _createInitialState(T? initialData) {
-    if (initialData == null) {
-      return QueryState<T>.idle();
+  /// Creates the initial state, checking cache staleness if cached data is provided
+  QueryState<T> _createInitialState(CacheEntry<T>? initialEntry) {
+    if (initialEntry != null) {
+      return QueryState<T>.success(
+        initialEntry.data,
+        dataUpdatedAt: initialEntry.createdAt,
+        isStale: initialEntry.isStale,
+        hasValue: initialEntry.hasValue,
+      );
     }
 
-    // If we have initialData, it came from cache, so we need to check staleness
     if (cache != null) {
-      final cachedEntry = cache!.get<T>(key);
-      if (cachedEntry != null) {
-        return QueryState<T>.success(
-          initialData,
-          dataUpdatedAt: cachedEntry.createdAt,
-          isStale: cachedEntry.isStale,
-        );
-      }
+      return QueryState<T>.loading();
     }
 
-    // Fallback to fresh data if no cache entry found
-    return QueryState<T>.success(initialData);
+    return QueryState<T>.idle();
   }
 
   /// Stream of state changes for this query.
   ///
   /// Subscribe to this stream to receive updates when the query state changes.
+  /// Use [subscribe] method to ensure proper cleanup of subscriptions.
   Stream<QueryState<T>> get stream => _controller.stream;
+
+  /// Subscribes to state changes with automatic tracking for proper cleanup.
+  ///
+  /// Tracked subscriptions are automatically cancelled when query is disposed.
+  StreamSubscription<QueryState<T>> subscribe(
+      void Function(QueryState<T>) listener) {
+    final sub = _controller.stream.listen(listener);
+    _subscriptions.add(sub);
+    return sub;
+  }
 
   /// The current state of this query.
   QueryState<T> get state => _currentState;
@@ -142,6 +146,27 @@ class Query<T> {
       return data;
     }
 
+    final autoIsolate = performance.autoIsolate && client != null;
+    final threshold = performance.isolateThreshold;
+
+    if (autoIsolate && threshold != null) {
+      final estimatedSize = _estimateDataFootprint(data);
+      if (estimatedSize >= threshold) {
+        try {
+          final transformed =
+              await client!.isolatePool.execute<_TransformPayload<T>, T?>(
+            _runDataTransformerTask,
+            _TransformPayload<T>(data: data, transformer: transformer),
+          );
+          if (transformed != null) {
+            return transformed;
+          }
+        } catch (_) {
+          // Fallback to main thread execution on failure
+        }
+      }
+    }
+
     try {
       final result = await Future.sync(() => transformer(data));
       if (result == null) {
@@ -165,7 +190,7 @@ class Query<T> {
     _referenceCount++;
     _cancelDisposal();
 
-    if (_referenceCount == 1 && !state.hasData) {
+    if (_referenceCount == 1 && !state.hasValue) {
       fetch();
     }
   }
@@ -200,34 +225,41 @@ class Query<T> {
   /// final query = QueryClient().getQueryByKey<User>('user');
   /// await query?.fetch();
   /// ```
-  Future<void> fetch() async {
+  Future<void> fetch({bool forceRefetch = false}) async {
     if (_isDisposed || options?.enabled == false) return;
 
     if (cache != null) {
       final cachedEntry = cache!.get<T>(key);
 
-      if (cachedEntry != null && cachedEntry.isFresh) {
+      if (cachedEntry != null && cachedEntry.isFresh && !forceRefetch) {
         final previous = _currentState;
         _updateState(QueryState.success(
           cachedEntry.data,
           dataUpdatedAt: cachedEntry.createdAt,
           isStale: false,
+          hasValue: cachedEntry.hasValue,
         ));
         _notifySuccess(previous);
         return;
       }
 
-      if (cachedEntry != null && cachedEntry.isStale) {
+      final shouldBackgroundRefetch =
+          cachedEntry != null && (cachedEntry.isStale || forceRefetch);
+
+      if (shouldBackgroundRefetch) {
         final previous = _currentState;
         _updateState(QueryState.success(
           cachedEntry.data,
           dataUpdatedAt: cachedEntry.createdAt,
           isFetching: true,
-          isStale: true,
+          isStale: !forceRefetch,
+          hasValue: cachedEntry.hasValue,
         ));
         _notifySuccess(previous);
 
-        _fetchAndCache(isBackgroundRefetch: true);
+        _fetchAndCache(
+          isBackgroundRefetch: true,
+        );
         return;
       }
     }
@@ -235,7 +267,7 @@ class Query<T> {
     final previous = _currentState;
     _updateState(_currentState.copyWith(
       status: QueryStatus.loading,
-      isFetching: false,
+      isFetching: true,
     ));
     _notifyLoading(previous);
 
@@ -243,36 +275,37 @@ class Query<T> {
   }
 
   Future<void> _fetchAndCache({required bool isBackgroundRefetch}) async {
+    if (_isDisposed) return;
+
     if (cache != null) {
       try {
-        // Emit state update for background refetch to show isFetching: true
         if (isBackgroundRefetch) {
           final previous = _currentState;
           _updateState(_currentState.copyWith(isFetching: true));
           _notifyLoading(previous);
         }
 
-        // Start performance tracking
         _lastFetchStart = DateTime.now();
 
-        var data = await cache!.deduplicate<T>(key, queryFn);
+        var data = await cache!.deduplicate<T>(
+          key,
+          () => _executeFetch(queryFn),
+        );
         data = await _maybeTransformData(data);
 
-        // Record fetch timing
         if (_lastFetchStart != null) {
           _lastFetchDuration = DateTime.now().difference(_lastFetchStart!);
           _fetchHistory.add(_lastFetchDuration!);
 
-          // Record timing in cache metrics if performance tracking is enabled
           if (options?.performance?.enableMetrics != false) {
             cache!.metrics.recordFetchTime(_lastFetchDuration!);
           }
 
-          // Keep only last 100 fetch times to prevent memory growth
           if (_fetchHistory.length > 100) {
             _fetchHistory.removeAt(0);
           }
         }
+
         if (!_isDisposed) {
           final previous = _currentState;
           final now = DateTime.now();
@@ -280,7 +313,8 @@ class Query<T> {
             data,
             dataUpdatedAt: now,
             isFetching: false,
-            isStale: false, // Fresh data after successful fetch
+            isStale: false,
+            hasValue: true,
           ));
           cache!.set<T>(
             key,
@@ -307,28 +341,27 @@ class Query<T> {
       }
     } else {
       try {
-        // Start performance tracking for direct query execution
         _lastFetchStart = DateTime.now();
 
-        var data = await queryFn();
+        var data = await _executeFetch(queryFn);
         data = await _maybeTransformData(data);
 
-        // Record fetch timing
         if (_lastFetchStart != null) {
           _lastFetchDuration = DateTime.now().difference(_lastFetchStart!);
           _fetchHistory.add(_lastFetchDuration!);
 
-          // Keep only last 100 fetch times to prevent memory growth
           if (_fetchHistory.length > 100) {
             _fetchHistory.removeAt(0);
           }
         }
+
         if (!_isDisposed) {
           final previous = _currentState;
           _updateState(QueryState.success(
             data,
             dataUpdatedAt: DateTime.now(),
-            isStale: false, // Fresh data after successful fetch
+            isStale: false,
+            hasValue: true,
           ));
           options?.onSuccess?.call();
           _notifySuccess(previous);
@@ -349,7 +382,13 @@ class Query<T> {
   /// Called by QueryClient when setQueryData is used.
   void updateFromCache(T data) {
     if (_isDisposed) return;
-    _updateState(QueryState.success(data, isStale: false));
+    _updateState(
+      QueryState.success(
+        data,
+        isStale: false,
+        hasValue: true,
+      ),
+    );
   }
 
   void _updateState(QueryState<T> newState) {
@@ -404,9 +443,99 @@ class Query<T> {
     _disposeTimer?.cancel();
     _disposeTimer = null;
 
-    cache?.remove(key);
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
+
+    final entry = cache?.inspectEntry(key);
+    if (entry?.isSecure == true) {
+      cache?.remove(key);
+    }
 
     _controller.close();
     onDispose?.call();
   }
+
+  Future<R> _executeFetch<R>(Future<R> Function() fn) async {
+    final performance = options?.performance;
+    final retries = performance?.maxRetries ?? 0;
+    if (retries <= 0) {
+      return _runWithTimeout(fn);
+    }
+
+    int attempt = 0;
+    Duration delay =
+        performance?.initialRetryDelay ?? const Duration(seconds: 1);
+    final backoff = performance?.retryBackoffMultiplier ?? 2.0;
+
+    while (true) {
+      attempt++;
+      try {
+        return await _runWithTimeout(fn);
+      } catch (error) {
+        if (attempt > retries) {
+          rethrow;
+        }
+        await Future.delayed(delay);
+        final nextDelayMicros = (delay.inMicroseconds * backoff).round();
+        delay = Duration(
+          microseconds: nextDelayMicros <= 0 ? 1 : nextDelayMicros,
+        );
+      }
+    }
+  }
+
+  Future<R> _runWithTimeout<R>(Future<R> Function() fn) {
+    final timeoutMs = options?.performance?.fetchTimeoutMs;
+    final future = Future<R>.sync(fn);
+    if (timeoutMs == null) {
+      return future;
+    }
+    return future.timeout(Duration(milliseconds: timeoutMs));
+  }
+
+  int _estimateDataFootprint(dynamic value) {
+    if (value == null) return 0;
+    if (value is String) return value.length * 2;
+    if (value is num) return 8;
+    if (value is bool) return 1;
+    if (value is List) {
+      var size = 8;
+      for (final item in value) {
+        size += _estimateDataFootprint(item);
+      }
+      return size;
+    }
+    if (value is Map) {
+      var size = 16;
+      for (final entry in value.entries) {
+        size += _estimateDataFootprint(entry.key);
+        size += _estimateDataFootprint(entry.value);
+      }
+      return size;
+    }
+    return 64;
+  }
+}
+
+class _TransformPayload<T> {
+  const _TransformPayload({
+    required this.data,
+    required this.transformer,
+  });
+
+  final T data;
+  final FutureOr<dynamic> Function(dynamic data) transformer;
+}
+
+Future<T?> _runDataTransformerTask<T>(_TransformPayload<T> payload) async {
+  var result = payload.transformer(payload.data);
+  if (result is Future) {
+    result = await result;
+  }
+  if (result == null) {
+    return null;
+  }
+  return result as T?;
 }

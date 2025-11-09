@@ -35,7 +35,8 @@ class _IsolateWorker {
   }
 
   /// Execute a task in this worker
-  Future<R> execute<T, R>(IsolateTask<T, R> task) async {
+  Future<R> execute<T, R>(IsolateTask<T, R> task,
+      {Duration timeout = const Duration(seconds: 30)}) async {
     if (_isDisposed) {
       task.completeError(IsolateExecutionException('Worker is disposed'));
       return task.completer.future;
@@ -43,11 +44,25 @@ class _IsolateWorker {
 
     if (_currentTask != null) {
       _taskQueue.add(task);
-      return task.completer.future;
+    } else {
+      _runTask(task);
     }
 
-    _runTask(task);
-    return task.completer.future;
+    try {
+      return await task.completer.future.timeout(
+        timeout,
+        onTimeout: () {
+          task.cancel();
+          throw IsolateExecutionException(
+              'Task execution timed out after ${timeout.inSeconds}s');
+        },
+      );
+    } catch (e) {
+      if (!task.isCancelled) {
+        task.completeError(e);
+      }
+      rethrow;
+    }
   }
 
   /// Process the next task in the queue
@@ -194,11 +209,12 @@ class IsolatePool {
   final List<_IsolateWorker> _workers = [];
   int _currentWorkerIndex = 0;
   bool _isDisposed = false;
+  late final Future<void> _initialization;
 
   /// Create an isolate pool with the specified number of workers
   IsolatePool({this.poolSize = 2}) {
     assert(poolSize > 0, 'Pool size must be greater than 0');
-    _initializeWorkers();
+    _initialization = _initializeWorkers();
   }
 
   /// Initialize all worker isolates
@@ -236,7 +252,13 @@ class IsolatePool {
 
     // Find the least busy worker
     _IsolateWorker? selectedWorker;
-    int minQueueSize = double.infinity.toInt();
+    int? minQueueSize;
+
+    await _initialization;
+
+    if (_workers.isEmpty) {
+      throw const IsolateExecutionException('No worker isolates available');
+    }
 
     for (final worker in _workers) {
       if (!worker.isBusy) {
@@ -245,8 +267,9 @@ class IsolatePool {
       }
 
       // Count queued tasks (approximate)
-      if (worker._taskQueue.length < minQueueSize) {
-        minQueueSize = worker._taskQueue.length;
+      final queueSize = worker._taskQueue.length;
+      if (minQueueSize == null || queueSize < minQueueSize) {
+        minQueueSize = queueSize;
         selectedWorker = worker;
       }
     }

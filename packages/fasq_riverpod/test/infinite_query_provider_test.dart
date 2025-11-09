@@ -2,8 +2,8 @@ import 'package:fasq_riverpod/fasq_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  setUp(() {
-    QueryClient.resetForTesting();
+  setUp(() async {
+    await QueryClient.resetForTesting();
   });
 
   test('infiniteQueryProvider exposes state and methods', () async {

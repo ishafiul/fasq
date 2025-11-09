@@ -48,7 +48,23 @@ class QueryClient with WidgetsBindingObserver {
     PersistenceOptions? persistenceOptions,
     SecurityPlugin? securityPlugin,
   }) {
-    _instance ??= QueryClient._internal(
+    final existing = _instance;
+    if (existing != null) {
+      if (_hasConfigurationConflict(
+        existing,
+        config,
+        persistenceOptions,
+        securityPlugin,
+      )) {
+        throw StateError(
+          'QueryClient already initialized with a different configuration. '
+          'Call QueryClient.resetForTesting() before reconfiguring.',
+        );
+      }
+      return existing;
+    }
+
+    _instance = QueryClient._internal(
       config: config,
       persistenceOptions: persistenceOptions,
       securityPlugin: securityPlugin,
@@ -60,12 +76,20 @@ class QueryClient with WidgetsBindingObserver {
     CacheConfig? config,
     PersistenceOptions? persistenceOptions,
     SecurityPlugin? securityPlugin,
-  }) : _cache = QueryCache(
-          config: config,
+  })  : _configSnapshot = config ?? const CacheConfig(),
+        _persistenceSnapshot = persistenceOptions,
+        _securityPluginType = securityPlugin?.runtimeType,
+        _cache = QueryCache(
+          config: config ?? const CacheConfig(),
           persistenceOptions: persistenceOptions,
           securityPlugin: securityPlugin,
         ) {
-    WidgetsBinding.instance.addObserver(this);
+    try {
+      _binding = WidgetsBinding.instance;
+      _binding?.addObserver(this);
+    } on FlutterError {
+      _binding = null;
+    }
     _isolatePool =
         IsolatePool(poolSize: config?.performance.isolatePoolSize ?? 2);
   }
@@ -73,8 +97,12 @@ class QueryClient with WidgetsBindingObserver {
   final Map<String, Query> _queries = {};
   final Map<String, InfiniteQuery> _infiniteQueries = {};
   final QueryCache _cache;
+  final CacheConfig _configSnapshot;
+  final PersistenceOptions? _persistenceSnapshot;
+  final Type? _securityPluginType;
   late final IsolatePool _isolatePool;
   final List<QueryClientObserver> _observers = [];
+  WidgetsBinding? _binding;
 
   String _extractKey(QueryKey queryKey) => queryKey.key;
 
@@ -217,7 +245,7 @@ class QueryClient with WidgetsBindingObserver {
       onDispose: () {
         _queries.remove(key);
       },
-      initialData: cachedEntry?.data,
+      initialEntry: cachedEntry,
     );
 
     _queries[key] = query;
@@ -469,6 +497,11 @@ class QueryClient with WidgetsBindingObserver {
     if (maxAge != null) {
       InputValidator.validateDuration(maxAge, 'maxAge');
     }
+    if (isSecure && maxAge == null) {
+      throw ArgumentError(
+        'Secure cache entries must specify maxAge for TTL enforcement',
+      );
+    }
 
     _cache.setData<T>(key, data, isSecure: isSecure, maxAge: maxAge);
 
@@ -521,20 +554,73 @@ class QueryClient with WidgetsBindingObserver {
   }
 
   /// Disposes the query client and cache.
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+  Future<void> dispose() async {
+    _binding?.removeObserver(this);
+    _binding = null;
     clear();
-    _cache.dispose();
-    _isolatePool.dispose();
+    await _cache.dispose();
+    await _isolatePool.dispose();
   }
 
   /// Resets the singleton instance for testing.
   ///
   /// Only use this in tests to get a fresh instance.
-  static void resetForTesting() {
-    _instance
-      ?..clearObservers()
-      ..dispose();
+  static Future<void> resetForTesting() async {
+    final existing = _instance;
+    if (existing != null) {
+      existing.clearObservers();
+      await existing.dispose();
+    }
     _instance = null;
+  }
+
+  static bool _hasConfigurationConflict(
+    QueryClient existing,
+    CacheConfig? config,
+    PersistenceOptions? persistenceOptions,
+    SecurityPlugin? securityPlugin,
+  ) {
+    if (config != null &&
+        _cacheConfigDiffers(existing._configSnapshot, config)) {
+      return true;
+    }
+
+    if (persistenceOptions != null &&
+        existing._persistenceSnapshot != null &&
+        existing._persistenceSnapshot != persistenceOptions) {
+      return true;
+    }
+
+    if (securityPlugin != null &&
+        existing._securityPluginType != securityPlugin.runtimeType) {
+      return true;
+    }
+
+    return false;
+  }
+
+  static bool _cacheConfigDiffers(CacheConfig a, CacheConfig b) {
+    if (a.maxCacheSize != b.maxCacheSize) return true;
+    if (a.maxEntries != b.maxEntries) return true;
+    if (a.defaultStaleTime != b.defaultStaleTime) return true;
+    if (a.defaultCacheTime != b.defaultCacheTime) return true;
+    if (a.evictionPolicy != b.evictionPolicy) return true;
+    if (a.enableMemoryPressure != b.enableMemoryPressure) return true;
+    if (_performanceConfigDiffers(a.performance, b.performance)) return true;
+    return false;
+  }
+
+  static bool _performanceConfigDiffers(
+    GlobalPerformanceConfig a,
+    GlobalPerformanceConfig b,
+  ) {
+    if (a.enableTracking != b.enableTracking) return true;
+    if (a.hotCacheSize != b.hotCacheSize) return true;
+    if (a.enableWarnings != b.enableWarnings) return true;
+    if (a.slowQueryThresholdMs != b.slowQueryThresholdMs) return true;
+    if (a.memoryWarningThreshold != b.memoryWarningThreshold) return true;
+    if (a.isolatePoolSize != b.isolatePoolSize) return true;
+    if (a.defaultIsolateThreshold != b.defaultIsolateThreshold) return true;
+    return false;
   }
 }

@@ -21,12 +21,12 @@ void main() {
       await provider.dispose();
     });
 
-    group('updateEncryptionKey', () {
+    group('rotateEncryptionKey', () {
       test('throws exception when not initialized', () async {
         final uninitializedProvider = DriftPersistenceProvider();
 
         expect(
-          () => uninitializedProvider.updateEncryptionKey(
+          () => uninitializedProvider.rotateEncryptionKey(
             'old-key',
             'new-key',
             mockEncryptionProvider,
@@ -39,7 +39,7 @@ void main() {
         final oldKey = 'valid-key';
         final newKey = 'valid-key';
 
-        await provider.updateEncryptionKey(
+        await provider.rotateEncryptionKey(
           oldKey,
           newKey,
           mockEncryptionProvider,
@@ -71,7 +71,7 @@ void main() {
           'key3': [26, 27, 28],
         };
 
-        await provider.updateEncryptionKey(
+        await provider.rotateEncryptionKey(
           oldKey,
           newKey,
           mockEncryptionProvider,
@@ -116,26 +116,21 @@ void main() {
           'key3': [26, 27, 28], // key2 missing - will fail
         };
 
-        await provider.updateEncryptionKey(
-          oldKey,
-          newKey,
-          mockEncryptionProvider,
+        await expectLater(
+          provider.rotateEncryptionKey(
+            oldKey,
+            newKey,
+            mockEncryptionProvider,
+          ),
+          throwsA(isA<PersistenceException>()),
         );
 
-        // Verify successful keys were processed
-        expect(
-          mockEncryptionProvider.decryptCallCount,
-          equals(3),
-        ); // All attempted
-        expect(
-          mockEncryptionProvider.encryptCallCount,
-          equals(2),
-        ); // Only successful ones
+        expect(mockEncryptionProvider.decryptCallCount, equals(3));
+        expect(mockEncryptionProvider.encryptCallCount, equals(2));
 
-        // Verify only successful data was persisted
         expect(await provider.exists('key1'), isTrue);
+        expect(await provider.exists('key2'), isTrue);
         expect(await provider.exists('key3'), isTrue);
-        expect(await provider.exists('key2'), isFalse); // Should be removed
       });
 
       test('calls progress callback correctly', () async {
@@ -160,7 +155,7 @@ void main() {
         };
 
         final progressCalls = <int, int>{};
-        await provider.updateEncryptionKey(
+        await provider.rotateEncryptionKey(
           oldKey,
           newKey,
           mockEncryptionProvider,
@@ -182,7 +177,7 @@ void main() {
 
         // No data in database (empty cache)
 
-        await provider.updateEncryptionKey(
+        await provider.rotateEncryptionKey(
           oldKey,
           newKey,
           mockEncryptionProvider,
@@ -322,6 +317,9 @@ class MockEncryptionProvider implements EncryptionProvider {
   String generateKey() {
     return 'generated-key';
   }
+
+  @override
+  Future<void> dispose() async {}
 
   String _extractKeyName(List<int> data) {
     // Simple heuristic to identify which key this data belongs to

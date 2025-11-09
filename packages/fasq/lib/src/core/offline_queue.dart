@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:uuid/uuid.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -107,23 +109,34 @@ class MutationHandler<TData, TVariables> {
 }
 
 class OfflineQueueManager {
-  static final OfflineQueueManager _singleton = OfflineQueueManager._internal();
-  factory OfflineQueueManager() => _singleton;
-  OfflineQueueManager._internal() {
-    _initialLoad = _loadFromDisk();
-  }
+  static OfflineQueueManager? _singleton;
+  bool _disposed = false;
+  bool _isProcessing = false;
 
-  static OfflineQueueManager get instance => _singleton;
+  factory OfflineQueueManager() {
+    if (_singleton?._disposed == true || _singleton == null) {
+      _singleton = OfflineQueueManager._internal();
+    }
+    return _singleton!;
+  }
 
   static const String _storageFileName = 'fasq_offline_queue.json';
   static String? _cachedStoragePath;
 
   final List<OfflineMutationEntry> _entries = [];
-  final StreamController<List<OfflineMutationEntry>> _controller =
-      StreamController<List<OfflineMutationEntry>>.broadcast();
+  late final StreamController<List<OfflineMutationEntry>> _controller;
+  late final Uuid _uuidGenerator;
   Future<void>? _initialLoad;
   File? _storageFile;
   Future<void>? _saveOperation;
+
+  OfflineQueueManager._internal() {
+    _controller = StreamController<List<OfflineMutationEntry>>.broadcast();
+    _uuidGenerator = const Uuid();
+    _initialLoad = _loadFromDisk();
+  }
+
+  static OfflineQueueManager get instance => OfflineQueueManager();
 
   Stream<List<OfflineMutationEntry>> get stream => _controller.stream;
   List<OfflineMutationEntry> get entries => List.unmodifiable(_entries);
@@ -136,8 +149,7 @@ class OfflineQueueManager {
   Future<void> enqueue(String key, String mutationType, dynamic variables,
       {int priority = 0}) async {
     await _ensureInitialized();
-    final id =
-        '${DateTime.now().millisecondsSinceEpoch}-${_entries.length + 1}';
+    final id = _uuidGenerator.v4();
     _entries.add(OfflineMutationEntry(
       id: id,
       key: key,
@@ -194,44 +206,48 @@ class OfflineQueueManager {
     await _ensureInitialized();
     if (_entries.isEmpty) return;
 
-    // Sort by priority (higher first), then by creation time
-    final sortedEntries = List<OfflineMutationEntry>.from(_entries)
-      ..sort((a, b) {
-        final priorityCompare = b.priority.compareTo(a.priority);
-        if (priorityCompare != 0) return priorityCompare;
-        return a.createdAt.compareTo(b.createdAt);
-      });
+    if (_isProcessing) return;
+    _isProcessing = true;
 
-    for (final entry in sortedEntries) {
-      final handler = MutationTypeRegistry.getHandler(entry.mutationType);
+    try {
+      final sortedEntries = List<OfflineMutationEntry>.from(_entries)
+        ..sort((a, b) {
+          final priorityCompare = b.priority.compareTo(a.priority);
+          if (priorityCompare != 0) return priorityCompare;
+          return a.createdAt.compareTo(b.createdAt);
+        });
 
-      if (handler == null) {
-        // Remove unknown mutation types
-        await remove(entry.id);
-        continue;
-      }
+      for (final entry in sortedEntries) {
+        final handler = MutationTypeRegistry.getHandler(entry.mutationType);
 
-      try {
-        await handler.execute(entry.variables);
-        await remove(entry.id);
-      } catch (error) {
-        final updatedEntry = entry.copyWith(
-          attempts: entry.attempts + 1,
-          lastError: error.toString(),
-        );
-
-        final index = _entries.indexWhere((e) => e.id == entry.id);
-        if (index != -1) {
-          _entries[index] = updatedEntry;
-          await save();
-          _emit();
+        if (handler == null) {
+          await remove(entry.id);
+          continue;
         }
 
-        // Stop processing if max attempts reached
-        if (updatedEntry.attempts >= 5) {
-          break;
+        try {
+          await handler.execute(entry.variables);
+          await remove(entry.id);
+        } catch (error) {
+          final updatedEntry = entry.copyWith(
+            attempts: entry.attempts + 1,
+            lastError: error.toString(),
+          );
+
+          final index = _entries.indexWhere((e) => e.id == entry.id);
+          if (index != -1) {
+            _entries[index] = updatedEntry;
+            await save();
+            _emit();
+          }
+
+          if (updatedEntry.attempts >= 5) {
+            break;
+          }
         }
       }
+    } finally {
+      _isProcessing = false;
     }
   }
 
@@ -366,6 +382,16 @@ class OfflineQueueManager {
     }
   }
 
+  Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+
+    await _controller.close();
+    _entries.clear();
+    _storageFile = null;
+    _initialLoad = null;
+  }
+
   @visibleForTesting
   Future<void> resetForTesting({bool deleteStorage = true}) async {
     await _ensureInitialized();
@@ -383,6 +409,14 @@ class OfflineQueueManager {
       }
     }
     _emit();
+  }
+
+  static Future<void> resetForTestingStatic() async {
+    if (_singleton != null) {
+      await _singleton!.dispose();
+    }
+    _singleton = null;
+    _cachedStoragePath = null;
   }
 
   @visibleForTesting

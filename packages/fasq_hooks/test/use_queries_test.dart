@@ -5,8 +5,8 @@ import 'package:fasq_hooks/fasq_hooks.dart';
 
 void main() {
   group('useQueries', () {
-    setUp(() {
-      QueryClient.resetForTesting();
+    setUp(() async {
+      await QueryClient.resetForTesting();
     });
 
     testWidgets('executes all queries independently', (tester) async {
@@ -233,8 +233,8 @@ void main() {
   });
 
   group('useNamedQueries', () {
-    setUp(() {
-      QueryClient.resetForTesting();
+    setUp(() async {
+      await QueryClient.resetForTesting();
     });
 
     testWidgets('executes all named queries independently', (tester) async {
