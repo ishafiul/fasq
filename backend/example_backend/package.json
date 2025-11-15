@@ -1,0 +1,33 @@
+{
+  "name": "example_backend",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "migration:generate": "drizzle-kit generate",
+    "migration:push:local": "dotenvx run -f .env.local -- drizzle-kit push",
+    "migration:push:staging": "dotenvx run -f .env.staging -- drizzle-kit push",
+    "migration:push:production": "dotenvx run -f .env.production -- drizzle-kit push"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "@orpc/client": "^1.11.2",
+    "@orpc/openapi": "^1.11.2",
+    "@orpc/server": "^1.11.2",
+    "@orpc/zod": "^1.11.2",
+    "@scalar/hono-api-reference": "^0.9.24",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
+    "drizzle-zod": "^0.8.3",
+    "hono": "^4.10.6",
+    "resend": "^4.0.2",
+    "uuid": "^11.0.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.7",
+    "tsx": "^4.20.6",
+    "wrangler": "^4.4.0"
+  }
+}
