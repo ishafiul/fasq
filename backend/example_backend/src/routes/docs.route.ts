@@ -13,10 +13,11 @@ docsRouter.get("/spec.json", async (c) => {
 
 docsRouter.get(
   "/",
-  Scalar(() => {
-    return {
-      url: "/spec.json"
-    };
+  Scalar({
+    url: "/spec.json",
+    theme: "default",
+    layout: "modern",
+    withDefaultFonts: true,
   })
 );
 

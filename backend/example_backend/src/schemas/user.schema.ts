@@ -8,6 +8,8 @@ export const users = pgTable('users', {
 	id: text('id').primaryKey(),
 	email: text('email').notNull().unique(),
 	name: text('name'),
+	phoneNumber: text('phone_number'),
+	avatarUrl: text('avatar_url'),
 	isBanned: boolean('is_banned').notNull().default(false),
 	bannedAt: timestamp('banned_at'),
 	bannedUntil: timestamp('banned_until'),

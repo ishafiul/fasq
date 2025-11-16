@@ -10,6 +10,8 @@ export type Env = {
   RESEND_API_KEY: string;
   TEST_EMAIL: string;
   TEST_OTP: string;
+  R2_BUCKET: R2Bucket;
+  R2_PUBLIC_URL: string;
 };
 
 export type HonoTypes = {

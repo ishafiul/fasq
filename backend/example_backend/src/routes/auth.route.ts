@@ -208,39 +208,36 @@ export const authRoutes = {
       const ctx = context as TRPCContext;
       const db = ctx.get("db");
       const env = ctx.env;
-
+     
       const normalizedEmail = normalizeEmail(input.email);
-
-      const [deviceExists, userResult] = await Promise.all([
-        validateDevice(db, input.deviceUuId),
-        findOrCreateUser(db, normalizedEmail),
-      ]);
-
+      const deviceExists = await validateDevice(db, input.deviceUuId);
+ 
       if (!deviceExists) {
         throw new ORPCError("NOT_FOUND", {
           message: "Device not found",
         });
       }
-
-      const [user, trustedAuth] = await Promise.all([
-        findUserById(db, userResult.id),
-        findTrustedAuthByDeviceAndUser(db, input.deviceUuId, userResult.id),
-      ]);
-
+      
+      await findOrCreateUser(db, normalizedEmail);
+      const user = await findUserByEmail(db, normalizedEmail);
       if (!user) {
         throw new ORPCError("NOT_FOUND", {
           message: "User not found",
         });
       }
+    
+      const trustedAuth = await findTrustedAuthByDeviceAndUser(
+        db,
+        input.deviceUuId,
+        user.id
+      );
 
       const banned = await checkUserBanStatus(db, user);
-
       if (banned) {
         throw new ORPCError("FORBIDDEN", {
           message: "User account is banned",
         });
       }
-
       if (trustedAuth) {
         await deleteAuthByDeviceId(db, input.deviceUuId);
 
@@ -257,13 +254,13 @@ export const authRoutes = {
           input.deviceUuId,
           true
         );
-
+      
         const accessToken = await generateAccessToken(
           user.id,
           user.email,
           env.JWT_SECRET
         );
-
+      
         return {
           success: true,
           message: "Logged in with trusted device",
@@ -344,10 +341,7 @@ export const authRoutes = {
 
       const normalizedEmail = normalizeEmail(input.email);
 
-      const [user, otp] = await Promise.all([
-        findUserByEmail(db, normalizedEmail),
-        getOtpForDevice(db, input.deviceUuId, normalizedEmail),
-      ]);
+      const user = await findUserByEmail(db, normalizedEmail);
 
       if (!user) {
         throw new ORPCError("NOT_FOUND", {
@@ -361,6 +355,8 @@ export const authRoutes = {
           message: "User account is banned",
         });
       }
+
+      const otp = await getOtpForDevice(db, input.deviceUuId, normalizedEmail);
 
       if (!otp) {
         throw new ORPCError("NOT_FOUND", {

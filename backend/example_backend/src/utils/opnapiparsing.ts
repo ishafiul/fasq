@@ -14,6 +14,21 @@ export async function generateOpenApiSpec() {
         url: "/api",
       },
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "Enter your Bearer token in the format: Bearer <token>",
+        },
+      },
+    },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
   });
 
   function ensureComponents(doc: any) {
