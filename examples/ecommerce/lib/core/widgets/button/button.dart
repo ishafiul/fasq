@@ -2,17 +2,11 @@ import 'package:ecommerce/core/colors.dart';
 import 'package:flutter/material.dart';
 
 /// enum for button type
-enum ButtonType {
-  base,
-  primary,
-  success,
-  warning,
-  danger,
-}
+enum ButtonType { base, primary, success, warning, danger }
 
 enum ButtonFill { solid, outline, none }
 
-enum ButtonShape { pill, base, rectangular, rounded }
+enum ButtonShape { pill, base, rectangular, rounded, square }
 
 enum ButtonSize { large, middle, mini, small }
 
@@ -21,46 +15,34 @@ BoxConstraints _buttonConstants({
   bool isBlock = false,
   ButtonShape shape = ButtonShape.base,
 }) {
-  // For rounded shape, use content-based sizing (no fixed height)
+  // For rounded shape, use content-based sizing
   if (shape == ButtonShape.rounded) {
-    return BoxConstraints(
-      minWidth: isBlock ? double.infinity : 0,
-    );
+    return BoxConstraints(minWidth: isBlock ? double.infinity : 0);
+  }
+
+  // For square shape, ensure equal width and height
+  if (shape == ButtonShape.square) {
+    if (isBlock) {
+      return const BoxConstraints(minWidth: double.infinity);
+    }
+    // Use content-based sizing - the equal padding will make it square
+    return const BoxConstraints();
   }
 
   // Original fixed sizing for other shapes
   switch (buttonSize) {
     case ButtonSize.large:
-      return BoxConstraints(
-        minWidth: isBlock ? double.infinity : 87,
-        minHeight: 49,
-        maxHeight: 49,
-      );
+      return BoxConstraints(minWidth: isBlock ? double.infinity : 87, minHeight: 49, maxHeight: 49);
     case ButtonSize.middle:
-      return BoxConstraints(
-        minWidth: isBlock ? double.infinity : 78,
-        minHeight: 40,
-        maxHeight: 40,
-      );
+      return BoxConstraints(minWidth: isBlock ? double.infinity : 78, minHeight: 40, maxHeight: 40);
     case ButtonSize.mini:
-      return BoxConstraints(
-        minWidth: isBlock ? double.infinity : 66,
-        minHeight: 26,
-        maxHeight: 26,
-      );
+      return BoxConstraints(minWidth: isBlock ? double.infinity : 66, minHeight: 26, maxHeight: 26);
     case ButtonSize.small:
-      return BoxConstraints(
-        minWidth: isBlock ? double.infinity : 72,
-        minHeight: 29,
-        maxHeight: 29,
-      );
+      return BoxConstraints(minWidth: isBlock ? double.infinity : 72, minHeight: 29, maxHeight: 29);
   }
 }
 
-EdgeInsetsGeometry _buttonPadding({
-  ButtonSize buttonSize = ButtonSize.middle,
-  ButtonShape shape = ButtonShape.base,
-}) {
+EdgeInsetsGeometry _buttonPadding({ButtonSize buttonSize = ButtonSize.middle, ButtonShape shape = ButtonShape.base}) {
   // For rounded shape, use minimal padding to allow true square/circle shapes
   if (shape == ButtonShape.rounded) {
     switch (buttonSize) {
@@ -72,6 +54,20 @@ EdgeInsetsGeometry _buttonPadding({
         return const EdgeInsets.all(4);
       case ButtonSize.small:
         return const EdgeInsets.all(4);
+    }
+  }
+
+  // For square shape, use equal padding on all sides
+  if (shape == ButtonShape.square) {
+    switch (buttonSize) {
+      case ButtonSize.large:
+        return const EdgeInsets.all(12);
+      case ButtonSize.middle:
+        return const EdgeInsets.all(8);
+      case ButtonSize.mini:
+        return const EdgeInsets.all(6);
+      case ButtonSize.small:
+        return const EdgeInsets.all(6);
     }
   }
 
@@ -97,77 +93,76 @@ ShapeBorder _buttonShape(
   switch (shape) {
     case ButtonShape.base:
       return RoundedRectangleBorder(
-        side: () {
-          if (buttonType == ButtonType.base) {
-            return BorderSide(
-              color: _buttonColor(context, buttonType: buttonType),
-            );
-          }
-          return fill != ButtonFill.outline
-              ? BorderSide.none
-              : BorderSide(
-                  color: _buttonColor(context, buttonType: buttonType),
-                );
-        }.call(),
+        side:
+            () {
+              if (buttonType == ButtonType.base) {
+                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+              }
+              return fill != ButtonFill.outline
+                  ? BorderSide.none
+                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+            }.call(),
         borderRadius: BorderRadius.circular(8),
       );
 
     case ButtonShape.pill:
       return RoundedRectangleBorder(
-        side: () {
-          if (buttonType == ButtonType.base) {
-            return BorderSide(
-              color: _buttonColor(context, buttonType: buttonType),
-            );
-          }
-          return fill != ButtonFill.outline
-              ? BorderSide.none
-              : BorderSide(
-                  color: _buttonColor(context, buttonType: buttonType),
-                );
-        }.call(),
+        side:
+            () {
+              if (buttonType == ButtonType.base) {
+                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+              }
+              return fill != ButtonFill.outline
+                  ? BorderSide.none
+                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+            }.call(),
         borderRadius: BorderRadius.circular(1000),
       );
 
     case ButtonShape.rectangular:
       return RoundedRectangleBorder(
-        side: () {
-          if (buttonType == ButtonType.base) {
-            return BorderSide(
-              color: _buttonColor(context, buttonType: buttonType),
-            );
-          }
-          return fill != ButtonFill.outline
-              ? BorderSide.none
-              : BorderSide(
-                  color: _buttonColor(context, buttonType: buttonType),
-                );
-        }.call(),
+        side:
+            () {
+              if (buttonType == ButtonType.base) {
+                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+              }
+              return fill != ButtonFill.outline
+                  ? BorderSide.none
+                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+            }.call(),
       );
 
     case ButtonShape.rounded:
       return RoundedRectangleBorder(
-        side: () {
-          if (buttonType == ButtonType.base) {
-            return BorderSide(
-              color: _buttonColor(context, buttonType: buttonType),
-            );
-          }
-          return fill != ButtonFill.outline
-              ? BorderSide.none
-              : BorderSide(
-                  color: _buttonColor(context, buttonType: buttonType),
-                );
-        }.call(),
+        side:
+            () {
+              if (buttonType == ButtonType.base) {
+                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+              }
+              return fill != ButtonFill.outline
+                  ? BorderSide.none
+                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+            }.call(),
         borderRadius: BorderRadius.circular(1000), // Fully rounded
+      );
+
+    case ButtonShape.square:
+      return RoundedRectangleBorder(
+        side:
+            () {
+              if (buttonType == ButtonType.base) {
+                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+              }
+              return fill != ButtonFill.outline
+                  ? BorderSide.none
+                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+            }.call(),
+        borderRadius: BorderRadius.zero, // Square with no border radius
       );
   }
 }
 
-Color _buttonColor(
-  BuildContext context, {
-  ButtonType buttonType = ButtonType.base,
-}) {
+Color _buttonColor(BuildContext context, {ButtonType buttonType = ButtonType.base}) {
   final palette = context.palette;
   switch (buttonType) {
     case ButtonType.base:
@@ -191,36 +186,22 @@ TextStyle _buttonTextStyle(
   ButtonFill? fill = ButtonFill.solid,
 }) {
   final palette = context.palette;
-  final textColor = buttonType == ButtonType.base
-      ? palette.textPrimary
-      : fill == ButtonFill.solid
-          ? Colors.white
-          : _buttonColor(context, buttonType: buttonType);
+  final baseColor = _buttonColor(context, buttonType: buttonType);
+  final textColor =
+      buttonType == ButtonType.base
+          ? palette.textPrimary
+          : fill == ButtonFill.solid
+          ? ColorUtils.onColor(baseColor)
+          : baseColor;
   switch (buttonSize) {
     case ButtonSize.large:
-      return TextStyle(
-        fontSize: 18,
-        color: textColor,
-        fontWeight: FontWeight.w400,
-      );
+      return TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.w400);
     case ButtonSize.middle:
-      return TextStyle(
-        fontSize: 17,
-        color: textColor,
-        fontWeight: FontWeight.w400,
-      );
+      return TextStyle(fontSize: 17, color: textColor, fontWeight: FontWeight.w400);
     case ButtonSize.mini:
-      return TextStyle(
-        fontSize: 13,
-        color: textColor,
-        fontWeight: FontWeight.w400,
-      );
+      return TextStyle(fontSize: 13, color: textColor, fontWeight: FontWeight.w400);
     case ButtonSize.small:
-      return TextStyle(
-        fontSize: 15,
-        color: textColor,
-        fontWeight: FontWeight.w400,
-      );
+      return TextStyle(fontSize: 15, color: textColor, fontWeight: FontWeight.w400);
   }
 }
 
@@ -330,7 +311,7 @@ class _ButtonImpl extends StatelessWidget {
 
     final Color fillColor;
     if (effectiveFill == ButtonFill.solid) {
-      fillColor = isBase ? Colors.white : baseColor;
+      fillColor = isBase ? palette.background : baseColor;
     } else {
       fillColor = Colors.transparent;
     }
@@ -346,32 +327,15 @@ class _ButtonImpl extends StatelessWidget {
     return Opacity(
       opacity: onPressed != null ? 1 : 0.4,
       child: RawMaterialButton(
-        shape: _buttonShape(
-          context,
-          shape: effectiveShape,
-          fill: effectiveFill,
-          buttonType: buttonType,
-        ),
-        textStyle: _buttonTextStyle(
-          context,
-          buttonType: buttonType,
-          buttonSize: effectiveSize,
-          fill: effectiveFill,
-        ),
+        shape: _buttonShape(context, shape: effectiveShape, fill: effectiveFill, buttonType: buttonType),
+        textStyle: _buttonTextStyle(context, buttonType: buttonType, buttonSize: effectiveSize, fill: effectiveFill),
         elevation: 0,
         focusElevation: 0,
         highlightElevation: 0,
         splashColor: splashColor,
         fillColor: fillColor,
-        constraints: _buttonConstants(
-          buttonSize: effectiveSize,
-          isBlock: isBlock,
-          shape: effectiveShape,
-        ),
-        padding: _buttonPadding(
-          buttonSize: effectiveSize,
-          shape: effectiveShape,
-        ),
+        constraints: _buttonConstants(buttonSize: effectiveSize, isBlock: isBlock, shape: effectiveShape),
+        padding: _buttonPadding(buttonSize: effectiveSize, shape: effectiveShape),
         onPressed: onPressed,
         child: child,
       ),
