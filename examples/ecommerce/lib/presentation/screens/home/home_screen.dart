@@ -1,5 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:ecommerce/core/const.dart';
+import 'package:ecommerce/core/widgets/segmented.dart';
 import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/core/widgets/spinner/rotating_dots.dart';
 import 'package:flutter/material.dart';
@@ -42,6 +43,14 @@ class _HomeScreenState extends State<HomeScreen> {
             Text('$_counter', style: typography.headlineMedium.toTextStyle()),
             WaveDots(),
             CircularProgressSpinner(),
+            Segmented(
+              options: [
+                SegmentedOption(value: '1', label: "ded"),
+                SegmentedOption(value: '2', label: "ddded"),
+                SegmentedOption(value: '3', label: "s"),
+              ],
+              value: '1',
+            ),
           ],
         ),
       ),
