@@ -10,6 +10,7 @@ import {
   updateVendor,
   listVendors,
 } from '../repositories/vendor.repository';
+import { vendorStatusSchema } from '../schemas/common.schema';
 import { getPaginationParams, paginationQuerySchema } from '../utils/pagination.utils';
 
 const OPENAPI_TAG = 'Vendor';
@@ -137,7 +138,7 @@ export const vendorRoutes = {
     .input(
       z.object({
         id: z.string(),
-        status: z.enum(['pending', 'approved', 'suspended']),
+        status: vendorStatusSchema,
       })
     )
     .output(z.object({ success: z.boolean() }))

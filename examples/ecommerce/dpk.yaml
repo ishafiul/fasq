@@ -1,0 +1,95 @@
+# dpk configuration for ecommerce Flutter app
+# See: https://pub.dev/packages/dpk
+
+mode: global
+
+scripts:
+  # Code quality
+  analyze: dart analyze --fatal-infos
+  format: dart format lib/
+  fix: dart fix --apply
+
+  # Code generation
+  gen:
+    command: dart run build_runner build --delete-conflicting-outputs
+    runHooksFrom: build
+  
+  gen:watch:
+    command: dart run build_runner watch --delete-conflicting-outputs
+    runHooksFrom: build
+  
+  gen:clean: dart run build_runner clean
+  
+  # Build hooks
+  pre:build: echo "🔨 Starting code generation..."
+  post:build: |
+    echo "✅ Code generation completed"
+    dart format lib/
+  
+  # Assets generation
+  assets: flutter pub run flutter_gen
+  
+  # Clean
+  clean: |
+    flutter clean
+    rm -rf .dart_tool/
+    rm -rf build/
+  
+  deep:clean: |
+    flutter clean
+    rm -rf .dart_tool/
+    rm -rf build/
+    rm -rf pubspec.lock
+    flutter pub get
+  
+  
+  # Build
+  build:apk: flutter build apk --release
+  build:appbundle: flutter build appbundle --release
+  build:ios: flutter build ios --release
+  build:web: flutter build web --release
+  
+  # CI/CD
+  ci:
+    command: |
+      echo "🚀 Running CI pipeline..."
+      dart analyze --fatal-infos
+      dart format --set-exit-if-changed lib/ test/
+      flutter test
+    env:
+      CI: true
+  
+  # Pre/Post hooks for dependency management
+  pre:get: echo "📦 Fetching dependencies..."
+  post:get: |
+    echo "✅ Dependencies fetched successfully"
+    flutter pub run flutter_gen
+  
+  pre:upgrade: echo "⬆️  Upgrading dependencies..."
+  post:upgrade: |
+    echo "✅ Dependencies upgraded"
+    flutter pub run flutter_gen
+  
+  # Swagger/API generation
+  gen:api: |
+    if [ ! -f swagger_parser.yaml ]; then
+      echo "⚠️ swagger_parser.yaml not found. Skipping API generation."
+      exit 0
+    fi
+    OUTPUT_DIR=$(grep '^  output_directory:' swagger_parser.yaml | awk '{print $2}')
+    if [ -z "$OUTPUT_DIR" ]; then
+      echo "⚠️ output_directory not set in swagger_parser.yaml. Skipping API clean step."
+    elif [ -d "$OUTPUT_DIR" ]; then
+      echo "🧹 Removing existing API directory: $OUTPUT_DIR"
+      rm -rf "$OUTPUT_DIR"
+    fi
+    echo "📡 Running swagger_parser..."
+    dart run swagger_parser
+    echo "🧱 Running build_runner..."
+    dart run build_runner build --delete-conflicting-outputs
+    echo "🧩 Fixing generated enums..."
+    dart run tool/fix_api_gen.dart
+  
+  # Localization (if using flutter_localizations)
+  gen:l10n: flutter gen-l10n
+  

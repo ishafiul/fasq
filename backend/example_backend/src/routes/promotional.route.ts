@@ -12,6 +12,7 @@ import {
   updatePromotionalContent,
   deletePromotionalContent,
 } from '../repositories/promotional.repository';
+import { promotionalTypeSchema } from '../schemas/common.schema';
 
 const OPENAPI_TAG = 'Promotional';
 
@@ -24,7 +25,7 @@ export const promotionalRoutes = {
     })
     .input(
       z.object({
-        type: z.enum(['banner', 'best_deals', 'top_products', 'current_offers']),
+        type: promotionalTypeSchema,
         title: z.string().min(3).max(255),
         description: z.string().max(1000).optional(),
         imageUrl: z.string().url().optional(),

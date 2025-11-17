@@ -1,0 +1,21 @@
+include: package:lint/analysis_options.yaml
+
+analyzer:
+  errors:
+    invalid_annotation_target: false
+  exclude:
+    - lib/**/*.g.dart
+    - lib/**/*.gr.dart
+    - lib/**/*.freezed.dart
+    - lib/**/*.config.dart
+    - lib/**/*.steps.dart
+    - lib/firebase_options.dart
+    - pub_packages/**
+
+linter:
+  rules:
+    discarded_futures: true
+    unawaited_futures: true
+    require_trailing_commas: true
+formatter:
+  page_width: 120

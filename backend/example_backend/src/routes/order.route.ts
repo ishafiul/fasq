@@ -14,6 +14,7 @@ import {
   updateVendorOrderStatus,
   addTrackingNumber,
 } from '../repositories/order.repository';
+import { orderStatusSchema } from '../schemas/common.schema';
 import { getOrCreateCart, getCartWithItems, clearCart } from '../repositories/cart.repository';
 import { getPromoCodeByCode } from '../repositories/promo.repository';
 import { getVendorByUserId } from '../repositories/vendor.repository';
@@ -287,7 +288,7 @@ export const orderRoutes = {
     .input(
       z.object({
         id: z.string(),
-        status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
+        status: orderStatusSchema,
       })
     )
     .output(z.object({ success: z.boolean() }))
@@ -313,7 +314,7 @@ export const orderRoutes = {
       z.object({
         orderId: z.string(),
         vendorId: z.string(),
-        status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
+        status: orderStatusSchema,
       })
     )
     .output(z.object({ success: z.boolean() }))

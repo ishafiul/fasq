@@ -1,0 +1,33 @@
+swagger_parser:
+  schema_url: https://example_backend.shafiulislam20.workers.dev/spec.json
+
+  output_directory: lib/api/
+  language: dart
+
+  # Code Generation Options
+  use_freezed3: true
+  json_serializer: freezed
+  enums_to_json: true
+  enums_parent_prefix: true
+  unknown_enum_value: true
+  mark_files_as_generated: true
+  put_in_folder: true
+  dio_options_parameter_by_default: true
+  extras_parameter_by_default: false
+  replacement_rules:
+    - pattern: '^[0-9]+'
+      replacement: ''
+
+  # Client Configuration
+  root_client: true
+  root_client_name: ApiClient
+  client_postfix: Client
+  export_file: true
+
+  # HTTP/API Behavior
+  default_content_type: 'application/json'
+  use_multipart_file: false
+  original_http_response: false
+  # Optional. Set 'true' to use only the endpoint path for the method name.
+  # Set 'false' to use operationId
+  path_method_name: true

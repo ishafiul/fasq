@@ -1,0 +1,4446 @@
+{
+    "info": {
+        "title": "Fasq Example API",
+        "version": "1.0.0",
+        "description": "Fasq Example API"
+    },
+    "servers": [
+        {
+            "url": "/api"
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Enter your Bearer token in the format: Bearer <token>"
+            }
+        },
+        "schemas": {
+            "auth.createDeviceUuidRequest": {
+                "type": "object",
+                "properties": {
+                    "deviceType": {
+                        "type": "string"
+                    },
+                    "deviceModel": {
+                        "type": "string"
+                    },
+                    "osName": {
+                        "type": "string"
+                    },
+                    "osVersion": {
+                        "type": "string"
+                    },
+                    "isPhysicalDevice": {
+                        "type": "boolean"
+                    },
+                    "appVersion": {
+                        "type": "string"
+                    },
+                    "fcmToken": {
+                        "type": "string"
+                    }
+                },
+                "title": "auth.createDeviceUuidRequest"
+            },
+            "auth.createDeviceUuidResponse": {
+                "type": "object",
+                "properties": {
+                    "deviceId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "deviceId"
+                ],
+                "title": "auth.createDeviceUuidResponse"
+            },
+            "auth.requestOtpRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "deviceUuId": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "email",
+                    "deviceUuId"
+                ],
+                "title": "auth.requestOtpRequest"
+            },
+            "auth.requestOtpResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "accessToken": {
+                        "type": "string"
+                    },
+                    "deviceId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "success",
+                    "message"
+                ],
+                "title": "auth.requestOtpResponse"
+            },
+            "auth.verifyOtpRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "otp": {
+                        "type": "number"
+                    },
+                    "deviceUuId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "isTrusted": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "email",
+                    "otp",
+                    "deviceUuId"
+                ],
+                "title": "auth.verifyOtpRequest"
+            },
+            "auth.verifyOtpResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "accessToken": {
+                        "type": "string"
+                    },
+                    "deviceId": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "success",
+                    "message"
+                ],
+                "title": "auth.verifyOtpResponse"
+            },
+            "auth.logoutRequest": {
+                "type": "object",
+                "properties": {
+                    "deviceId": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "deviceId"
+                ],
+                "title": "auth.logoutRequest"
+            },
+            "auth.logoutResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "auth.logoutResponse"
+            },
+            "auth.refreshTokenRequest": {
+                "type": "object",
+                "properties": {
+                    "deviceId": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "required": [
+                    "deviceId"
+                ],
+                "title": "auth.refreshTokenRequest"
+            },
+            "auth.refreshTokenResponse": {
+                "type": "object",
+                "properties": {
+                    "accessToken": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "accessToken"
+                ],
+                "title": "auth.refreshTokenResponse"
+            },
+            "vendor.applyVendorRequest": {
+                "type": "object",
+                "properties": {
+                    "businessName": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 255
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 1000
+                    }
+                },
+                "required": [
+                    "businessName"
+                ],
+                "title": "vendor.applyVendorRequest"
+            },
+            "vendor.applyVendorResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "userId": {
+                        "type": "string"
+                    },
+                    "businessName": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "userId",
+                    "businessName",
+                    "status"
+                ],
+                "title": "vendor.applyVendorResponse"
+            },
+            "vendor.getVendorResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "businessName": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "logo": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "businessName",
+                    "description",
+                    "logo",
+                    "status"
+                ],
+                "title": "vendor.getVendorResponse"
+            },
+            "vendor.updateVendorProfileRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "businessName": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 255
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 1000
+                    },
+                    "logo": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "vendor.updateVendorProfileRequest"
+            },
+            "vendor.updateVendorProfileResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "vendor.updateVendorProfileResponse"
+            },
+            "vendor.listVendorsResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {},
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "total": {
+                                "type": "number"
+                            },
+                            "page": {
+                                "type": "number"
+                            },
+                            "limit": {
+                                "type": "number"
+                            },
+                            "totalPages": {
+                                "type": "number"
+                            },
+                            "hasNextPage": {
+                                "type": "boolean"
+                            },
+                            "hasPreviousPage": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "total",
+                            "page",
+                            "limit",
+                            "totalPages",
+                            "hasNextPage",
+                            "hasPreviousPage"
+                        ]
+                    }
+                },
+                "required": [
+                    "data",
+                    "meta"
+                ],
+                "title": "vendor.listVendorsResponse"
+            },
+            "vendor.updateVendorStatusRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "pending",
+                            "approved",
+                            "suspended"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "status"
+                ],
+                "title": "vendor.updateVendorStatusRequest"
+            },
+            "vendor.updateVendorStatusResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "vendor.updateVendorStatusResponse"
+            },
+            "category.createCategoryRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 255
+                    },
+                    "slug": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 255,
+                        "pattern": "^[a-z0-9-]+$"
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 1000
+                    },
+                    "parentId": {
+                        "type": "string"
+                    },
+                    "imageUrl": {
+                        "type": "string"
+                    },
+                    "displayOrder": {
+                        "type": "integer",
+                        "minimum": 0
+                    }
+                },
+                "required": [
+                    "name",
+                    "slug"
+                ],
+                "title": "category.createCategoryRequest"
+            },
+            "category.createCategoryResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "slug"
+                ],
+                "title": "category.createCategoryResponse"
+            },
+            "category.getCategoryResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "slug"
+                ],
+                "title": "category.getCategoryResponse"
+            },
+            "category.updateCategoryRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 255
+                    },
+                    "slug": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 255,
+                        "pattern": "^[a-z0-9-]+$"
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 1000
+                    },
+                    "imageUrl": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "displayOrder": {
+                        "type": "integer",
+                        "minimum": 0
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "category.updateCategoryRequest"
+            },
+            "category.updateCategoryResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "category.updateCategoryResponse"
+            },
+            "category.deleteCategoryRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "category.deleteCategoryRequest"
+            },
+            "category.deleteCategoryResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "category.deleteCategoryResponse"
+            },
+            "product.createProductRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 500
+                    },
+                    "slug": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 500
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 5000
+                    },
+                    "categoryId": {
+                        "type": "string"
+                    },
+                    "basePrice": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "draft",
+                            "published",
+                            "archived"
+                        ]
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "vendorId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name",
+                    "slug",
+                    "basePrice"
+                ],
+                "title": "product.createProductRequest"
+            },
+            "product.createProductResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "slug"
+                ],
+                "title": "product.createProductResponse"
+            },
+            "product.listProductsResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {},
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "total": {
+                                "type": "number"
+                            },
+                            "page": {
+                                "type": "number"
+                            },
+                            "limit": {
+                                "type": "number"
+                            },
+                            "totalPages": {
+                                "type": "number"
+                            },
+                            "hasNextPage": {
+                                "type": "boolean"
+                            },
+                            "hasPreviousPage": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "total",
+                            "page",
+                            "limit",
+                            "totalPages",
+                            "hasNextPage",
+                            "hasPreviousPage"
+                        ]
+                    }
+                },
+                "required": [
+                    "data",
+                    "meta"
+                ],
+                "title": "product.listProductsResponse"
+            },
+            "product.updateProductRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 500
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 5000
+                    },
+                    "categoryId": {
+                        "type": "string"
+                    },
+                    "basePrice": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "draft",
+                            "published",
+                            "archived"
+                        ]
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "product.updateProductRequest"
+            },
+            "product.updateProductResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "product.updateProductResponse"
+            },
+            "product.deleteProductRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "product.deleteProductRequest"
+            },
+            "product.deleteProductResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "product.deleteProductResponse"
+            },
+            "product.requestImageUploadRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string"
+                    },
+                    "filename": {
+                        "type": "string"
+                    },
+                    "contentType": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "productId",
+                    "filename",
+                    "contentType"
+                ],
+                "title": "product.requestImageUploadRequest"
+            },
+            "product.requestImageUploadResponse": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "publicUrl": {
+                        "type": "string"
+                    },
+                    "uploadUrl": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "token",
+                    "key",
+                    "publicUrl",
+                    "uploadUrl"
+                ],
+                "title": "product.requestImageUploadResponse"
+            },
+            "product.uploadImageRequest": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    },
+                    "file": {}
+                },
+                "required": [
+                    "token"
+                ],
+                "title": "product.uploadImageRequest"
+            },
+            "product.uploadImageResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "url": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "success",
+                    "url"
+                ],
+                "title": "product.uploadImageResponse"
+            },
+            "product.addProductImageRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "variantId": {
+                        "type": "string"
+                    },
+                    "displayOrder": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "isMain": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "productId",
+                    "url"
+                ],
+                "title": "product.addProductImageRequest"
+            },
+            "product.addProductImageResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "product.addProductImageResponse"
+            },
+            "product.deleteProductImageRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string"
+                    },
+                    "imageId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "productId",
+                    "imageId"
+                ],
+                "title": "product.deleteProductImageRequest"
+            },
+            "product.deleteProductImageResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "product.deleteProductImageResponse"
+            },
+            "product.createVariantRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string"
+                    },
+                    "sku": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "string"
+                    },
+                    "compareAtPrice": {
+                        "type": "string"
+                    },
+                    "inventoryQuantity": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "lowStockThreshold": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "optionType": {
+                                    "type": "string"
+                                },
+                                "optionValue": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "optionType",
+                                "optionValue"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "productId",
+                    "sku",
+                    "name",
+                    "price",
+                    "inventoryQuantity"
+                ],
+                "title": "product.createVariantRequest"
+            },
+            "product.createVariantResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "product.createVariantResponse"
+            },
+            "product.updateVariantInventoryRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string"
+                    },
+                    "variantId": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "productId",
+                    "variantId",
+                    "quantity"
+                ],
+                "title": "product.updateVariantInventoryRequest"
+            },
+            "product.updateVariantInventoryResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "product.updateVariantInventoryResponse"
+            },
+            "cart.clearCartRequest": {
+                "type": "object",
+                "title": "cart.clearCartRequest"
+            },
+            "cart.clearCartResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "cart.clearCartResponse"
+            },
+            "cart.addItemRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string"
+                    },
+                    "variantId": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999
+                    },
+                    "priceAtAdd": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "productId",
+                    "variantId",
+                    "quantity",
+                    "priceAtAdd"
+                ],
+                "title": "cart.addItemRequest"
+            },
+            "cart.addItemResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "cart.addItemResponse"
+            },
+            "cart.updateItemRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 999
+                    }
+                },
+                "required": [
+                    "id",
+                    "quantity"
+                ],
+                "title": "cart.updateItemRequest"
+            },
+            "cart.updateItemResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "cart.updateItemResponse"
+            },
+            "cart.removeItemRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "cart.removeItemRequest"
+            },
+            "cart.removeItemResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "cart.removeItemResponse"
+            },
+            "address.createAddressRequest": {
+                "type": "object",
+                "properties": {
+                    "fullName": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 255
+                    },
+                    "phoneNumber": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 20
+                    },
+                    "addressLine1": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 500
+                    },
+                    "addressLine2": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "city": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 100
+                    },
+                    "state": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 100
+                    },
+                    "postalCode": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 20
+                    },
+                    "country": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 100
+                    },
+                    "isDefault": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "fullName",
+                    "phoneNumber",
+                    "addressLine1",
+                    "city",
+                    "state",
+                    "postalCode",
+                    "country"
+                ],
+                "title": "address.createAddressRequest"
+            },
+            "address.createAddressResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "address.createAddressResponse"
+            },
+            "address.updateAddressRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "fullName": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 255
+                    },
+                    "phoneNumber": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 20
+                    },
+                    "addressLine1": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 500
+                    },
+                    "addressLine2": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "city": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 100
+                    },
+                    "state": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 100
+                    },
+                    "postalCode": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 20
+                    },
+                    "country": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 100
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "address.updateAddressRequest"
+            },
+            "address.updateAddressResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "address.updateAddressResponse"
+            },
+            "address.deleteAddressRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "address.deleteAddressRequest"
+            },
+            "address.deleteAddressResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "address.deleteAddressResponse"
+            },
+            "address.setDefaultAddressRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "address.setDefaultAddressRequest"
+            },
+            "address.setDefaultAddressResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "address.setDefaultAddressResponse"
+            },
+            "order.createOrderRequest": {
+                "type": "object",
+                "properties": {
+                    "shippingAddressId": {
+                        "type": "string"
+                    },
+                    "promoCode": {
+                        "type": "string"
+                    },
+                    "paymentMethod": {
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "maxLength": 1000
+                    }
+                },
+                "required": [
+                    "shippingAddressId"
+                ],
+                "title": "order.createOrderRequest"
+            },
+            "order.createOrderResponse": {
+                "type": "object",
+                "properties": {
+                    "orderId": {
+                        "type": "string"
+                    },
+                    "orderNumber": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "orderId",
+                    "orderNumber"
+                ],
+                "title": "order.createOrderResponse"
+            },
+            "order.getUserOrdersResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {},
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "total": {
+                                "type": "number"
+                            },
+                            "page": {
+                                "type": "number"
+                            },
+                            "limit": {
+                                "type": "number"
+                            },
+                            "totalPages": {
+                                "type": "number"
+                            },
+                            "hasNextPage": {
+                                "type": "boolean"
+                            },
+                            "hasPreviousPage": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "total",
+                            "page",
+                            "limit",
+                            "totalPages",
+                            "hasNextPage",
+                            "hasPreviousPage"
+                        ]
+                    }
+                },
+                "required": [
+                    "data",
+                    "meta"
+                ],
+                "title": "order.getUserOrdersResponse"
+            },
+            "order.getVendorOrdersResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {},
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "total": {
+                                "type": "number"
+                            },
+                            "page": {
+                                "type": "number"
+                            },
+                            "limit": {
+                                "type": "number"
+                            },
+                            "totalPages": {
+                                "type": "number"
+                            },
+                            "hasNextPage": {
+                                "type": "boolean"
+                            },
+                            "hasPreviousPage": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "total",
+                            "page",
+                            "limit",
+                            "totalPages",
+                            "hasNextPage",
+                            "hasPreviousPage"
+                        ]
+                    }
+                },
+                "required": [
+                    "data",
+                    "meta"
+                ],
+                "title": "order.getVendorOrdersResponse"
+            },
+            "order.getAllOrdersResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {},
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "total": {
+                                "type": "number"
+                            },
+                            "page": {
+                                "type": "number"
+                            },
+                            "limit": {
+                                "type": "number"
+                            },
+                            "totalPages": {
+                                "type": "number"
+                            },
+                            "hasNextPage": {
+                                "type": "boolean"
+                            },
+                            "hasPreviousPage": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "total",
+                            "page",
+                            "limit",
+                            "totalPages",
+                            "hasNextPage",
+                            "hasPreviousPage"
+                        ]
+                    }
+                },
+                "required": [
+                    "data",
+                    "meta"
+                ],
+                "title": "order.getAllOrdersResponse"
+            },
+            "order.updateOrderStatusRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "pending",
+                            "confirmed",
+                            "processing",
+                            "shipped",
+                            "delivered",
+                            "cancelled"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "status"
+                ],
+                "title": "order.updateOrderStatusRequest"
+            },
+            "order.updateOrderStatusResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "order.updateOrderStatusResponse"
+            },
+            "order.updateVendorOrderStatusRequest": {
+                "type": "object",
+                "properties": {
+                    "orderId": {
+                        "type": "string"
+                    },
+                    "vendorId": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "pending",
+                            "confirmed",
+                            "processing",
+                            "shipped",
+                            "delivered",
+                            "cancelled"
+                        ]
+                    }
+                },
+                "required": [
+                    "orderId",
+                    "vendorId",
+                    "status"
+                ],
+                "title": "order.updateVendorOrderStatusRequest"
+            },
+            "order.updateVendorOrderStatusResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "order.updateVendorOrderStatusResponse"
+            },
+            "order.addTrackingNumberRequest": {
+                "type": "object",
+                "properties": {
+                    "orderId": {
+                        "type": "string"
+                    },
+                    "vendorId": {
+                        "type": "string"
+                    },
+                    "trackingNumber": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "orderId",
+                    "vendorId",
+                    "trackingNumber"
+                ],
+                "title": "order.addTrackingNumberRequest"
+            },
+            "order.addTrackingNumberResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "order.addTrackingNumberResponse"
+            },
+            "review.createReviewRequest": {
+                "type": "object",
+                "properties": {
+                    "productId": {
+                        "type": "string"
+                    },
+                    "rating": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 255
+                    },
+                    "comment": {
+                        "type": "string",
+                        "maxLength": 2000
+                    },
+                    "orderId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "productId",
+                    "rating",
+                    "title"
+                ],
+                "title": "review.createReviewRequest"
+            },
+            "review.createReviewResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "review.createReviewResponse"
+            },
+            "review.getProductReviewsResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {},
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "total": {
+                                "type": "number"
+                            },
+                            "page": {
+                                "type": "number"
+                            },
+                            "limit": {
+                                "type": "number"
+                            },
+                            "totalPages": {
+                                "type": "number"
+                            },
+                            "hasNextPage": {
+                                "type": "boolean"
+                            },
+                            "hasPreviousPage": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "total",
+                            "page",
+                            "limit",
+                            "totalPages",
+                            "hasNextPage",
+                            "hasPreviousPage"
+                        ]
+                    },
+                    "rating": {
+                        "type": "object",
+                        "properties": {
+                            "averageRating": {
+                                "type": "number"
+                            },
+                            "totalReviews": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "averageRating",
+                            "totalReviews"
+                        ]
+                    }
+                },
+                "required": [
+                    "data",
+                    "meta",
+                    "rating"
+                ],
+                "title": "review.getProductReviewsResponse"
+            },
+            "review.updateReviewRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "rating": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 255
+                    },
+                    "comment": {
+                        "type": "string",
+                        "maxLength": 2000
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "review.updateReviewRequest"
+            },
+            "review.updateReviewResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "review.updateReviewResponse"
+            },
+            "review.deleteReviewRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "review.deleteReviewRequest"
+            },
+            "review.deleteReviewResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "review.deleteReviewResponse"
+            },
+            "review.approveReviewRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "review.approveReviewRequest"
+            },
+            "review.approveReviewResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "review.approveReviewResponse"
+            },
+            "review.rejectReviewRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "review.rejectReviewRequest"
+            },
+            "review.rejectReviewResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "review.rejectReviewResponse"
+            },
+            "promo.createPromoCodeRequest": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 50
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "discountType": {
+                        "enum": [
+                            "percentage",
+                            "fixed"
+                        ]
+                    },
+                    "discountValue": {
+                        "type": "string"
+                    },
+                    "minOrderValue": {
+                        "type": "string"
+                    },
+                    "maxDiscountAmount": {
+                        "type": "string"
+                    },
+                    "usageLimit": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "validFrom": {
+                        "type": "string"
+                    },
+                    "validUntil": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "applicableCategories": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "applicableVendors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "code",
+                    "discountType",
+                    "discountValue",
+                    "validFrom",
+                    "validUntil"
+                ],
+                "title": "promo.createPromoCodeRequest"
+            },
+            "promo.createPromoCodeResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "code"
+                ],
+                "title": "promo.createPromoCodeResponse"
+            },
+            "promo.listPromoCodesResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "anyOf": [
+                                {},
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "total": {
+                                "type": "number"
+                            },
+                            "page": {
+                                "type": "number"
+                            },
+                            "limit": {
+                                "type": "number"
+                            },
+                            "totalPages": {
+                                "type": "number"
+                            },
+                            "hasNextPage": {
+                                "type": "boolean"
+                            },
+                            "hasPreviousPage": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "total",
+                            "page",
+                            "limit",
+                            "totalPages",
+                            "hasNextPage",
+                            "hasPreviousPage"
+                        ]
+                    }
+                },
+                "required": [
+                    "data",
+                    "meta"
+                ],
+                "title": "promo.listPromoCodesResponse"
+            },
+            "promo.validatePromoCodeRequest": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "orderValue": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "categoryIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "vendorIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "code",
+                    "orderValue"
+                ],
+                "title": "promo.validatePromoCodeRequest"
+            },
+            "promo.validatePromoCodeResponse": {
+                "type": "object",
+                "properties": {
+                    "valid": {
+                        "type": "boolean"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "promoCode": {}
+                },
+                "required": [
+                    "valid"
+                ],
+                "title": "promo.validatePromoCodeResponse"
+            },
+            "promo.updatePromoCodeRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "discountValue": {
+                        "type": "string"
+                    },
+                    "minOrderValue": {
+                        "type": "string"
+                    },
+                    "maxDiscountAmount": {
+                        "type": "string"
+                    },
+                    "usageLimit": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "validFrom": {
+                        "type": "string"
+                    },
+                    "validUntil": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "applicableCategories": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "applicableVendors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "promo.updatePromoCodeRequest"
+            },
+            "promo.updatePromoCodeResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "promo.updatePromoCodeResponse"
+            },
+            "promo.deactivatePromoCodeRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "promo.deactivatePromoCodeRequest"
+            },
+            "promo.deactivatePromoCodeResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "promo.deactivatePromoCodeResponse"
+            },
+            "promotional.createPromotionalContentRequest": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "enum": [
+                            "banner",
+                            "best_deals",
+                            "top_products",
+                            "current_offers"
+                        ]
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 255
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 1000
+                    },
+                    "imageUrl": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "link": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "displayOrder": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "startDate": {
+                        "type": "string"
+                    },
+                    "endDate": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "productIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "categoryIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "type",
+                    "title",
+                    "startDate",
+                    "endDate"
+                ],
+                "title": "promotional.createPromotionalContentRequest"
+            },
+            "promotional.createPromotionalContentResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "promotional.createPromotionalContentResponse"
+            },
+            "promotional.updatePromotionalContentRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 255
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 1000
+                    },
+                    "imageUrl": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "link": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "displayOrder": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "startDate": {
+                        "type": "string"
+                    },
+                    "endDate": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "productIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "categoryIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "promotional.updatePromotionalContentRequest"
+            },
+            "promotional.updatePromotionalContentResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "promotional.updatePromotionalContentResponse"
+            },
+            "promotional.deletePromotionalContentRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id"
+                ],
+                "title": "promotional.deletePromotionalContentRequest"
+            },
+            "promotional.deletePromotionalContentResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "success"
+                ],
+                "title": "promotional.deletePromotionalContentResponse"
+            },
+            "payment.createPaymentIntentRequest": {
+                "type": "object",
+                "properties": {
+                    "orderId": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "currency": {
+                        "default": "USD",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "orderId",
+                    "amount"
+                ],
+                "title": "payment.createPaymentIntentRequest"
+            },
+            "payment.createPaymentIntentResponse": {
+                "type": "object",
+                "properties": {
+                    "paymentIntentId": {
+                        "type": "string"
+                    },
+                    "clientSecret": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "paymentIntentId",
+                    "clientSecret"
+                ],
+                "title": "payment.createPaymentIntentResponse"
+            },
+            "payment.handleWebhookResponse": {
+                "type": "object",
+                "properties": {
+                    "received": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "received"
+                ],
+                "title": "payment.handleWebhookResponse"
+            }
+        }
+    },
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ],
+    "openapi": "3.1.1",
+    "paths": {
+        "/auth/create-device-uuid": {
+            "post": {
+                "operationId": "auth.createDeviceUuid",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/auth.createDeviceUuidRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/auth.createDeviceUuidResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/otp/request-otp": {
+            "post": {
+                "operationId": "auth.requestOtp",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/auth.requestOtpRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/auth.requestOtpResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/otp/verify-otp": {
+            "post": {
+                "operationId": "auth.verifyOtp",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/auth.verifyOtpRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/auth.verifyOtpResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "operationId": "auth.logout",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/auth.logoutRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/auth.logoutResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh-token": {
+            "post": {
+                "operationId": "auth.refreshToken",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/auth.refreshTokenRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/auth.refreshTokenResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/vendors/apply": {
+            "post": {
+                "operationId": "vendor.applyVendor",
+                "tags": [
+                    "Vendor"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/vendor.applyVendorRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/vendor.applyVendorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/vendors/:id": {
+            "get": {
+                "operationId": "vendor.getVendor",
+                "tags": [
+                    "Vendor"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/vendor.getVendorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "vendor.updateVendorProfile",
+                "tags": [
+                    "Vendor"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/vendor.updateVendorProfileRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/vendor.updateVendorProfileResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/vendors": {
+            "get": {
+                "operationId": "vendor.listVendors",
+                "tags": [
+                    "Vendor"
+                ],
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "default": 1,
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/vendor.listVendorsResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/vendors/:id/status": {
+            "patch": {
+                "operationId": "vendor.updateVendorStatus",
+                "tags": [
+                    "Vendor"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/vendor.updateVendorStatusRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/vendor.updateVendorStatusResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/categories": {
+            "post": {
+                "operationId": "category.createCategory",
+                "tags": [
+                    "Category"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/category.createCategoryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/category.createCategoryResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "operationId": "category.getCategoryTree",
+                "tags": [
+                    "Category"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "anyOf": [
+                                            {},
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/categories/:id": {
+            "get": {
+                "operationId": "category.getCategory",
+                "tags": [
+                    "Category"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/category.getCategoryResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "category.updateCategory",
+                "tags": [
+                    "Category"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/category.updateCategoryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/category.updateCategoryResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "category.deleteCategory",
+                "tags": [
+                    "Category"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/category.deleteCategoryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/category.deleteCategoryResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products": {
+            "post": {
+                "operationId": "product.createProduct",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.createProductRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.createProductResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "operationId": "product.listProducts",
+                "tags": [
+                    "Product"
+                ],
+                "parameters": [
+                    {
+                        "name": "categoryId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "vendorId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "minPrice",
+                        "in": "query",
+                        "schema": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "maxPrice",
+                        "in": "query",
+                        "schema": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "inStock",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "tags",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "sortBy",
+                        "in": "query",
+                        "schema": {
+                            "default": "createdAt",
+                            "enum": [
+                                "price",
+                                "createdAt",
+                                "rating",
+                                "name"
+                            ]
+                        },
+                        "style": "deepObject",
+                        "explode": true,
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "sortOrder",
+                        "in": "query",
+                        "schema": {
+                            "default": "desc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "deepObject",
+                        "explode": true,
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "default": 1,
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.listProductsResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/:id": {
+            "get": {
+                "operationId": "product.getProduct",
+                "tags": [
+                    "Product"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {},
+                                        {
+                                            "not": {}
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "product.updateProduct",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.updateProductRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.updateProductResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "product.deleteProduct",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.deleteProductRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.deleteProductResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/:productId/images/upload-url": {
+            "post": {
+                "operationId": "product.requestImageUpload",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.requestImageUploadRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.requestImageUploadResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/upload/image": {
+            "post": {
+                "operationId": "product.uploadImage",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.uploadImageRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.uploadImageResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/:productId/images": {
+            "post": {
+                "operationId": "product.addProductImage",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.addProductImageRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.addProductImageResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/:productId/images/:imageId": {
+            "delete": {
+                "operationId": "product.deleteProductImage",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.deleteProductImageRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.deleteProductImageResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/:productId/variants": {
+            "post": {
+                "operationId": "product.createVariant",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.createVariantRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.createVariantResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/:productId/variants/:variantId/inventory": {
+            "patch": {
+                "operationId": "product.updateVariantInventory",
+                "tags": [
+                    "Product"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/product.updateVariantInventoryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/product.updateVariantInventoryResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/cart": {
+            "get": {
+                "operationId": "cart.getCart",
+                "tags": [
+                    "Cart"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {},
+                                        {
+                                            "not": {}
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "cart.clearCart",
+                "tags": [
+                    "Cart"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/cart.clearCartRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/cart.clearCartResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/cart/items": {
+            "post": {
+                "operationId": "cart.addItem",
+                "tags": [
+                    "Cart"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/cart.addItemRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/cart.addItemResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/cart/items/:id": {
+            "patch": {
+                "operationId": "cart.updateItem",
+                "tags": [
+                    "Cart"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/cart.updateItemRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/cart.updateItemResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "cart.removeItem",
+                "tags": [
+                    "Cart"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/cart.removeItemRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/cart.removeItemResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/addresses": {
+            "post": {
+                "operationId": "address.createAddress",
+                "tags": [
+                    "Address"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/address.createAddressRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/address.createAddressResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "operationId": "address.listAddresses",
+                "tags": [
+                    "Address"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "anyOf": [
+                                            {},
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/addresses/:id": {
+            "patch": {
+                "operationId": "address.updateAddress",
+                "tags": [
+                    "Address"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/address.updateAddressRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/address.updateAddressResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "address.deleteAddress",
+                "tags": [
+                    "Address"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/address.deleteAddressRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/address.deleteAddressResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/addresses/:id/default": {
+            "patch": {
+                "operationId": "address.setDefaultAddress",
+                "tags": [
+                    "Address"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/address.setDefaultAddressRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/address.setDefaultAddressResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders": {
+            "post": {
+                "operationId": "order.createOrder",
+                "tags": [
+                    "Order"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/order.createOrderRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/order.createOrderResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "operationId": "order.getUserOrders",
+                "tags": [
+                    "Order"
+                ],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "default": 1,
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/order.getUserOrdersResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/vendor": {
+            "get": {
+                "operationId": "order.getVendorOrders",
+                "tags": [
+                    "Order"
+                ],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "default": 1,
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/order.getVendorOrdersResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/all": {
+            "get": {
+                "operationId": "order.getAllOrders",
+                "tags": [
+                    "Order"
+                ],
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "paymentStatus",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "startDate",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "endDate",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "default": 1,
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/order.getAllOrdersResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/:id": {
+            "get": {
+                "operationId": "order.getOrder",
+                "tags": [
+                    "Order"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {},
+                                        {
+                                            "not": {}
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/:id/status": {
+            "patch": {
+                "operationId": "order.updateOrderStatus",
+                "tags": [
+                    "Order"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/order.updateOrderStatusRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/order.updateOrderStatusResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/:orderId/vendors/:vendorId/status": {
+            "patch": {
+                "operationId": "order.updateVendorOrderStatus",
+                "tags": [
+                    "Order"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/order.updateVendorOrderStatusRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/order.updateVendorOrderStatusResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/:orderId/vendors/:vendorId/tracking": {
+            "patch": {
+                "operationId": "order.addTrackingNumber",
+                "tags": [
+                    "Order"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/order.addTrackingNumberRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/order.addTrackingNumberResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/:productId/reviews": {
+            "post": {
+                "operationId": "review.createReview",
+                "tags": [
+                    "Review"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/review.createReviewRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/review.createReviewResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "operationId": "review.getProductReviews",
+                "tags": [
+                    "Review"
+                ],
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "default": 1,
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/review.getProductReviewsResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reviews/:id": {
+            "patch": {
+                "operationId": "review.updateReview",
+                "tags": [
+                    "Review"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/review.updateReviewRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/review.updateReviewResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "review.deleteReview",
+                "tags": [
+                    "Review"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/review.deleteReviewRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/review.deleteReviewResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reviews/:id/approve": {
+            "patch": {
+                "operationId": "review.approveReview",
+                "tags": [
+                    "Review"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/review.approveReviewRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/review.approveReviewResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reviews/:id/reject": {
+            "patch": {
+                "operationId": "review.rejectReview",
+                "tags": [
+                    "Review"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/review.rejectReviewRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/review.rejectReviewResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promo-codes": {
+            "post": {
+                "operationId": "promo.createPromoCode",
+                "tags": [
+                    "PromoCode"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/promo.createPromoCodeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/promo.createPromoCodeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "operationId": "promo.listPromoCodes",
+                "tags": [
+                    "PromoCode"
+                ],
+                "parameters": [
+                    {
+                        "name": "isActive",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "default": 1,
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/promo.listPromoCodesResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promo-codes/validate": {
+            "post": {
+                "operationId": "promo.validatePromoCode",
+                "tags": [
+                    "PromoCode"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/promo.validatePromoCodeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/promo.validatePromoCodeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promo-codes/:id": {
+            "patch": {
+                "operationId": "promo.updatePromoCode",
+                "tags": [
+                    "PromoCode"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/promo.updatePromoCodeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/promo.updatePromoCodeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "promo.deactivatePromoCode",
+                "tags": [
+                    "PromoCode"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/promo.deactivatePromoCodeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/promo.deactivatePromoCodeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promotional-content": {
+            "post": {
+                "operationId": "promotional.createPromotionalContent",
+                "tags": [
+                    "Promotional"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/promotional.createPromotionalContentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/promotional.createPromotionalContentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promotional/best-deals": {
+            "get": {
+                "operationId": "promotional.getBestDeals",
+                "tags": [
+                    "Promotional"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "anyOf": [
+                                            {},
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promotional/top-products": {
+            "get": {
+                "operationId": "promotional.getTopProducts",
+                "tags": [
+                    "Promotional"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "anyOf": [
+                                            {},
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promotional/current-offers": {
+            "get": {
+                "operationId": "promotional.getCurrentOffers",
+                "tags": [
+                    "Promotional"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "anyOf": [
+                                            {},
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promotional/featured": {
+            "get": {
+                "operationId": "promotional.getFeatured",
+                "tags": [
+                    "Promotional"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "anyOf": [
+                                            {},
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/promotional-content/:id": {
+            "patch": {
+                "operationId": "promotional.updatePromotionalContent",
+                "tags": [
+                    "Promotional"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/promotional.updatePromotionalContentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/promotional.updatePromotionalContentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "promotional.deletePromotionalContent",
+                "tags": [
+                    "Promotional"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/promotional.deletePromotionalContentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/promotional.deletePromotionalContentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/payment/create-intent": {
+            "post": {
+                "operationId": "payment.createPaymentIntent",
+                "tags": [
+                    "Payment"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/payment.createPaymentIntentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/payment.createPaymentIntentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/payment/webhook": {
+            "post": {
+                "operationId": "payment.handleWebhook",
+                "tags": [
+                    "Payment"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/payment.handleWebhookResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -10,6 +10,7 @@ import {
   deactivatePromoCode,
   listPromoCodes,
 } from '../repositories/promo.repository';
+import { discountTypeSchema } from '../schemas/common.schema';
 import { getPaginationParams, paginationQuerySchema } from '../utils/pagination.utils';
 
 const OPENAPI_TAG = 'PromoCode';
@@ -25,7 +26,7 @@ export const promoRoutes = {
       z.object({
         code: z.string().min(3).max(50).toUpperCase(),
         description: z.string().max(500).optional(),
-        discountType: z.enum(['percentage', 'fixed']),
+        discountType: discountTypeSchema,
         discountValue: z.string(),
         minOrderValue: z.string().optional(),
         maxDiscountAmount: z.string().optional(),

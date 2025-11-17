@@ -18,6 +18,7 @@ import {
   createVariantOption,
   getVariantOptions,
 } from '../repositories/product.repository';
+import { productStatusSchema } from '../schemas/common.schema';
 import { getVendorByUserId } from '../repositories/vendor.repository';
 import {
   getPaginationParams,
@@ -45,7 +46,7 @@ export const productRoutes = {
         description: z.string().max(5000).optional(),
         categoryId: z.string().optional(),
         basePrice: z.string(),
-        status: z.enum(['draft', 'published', 'archived']).optional(),
+        status: productStatusSchema.optional(),
         tags: z.array(z.string()).optional(),
         vendorId: z.string().optional(),
       })
@@ -169,7 +170,7 @@ export const productRoutes = {
         description: z.string().max(5000).optional(),
         categoryId: z.string().optional(),
         basePrice: z.string().optional(),
-        status: z.enum(['draft', 'published', 'archived']).optional(),
+        status: productStatusSchema.optional(),
         tags: z.array(z.string()).optional(),
       })
     )

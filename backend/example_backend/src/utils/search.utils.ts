@@ -1,9 +1,7 @@
 import { SQL, and, or, gte, lte, eq, ilike, asc, desc, sql } from 'drizzle-orm';
 import { products } from '../schemas/product.schema';
 import z from "zod/v3";
-
-export const sortOrderEnum = ['asc', 'desc'] as const;
-export const productSortByEnum = ['price', 'createdAt', 'rating', 'name'] as const;
+import { sortBySchema, sortOrderSchema } from "../schemas/common.schema";
 
 export const productFiltersSchema = z.object({
   categoryId: z.string().optional(),
@@ -17,8 +15,8 @@ export const productFiltersSchema = z.object({
 
 export const productSearchSchema = z.object({
   search: z.string().optional(),
-  sortBy: z.enum(productSortByEnum).optional().default('createdAt'),
-  sortOrder: z.enum(sortOrderEnum).optional().default('desc'),
+  sortBy: sortBySchema.optional().default('createdAt'),
+  sortOrder: sortOrderSchema.optional().default('desc'),
 });
 
 export type ProductFilters = z.infer<typeof productFiltersSchema>;

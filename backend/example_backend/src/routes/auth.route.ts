@@ -208,16 +208,16 @@ export const authRoutes = {
       const ctx = context as TRPCContext;
       const db = ctx.get("db");
       const env = ctx.env;
-     
+
       const normalizedEmail = normalizeEmail(input.email);
       const deviceExists = await validateDevice(db, input.deviceUuId);
- 
+
       if (!deviceExists) {
         throw new ORPCError("NOT_FOUND", {
           message: "Device not found",
         });
       }
-      
+
       await findOrCreateUser(db, normalizedEmail);
       const user = await findUserByEmail(db, normalizedEmail);
       if (!user) {
@@ -254,13 +254,13 @@ export const authRoutes = {
           input.deviceUuId,
           true
         );
-      
+
         const accessToken = await generateAccessToken(
           user.id,
           user.email,
           env.JWT_SECRET
         );
-      
+
         return {
           success: true,
           message: "Logged in with trusted device",
