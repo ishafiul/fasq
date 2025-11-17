@@ -63,6 +63,9 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/icons/outlined/
+    - assets/icons/filled/
+    - assets/icons/twotone/
     - assets/fonts/
   fonts:
     - family: Arial
