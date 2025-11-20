@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:ecommerce/core/get_it.dart';
+import 'package:ecommerce/core/services/query_client_service.dart';
+import 'package:ecommerce/core/services/snackbar_manager.dart';
 import 'package:ecommerce/core/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,31 +28,29 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
-      await SystemChrome.setPreferredOrientations(
-        const <DeviceOrientation>[
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-        ],
-      );
+      await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
 
       await initializeDependencies();
+
+      final queryClientService = locator<QueryClientService>();
+      await queryClientService.initialize();
+
+      final snackbarManager = locator<SnackbarManager>();
+      queryClientService.client.addObserver(snackbarManager);
 
       FlutterError.onError = (FlutterErrorDetails details) {
         final stack = details.stack;
         if (stack == null) return;
-        logger.e(
-          details.exceptionAsString(),
-          stackTrace: details.stack == null ? null : Trace.from(stack),
-        );
+        logger.e(details.exceptionAsString(), stackTrace: details.stack == null ? null : Trace.from(stack));
       };
 
       runApp(await builder());
     },
     (Object error, StackTrace stackTrace) {
-      logger.e(
-        error.toString(),
-        stackTrace: Trace.from(stackTrace),
-      );
+      logger.e(error.toString(), stackTrace: Trace.from(stackTrace));
 
       // Handle specific error types
       if (error is FlutterError) {
