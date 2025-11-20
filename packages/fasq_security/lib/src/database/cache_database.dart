@@ -20,14 +20,32 @@ class CacheDatabase {
       file,
       logStatements: false,
       setup: (db) {
+        // Configure PRAGMA settings
         db.execute('PRAGMA journal_mode=WAL');
         db.execute('PRAGMA synchronous=NORMAL');
         db.execute('PRAGMA cache_size=10000');
         db.execute('PRAGMA busy_timeout=5000');
+
+        // Create schema when database is opened
+        db.execute('''
+          CREATE TABLE IF NOT EXISTS cache_entries (
+            cache_key TEXT PRIMARY KEY,
+            encrypted_data BLOB NOT NULL,
+            created_at INTEGER NOT NULL,
+            expires_at INTEGER
+          )
+        ''');
+
+        db.execute('''
+          CREATE INDEX IF NOT EXISTS idx_cache_entries_expires
+          ON cache_entries(expires_at)
+        ''');
       },
     );
     final instance = CacheDatabase._(database, file.path);
-    await instance._createSchema();
+    // The database will open automatically when first used
+    // The setup callback will run when the database opens, creating the schema
+    // We don't force it to open here to avoid circular dependency issues
     return instance;
   }
 
@@ -52,22 +70,6 @@ class CacheDatabase {
       _cachedPath = file.path;
       return file;
     }
-  }
-
-  Future<void> _createSchema() async {
-    await _db.runCustom('''
-      CREATE TABLE IF NOT EXISTS cache_entries (
-        cache_key TEXT PRIMARY KEY,
-        encrypted_data BLOB NOT NULL,
-        created_at INTEGER NOT NULL,
-        expires_at INTEGER
-      )
-    ''');
-
-    await _db.runCustom('''
-      CREATE INDEX IF NOT EXISTS idx_cache_entries_expires
-      ON cache_entries(expires_at)
-    ''');
   }
 
   Future<Map<String, List<int>>> getCacheEntries(List<String> keys) async {
