@@ -1,3 +1,8 @@
+## 0.2.4
+
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FEAT**: introduce cache data codec (#38).
+
 ## 0.2.3+1
 
  - Update a dependency to the latest release.

@@ -1,3 +1,8 @@
+## 0.1.3
+
+ - **FEAT**: enhance CacheDatabase schema setup (#39).
+ - **FEAT**: introduce cache data codec (#38).
+
 ## 0.1.2
 
  - **FEAT**: harden persistence across cache layers (#36).
