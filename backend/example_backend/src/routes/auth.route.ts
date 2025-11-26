@@ -62,7 +62,7 @@ const createDeviceUuidApiSchema = z.object({
   osVersion: z.string().optional(),
   isPhysicalDevice: z.boolean().optional(),
   appVersion: z.string().optional(),
-  fcmToken: z.string().optional(),
+  fcmToken: z.string().nullish(),
 });
 
 const createDeviceUuidFullSchema = z.object({
@@ -80,7 +80,7 @@ const createDeviceUuidFullSchema = z.object({
   timezone: z.string().optional(),
   longitude: z.string().optional(),
   latitude: z.string().optional(),
-  fcmToken: z.string().optional(),
+  fcmToken: z.string().nullish(),
 });
 
 export const authRoutes = {
@@ -97,45 +97,62 @@ export const authRoutes = {
       })
     )
     .handler(async ({ input, context }) => {
-      const ctx = context as TRPCContext;
-      const db = ctx.get("db");
-      const c = ctx.c;
+      try {
+        const ctx = context as TRPCContext;
+        const db = ctx.get("db");
+        const c = ctx.c;
 
-      const cfData = (c.req.raw as any)["cf"] || {};
+        const cfData = (c.req.raw as any)["cf"] || {};
 
-      const fullInput = createDeviceUuidFullSchema.parse({
-        ...input,
-        ipAddress: c.req.header("cf-connecting-ip") || undefined,
-        isp: cfData["asOrganization"] || undefined,
-        colo: cfData["colo"] || undefined,
-        longitude: cfData["longitude"]?.toString() || undefined,
-        latitude: cfData["latitude"]?.toString() || undefined,
-        timezone: cfData["timezone"] || undefined,
-        countryCode: cfData["country"] || undefined,
-        city: cfData["city"] || undefined,
-      });
+        const fullInput = createDeviceUuidFullSchema.parse({
+          ...input,
+          ipAddress: c.req.header("cf-connecting-ip") || undefined,
+          isp: cfData["asOrganization"] || undefined,
+          colo: cfData["colo"] || undefined,
+          longitude: cfData["longitude"]?.toString() || undefined,
+          latitude: cfData["latitude"]?.toString() || undefined,
+          timezone: cfData["timezone"] || undefined,
+          countryCode: cfData["country"] || undefined,
+          city: cfData["city"] || undefined,
+        });
 
-      const fingerprintComponents = [
-        fullInput.ipAddress || "",
-        fullInput.deviceType || "",
-        fullInput.deviceModel || "",
-        fullInput.osName || "",
-        fullInput.countryCode || "",
-        fullInput.timezone || "",
-      ].join("|");
+        const fingerprintComponents = [
+          fullInput.ipAddress || "",
+          fullInput.deviceType || "",
+          fullInput.deviceModel || "",
+          fullInput.osName || "",
+          fullInput.countryCode || "",
+          fullInput.timezone || "",
+        ].join("|");
 
-      const fingerprintBuffer = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(fingerprintComponents)
-      );
-      const fingerprint = Array.from(new Uint8Array(fingerprintBuffer))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+        const fingerprintBuffer = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(fingerprintComponents)
+        );
+        const fingerprint = Array.from(new Uint8Array(fingerprintBuffer))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
 
-      const existingDevice = await findDeviceByFingerprint(db, fingerprint);
+        const existingDevice = await findDeviceByFingerprint(db, fingerprint);
 
       if (existingDevice) {
-        await updateDevice(db, existingDevice.id, {
+        const updateData: {
+          deviceType?: string | null;
+          deviceModel?: string | null;
+          osName?: string | null;
+          osVersion?: string | null;
+          isPhysicalDevice?: string | null;
+          appVersion?: string | null;
+          ipAddress?: string | null;
+          city?: string | null;
+          countryCode?: string | null;
+          isp?: string | null;
+          colo?: string | null;
+          timezone?: string | null;
+          longitude?: string | null;
+          latitude?: string | null;
+          fcmToken?: string | null;
+        } = {
           deviceType: fullInput.deviceType,
           deviceModel: fullInput.deviceModel,
           osName: fullInput.osName,
@@ -150,8 +167,11 @@ export const authRoutes = {
           timezone: fullInput.timezone,
           longitude: fullInput.longitude,
           latitude: fullInput.latitude,
-          fcmToken: fullInput.fcmToken,
-        });
+        };
+        if (fullInput.fcmToken != null) {
+          updateData.fcmToken = fullInput.fcmToken;
+        }
+        await updateDevice(db, existingDevice.id, updateData);
 
         return {
           deviceId: existingDevice.id,
@@ -160,7 +180,25 @@ export const authRoutes = {
 
       const deviceId = crypto.randomUUID();
 
-      await createDevice(db, {
+      const createData: {
+        id: string;
+        fingerprint: string;
+        deviceType?: string | null;
+        deviceModel?: string | null;
+        osName?: string | null;
+        osVersion?: string | null;
+        isPhysicalDevice?: string | null;
+        appVersion?: string | null;
+        ipAddress?: string | null;
+        city?: string | null;
+        countryCode?: string | null;
+        isp?: string | null;
+        colo?: string | null;
+        timezone?: string | null;
+        longitude?: string | null;
+        latitude?: string | null;
+        fcmToken?: string | null;
+      } = {
         id: deviceId,
         fingerprint,
         deviceType: fullInput.deviceType,
@@ -177,12 +215,24 @@ export const authRoutes = {
         timezone: fullInput.timezone,
         longitude: fullInput.longitude,
         latitude: fullInput.latitude,
-        fcmToken: fullInput.fcmToken,
-      });
+      };
+      if (fullInput.fcmToken != null) {
+        createData.fcmToken = fullInput.fcmToken;
+      }
+      await createDevice(db, createData);
 
       return {
         deviceId,
       };
+      } catch (error) {
+        console.error("Error in createDeviceUuid:", error);
+        if (error instanceof ORPCError) {
+          throw error;
+        }
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: error instanceof Error ? error.message : "Failed to create device",
+        });
+      }
     }),
   requestOtp: publicProcedure
     .route({
@@ -231,6 +281,17 @@ export const authRoutes = {
         input.deviceUuId,
         user.id
       );
+
+      console.log('[requestOtp] Trusted auth check:', {
+        deviceId: input.deviceUuId,
+        userId: user.id,
+        trustedAuthFound: !!trustedAuth,
+        trustedAuthDetails: trustedAuth ? {
+          id: trustedAuth.id,
+          isTrusted: trustedAuth.isTrusted,
+          lastRefresh: trustedAuth.lastRefresh
+        } : null
+      });
 
       const banned = await checkUserBanStatus(db, user);
       if (banned) {
@@ -371,7 +432,7 @@ export const authRoutes = {
       }
 
       if (otp.otp !== input.otp) {
-        throw new ORPCError("UNAUTHORIZED", {
+        throw new ORPCError("BAD_REQUEST", {
           message: "Invalid OTP",
         });
       }
@@ -385,6 +446,13 @@ export const authRoutes = {
       }
 
       const isTrusted = input.isTrusted ?? false;
+
+      console.log('[verifyOtp] Creating auth session:', {
+        userId: user.id,
+        deviceId: input.deviceUuId,
+        isTrusted,
+        requestIsTrusted: input.isTrusted
+      });
 
       await createAuthSession(
         db,
@@ -444,7 +512,20 @@ export const authRoutes = {
         });
       }
 
-      await deleteAuthByDeviceId(db, input.deviceId);
+      console.log('[logout] Processing logout:', {
+        authId: auth.id,
+        deviceId: input.deviceId,
+        userId: auth.userId,
+        isTrusted: auth.isTrusted,
+        trustedAt: auth.trustedAt
+      });
+
+      if (!auth.isTrusted) {
+        await deleteAuthByDeviceId(db, input.deviceId);
+        console.log('[logout] Deleted non-trusted auth session');
+      } else {
+        console.log('[logout] Preserved trusted auth session');
+      }
 
       return {
         success: true,
@@ -472,7 +553,7 @@ export const authRoutes = {
       const auth = await findAuthByDeviceId(db, input.deviceId);
 
       if (!auth) {
-        throw new ORPCError("UNAUTHORIZED", {
+        throw new ORPCError("NOT_FOUND", {
           message: "Auth session not found",
         });
       }
@@ -483,7 +564,7 @@ export const authRoutes = {
       const foundUser = await findUserById(db, auth.userId);
 
       if (!foundUser) {
-        throw new ORPCError("UNAUTHORIZED", {
+        throw new ORPCError("NOT_FOUND", {
           message: "User not found",
         });
       }
