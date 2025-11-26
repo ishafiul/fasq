@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:ecommerce/core/services/navigator_key_service.dart';
 import 'package:ecommerce/core/widgets/snackbar.dart';
 import 'package:fasq/fasq.dart';
@@ -27,12 +28,22 @@ class SnackbarManager extends QueryClientObserver {
     return null;
   }
 
+  String? _extractErrorMessage(Object? error) {
+    if (error == null) return null;
+
+    if (error is DioException) {
+      return error.message ?? error.toString();
+    }
+
+    return error.toString();
+  }
+
   @override
   void onQueryError(QuerySnapshot<dynamic> snapshot, QueryMeta? meta, BuildContext? context) {
     final messenger = _getMessenger(context);
     if (messenger == null) return;
 
-    final errorMessage = meta?.errorMessage;
+    final errorMessage = meta?.errorMessage ?? _extractErrorMessage(snapshot.currentState.error);
     if (errorMessage == null || errorMessage.isEmpty) return;
 
     final effectiveContext = context ?? _context;
@@ -46,7 +57,7 @@ class SnackbarManager extends QueryClientObserver {
     final messenger = _getMessenger(context);
     if (messenger == null) return;
 
-    final errorMessage = meta?.errorMessage;
+    final errorMessage = meta?.errorMessage ?? _extractErrorMessage(snapshot.currentState.error);
     if (errorMessage == null || errorMessage.isEmpty) return;
 
     final effectiveContext = context ?? _context;

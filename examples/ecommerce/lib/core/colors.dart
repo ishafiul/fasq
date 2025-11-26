@@ -3,18 +3,29 @@ import 'package:flutter/material.dart';
 /// Semantic color palette contract used across the app.
 sealed class AppPalette {
   Color get brand;
+
   Color get info;
+
   Color get warning;
+
   Color get success;
+
   Color get danger;
 
   Color get textPrimary;
+
   Color get textSecondary;
+
   Color get disabledText;
 
   Color get background;
+
+  Color get surface;
+
   Color get border;
+
   Color get weak;
+
   Color get light;
 
   LinearGradient get gradientBrand;
@@ -48,10 +59,13 @@ class LightPalette implements AppPalette {
   Color get disabledText => const Color(0xFF838699);
 
   @override
-  Color get background => const Color(0xFFFAFAFA);
+  Color get background => const Color(0xFFF6F6F6);
 
   @override
-  Color get border => const Color(0xFFEEEEEE);
+  Color get surface => const Color(0xFFF4F4F4);
+
+  @override
+  Color get border => const Color(0xFFDCDCDC);
 
   @override
   Color get weak => const Color(0xFF999999);
@@ -61,10 +75,10 @@ class LightPalette implements AppPalette {
 
   @override
   LinearGradient get gradientBrand => const LinearGradient(
-        begin: Alignment.centerRight,
-        end: Alignment.centerLeft,
-        colors: [Color(0xFF0B63E5), Color(0xFF00A0E8)],
-      );
+    begin: Alignment.centerRight,
+    end: Alignment.centerLeft,
+    colors: [Color(0xFF0B63E5), Color(0xFF00A0E8)],
+  );
 }
 
 class DarkPalette implements AppPalette {
@@ -98,6 +112,9 @@ class DarkPalette implements AppPalette {
   Color get background => const Color(0xFF121212);
 
   @override
+  Color get surface => const Color(0xFF2B2B2B);
+
+  @override
   Color get border => const Color(0xFF2C2C2C);
 
   @override
@@ -108,10 +125,10 @@ class DarkPalette implements AppPalette {
 
   @override
   LinearGradient get gradientBrand => const LinearGradient(
-        begin: Alignment.centerRight,
-        end: Alignment.centerLeft,
-        colors: [Color(0xFF199F6F), Color(0xFF54D3A3)],
-      );
+    begin: Alignment.centerRight,
+    end: Alignment.centerLeft,
+    colors: [Color(0xFF199F6F), Color(0xFF54D3A3)],
+  );
 }
 
 AppPalette paletteFor(Brightness brightness) {
@@ -120,11 +137,13 @@ AppPalette paletteFor(Brightness brightness) {
 
 extension ContextColors on BuildContext {
   ColorScheme get colors => Theme.of(this).colorScheme;
+
   AppPalette get palette => paletteFor(Theme.of(this).brightness);
 }
 
 class ColorUtils {
   ColorUtils._();
+
   static Color tint(Color color, double amount) {
     return Color.lerp(color, Colors.white, amount)!;
   }

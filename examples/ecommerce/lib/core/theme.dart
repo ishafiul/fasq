@@ -15,7 +15,7 @@ ThemeData appTheme(Brightness brightness) {
     secondary: palette.info,
     tertiary: palette.warning,
     error: palette.danger,
-    surface: palette.background,
+    surface: palette.surface,
     onSurface: palette.textPrimary,
     onSurfaceVariant: palette.textSecondary,
     outline: palette.border,
@@ -38,25 +38,14 @@ ThemeData appTheme(Brightness brightness) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
-      filled: true,
-      fillColor: scheme.surfaceContainerHighest,
-      contentPadding: EdgeInsets.all(spacing.sm),
-      hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-      labelStyle: TextStyle(color: scheme.onSurfaceVariant),
-      errorStyle: typography.labelSmall.toTextStyle(color: scheme.error),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: radius.all(radius.md),
-        borderSide: BorderSide(color: scheme.outlineVariant),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: radius.all(radius.md),
-        borderSide: BorderSide(color: scheme.primary),
-      ),
-      errorBorder: OutlineInputBorder(borderRadius: radius.all(radius.md), borderSide: BorderSide(color: scheme.error)),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: radius.all(radius.md),
-        borderSide: BorderSide(color: scheme.error),
-      ),
+      contentPadding: EdgeInsets.symmetric(vertical: spacing.sm),
+      hintStyle: typography.bodySmall.toTextStyle(color: palette.textSecondary),
+      labelStyle: typography.labelSmall.toTextStyle(color: palette.textSecondary),
+      errorStyle: typography.labelSmall.toTextStyle(color: palette.danger),
+      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.border)),
+      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.brand)),
+      errorBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.danger)),
+      focusedErrorBorder: UnderlineInputBorder(borderSide: BorderSide(color: palette.danger)),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
@@ -113,11 +102,36 @@ ThemeData appTheme(Brightness brightness) {
     ),
     checkboxTheme: CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return states.contains(WidgetState.selected) ? scheme.primary.withValues(alpha: 0.4) : Colors.transparent;
+        }
         if (states.contains(WidgetState.selected)) return scheme.primary;
-        return scheme.surfaceContainerHighest;
+        return Colors.transparent;
       }),
+      checkColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return Colors.white.withValues(alpha: 0.4);
+        }
+        return Colors.white;
+      }),
+      side: BorderSide(color: palette.border, width: 1.5),
+      shape: const CircleBorder(),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      splashRadius: 0,
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      visualDensity: VisualDensity.standard,
     ),
-    radioTheme: RadioThemeData(fillColor: WidgetStatePropertyAll(scheme.primary)),
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return scheme.primary.withValues(alpha: 0.4);
+        }
+        return scheme.primary;
+      }),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      splashRadius: 0,
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+    ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStatePropertyAll(scheme.onPrimary),
       trackColor: WidgetStatePropertyAll(scheme.primary),
