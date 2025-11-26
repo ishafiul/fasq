@@ -4,6 +4,7 @@ import {
   promotionalContent,
   InsertPromotionalContent,
 } from '../schemas/promotional.schema';
+import { getProductsByIds } from './product.repository';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function createPromotionalContent(
@@ -33,7 +34,7 @@ export async function getPromotionalContentById(db: DB, id: string) {
 export async function getPromotionalContent(db: DB, type: string) {
   const now = new Date();
 
-  return await db
+  const contents = await db
     .select()
     .from(promotionalContent)
     .where(
@@ -45,6 +46,23 @@ export async function getPromotionalContent(db: DB, type: string) {
       )
     )
     .orderBy(promotionalContent.displayOrder);
+
+  // Transform to include full product data instead of productIds
+  const contentWithProducts = await Promise.all(
+    contents.map(async (content) => {
+      const products = content.productIds && content.productIds.length > 0
+        ? await getProductsByIds(db, content.productIds)
+        : [];
+      
+      const { productIds, ...rest } = content;
+      return {
+        ...rest,
+        products,
+      };
+    })
+  );
+
+  return contentWithProducts;
 }
 
 export async function getBestDeals(db: DB) {
@@ -62,7 +80,7 @@ export async function getCurrentOffers(db: DB) {
 export async function getFeaturedProducts(db: DB) {
   const now = new Date();
 
-  return await db
+  const contents = await db
     .select()
     .from(promotionalContent)
     .where(
@@ -74,6 +92,23 @@ export async function getFeaturedProducts(db: DB) {
     )
     .orderBy(promotionalContent.displayOrder)
     .limit(10);
+
+  // Transform to include full product data instead of productIds
+  const contentWithProducts = await Promise.all(
+    contents.map(async (content) => {
+      const products = content.productIds && content.productIds.length > 0
+        ? await getProductsByIds(db, content.productIds)
+        : [];
+      
+      const { productIds, ...rest } = content;
+      return {
+        ...rest,
+        products,
+      };
+    })
+  );
+
+  return contentWithProducts;
 }
 
 export async function updatePromotionalContent(

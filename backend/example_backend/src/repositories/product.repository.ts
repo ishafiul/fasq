@@ -1,4 +1,4 @@
-import { eq, and, count, sql } from 'drizzle-orm';
+import { eq, and, count, sql, inArray } from 'drizzle-orm';
 import { DB } from '../utils/db.utils';
 import {
   products,
@@ -44,6 +44,30 @@ export async function getProductById(db: DB, id: string) {
     .where(eq(products.id, id))
     .limit(1);
   return product || null;
+}
+
+export async function getProductsByIds(db: DB, productIds: string[]) {
+  if (!productIds || productIds.length === 0) {
+    return [];
+  }
+
+  const fetchedProducts = await db
+    .select()
+    .from(products)
+    .where(inArray(products.id, productIds));
+
+  // Fetch images for all products in parallel
+  const productsWithImages = await Promise.all(
+    fetchedProducts.map(async (product) => {
+      const images = await getProductImages(db, product.id);
+      return {
+        ...product,
+        images,
+      };
+    })
+  );
+
+  return productsWithImages;
 }
 
 export async function getProductBySlug(db: DB, slug: string) {
