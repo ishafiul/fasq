@@ -45,6 +45,7 @@ class TextInputField extends StatefulWidget {
 class _TextInputFieldState extends State<TextInputField> {
   late final TextEditingController _controller;
   bool _isVisibleClear = false;
+  bool _isPasswordVisible = false;
 
   @override
   void initState() {
@@ -98,6 +99,12 @@ class _TextInputFieldState extends State<TextInputField> {
     widget.onChanged?.call('');
   }
 
+  void _togglePasswordVisibility() {
+    setState(() {
+      _isPasswordVisible = !_isPasswordVisible;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -108,54 +115,61 @@ class _TextInputFieldState extends State<TextInputField> {
 
     return Opacity(
       opacity: widget.disabled ? 0.4 : 1,
-      child: ColoredBox(
-        color: colors.surface,
+      child: Container(
+        color: palette.background,
+        padding: EdgeInsets.only(left: spacing.sm, right: spacing.sm, top: spacing.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.labelText != null)
-              Padding(
-                padding: EdgeInsets.only(
-                  left: widget.isRequired ? spacing.xs : spacing.sm,
-                  right: spacing.sm,
-                  top: spacing.sm,
-                  bottom: spacing.xs / 2,
-                ),
-                child: Row(
-                  children: [
-                    if (widget.isRequired) Text('*', style: typography.bodyMedium.toTextStyle(color: palette.danger)),
-                    Text(widget.labelText!, style: typography.bodyMedium.toTextStyle(color: palette.textSecondary)),
-                  ],
-                ),
+            if (widget.labelText != null) ...[
+              Row(
+                children: [
+                  Text(widget.labelText!, style: typography.labelSmall.toTextStyle(color: palette.textSecondary)),
+                  if (widget.isRequired)
+                    Padding(
+                      padding: EdgeInsets.only(left: spacing.xs / 2),
+                      child: Text('*', style: typography.labelSmall.toTextStyle(color: palette.danger)),
+                    ),
+                ],
               ),
+            ],
             TextFormField(
               validator: widget.validator,
               controller: _controller,
               readOnly: widget.readOnly,
-              obscureText: widget.obscureText,
+              obscureText: widget.obscureText && !_isPasswordVisible,
               keyboardType: widget.keyboardType,
-              minLines: widget.minLines,
-              maxLines: widget.maxLines,
+              minLines: widget.obscureText ? 1 : widget.minLines,
+              maxLines: widget.obscureText ? 1 : widget.maxLines,
+              style: typography.bodySmall.toTextStyle(color: palette.textPrimary),
               onChanged: (value) {
                 widget.onChanged?.call(value);
               },
               decoration: InputDecoration(
                 hintText: widget.placeholder,
+                hintStyle: typography.bodySmall.toTextStyle(color: palette.textSecondary),
                 enabled: !widget.disabled,
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     if (widget.suffixIcon != null) widget.suffixIcon!,
-                    if (_isVisibleClear)
+                    if (widget.obscureText)
                       Padding(
-                        padding: EdgeInsets.only(right: spacing.xs / 2),
+                        padding: EdgeInsets.only(right: _isVisibleClear ? spacing.xs / 2 : 0),
                         child: SvgIcon(
-                          svg: Assets.icons.filled.closeCircle,
+                          svg: _isPasswordVisible ? Assets.icons.outlined.eye : Assets.icons.outlined.eyeInvisible,
                           size: iconSize,
-                          color: palette.weak,
-                          onTap: _clearText,
+                          color: palette.textSecondary,
+                          onTap: _togglePasswordVisibility,
                         ),
+                      ),
+                    if (_isVisibleClear)
+                      SvgIcon(
+                        svg: Assets.icons.outlined.closeCircle,
+                        size: iconSize,
+                        color: palette.weak,
+                        onTap: _clearText,
                       ),
                   ],
                 ),

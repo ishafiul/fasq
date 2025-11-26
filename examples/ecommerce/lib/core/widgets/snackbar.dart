@@ -52,47 +52,47 @@ Future<void> showSnackBar({
   }
 
   final snackBar = SnackBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        content: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    content: Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
         color: backgroundColor,
         border: Border(top: BorderSide(color: borderColor), bottom: BorderSide(color: borderColor)),
-          ),
-          child: Padding(
+      ),
+      child: Padding(
         padding: EdgeInsets.all(spacing.sm),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             if (withIcon) ...[
               SvgIcon(svg: leadingIcon ?? defaultIcon, size: iconSize, color: textColor),
               SizedBox(width: spacing.xs),
             ],
-                Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                  Flexible(child: Text(message, style: typography.bodyMedium.toTextStyle(color: textColor))),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(child: Text(message, style: typography.bodySmall.toTextStyle(color: textColor))),
                   if (closable) ...[
                     SizedBox(width: spacing.xs),
                     SvgIcon(
                       svg: Assets.icons.outlined.close,
                       size: iconSize,
                       color: textColor,
-                          onTap: () {
+                      onTap: () {
                         messenger.removeCurrentSnackBar();
-                          },
+                      },
                     ),
                   ],
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   messenger.removeCurrentSnackBar();
   messenger.showSnackBar(snackBar);
