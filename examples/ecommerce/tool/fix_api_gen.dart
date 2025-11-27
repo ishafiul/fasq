@@ -68,13 +68,26 @@ Future<void> _fixApiClients() async {
     final original = content;
 
     // Fix default enum values for sortBy / sortOrder wherever they appear.
+    // Handle both with and without @Query annotation (for .g.dart files)
     content = content.replaceAll(
       "@Query('sortBy') SortBy? sortBy = createdAt,",
       "@Query('sortBy') SortBy? sortBy = SortBy.createdAt,",
     );
+    // Fix in .g.dart files (without @Query annotation)
+    // Match: "SortBy? sortBy = createdAt," (with any leading whitespace)
+    content = content.replaceAll(
+      'sortBy = createdAt,',
+      'sortBy = SortBy.createdAt,',
+    );
     content = content.replaceAll(
       "@Query('sortOrder') SortOrder? sortOrder = desc,",
       "@Query('sortOrder') SortOrder? sortOrder = SortOrder.desc,",
+    );
+    // Fix in .g.dart files (without @Query annotation)
+    // Match: "SortOrder? sortOrder = desc," (with any leading whitespace)
+    content = content.replaceAll(
+      'sortOrder = desc,',
+      'sortOrder = SortOrder.desc,',
     );
 
     // Fix path/query mismatch for common :id style endpoints:
