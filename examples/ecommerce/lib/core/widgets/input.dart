@@ -110,7 +110,6 @@ class _TextInputFieldState extends State<TextInputField> {
     final palette = context.palette;
     final spacing = context.spacing;
     final typography = context.typography;
-    final colors = context.colors;
     final iconSize = spacing.sm;
 
     return Opacity(
