@@ -44,7 +44,10 @@ class ProductList extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: typography.titleLarge.toTextStyle(color: palette.textPrimary)),
+              Text(
+                title,
+                style: typography.titleMedium.toTextStyle(color: palette.textPrimary),
+              ),
               if (onViewAll != null && !isLoading)
                 TextButton(
                   onPressed: onViewAll,
