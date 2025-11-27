@@ -96,10 +96,9 @@ class _LoginAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: Text('Sign in', style: context.typography.bodyLarge.toTextStyle()),
       centerTitle: true,
       elevation: 0,
-      leading:
-          currentStep == _AuthStep.otp
-              ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBackPressed)
-              : null,
+      leading: currentStep == _AuthStep.otp
+          ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBackPressed)
+          : null,
     );
   }
 
@@ -201,9 +200,11 @@ class _OtpStepContent extends StatelessWidget {
             return ValueListenableBuilder<String>(
               valueListenable: otpValueNotifier,
               builder: (context, otpValue, __) {
-                return _OtpInput(
+                return OTPInput(
+                  value: otpValue,
+                  length: 5,
                   errorText: errorText,
-                  onOtpChange: (otp) {
+                  onChange: (otp) {
                     otpValueNotifier.value = otp;
                     otpErrorNotifier.value = null;
                   },
@@ -246,20 +247,6 @@ class _OtpStepContent extends StatelessWidget {
   }
 }
 
-class _OtpInput extends StatelessWidget {
-  final String? errorText;
-  final void Function(String) onOtpChange;
-
-  const _OtpInput({required this.errorText, required this.onOtpChange});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: OTPInput(length: 5, autoFocus: true, errorText: errorText, onChange: onOtpChange, onComplete: onOtpChange),
-    );
-  }
-}
-
 class _RequestOtpButton extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController emailController;
@@ -287,14 +274,13 @@ class _RequestOtpButton extends StatelessWidget {
       ),
       builder: (context, state, mutate) {
         return Button.primary(
-          onPressed:
-              state.isLoading
-                  ? null
-                  : () async {
-                    if (formKey.currentState?.validate() ?? false) {
-                      await mutate(emailController.text.trim());
-                    }
-                  },
+          onPressed: state.isLoading
+              ? null
+              : () async {
+                  if (formKey.currentState?.validate() ?? false) {
+                    await mutate(emailController.text.trim());
+                  }
+                },
           buttonSize: ButtonSize.large,
           isBlock: true,
           child: state.isLoading ? const WaveDots(color: Colors.white, size: 24) : const Text('Continue'),
@@ -339,27 +325,26 @@ class _VerifyOtpButton extends StatelessWidget {
       ),
       builder: (context, state, mutate) {
         return Button.primary(
-          onPressed:
-              state.isLoading
-                  ? null
-                  : () async {
-                    if (otpValue.length == 5) {
-                      final deviceId = await authService.getDeviceId();
-                      if (deviceId == null) {
-                        return;
-                      }
-                      await mutate(
-                        AuthVerifyOtpRequest(
-                          email: emailController.text.trim(),
-                          otp: int.parse(otpValue),
-                          deviceUuId: deviceId,
-                          isTrusted: isTrustedDevice,
-                        ),
-                      );
-                    } else {
-                      onError('Please enter the complete code');
+          onPressed: state.isLoading
+              ? null
+              : () async {
+                  if (otpValue.length == 5) {
+                    final deviceId = await authService.getDeviceId();
+                    if (deviceId == null) {
+                      return;
                     }
-                  },
+                    await mutate(
+                      AuthVerifyOtpRequest(
+                        email: emailController.text.trim(),
+                        otp: int.parse(otpValue),
+                        deviceUuId: deviceId,
+                        isTrusted: isTrustedDevice,
+                      ),
+                    );
+                  } else {
+                    onError('Please enter the complete code');
+                  }
+                },
           buttonSize: ButtonSize.large,
           isBlock: true,
           child: state.isLoading ? const WaveDots(color: Colors.white, size: 24) : const Text('Verify & Sign In'),

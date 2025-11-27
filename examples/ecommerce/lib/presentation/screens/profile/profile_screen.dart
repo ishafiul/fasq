@@ -9,7 +9,7 @@ import 'package:ecommerce/core/services/user_service.dart';
 import 'package:ecommerce/core/widgets/button/button.dart';
 import 'package:ecommerce/core/widgets/spinner/rotating_dots.dart';
 import 'package:fasq/fasq.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Step, Switch;
 
 @RoutePage()
 class ProfileScreen extends StatelessWidget {
@@ -68,8 +68,24 @@ class ProfileScreen extends StatelessWidget {
               },
             ),
             SizedBox(height: spacing.lg),
-            // Logout Button
-            _LogoutButton(),
+            // Login/Logout Button
+            QueryBuilder<bool>(
+              queryKey: QueryKeys.isLoggedIn,
+              queryFn: () => locator.get<UserService>().isLoggedIn(),
+              builder: (context, state) {
+                if (state.isLoading) {
+                  return const SizedBox.shrink();
+                }
+
+                final isLoggedIn = state.data ?? false;
+
+                if (isLoggedIn) {
+                  return const _LogoutButton();
+                } else {
+                  return const _LoginButton();
+                }
+              },
+            ),
           ],
         ),
       ),
@@ -104,6 +120,19 @@ class _LogoutButton extends StatelessWidget {
           child: state.isLoading ? const WaveDots(color: Colors.white, size: 24) : const Text('Logout'),
         );
       },
+    );
+  }
+}
+
+class _LoginButton extends StatelessWidget {
+  const _LoginButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Button.primary(
+      onPressed: () => context.router.push(const LoginRoute()),
+      isBlock: true,
+      child: const Text('Login'),
     );
   }
 }

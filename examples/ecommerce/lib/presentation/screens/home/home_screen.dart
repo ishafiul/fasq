@@ -12,13 +12,15 @@ import 'package:ecommerce/core/services/product_service.dart';
 import 'package:ecommerce/core/services/promotional_service.dart';
 import 'package:ecommerce/core/widgets/pull_to_refresh.dart';
 import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
+import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/core/widgets/un_focus.dart';
 import 'package:ecommerce/presentation/widget/category_section.dart';
 import 'package:ecommerce/presentation/widget/home_app_bar.dart';
+import 'package:ecommerce/presentation/widget/product_card.dart';
 import 'package:ecommerce/presentation/widget/product_list.dart';
 import 'package:ecommerce/presentation/widget/promotional_banner.dart';
 import 'package:fasq/fasq.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Badge;
 
 @RoutePage()
 class HomeScreen extends StatefulWidget {
@@ -77,17 +79,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: CustomScrollView(
               slivers: [
                 // Promotional Banner
-                SliverToBoxAdapter(child: PromotionalBanner()),
+                const SliverToBoxAdapter(child: PromotionalBanner()),
                 SliverToBoxAdapter(child: SizedBox(height: spacing.md)),
                 // Category Section
-                SliverToBoxAdapter(child: CategorySection()),
+                const SliverToBoxAdapter(child: CategorySection()),
                 SliverToBoxAdapter(child: SizedBox(height: spacing.md)),
                 // Featured Products
-                SliverToBoxAdapter(child: _FeaturedProductsSection()),
+                const SliverToBoxAdapter(child: _FeaturedProductsSection()),
                 // Best Deals
-                SliverToBoxAdapter(child: _BestDealsSection()),
+                const SliverToBoxAdapter(child: _BestDealsSection()),
                 // Top Products
-                SliverToBoxAdapter(child: _TopProductsSection()),
+                const SliverToBoxAdapter(child: _TopProductsSection()),
                 // All Products
                 SliverToBoxAdapter(child: _AllProductsSection(searchQuery: _searchQuery)),
                 SliverToBoxAdapter(child: SizedBox(height: spacing.xxl)),
@@ -132,9 +134,9 @@ class _FeaturedProductsSection extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return ProductList(
+        return _HorizontalProductSection(
           title: 'Featured Products',
-          products: isLoading ? [] : allProducts.take(6).toList(),
+          products: isLoading ? [] : allProducts,
           isLoading: isLoading,
           onProductTap: (product) {
             // TODO: Navigate to product detail
@@ -177,9 +179,9 @@ class _BestDealsSection extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return ProductList(
+        return _HorizontalProductSection(
           title: 'Best Deals',
-          products: isLoading ? [] : allProducts.take(6).toList(),
+          products: isLoading ? [] : allProducts,
           isLoading: isLoading,
           onProductTap: (product) {
             // TODO: Navigate to product detail
@@ -222,15 +224,83 @@ class _TopProductsSection extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return ProductList(
+        return _HorizontalProductSection(
           title: 'Top Products',
-          products: isLoading ? [] : allProducts.take(6).toList(),
+          products: isLoading ? [] : allProducts,
           isLoading: isLoading,
           onProductTap: (product) {
             // TODO: Navigate to product detail
           },
         );
       },
+    );
+  }
+}
+
+class _HorizontalProductSection extends StatelessWidget {
+  const _HorizontalProductSection({
+    required this.title,
+    required this.products,
+    this.isLoading = false,
+    this.onProductTap,
+  });
+
+  final String title;
+  final List<ProductResponse> products;
+  final bool isLoading;
+  final ValueChanged<ProductResponse?>? onProductTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final spacing = context.spacing;
+    final typography = context.typography;
+
+    if (!isLoading && products.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final itemCount = isLoading ? 6 : products.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: spacing.sm),
+          child: Text(
+            title,
+            style: typography.titleMedium.toTextStyle(color: palette.textPrimary),
+          ),
+        ),
+        SizedBox(height: spacing.sm),
+        SizedBox(
+          height: 160,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: spacing.sm),
+            itemCount: itemCount,
+            itemBuilder: (context, index) {
+              final product = isLoading ? null : products[index];
+
+              return ShimmerLoading(
+                isLoading: isLoading,
+                child: Padding(
+                  padding: EdgeInsets.only(right: spacing.sm),
+                  child: SizedBox(
+                    width: 320,
+                    child: ProductCardHorizontal(
+                      product: product,
+                      onTap: isLoading ? null : () => onProductTap?.call(product),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        SizedBox(height: spacing.md),
+      ],
     );
   }
 }
@@ -257,13 +327,13 @@ class _AllProductsSection extends StatelessWidget {
             child: Center(
               child: Column(
                 children: [
-                  Text('Failed to load products', style: typography.bodyMedium.toTextStyle(color: palette.danger)),
+                  Text('Failed to load products', style: typography.bodySmall.toTextStyle(color: palette.danger)),
                   SizedBox(height: spacing.sm),
                   TextButton(
                     onPressed: () {
                       context.queryClient?.invalidateQuery(QueryKeys.products(search: searchQuery));
                     },
-                    child: Text('Retry', style: typography.bodyMedium.toTextStyle(color: palette.brand)),
+                    child: Text('Retry', style: typography.bodySmall.toTextStyle(color: palette.brand)),
                   ),
                 ],
               ),
@@ -281,7 +351,7 @@ class _AllProductsSection extends StatelessWidget {
             child: Center(
               child: Text(
                 searchQuery != null ? 'No products found for "$searchQuery"' : 'No products available',
-                style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
+                style: typography.bodySmall.toTextStyle(color: palette.textSecondary),
               ),
             ),
           );
