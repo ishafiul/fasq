@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
-import { z } from 'zod';
+import z from 'zod/v3';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 import { users } from './user.schema';
@@ -26,13 +26,19 @@ export const vendorsRelations = relations(vendors, ({ one }) => ({
   }),
 }));
 
+// Using type assertions for drizzle-zod compatibility with zod v3
 export const insertVendorSchema = createInsertSchema(vendors, {
   businessName: z.string().min(3).max(255),
   description: z.string().max(1000).optional(),
   status: z.enum(vendorStatusEnum),
-});
+} as any) as any;
 
-export const selectVendorSchema = createSelectSchema(vendors);
+export const selectVendorSchema = createSelectSchema(vendors) as any;
+
+// Vendor response schema for API responses
+export const vendorResponseSchema = selectVendorSchema;
+
 export type SelectVendor = z.infer<typeof selectVendorSchema>;
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
+export type VendorResponse = z.infer<typeof vendorResponseSchema>;
 

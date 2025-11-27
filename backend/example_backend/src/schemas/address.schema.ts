@@ -1,6 +1,6 @@
 import { pgTable, text, boolean } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
-import { z } from 'zod';
+import z from 'zod/v3';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 import { users } from './user.schema';
@@ -32,6 +32,7 @@ export const shippingAddressesRelations = relations(
   })
 );
 
+// Using type assertions for drizzle-zod compatibility with zod v3
 export const insertShippingAddressSchema = createInsertSchema(
   shippingAddresses,
   {
@@ -44,11 +45,15 @@ export const insertShippingAddressSchema = createInsertSchema(
     postalCode: z.string().min(3).max(20),
     country: z.string().min(2).max(100),
     isDefault: z.boolean().optional(),
-  }
-);
+  } as any
+) as any;
 
-export const selectShippingAddressSchema = createSelectSchema(shippingAddresses);
+export const selectShippingAddressSchema = createSelectSchema(shippingAddresses) as any;
+
+// Address response schema for API responses
+export const addressResponseSchema = selectShippingAddressSchema;
 
 export type SelectShippingAddress = z.infer<typeof selectShippingAddressSchema>;
 export type InsertShippingAddress = z.infer<typeof insertShippingAddressSchema>;
+export type AddressResponse = z.infer<typeof addressResponseSchema>;
 

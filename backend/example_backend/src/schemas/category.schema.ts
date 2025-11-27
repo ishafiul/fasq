@@ -1,6 +1,5 @@
 import { pgTable, text, boolean, integer } from 'drizzle-orm/pg-core';
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
-import { z } from 'zod';
+import z from 'zod/v3';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 
@@ -27,14 +26,66 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   }),
 }));
 
-export const insertCategorySchema = createInsertSchema(categories, {
+export const insertCategorySchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(2).max(255),
   slug: z.string().min(2).max(255).regex(/^[a-z0-9-]+$/),
-  description: z.string().max(1000).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  parentId: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  isActive: z.boolean().optional(),
   displayOrder: z.number().int().min(0).optional(),
+  createdAt: z.coerce.date().optional(),
+  updatedAt: z.coerce.date().optional(),
 });
 
-export const selectCategorySchema = createSelectSchema(categories);
+export const selectCategorySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  description: z.string().nullable(),
+  parentId: z.string().nullable(),
+  imageUrl: z.string().nullable(),
+  isActive: z.boolean(),
+  displayOrder: z.number(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+// Category response schema (for single category)
+export const categoryResponseSchema = selectCategorySchema;
+
+// Category tree node schema (recursive structure with children)
+type CategoryTreeNodeType = z.infer<typeof selectCategorySchema> & {
+  children: CategoryTreeNodeType[];
+};
+
+const _categoryTreeNodeSchema: z.ZodType<CategoryTreeNodeType> = selectCategorySchema.extend({
+  children: z.lazy(() => z.array(_categoryTreeNodeSchema)),
+});
+export const categoryTreeNodeSchema = _categoryTreeNodeSchema;
+
+// Input schemas for API routes
+export const createCategoryInputSchema = insertCategorySchema.omit({ id: true }).extend({
+  parentId: z.string().optional(),
+  imageUrl: z.string().url().optional(),
+});
+
+export const updateCategoryInputSchema = insertCategorySchema.omit({ id: true }).partial().extend({
+  isActive: z.boolean().optional(),
+});
+
+// Output schema for create category (minimal response)
+export const createCategoryOutputSchema = categoryResponseSchema.pick({
+  id: true,
+  name: true,
+  slug: true,
+});
+
 export type SelectCategory = z.infer<typeof selectCategorySchema>;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type CategoryResponse = z.infer<typeof categoryResponseSchema>;
+export type CategoryTreeNode = CategoryTreeNodeType;
+export type CreateCategoryInput = z.infer<typeof createCategoryInputSchema>;
+export type UpdateCategoryInput = z.infer<typeof updateCategoryInputSchema>;
 

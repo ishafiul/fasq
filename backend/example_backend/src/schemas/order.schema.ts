@@ -6,12 +6,12 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
-import { z } from 'zod';
+import z from 'zod/v3';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 import { users } from './user.schema';
 import { shippingAddresses } from './address.schema';
-import { products, productVariants } from './product.schema';
+import { products, productVariants, selectProductSchema, selectProductVariantSchema } from './product.schema';
 import { vendors } from './vendor.schema';
 import { promoCodes } from './promo.schema';
 
@@ -148,6 +148,7 @@ export const orderVendorTrackingRelations = relations(
   })
 );
 
+// Using type assertions for drizzle-zod compatibility with zod v3
 export const insertOrderSchema = createInsertSchema(orders, {
   orderNumber: z.string().min(6).max(50),
   subtotal: z.string().regex(/^\d+(\.\d{1,2})?$/),
@@ -158,14 +159,14 @@ export const insertOrderSchema = createInsertSchema(orders, {
   status: z.enum(orderStatusEnum),
   paymentStatus: z.enum(paymentStatusEnum),
   notes: z.string().max(1000).optional(),
-});
+} as any) as any;
 
 export const insertOrderItemSchema = createInsertSchema(orderItems, {
   quantity: z.number().int().min(1),
   unitPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
   totalPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
   status: z.enum(orderStatusEnum),
-});
+} as any) as any;
 
 export const insertOrderVendorTrackingSchema = createInsertSchema(
   orderVendorTracking,
@@ -173,13 +174,49 @@ export const insertOrderVendorTrackingSchema = createInsertSchema(
     subtotal: z.string().regex(/^\d+(\.\d{1,2})?$/),
     status: z.enum(orderStatusEnum),
     trackingNumber: z.string().max(255).optional(),
-  }
-);
+  } as any
+) as any;
 
-export const selectOrderSchema = createSelectSchema(orders);
-export const selectOrderItemSchema = createSelectSchema(orderItems);
+export const selectOrderSchema = createSelectSchema(orders) as any;
+export const selectOrderItemSchema = createSelectSchema(orderItems) as any;
 export const selectOrderVendorTrackingSchema =
-  createSelectSchema(orderVendorTracking);
+  createSelectSchema(orderVendorTracking) as any;
+
+// Order response schemas for API responses
+export const orderVendorTrackingResponseSchema = selectOrderVendorTrackingSchema;
+
+export const orderItemResponseSchema = (selectOrderItemSchema as any).extend({
+  product: selectProductSchema,
+  variant: selectProductVariantSchema,
+});
+
+export const orderListItemResponseSchema = selectOrderSchema;
+
+// Vendor order response schema (for vendor orders list with tracking)
+export const vendorOrderListItemResponseSchema = z.object({
+  tracking: orderVendorTrackingResponseSchema,
+  order: orderListItemResponseSchema,
+});
+
+export const orderResponseSchema = (selectOrderSchema as any).extend({
+  items: z.array(orderItemResponseSchema),
+  vendorTracking: z.array(orderVendorTrackingResponseSchema),
+  shippingAddress: z.object({
+    id: z.string(),
+    userId: z.string(),
+    fullName: z.string(),
+    phoneNumber: z.string(),
+    addressLine1: z.string(),
+    addressLine2: z.string().nullable(),
+    city: z.string(),
+    state: z.string(),
+    postalCode: z.string(),
+    country: z.string(),
+    isDefault: z.boolean(),
+    createdAt: z.coerce.date(),
+    updatedAt: z.coerce.date(),
+  }),
+});
 
 export type SelectOrder = z.infer<typeof selectOrderSchema>;
 export type SelectOrderItem = z.infer<typeof selectOrderItemSchema>;
@@ -191,4 +228,9 @@ export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type InsertOrderVendorTracking = z.infer<
   typeof insertOrderVendorTrackingSchema
 >;
+export type OrderResponse = z.infer<typeof orderResponseSchema>;
+export type OrderListItemResponse = z.infer<typeof orderListItemResponseSchema>;
+export type OrderItemResponse = z.infer<typeof orderItemResponseSchema>;
+export type OrderVendorTrackingResponse = z.infer<typeof orderVendorTrackingResponseSchema>;
+export type VendorOrderListItemResponse = z.infer<typeof vendorOrderListItemResponseSchema>;
 

@@ -1,6 +1,6 @@
 import { pgTable, text, numeric, integer, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
-import { z } from 'zod';
+import z from 'zod/v3';
 import { timestamps } from './common.schema';
 
 export const discountTypeEnum = ['percentage', 'fixed'] as const;
@@ -29,6 +29,7 @@ export const promoCodes = pgTable('promo_codes', {
   ...timestamps,
 });
 
+// Using type assertions for drizzle-zod compatibility with zod v3
 export const insertPromoCodeSchema = createInsertSchema(promoCodes, {
   code: z.string().min(3).max(50).toUpperCase(),
   description: z.string().max(500).optional(),
@@ -42,10 +43,21 @@ export const insertPromoCodeSchema = createInsertSchema(promoCodes, {
   isActive: z.boolean().optional(),
   applicableCategories: z.array(z.string()).optional(),
   applicableVendors: z.array(z.string()).optional(),
-});
+} as any) as any;
 
-export const selectPromoCodeSchema = createSelectSchema(promoCodes);
+export const selectPromoCodeSchema = createSelectSchema(promoCodes) as any;
+
+// Promo code response schemas for API responses
+export const promoCodeResponseSchema = selectPromoCodeSchema;
+
+export const promoCodeValidationResponseSchema = z.object({
+  valid: z.boolean(),
+  error: z.string().optional(),
+  promoCode: promoCodeResponseSchema.optional(),
+});
 
 export type SelectPromoCode = z.infer<typeof selectPromoCodeSchema>;
 export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
+export type PromoCodeResponse = z.infer<typeof promoCodeResponseSchema>;
+export type PromoCodeValidationResponse = z.infer<typeof promoCodeValidationResponseSchema>;
 
