@@ -102,7 +102,9 @@ export const authRoutes = {
         const db = ctx.get("db");
         const c = ctx.c;
 
-        const cfData = (c.req.raw as any)["cf"] || {};
+        // Cloudflare request metadata - structure is dynamic and provider-specific
+        const rawRequest = c.req.raw as { cf?: Record<string, unknown> };
+        const cfData = rawRequest?.cf || {};
 
         const fullInput = createDeviceUuidFullSchema.parse({
           ...input,

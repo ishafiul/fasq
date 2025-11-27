@@ -9,6 +9,10 @@ import {
   updateCategory,
   deleteCategory,
 } from '../repositories/category.repository';
+import {
+  categoryResponseSchema,
+  categoryTreeNodeSchema,
+} from '../schemas/category.schema';
 
 const OPENAPI_TAG = 'Category';
 
@@ -45,7 +49,7 @@ export const categoryRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({}))
-    .output(z.array(z.any()))
+    .output(z.array(categoryTreeNodeSchema))
     .handler(async ({ context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');
@@ -61,7 +65,7 @@ export const categoryRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({ id: z.string() }))
-    .output(z.object({ id: z.string(), name: z.string(), slug: z.string() }).passthrough())
+    .output(categoryResponseSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');

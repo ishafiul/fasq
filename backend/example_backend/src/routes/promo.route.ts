@@ -11,6 +11,7 @@ import {
   listPromoCodes,
 } from '../repositories/promo.repository';
 import { discountTypeSchema } from '../schemas/common.schema';
+import { promoCodeResponseSchema, promoCodeValidationResponseSchema } from '../schemas/promo.schema';
 import { getPaginationParams, paginationQuerySchema } from '../utils/pagination.utils';
 
 const OPENAPI_TAG = 'PromoCode';
@@ -65,7 +66,7 @@ export const promoRoutes = {
     )
     .output(
       z.object({
-        data: z.array(z.any()),
+        data: z.array(promoCodeResponseSchema),
         meta: z.object({
           total: z.number(),
           page: z.number(),
@@ -100,13 +101,7 @@ export const promoRoutes = {
         vendorIds: z.array(z.string()).optional(),
       })
     )
-    .output(
-      z.object({
-        valid: z.boolean(),
-        error: z.string().optional(),
-        promoCode: z.any().optional(),
-      })
-    )
+    .output(promoCodeValidationResponseSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');
@@ -150,7 +145,18 @@ export const promoRoutes = {
 
       const { id, validFrom, validUntil, ...updateData } = input;
       
-      const data: any = updateData;
+      const data: Partial<{
+        description?: string;
+        discountValue?: string;
+        minOrderValue?: string;
+        maxDiscountAmount?: string;
+        usageLimit?: number;
+        validFrom?: Date;
+        validUntil?: Date;
+        isActive?: boolean;
+        applicableCategories?: string[];
+        applicableVendors?: string[];
+      }> = updateData;
       if (validFrom) data.validFrom = new Date(validFrom);
       if (validUntil) data.validUntil = new Date(validUntil);
 

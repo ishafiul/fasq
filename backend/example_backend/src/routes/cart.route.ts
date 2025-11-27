@@ -10,6 +10,7 @@ import {
   clearCart,
   getCartWithItems,
 } from '../repositories/cart.repository';
+import { cartResponseSchema } from '../schemas/cart.schema';
 
 const OPENAPI_TAG = 'Cart';
 
@@ -21,7 +22,7 @@ export const cartRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({}))
-    .output(z.any())
+    .output(cartResponseSchema)
     .handler(async ({ context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');
@@ -33,6 +34,10 @@ export const cartRoutes = {
 
       const cart = await getOrCreateCart(db, authUser.id);
       const cartWithItems = await getCartWithItems(db, cart.id);
+
+      if (!cartWithItems) {
+        throw new ORPCError('NOT_FOUND', { message: 'Cart not found' });
+      }
 
       return cartWithItems;
     }),

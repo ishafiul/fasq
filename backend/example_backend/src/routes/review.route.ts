@@ -12,6 +12,7 @@ import {
   rejectReview,
   checkUserHasPurchased,
 } from '../repositories/review.repository';
+import { reviewResponseSchema } from '../schemas/review.schema';
 import { getPaginationParams, paginationQuerySchema } from '../utils/pagination.utils';
 
 const OPENAPI_TAG = 'Review';
@@ -71,7 +72,7 @@ export const reviewRoutes = {
     )
     .output(
       z.object({
-        data: z.array(z.any()),
+        data: z.array(reviewResponseSchema),
         meta: z.object({
           total: z.number(),
           page: z.number(),

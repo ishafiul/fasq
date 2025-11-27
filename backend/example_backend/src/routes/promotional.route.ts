@@ -13,6 +13,10 @@ import {
   deletePromotionalContent,
 } from '../repositories/promotional.repository';
 import { promotionalTypeSchema } from '../schemas/common.schema';
+import {
+  promotionalContentResponseSchema,
+  InsertPromotionalContent,
+} from '../schemas/promotional.schema';
 
 const OPENAPI_TAG = 'Promotional';
 
@@ -59,7 +63,7 @@ export const promotionalRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({}))
-    .output(z.array(z.any()))
+    .output(z.array(promotionalContentResponseSchema))
     .handler(async ({ context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');
@@ -75,7 +79,7 @@ export const promotionalRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({}))
-    .output(z.array(z.any()))
+    .output(z.array(promotionalContentResponseSchema))
     .handler(async ({ context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');
@@ -91,7 +95,7 @@ export const promotionalRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({}))
-    .output(z.array(z.any()))
+    .output(z.array(promotionalContentResponseSchema))
     .handler(async ({ context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');
@@ -107,7 +111,7 @@ export const promotionalRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({}))
-    .output(z.array(z.any()))
+    .output(z.array(promotionalContentResponseSchema))
     .handler(async ({ context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');
@@ -144,7 +148,7 @@ export const promotionalRoutes = {
 
       const { id, startDate, endDate, ...updateData } = input;
       
-      const data: any = updateData;
+      const data: Partial<Omit<InsertPromotionalContent, 'id'>> = updateData;
       if (startDate) data.startDate = new Date(startDate);
       if (endDate) data.endDate = new Date(endDate);
 

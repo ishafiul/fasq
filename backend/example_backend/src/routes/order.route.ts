@@ -15,6 +15,7 @@ import {
   addTrackingNumber,
 } from '../repositories/order.repository';
 import { orderStatusSchema } from '../schemas/common.schema';
+import { orderResponseSchema, orderListItemResponseSchema, vendorOrderListItemResponseSchema } from '../schemas/order.schema';
 import { getOrCreateCart, getCartWithItems, clearCart } from '../repositories/cart.repository';
 import { getPromoCodeByCode } from '../repositories/promo.repository';
 import { getVendorByUserId } from '../repositories/vendor.repository';
@@ -135,7 +136,7 @@ export const orderRoutes = {
     .input(paginationQuerySchema)
     .output(
       z.object({
-        data: z.array(z.any()),
+        data: z.array(orderListItemResponseSchema),
         meta: z.object({
           total: z.number(),
           page: z.number(),
@@ -170,7 +171,7 @@ export const orderRoutes = {
     .input(paginationQuerySchema)
     .output(
       z.object({
-        data: z.array(z.any()),
+        data: z.array(vendorOrderListItemResponseSchema),
         meta: z.object({
           total: z.number(),
           page: z.number(),
@@ -217,7 +218,7 @@ export const orderRoutes = {
     )
     .output(
       z.object({
-        data: z.array(z.any()),
+        data: z.array(orderListItemResponseSchema),
         meta: z.object({
           total: z.number(),
           page: z.number(),
@@ -251,7 +252,7 @@ export const orderRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({ id: z.string() }))
-    .output(z.any())
+    .output(orderResponseSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');

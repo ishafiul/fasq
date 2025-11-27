@@ -11,6 +11,7 @@ import {
   listVendors,
 } from '../repositories/vendor.repository';
 import { vendorStatusSchema } from '../schemas/common.schema';
+import { vendorResponseSchema } from '../schemas/vendor.schema';
 import { getPaginationParams, paginationQuerySchema } from '../utils/pagination.utils';
 
 const OPENAPI_TAG = 'Vendor';
@@ -104,7 +105,7 @@ export const vendorRoutes = {
     )
     .output(
       z.object({
-        data: z.array(z.any()),
+        data: z.array(vendorResponseSchema),
         meta: z.object({
           total: z.number(),
           page: z.number(),

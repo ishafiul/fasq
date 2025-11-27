@@ -39,7 +39,9 @@ export const paymentRoutes = {
       path: '/payment/webhook',
       tags: [OPENAPI_TAG],
     })
-    .input(z.any())
+    // Using z.unknown() for webhook payloads as they can have dynamic structures
+    // from different payment providers (Stripe, PayPal, etc.)
+    .input(z.unknown())
     .output(z.object({ received: z.boolean() }))
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;

@@ -10,6 +10,7 @@ import {
   listUserAddresses,
   getAddressById,
 } from '../repositories/address.repository';
+import { addressResponseSchema } from '../schemas/address.schema';
 
 const OPENAPI_TAG = 'Address';
 
@@ -58,7 +59,7 @@ export const addressRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({}))
-    .output(z.array(z.any()))
+    .output(z.array(addressResponseSchema))
     .handler(async ({ context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');

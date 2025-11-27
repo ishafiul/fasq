@@ -29,6 +29,10 @@ import {
   productSearchSchema,
 } from '../utils/search.utils';
 import { generateUploadToken, generateProductImageKey, getPublicUrl } from '../utils/r2.utils';
+import {
+  productResponseSchema,
+  productDetailResponseSchema,
+} from '../schemas/product.schema';
 
 const OPENAPI_TAG = 'Product';
 
@@ -98,7 +102,7 @@ export const productRoutes = {
     )
     .output(
       z.object({
-        data: z.array(z.any()),
+        data: z.array(productResponseSchema),
         meta: z.object({
           total: z.number(),
           page: z.number(),
@@ -128,7 +132,7 @@ export const productRoutes = {
       tags: [OPENAPI_TAG],
     })
     .input(z.object({ id: z.string() }))
-    .output(z.any())
+    .output(productDetailResponseSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
       const db = ctx.get('db');
@@ -310,7 +314,7 @@ export const productRoutes = {
     .input(
       z.object({
         token: z.string(),
-        file: z.any(),
+        file: z.unknown(), // File upload - handled via formData in handler
       })
     )
     .output(z.object({ success: z.boolean(), url: z.string() }))
