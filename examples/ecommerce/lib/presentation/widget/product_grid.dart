@@ -7,15 +7,17 @@ import 'package:flutter/material.dart';
 /// A grid widget for displaying products.
 ///
 /// This widget displays products in a grid layout with configurable columns.
+/// Follows Ant Design mobile patterns for e-commerce product grids.
 class ProductGrid extends StatelessWidget {
   const ProductGrid({
     super.key,
     required this.products,
     this.crossAxisCount = 2,
-    this.childAspectRatio = 0.75,
+    this.childAspectRatio = 0.7,
     this.onProductTap,
     this.onAddToCart,
     this.isLoading = false,
+    this.showAddToCart = true,
   });
 
   final List<ProductResponse> products;
@@ -24,6 +26,7 @@ class ProductGrid extends StatelessWidget {
   final ValueChanged<ProductResponse?>? onProductTap;
   final ValueChanged<ProductResponse?>? onAddToCart;
   final bool isLoading;
+  final bool showAddToCart;
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +44,8 @@ class ProductGrid extends StatelessWidget {
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
         childAspectRatio: childAspectRatio,
-        crossAxisSpacing: spacing.sm,
-        mainAxisSpacing: spacing.sm,
+        crossAxisSpacing: spacing.xs + 4,
+        mainAxisSpacing: spacing.xs + 4,
       ),
       padding: EdgeInsets.symmetric(horizontal: spacing.sm),
       itemCount: itemCount,
@@ -56,6 +59,7 @@ class ProductGrid extends StatelessWidget {
             product: product,
             onTap: isLoading ? null : () => onProductTap?.call(product),
             onAddToCart: isLoading ? null : () => onAddToCart?.call(product),
+            showAddToCart: showAddToCart,
           ),
         );
       },
