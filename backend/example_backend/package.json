@@ -11,6 +11,7 @@
     "migration:push:production": "dotenvx run -f .env.production -- drizzle-kit push"
   },
   "dependencies": {
+    "@hono/zod-openapi": "^0.18.2",
     "@neondatabase/serverless": "^1.0.2",
     "@orpc/client": "^1.11.2",
     "@orpc/openapi": "^1.11.2",
