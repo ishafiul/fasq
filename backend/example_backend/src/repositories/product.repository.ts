@@ -118,7 +118,7 @@ export async function listProducts(
 
   const sortColumn = getProductSortColumn(search.sortBy, search.sortOrder);
 
-  const results = await db
+  const fetchedProducts = await db
     .select()
     .from(products)
     .where(whereClause)
@@ -126,8 +126,19 @@ export async function listProducts(
     .limit(pagination.limit)
     .offset(pagination.offset);
 
+  // Fetch images for all products in parallel
+  const productsWithImages = await Promise.all(
+    fetchedProducts.map(async (product) => {
+      const images = await getProductImages(db, product.id);
+      return {
+        ...product,
+        images,
+      };
+    })
+  );
+
   return formatPaginatedResponse(
-    results,
+    productsWithImages,
     total,
     pagination.page,
     pagination.limit

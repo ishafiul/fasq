@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function createReview(
   db: DB,
-  data: Omit<InsertProductReview, 'id'>
+  data: Omit<InsertProductReview, 'id' | 'createdAt' | 'updatedAt'>
 ) {
   const id = uuidv4();
   const [review] = await db
@@ -17,7 +17,7 @@ export async function createReview(
     .values({
       ...data,
       id,
-    })
+    } as any)
     .returning();
   return review;
 }
@@ -142,7 +142,7 @@ export async function checkUserHasPurchased(
   userId: string,
   productId: string
 ): Promise<boolean> {
-  const [result] = await db.execute(sql`
+  const result = await db.execute(sql`
     SELECT EXISTS(
       SELECT 1 FROM ${sql.identifier('order_items')} oi
       INNER JOIN ${sql.identifier('orders')} o ON oi.order_id = o.id
@@ -152,6 +152,7 @@ export async function checkUserHasPurchased(
     ) as has_purchased
   `);
 
-  return result?.has_purchased === true;
+  const rows = result.rows as Array<{ has_purchased: boolean }>;
+  return rows[0]?.has_purchased === true;
 }
 

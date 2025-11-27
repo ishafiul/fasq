@@ -1,5 +1,6 @@
 import { SelectPromoCode } from '../schemas/promo.schema';
 import { SelectCartItem } from '../schemas/cart.schema';
+import { SelectOrderItem } from '../schemas/order.schema';
 
 export interface OrderTotals {
   subtotal: string;
@@ -79,11 +80,11 @@ export function generateOrderNumber(): string {
 
 export interface VendorOrderGroup {
   vendorId: string;
-  items: any[];
+  items: SelectOrderItem[];
   subtotal: number;
 }
 
-export function groupOrderItemsByVendor(orderItems: any[]): VendorOrderGroup[] {
+export function groupOrderItemsByVendor(orderItems: SelectOrderItem[]): VendorOrderGroup[] {
   const vendorGroups = new Map<string, VendorOrderGroup>();
 
   for (const item of orderItems) {

@@ -1,6 +1,6 @@
 import { eq, isNull } from 'drizzle-orm';
 import { DB } from '../utils/db.utils';
-import { categories, InsertCategory } from '../schemas/category.schema';
+import { categories, InsertCategory, SelectCategory, CategoryTreeNode } from '../schemas/category.schema';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function createCategory(db: DB, data: Omit<InsertCategory, 'id'>) {
@@ -10,7 +10,7 @@ export async function createCategory(db: DB, data: Omit<InsertCategory, 'id'>) {
     .values({
       ...data,
       id,
-    })
+    } as InsertCategory)
     .returning();
   return category;
 }
@@ -33,15 +33,15 @@ export async function getCategoryBySlug(db: DB, slug: string) {
   return category || null;
 }
 
-export async function getCategoryTree(db: DB) {
+export async function getCategoryTree(db: DB): Promise<CategoryTreeNode[]> {
   const allCategories = await db
     .select()
     .from(categories)
     .where(eq(categories.isActive, true))
     .orderBy(categories.displayOrder, categories.name);
 
-  const categoryMap = new Map();
-  const rootCategories: any[] = [];
+  const categoryMap = new Map<string, CategoryTreeNode>();
+  const rootCategories: CategoryTreeNode[] = [];
 
   for (const category of allCategories) {
     categoryMap.set(category.id, { ...category, children: [] });
@@ -51,10 +51,10 @@ export async function getCategoryTree(db: DB) {
     if (category.parentId) {
       const parent = categoryMap.get(category.parentId);
       if (parent) {
-        parent.children.push(categoryMap.get(category.id));
+        parent.children.push(categoryMap.get(category.id)!);
       }
     } else {
-      rootCategories.push(categoryMap.get(category.id));
+      rootCategories.push(categoryMap.get(category.id)!);
     }
   }
 

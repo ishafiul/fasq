@@ -1,6 +1,6 @@
 import { eq, and, gte, lte, count, sql } from 'drizzle-orm';
 import { DB } from '../utils/db.utils';
-import { promoCodes, InsertPromoCode } from '../schemas/promo.schema';
+import { promoCodes, InsertPromoCode, SelectPromoCode } from '../schemas/promo.schema';
 import {
   PaginationParams,
   formatPaginatedResponse,
@@ -17,7 +17,7 @@ export async function createPromoCode(
     .values({
       ...data,
       id,
-    })
+    } as InsertPromoCode)
     .returning();
   return promoCode;
 }
@@ -46,7 +46,7 @@ export async function validatePromoCode(
   orderValue: number,
   categoryIds?: string[],
   vendorIds?: string[]
-): Promise<{ valid: boolean; error?: string; promoCode?: any }> {
+): Promise<{ valid: boolean; error?: string; promoCode?: SelectPromoCode }> {
   const promoCode = await getPromoCodeByCode(db, code);
 
   if (!promoCode) {

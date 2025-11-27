@@ -6,13 +6,16 @@ export const ALLOWED_IMAGE_TYPES = [
   'image/gif',
 ] as const;
 
+export type AllowedImageType = typeof ALLOWED_IMAGE_TYPES[number];
+
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 export function validateImageMetadata(
   contentType: string,
   fileSize: number
 ): { valid: boolean; error?: string } {
-  if (!ALLOWED_IMAGE_TYPES.includes(contentType as any)) {
+  // Type guard to check if contentType is in the allowed types
+  if (!ALLOWED_IMAGE_TYPES.includes(contentType as AllowedImageType)) {
     return {
       valid: false,
       error: `Invalid file type. Allowed types: ${ALLOWED_IMAGE_TYPES.join(', ')}`,
