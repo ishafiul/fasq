@@ -1,4 +1,11 @@
+import 'package:ecommerce/api/models/category_get_category_response.dart';
+import 'package:ecommerce/api/models/get_categories_response.dart';
+import 'package:ecommerce/api/models/get_promotional_best_deals_response.dart';
+import 'package:ecommerce/api/models/get_promotional_current_offers_response.dart';
+import 'package:ecommerce/api/models/get_promotional_featured_response.dart';
+import 'package:ecommerce/api/models/get_promotional_top_products_response.dart';
 import 'package:ecommerce/api/models/product_list_products_response.dart';
+import 'package:ecommerce/api/models/product_response.dart';
 import 'package:fasq/fasq.dart';
 
 /// Type-safe query keys for the application.
@@ -23,41 +30,48 @@ class QueryKeys {
       );
 
   /// Query key for a single product by ID.
-  static TypedQueryKey<dynamic> product(String id) => TypedQueryKey<dynamic>('product:$id', dynamic);
+  static TypedQueryKey<ProductResponse> product(String id) =>
+      TypedQueryKey<ProductResponse>('product:$id', ProductResponse);
 
   /// Query key for featured products.
-  static const TypedQueryKey<List<dynamic>> featuredProducts = TypedQueryKey<List<dynamic>>(
-    'promotional:featured',
-    List<dynamic>,
-  );
+  static TypedQueryKey<List<GetPromotionalFeaturedResponse>> get featuredProducts =>
+      const TypedQueryKey<List<GetPromotionalFeaturedResponse>>(
+        'promotional:featured',
+        List<GetPromotionalFeaturedResponse>,
+      );
 
   /// Query key for top products.
-  static const TypedQueryKey<List<dynamic>> topProducts = TypedQueryKey<List<dynamic>>(
-    'promotional:top-products',
-    List<dynamic>,
-  );
+  static TypedQueryKey<List<GetPromotionalTopProductsResponse>> get topProducts =>
+      const TypedQueryKey<List<GetPromotionalTopProductsResponse>>(
+        'promotional:top-products',
+        List<GetPromotionalTopProductsResponse>,
+      );
 
   /// Query key for best deals.
-  static const TypedQueryKey<List<dynamic>> bestDeals = TypedQueryKey<List<dynamic>>(
-    'promotional:best-deals',
-    List<dynamic>,
-  );
+  static TypedQueryKey<List<GetPromotionalBestDealsResponse>> get bestDeals =>
+      const TypedQueryKey<List<GetPromotionalBestDealsResponse>>(
+        'promotional:best-deals',
+        List<GetPromotionalBestDealsResponse>,
+      );
 
   /// Query key for current offers.
-  static const TypedQueryKey<List<dynamic>> currentOffers = TypedQueryKey<List<dynamic>>(
-    'promotional:current-offers',
-    List<dynamic>,
-  );
+  static TypedQueryKey<List<GetPromotionalCurrentOffersResponse>> get currentOffers =>
+      const TypedQueryKey<List<GetPromotionalCurrentOffersResponse>>(
+        'promotional:current-offers',
+        List<GetPromotionalCurrentOffersResponse>,
+      );
 
   // Categories
   /// Query key for category tree.
-  static const TypedQueryKey<List<dynamic>> categoryTree = TypedQueryKey<List<dynamic>>(
-    'categories:tree',
-    List<dynamic>,
-  );
+  static TypedQueryKey<List<GetCategoriesResponse>> get categoryTree =>
+      const TypedQueryKey<List<GetCategoriesResponse>>(
+        'categories:tree',
+        List<GetCategoriesResponse>,
+      );
 
   /// Query key for a single category by ID.
-  static TypedQueryKey<dynamic> category(String id) => TypedQueryKey<dynamic>('category:$id', dynamic);
+  static TypedQueryKey<CategoryGetCategoryResponse> category(String id) =>
+      TypedQueryKey<CategoryGetCategoryResponse>('category:$id', CategoryGetCategoryResponse);
 
   // User
   /// Query key for user email.

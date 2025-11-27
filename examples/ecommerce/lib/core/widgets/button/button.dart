@@ -93,70 +93,65 @@ ShapeBorder _buttonShape(
   switch (shape) {
     case ButtonShape.base:
       return RoundedRectangleBorder(
-        side:
-            () {
-              if (buttonType == ButtonType.base) {
-                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
-              }
-              return fill != ButtonFill.outline
-                  ? BorderSide.none
-                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
-            }.call(),
-        borderRadius: BorderRadius.circular(8),
+        side: () {
+          if (buttonType == ButtonType.base) {
+            return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+          }
+          return fill != ButtonFill.outline
+              ? BorderSide.none
+              : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+        }.call(),
+        borderRadius: BorderRadius.circular(4),
       );
 
     case ButtonShape.pill:
       return RoundedRectangleBorder(
-        side:
-            () {
-              if (buttonType == ButtonType.base) {
-                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
-              }
-              return fill != ButtonFill.outline
-                  ? BorderSide.none
-                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
-            }.call(),
+        side: () {
+          if (buttonType == ButtonType.base) {
+            return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+          }
+          return fill != ButtonFill.outline
+              ? BorderSide.none
+              : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+        }.call(),
         borderRadius: BorderRadius.circular(1000),
       );
 
     case ButtonShape.rectangular:
       return RoundedRectangleBorder(
-        side:
-            () {
-              if (buttonType == ButtonType.base) {
-                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
-              }
-              return fill != ButtonFill.outline
-                  ? BorderSide.none
-                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
-            }.call(),
+        side: () {
+          if (buttonType == ButtonType.base) {
+            return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+          }
+          return fill != ButtonFill.outline
+              ? BorderSide.none
+              : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+        }.call(),
       );
 
     case ButtonShape.rounded:
       return RoundedRectangleBorder(
-        side:
-            () {
-              if (buttonType == ButtonType.base) {
-                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
-              }
-              return fill != ButtonFill.outline
-                  ? BorderSide.none
-                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
-            }.call(),
+        side: () {
+          if (buttonType == ButtonType.base) {
+            return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+          }
+          return fill != ButtonFill.outline
+              ? BorderSide.none
+              : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+        }.call(),
         borderRadius: BorderRadius.circular(1000), // Fully rounded
       );
 
     case ButtonShape.square:
       return RoundedRectangleBorder(
-        side:
-            () {
-              if (buttonType == ButtonType.base) {
-                return BorderSide(color: _buttonColor(context, buttonType: buttonType));
-              }
-              return fill != ButtonFill.outline
-                  ? BorderSide.none
-                  : BorderSide(color: _buttonColor(context, buttonType: buttonType));
-            }.call(),
+        side: () {
+          if (buttonType == ButtonType.base) {
+            return BorderSide(color: _buttonColor(context, buttonType: buttonType));
+          }
+          return fill != ButtonFill.outline
+              ? BorderSide.none
+              : BorderSide(color: _buttonColor(context, buttonType: buttonType));
+        }.call(),
         borderRadius: BorderRadius.zero, // Square with no border radius
       );
   }
@@ -187,10 +182,9 @@ TextStyle _buttonTextStyle(
 }) {
   final palette = context.palette;
   final baseColor = _buttonColor(context, buttonType: buttonType);
-  final textColor =
-      buttonType == ButtonType.base
-          ? palette.textPrimary
-          : fill == ButtonFill.solid
+  final textColor = buttonType == ButtonType.base
+      ? palette.textPrimary
+      : fill == ButtonFill.solid
           ? ColorUtils.onColor(baseColor)
           : baseColor;
   switch (buttonSize) {

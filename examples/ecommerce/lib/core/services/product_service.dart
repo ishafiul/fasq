@@ -1,4 +1,5 @@
 import 'package:ecommerce/api/api_client.dart';
+import 'package:ecommerce/api/models/product_detail_response.dart';
 import 'package:ecommerce/api/models/product_list_products_response.dart';
 import 'package:ecommerce/api/models/sort_by.dart';
 import 'package:ecommerce/api/models/sort_order.dart';
@@ -63,7 +64,7 @@ class ProductService {
   /// Gets a single product by ID with variants and images.
   ///
   /// Returns the product with all its variants and images included.
-  Future<dynamic> getProductById(String id) async {
+  Future<ProductDetailResponse> getProductById(String id) async {
     return await _apiClient.product.getProductsId(id: id);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ecommerce/api/models/get_promotional_current_offers_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
@@ -12,7 +13,7 @@ import 'package:flutter/material.dart';
 class PromotionalBanner extends StatelessWidget {
   const PromotionalBanner({super.key, this.onBannerTap});
 
-  final ValueChanged<dynamic>? onBannerTap;
+  final ValueChanged<GetPromotionalCurrentOffersResponse?>? onBannerTap;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +22,7 @@ class PromotionalBanner extends StatelessWidget {
     final typography = context.typography;
     final radius = context.radius;
 
-    return QueryBuilder<List<dynamic>>(
+    return QueryBuilder<List<GetPromotionalCurrentOffersResponse>>(
       queryKey: QueryKeys.currentOffers,
       queryFn: () => locator.get<PromotionalService>().getCurrentOffers(),
       builder: (context, state) {
@@ -45,7 +46,7 @@ class PromotionalBanner extends StatelessWidget {
             itemCount: itemCount,
             itemBuilder: (context, index) {
               // Create mock offer data when loading
-              final offer = isLoading ? <String, dynamic>{} : offers[index];
+              final offer = isLoading ? null : offers[index];
 
               return ShimmerLoading(
                 isLoading: isLoading,
@@ -76,7 +77,7 @@ class _BannerItem extends StatelessWidget {
     required this.radius,
   });
 
-  final dynamic offer;
+  final GetPromotionalCurrentOffersResponse? offer;
   final VoidCallback onTap;
   final AppPalette palette;
   final Spacing spacing;
@@ -86,9 +87,9 @@ class _BannerItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // When loading, use empty strings for shimmer effect
-    final title = _getStringValue(offer, 'title') ?? '';
-    final description = _getStringValue(offer, 'description');
-    final imageUrl = _getStringValue(offer, 'imageUrl');
+    final title = offer?.title;
+    final description = offer?.description;
+    final imageUrl = offer?.imageUrl;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: spacing.sm),
@@ -105,11 +106,11 @@ class _BannerItem extends StatelessWidget {
                 CachedNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
+                  placeholder: (context, url) => ColoredBox(
                     color: palette.weak,
                     child: Center(child: CircularProgressIndicator(color: palette.brand)),
                   ),
-                  errorWidget: (context, url, error) => Container(
+                  errorWidget: (context, url, error) => ColoredBox(
                     color: palette.brand.withOpacity(0.1),
                     child: Icon(Icons.image_not_supported, color: palette.textSecondary, size: spacing.xl),
                   ),
@@ -133,43 +134,19 @@ class _BannerItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (title.isNotEmpty)
-                      Text(
-                        title,
-                        style: typography.titleLarge.toTextStyle(color: Colors.white),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      )
-                    else
-                      // Placeholder for shimmer when loading
-                      Container(
-                        height: 24,
-                        width: 200,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          borderRadius: radius.all(radius.xs),
-                        ),
-                      ),
-                    if (description != null && description.isNotEmpty) ...[
-                      SizedBox(height: spacing.xs),
-                      Text(
-                        description,
-                        style: typography.bodySmall.toTextStyle(color: Colors.white.withOpacity(0.9)),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ] else if (title.isEmpty) ...[
-                      // Show description placeholder when loading
-                      SizedBox(height: spacing.xs),
-                      Container(
-                        height: 16,
-                        width: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: radius.all(radius.xs),
-                        ),
-                      ),
-                    ],
+                    Text(
+                      title ?? '',
+                      style: typography.titleLarge.toTextStyle(color: Colors.white),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: spacing.xs),
+                    Text(
+                      description ?? '',
+                      style: typography.bodySmall.toTextStyle(color: Colors.white.withOpacity(0.9)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
@@ -178,12 +155,5 @@ class _BannerItem extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String? _getStringValue(dynamic obj, String key) {
-    if (obj is Map) {
-      return obj[key]?.toString();
-    }
-    return null;
   }
 }
