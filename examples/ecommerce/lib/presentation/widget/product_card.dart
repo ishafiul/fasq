@@ -1,9 +1,12 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerce/api/models/product_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
+import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/widgets/badge.dart' as core;
 import 'package:ecommerce/core/widgets/button/button.dart';
+import 'package:ecommerce/core/widgets/card.dart';
 import 'package:ecommerce/core/widgets/rating.dart';
 import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/core/widgets/svg_icon.dart';
@@ -79,7 +82,10 @@ class ProductCard extends StatelessWidget {
 
     final colors = context.colors;
 
-    return Container(
+    return AppCard(
+      onClick: onTap ?? (product != null ? () => context.router.push(ProductDetailRoute(id: product!.id)) : null),
+      padding: EdgeInsets.zero,
+      borderRadius: radius.all(radius.md),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: radius.all(radius.md),
@@ -87,83 +93,72 @@ class ProductCard extends StatelessWidget {
           color: palette.border,
         ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: radius.all(radius.md),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius.all(radius.md),
-          splashColor: colors.primary.withValues(alpha: 0.08),
-          highlightColor: colors.primary.withValues(alpha: 0.04),
+      bodyStyle: const BoxDecoration(),
+      bodyMainAxisSize: MainAxisSize.max,
+      children: [
+        Expanded(
+          flex: 5,
+          child: _ProductImage(
+            imageUrl: imageUrl,
+            hasDiscount: hasDiscount,
+            discountPercentage: discountPercentage,
+            tags: tags,
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.all(spacing.xs),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                flex: 5,
-                child: _ProductImage(
-                  imageUrl: imageUrl,
-                  hasDiscount: hasDiscount,
-                  discountPercentage: discountPercentage,
-                  tags: tags,
-                ),
+              Text(
+                productName,
+                style: typography.bodyMedium
+                    .toTextStyle(
+                      color: palette.textPrimary,
+                    )
+                    .copyWith(fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              Padding(
-                padding: EdgeInsets.all(spacing.xs),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      productName,
-                      style: typography.bodySmall
-                          .toTextStyle(
-                            color: palette.textPrimary,
-                          )
-                          .copyWith(fontWeight: FontWeight.w500),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const Rating(
-                      value: 3.5,
-                      readOnly: true,
-                      starSize: 14,
-                    ),
-                    const SizedBox(height: 2),
-                    _PriceSection(
-                      hasDiscount: hasDiscount,
-                      discountedPrice: discountedPrice,
-                      originalPrice: originalPrice,
-                    ),
-                    if (showAddToCart) ...[
-                      SizedBox(height: spacing.xs / 2),
-                      Button.primary(
-                        onPressed: onAddToCart,
-                        fill: ButtonFill.solid,
-                        shape: ButtonShape.base,
-                        buttonSize: ButtonSize.mini,
-                        isBlock: true,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SvgIcon(
-                              svg: Assets.icons.outlined.shoppingCart,
-                              size: 14,
-                              color: colors.onPrimary,
-                            ),
-                            const SizedBox(width: 4),
-                            const Text('Add'),
-                          ],
-                        ),
+              const Rating(
+                value: 3.5,
+                readOnly: true,
+                starSize: 14,
+              ),
+              const SizedBox(height: 2),
+              _PriceSection(
+                hasDiscount: hasDiscount,
+                discountedPrice: discountedPrice,
+                originalPrice: originalPrice,
+              ),
+              if (showAddToCart) ...[
+                SizedBox(height: spacing.xs / 2),
+                Button.primary(
+                  onPressed: onAddToCart,
+                  fill: ButtonFill.solid,
+                  shape: ButtonShape.base,
+                  buttonSize: ButtonSize.mini,
+                  isBlock: true,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SvgIcon(
+                        svg: Assets.icons.outlined.shoppingCart,
+                        size: 14,
+                        color: colors.onPrimary,
                       ),
+                      const SizedBox(width: 4),
+                      const Text('Add'),
                     ],
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -326,7 +321,9 @@ class _PriceSection extends StatelessWidget {
           Flexible(
             child: Text(
               '\$${discountedPrice.toStringAsFixed(2)}',
-              style: typography.labelSmall.toTextStyle(color: palette.textPrimary),
+              style: typography.bodySmall.toTextStyle(color: palette.textPrimary).copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -335,7 +332,7 @@ class _PriceSection extends StatelessWidget {
           Flexible(
             child: Text(
               '\$${originalPrice.toStringAsFixed(2)}',
-              style: typography.labelSmall.toTextStyle(color: palette.textSecondary).copyWith(
+              style: typography.bodyMedium.toTextStyle(color: palette.textSecondary).copyWith(
                     decoration: TextDecoration.lineThrough,
                     decorationColor: palette.textSecondary,
                   ),
@@ -349,7 +346,9 @@ class _PriceSection extends StatelessWidget {
 
     return Text(
       '\$${originalPrice.toStringAsFixed(2)}',
-      style: typography.labelSmall.toTextStyle(color: palette.textPrimary),
+      style: typography.bodyMedium.toTextStyle(color: palette.textPrimary).copyWith(
+            fontWeight: FontWeight.w600,
+          ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -404,7 +403,10 @@ class ProductCardHorizontal extends StatelessWidget {
     final hasImage = imageUrl?.isNotEmpty ?? false;
     final finalImageUrl = hasImage ? imageUrl : null;
 
-    return Container(
+    return AppCard(
+      onClick: onTap ?? (product != null ? () => context.router.push(ProductDetailRoute(id: product!.id)) : null),
+      padding: EdgeInsets.all(spacing.sm),
+      borderRadius: radius.all(radius.md),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: radius.all(radius.md),
@@ -412,83 +414,71 @@ class ProductCardHorizontal extends StatelessWidget {
           color: palette.border,
         ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: radius.all(radius.md),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius.all(radius.md),
-          splashColor: colors.primary.withValues(alpha: 0.08),
-          highlightColor: colors.primary.withValues(alpha: 0.04),
-          child: Padding(
-            padding: EdgeInsets.all(spacing.sm),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ProductImageHorizontal(
-                  imageUrl: finalImageUrl,
-                  hasDiscount: hasDiscount,
-                  discountPercentage: discountPercentage,
-                  tags: tags,
-                ),
-                SizedBox(width: spacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        productName,
-                        style: typography.bodySmall
-                            .toTextStyle(
-                              color: palette.textPrimary,
-                            )
-                            .copyWith(fontWeight: FontWeight.w500),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      SizedBox(height: spacing.xs / 2),
-                      const Rating(
-                        value: 3.5,
-                        readOnly: true,
-                        starSize: 14,
-                      ),
-                      SizedBox(height: spacing.xs / 2),
-                      _PriceSectionHorizontal(
-                        hasDiscount: hasDiscount,
-                        discountedPrice: discountedPrice,
-                        originalPrice: originalPrice,
-                      ),
-                      if (showAddToCart) ...[
-                        Button.primary(
-                          onPressed: onAddToCart,
-                          fill: ButtonFill.solid,
-                          shape: ButtonShape.base,
-                          buttonSize: ButtonSize.mini,
-                          isBlock: true,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SvgIcon(
-                                svg: Assets.icons.outlined.shoppingCart,
-                                size: 14,
-                                color: colors.onPrimary,
-                              ),
-                              const SizedBox(width: 4),
-                              const Text('Add'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+      bodyStyle: const BoxDecoration(),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ProductImageHorizontal(
+              imageUrl: finalImageUrl,
+              hasDiscount: hasDiscount,
+              discountPercentage: discountPercentage,
+              tags: tags,
             ),
-          ),
+            SizedBox(width: spacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    productName,
+                    style: typography.bodyMedium
+                        .toTextStyle(
+                          color: palette.textPrimary,
+                        )
+                        .copyWith(fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Rating(
+                    value: 3.5,
+                    readOnly: true,
+                    starSize: 14,
+                  ),
+                  _PriceSectionHorizontal(
+                    hasDiscount: hasDiscount,
+                    discountedPrice: discountedPrice,
+                    originalPrice: originalPrice,
+                  ),
+                  if (showAddToCart) ...[
+                    Button.primary(
+                      onPressed: onAddToCart,
+                      fill: ButtonFill.solid,
+                      shape: ButtonShape.base,
+                      buttonSize: ButtonSize.mini,
+                      isBlock: true,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SvgIcon(
+                            svg: Assets.icons.outlined.shoppingCart,
+                            size: 14,
+                            color: colors.onPrimary,
+                          ),
+                          const SizedBox(width: 4),
+                          const Text('Add'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
+      ],
     );
   }
 }
@@ -586,14 +576,18 @@ class _PriceSectionHorizontal extends StatelessWidget {
             children: [
               Text(
                 '\$${discountedPrice.toStringAsFixed(2)}',
-                style: typography.labelSmall.toTextStyle(
-                  color: palette.textPrimary,
-                ),
+                style: typography.bodySmall
+                    .toTextStyle(
+                      color: palette.textPrimary,
+                    )
+                    .copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
               const SizedBox(width: 6),
               Text(
                 '\$${originalPrice.toStringAsFixed(2)}',
-                style: typography.labelSmall
+                style: typography.bodyMedium
                     .toTextStyle(
                       color: palette.textSecondary,
                     )
@@ -610,9 +604,13 @@ class _PriceSectionHorizontal extends StatelessWidget {
 
     return Text(
       '\$${originalPrice.toStringAsFixed(2)}',
-      style: typography.labelSmall.toTextStyle(
-        color: palette.textPrimary,
-      ),
+      style: typography.bodyMedium
+          .toTextStyle(
+            color: palette.textPrimary,
+          )
+          .copyWith(
+            fontWeight: FontWeight.w600,
+          ),
     );
   }
 }
