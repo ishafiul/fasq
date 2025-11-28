@@ -153,5 +153,40 @@ export async function generateOpenApiSpec() {
     }
   }
 
+  // Fix path parameters: Convert query params to path params when they match path segments
+  if (document.paths) {
+    for (const pathKey of Object.keys(document.paths)) {
+      const pathItem = (document.paths as any)[pathKey];
+
+      // Extract path parameter names from path pattern (e.g., /vendors/:id -> ['id'])
+      const pathParamNames = pathKey.match(/:(\w+)/g)?.map((p: string) => p.slice(1)) || [];
+
+      if (pathParamNames.length === 0) continue;
+
+      for (const methodKey of Object.keys(pathItem)) {
+        const op = pathItem[methodKey];
+        if (!op || !op.parameters || !Array.isArray(op.parameters)) continue;
+
+        // Convert matching query parameters to path parameters
+        op.parameters = op.parameters.map((param: any) => {
+          if (pathParamNames.includes(param.name) && param.in === 'query') {
+            return {
+              ...param,
+              in: 'path',
+              required: true, // Path parameters are always required
+            };
+          }
+          return param;
+        });
+
+        // Ensure path parameters are listed before query parameters
+        const pathParams = op.parameters.filter((p: any) => p.in === 'path');
+        const queryParams = op.parameters.filter((p: any) => p.in === 'query');
+        const otherParams = op.parameters.filter((p: any) => p.in !== 'path' && p.in !== 'query');
+        op.parameters = [...pathParams, ...queryParams, ...otherParams];
+      }
+    }
+  }
+
   return document;
 }
