@@ -4,8 +4,11 @@ import 'package:ecommerce/api/models/get_promotional_best_deals_response.dart';
 import 'package:ecommerce/api/models/get_promotional_current_offers_response.dart';
 import 'package:ecommerce/api/models/get_promotional_featured_response.dart';
 import 'package:ecommerce/api/models/get_promotional_top_products_response.dart';
+import 'package:ecommerce/api/models/product_detail_response.dart';
 import 'package:ecommerce/api/models/product_list_products_response.dart';
 import 'package:ecommerce/api/models/product_response.dart';
+import 'package:ecommerce/api/models/review_get_product_reviews_response.dart';
+import 'package:ecommerce/api/models/vendor_get_vendor_response.dart';
 import 'package:fasq/fasq.dart';
 
 /// Type-safe query keys for the application.
@@ -32,6 +35,10 @@ class QueryKeys {
   /// Query key for a single product by ID.
   static TypedQueryKey<ProductResponse> product(String id) =>
       TypedQueryKey<ProductResponse>('product:$id', ProductResponse);
+
+  /// Query key for product detail with variants and images.
+  static TypedQueryKey<ProductDetailResponse> productDetail(String id) =>
+      TypedQueryKey<ProductDetailResponse>('product:detail:$id', ProductDetailResponse);
 
   /// Query key for featured products.
   static TypedQueryKey<List<GetPromotionalFeaturedResponse>> get featuredProducts =>
@@ -72,6 +79,23 @@ class QueryKeys {
   /// Query key for a single category by ID.
   static TypedQueryKey<CategoryGetCategoryResponse> category(String id) =>
       TypedQueryKey<CategoryGetCategoryResponse>('category:$id', CategoryGetCategoryResponse);
+
+  // Vendors
+  /// Query key for a single vendor by ID.
+  static TypedQueryKey<VendorGetVendorResponse> vendor(String id) =>
+      TypedQueryKey<VendorGetVendorResponse>('vendor:$id', VendorGetVendorResponse);
+
+  // Reviews
+  /// Query key for product reviews with pagination.
+  static TypedQueryKey<ReviewGetProductReviewsResponse> productReviews(
+    String productId, {
+    int page = 1,
+    int limit = 20,
+  }) =>
+      TypedQueryKey<ReviewGetProductReviewsResponse>(
+        'reviews:product:$productId:$page:$limit',
+        ReviewGetProductReviewsResponse,
+      );
 
   // User
   /// Query key for user email.

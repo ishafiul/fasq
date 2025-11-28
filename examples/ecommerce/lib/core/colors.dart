@@ -75,10 +75,10 @@ class LightPalette implements AppPalette {
 
   @override
   LinearGradient get gradientBrand => const LinearGradient(
-    begin: Alignment.centerRight,
-    end: Alignment.centerLeft,
-    colors: [Color(0xFF0B63E5), Color(0xFF00A0E8)],
-  );
+        begin: Alignment.centerRight,
+        end: Alignment.centerLeft,
+        colors: [Color(0xFF0B63E5), Color(0xFF00A0E8)],
+      );
 }
 
 class DarkPalette implements AppPalette {
@@ -109,13 +109,13 @@ class DarkPalette implements AppPalette {
   Color get disabledText => const Color(0xFF777A8A);
 
   @override
-  Color get background => const Color(0xFF121212);
+  Color get background => const Color(0xFF141414);
 
   @override
-  Color get surface => const Color(0xFF2B2B2B);
+  Color get surface => const Color(0xFF1F1F1F);
 
   @override
-  Color get border => const Color(0xFF2C2C2C);
+  Color get border => const Color(0xFF434343);
 
   @override
   Color get weak => const Color(0xFF555555);
@@ -125,10 +125,10 @@ class DarkPalette implements AppPalette {
 
   @override
   LinearGradient get gradientBrand => const LinearGradient(
-    begin: Alignment.centerRight,
-    end: Alignment.centerLeft,
-    colors: [Color(0xFF199F6F), Color(0xFF54D3A3)],
-  );
+        begin: Alignment.centerRight,
+        end: Alignment.centerLeft,
+        colors: [Color(0xFF199F6F), Color(0xFF54D3A3)],
+      );
 }
 
 AppPalette paletteFor(Brightness brightness) {

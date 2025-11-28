@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Seed types for generating text scales.
@@ -470,7 +471,7 @@ extension ContextTypography on BuildContext {
   /// Text('Display', style: context.typography.displayLarge.toTextStyle());
   /// Text('Body', style: context.typography.bodyLarge.toTextStyle());
   /// ```
-  TypographyScale get typography => TypographyScale.goldenRatio();
+  TypographyScale get typography => TypographyScale.goldenRatio(base: 10);
 
   /// Returns a complete typography scale using Major Third ratio (1.250).
   TypographyScale get majorThirdTypography => TypographyScale.majorThird();
