@@ -7,6 +7,7 @@ import 'dart:io';
 /// - Changes `dynamic toJson() => json;` to `String? toJson() => json;` in enum models
 /// - Fixes undefined enum default values (e.g., `sortBy = createdAt` -> `sortBy = SortBy.createdAt`)
 /// - Fixes @Query('id') to @Path('id') for path parameters
+/// - Converts Express-style path parameters `:paramName` to Retrofit-style `{paramName}`
 ///
 /// This file is safe to run after each API generation.
 Future<void> main() async {
@@ -76,6 +77,16 @@ Future<void> _fixApiClients() async {
     content = content.replaceAll(
       "@Query('id') required String id,",
       "@Path('id') required String id,",
+    );
+
+    // Convert Express-style path parameters :paramName to Retrofit-style {paramName}
+    // Matches :paramName in path strings (e.g., '/products/:id' -> '/products/{id}')
+    // Handles multiple parameters in same path
+    content = content.replaceAllMapped(
+      RegExp("(['\"][/][^'\"]*?):(\\w+)"),
+      (match) {
+        return '${match.group(1)}{${match.group(2)}}';
+      },
     );
 
     if (content != original) {
