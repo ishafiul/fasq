@@ -93,7 +93,9 @@ class _LoginAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: Text('Sign in', style: context.typography.bodyLarge.toTextStyle()),
+      title: Text('Sign in', style: context.typography.titleSmall.toTextStyle().copyWith(
+            fontWeight: FontWeight.w600,
+          )),
       centerTitle: true,
       elevation: 0,
       leading: currentStep == _AuthStep.otp
@@ -122,7 +124,9 @@ class _LoginHeader extends StatelessWidget {
       children: [
         Text(
           currentStep == _AuthStep.email ? 'Welcome back' : 'Verify your email',
-          style: typography.titleLarge.toTextStyle(color: palette.textPrimary),
+          style: typography.titleMedium.toTextStyle(color: palette.textPrimary).copyWith(
+                fontWeight: FontWeight.w600,
+              ),
         ),
         SizedBox(height: context.spacing.xs / 2),
         Text(

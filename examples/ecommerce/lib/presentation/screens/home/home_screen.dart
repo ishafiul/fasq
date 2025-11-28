@@ -8,6 +8,7 @@ import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
+import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/product_service.dart';
 import 'package:ecommerce/core/services/promotional_service.dart';
 import 'package:ecommerce/core/widgets/pull_to_refresh.dart';
@@ -139,7 +140,9 @@ class _FeaturedProductsSection extends StatelessWidget {
           products: isLoading ? [] : allProducts,
           isLoading: isLoading,
           onProductTap: (product) {
-            // TODO: Navigate to product detail
+            if (product != null) {
+              context.router.push(ProductDetailRoute(id: product.id));
+            }
           },
         );
       },
@@ -184,7 +187,9 @@ class _BestDealsSection extends StatelessWidget {
           products: isLoading ? [] : allProducts,
           isLoading: isLoading,
           onProductTap: (product) {
-            // TODO: Navigate to product detail
+            if (product != null) {
+              context.router.push(ProductDetailRoute(id: product.id));
+            }
           },
         );
       },
@@ -229,7 +234,9 @@ class _TopProductsSection extends StatelessWidget {
           products: isLoading ? [] : allProducts,
           isLoading: isLoading,
           onProductTap: (product) {
-            // TODO: Navigate to product detail
+            if (product != null) {
+              context.router.push(ProductDetailRoute(id: product.id));
+            }
           },
         );
       },
@@ -362,7 +369,9 @@ class _AllProductsSection extends StatelessWidget {
           products: isLoading ? [] : products,
           isLoading: isLoading,
           onProductTap: (product) {
-            // TODO: Navigate to product detail
+            if (product != null) {
+              context.router.push(ProductDetailRoute(id: product.id));
+            }
           },
         );
       },

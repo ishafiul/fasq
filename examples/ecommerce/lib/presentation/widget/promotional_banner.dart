@@ -136,7 +136,9 @@ class _BannerItem extends StatelessWidget {
                   children: [
                     Text(
                       title ?? '',
-                      style: typography.titleLarge.toTextStyle(color: Colors.white),
+                      style: typography.titleMedium.toTextStyle(color: Colors.white).copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

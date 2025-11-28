@@ -151,7 +151,7 @@ class _CategoryCard extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: spacing.xs),
                 child: Text(
                   categoryName ?? '',
-                  style: typography.labelSmall.toTextStyle(color: palette.textPrimary),
+                  style: typography.bodySmall.toTextStyle(color: palette.textPrimary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
