@@ -72,22 +72,10 @@ Future<void> _fixApiClients() async {
     // These patterns match bare identifiers that should be qualified with their enum type.
     content = _fixUndefinedEnumDefaults(content);
 
-    // Fix path/query mismatch for common :id style endpoints:
-    // change @Query('id') to @Path('id') in API clients.
-    content = content.replaceAll(
-      "@Query('id') required String id,",
-      "@Path('id') required String id,",
-    );
-
     // Convert Express-style path parameters :paramName to Retrofit-style {paramName}
     // Matches :paramName in path strings (e.g., '/products/:id' -> '/products/{id}')
     // Handles multiple parameters in same path
-    content = content.replaceAllMapped(
-      RegExp("(['\"][/][^'\"]*?):(\\w+)"),
-      (match) {
-        return '${match.group(1)}{${match.group(2)}}';
-      },
-    );
+    content = _convertExpressPathParamsToRetrofit(content);
 
     if (content != original) {
       await file.writeAsString(content);
@@ -123,6 +111,59 @@ String _fixUndefinedEnumDefaults(String content) {
   for (final entry in enumFixPatterns.entries) {
     result = result.replaceAllMapped(entry.key, entry.value);
   }
+
+  return result;
+}
+
+/// Converts Express-style path parameters to Retrofit-style.
+///
+/// This function converts path parameters from Express-style `:paramName` to
+/// Retrofit-style `{paramName}` in HTTP method annotations.
+///
+/// Examples:
+/// - `@GET('/products/:id')` -> `@GET('/products/{id}')`
+/// - `@POST('/products/:productId/images/:imageId')` -> `@POST('/products/{productId}/images/{imageId}')`
+String _convertExpressPathParamsToRetrofit(String content) {
+  // Pattern to match HTTP method annotations with path strings
+  // Matches: @GET('/products/:id'), @POST('/products/:productId/images'), etc.
+  // Handle both single and double quotes separately
+  var result = content;
+
+  // Match single quotes: @GET('/products/:id')
+  result = result.replaceAllMapped(
+    RegExp(r"(@(?:GET|POST|PUT|PATCH|DELETE)\s*\(\')([^\']+)(\')"),
+    (match) {
+      final prefix = match.group(1) ?? '';
+      final path = match.group(2) ?? '';
+      final suffix = match.group(3) ?? '';
+
+      // Replace all :paramName with {paramName} in the path
+      final convertedPath = path.replaceAllMapped(
+        RegExp(r':(\w+)'),
+        (paramMatch) => '{${paramMatch.group(1)}}',
+      );
+
+      return '$prefix$convertedPath$suffix';
+    },
+  );
+
+  // Match double quotes: @GET("/products/:id")
+  result = result.replaceAllMapped(
+    RegExp(r'(@(?:GET|POST|PUT|PATCH|DELETE)\s*\(\")([^\"]+)(\")'),
+    (match) {
+      final prefix = match.group(1) ?? '';
+      final path = match.group(2) ?? '';
+      final suffix = match.group(3) ?? '';
+
+      // Replace all :paramName with {paramName} in the path
+      final convertedPath = path.replaceAllMapped(
+        RegExp(r':(\w+)'),
+        (paramMatch) => '{${paramMatch.group(1)}}',
+      );
+
+      return '$prefix$convertedPath$suffix';
+    },
+  );
 
   return result;
 }

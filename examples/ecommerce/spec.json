@@ -322,13 +322,17 @@
                 ],
                 "title": "vendor.updateVendorProfileResponse"
             },
+            "VendorResponse": {
+                "not": {},
+                "title": "VendorResponse"
+            },
             "vendor.listVendorsResponse": {
                 "type": "object",
                 "properties": {
                     "data": {
                         "type": "array",
                         "items": {
-                            "not": {}
+                            "$ref": "#/components/schemas/VendorResponse"
                         }
                     },
                     "meta": {
@@ -456,7 +460,309 @@
                 ],
                 "title": "category.createCategoryResponse"
             },
-            "category.getCategoryResponse": {
+            "CategoryTreeNode": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "parentId": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "imageUrl": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "displayOrder": {
+                        "type": "number"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "children": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "slug": {
+                                    "type": "string"
+                                },
+                                "description": {
+                                    "anyOf": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
+                                    ]
+                                },
+                                "parentId": {
+                                    "anyOf": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
+                                    ]
+                                },
+                                "imageUrl": {
+                                    "anyOf": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
+                                    ]
+                                },
+                                "isActive": {
+                                    "type": "boolean"
+                                },
+                                "displayOrder": {
+                                    "type": "number"
+                                },
+                                "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "x-native-type": "date"
+                                },
+                                "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "x-native-type": "date"
+                                },
+                                "children": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "string"
+                                            },
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "slug": {
+                                                "type": "string"
+                                            },
+                                            "description": {
+                                                "anyOf": [
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "null"
+                                                    }
+                                                ]
+                                            },
+                                            "parentId": {
+                                                "anyOf": [
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "null"
+                                                    }
+                                                ]
+                                            },
+                                            "imageUrl": {
+                                                "anyOf": [
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "null"
+                                                    }
+                                                ]
+                                            },
+                                            "isActive": {
+                                                "type": "boolean"
+                                            },
+                                            "displayOrder": {
+                                                "type": "number"
+                                            },
+                                            "createdAt": {
+                                                "type": "string",
+                                                "format": "date-time",
+                                                "x-native-type": "date"
+                                            },
+                                            "updatedAt": {
+                                                "type": "string",
+                                                "format": "date-time",
+                                                "x-native-type": "date"
+                                            },
+                                            "children": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "string"
+                                                        },
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "slug": {
+                                                            "type": "string"
+                                                        },
+                                                        "description": {
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "string"
+                                                                },
+                                                                {
+                                                                    "type": "null"
+                                                                }
+                                                            ]
+                                                        },
+                                                        "parentId": {
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "string"
+                                                                },
+                                                                {
+                                                                    "type": "null"
+                                                                }
+                                                            ]
+                                                        },
+                                                        "imageUrl": {
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "string"
+                                                                },
+                                                                {
+                                                                    "type": "null"
+                                                                }
+                                                            ]
+                                                        },
+                                                        "isActive": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "displayOrder": {
+                                                            "type": "number"
+                                                        },
+                                                        "createdAt": {
+                                                            "type": "string",
+                                                            "format": "date-time",
+                                                            "x-native-type": "date"
+                                                        },
+                                                        "updatedAt": {
+                                                            "type": "string",
+                                                            "format": "date-time",
+                                                            "x-native-type": "date"
+                                                        },
+                                                        "children": {}
+                                                    },
+                                                    "required": [
+                                                        "id",
+                                                        "name",
+                                                        "slug",
+                                                        "description",
+                                                        "parentId",
+                                                        "imageUrl",
+                                                        "isActive",
+                                                        "displayOrder",
+                                                        "createdAt",
+                                                        "updatedAt"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "required": [
+                                            "id",
+                                            "name",
+                                            "slug",
+                                            "description",
+                                            "parentId",
+                                            "imageUrl",
+                                            "isActive",
+                                            "displayOrder",
+                                            "createdAt",
+                                            "updatedAt",
+                                            "children"
+                                        ]
+                                    }
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "name",
+                                "slug",
+                                "description",
+                                "parentId",
+                                "imageUrl",
+                                "isActive",
+                                "displayOrder",
+                                "createdAt",
+                                "updatedAt",
+                                "children"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "slug",
+                    "description",
+                    "parentId",
+                    "imageUrl",
+                    "isActive",
+                    "displayOrder",
+                    "createdAt",
+                    "updatedAt",
+                    "children"
+                ],
+                "title": "CategoryTreeNode"
+            },
+            "CategoryResponse": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -527,7 +833,7 @@
                     "createdAt",
                     "updatedAt"
                 ],
-                "title": "category.getCategoryResponse"
+                "title": "CategoryResponse"
             },
             "category.updateCategoryRequest": {
                 "type": "object",
@@ -669,6 +975,64 @@
                 ],
                 "title": "product.createProductResponse"
             },
+            "ProductImageResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "productId": {
+                        "type": "string"
+                    },
+                    "variantId": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "displayOrder": {
+                        "type": "number"
+                    },
+                    "isMain": {
+                        "type": "boolean"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    }
+                },
+                "required": [
+                    "id",
+                    "productId",
+                    "variantId",
+                    "url",
+                    "displayOrder",
+                    "isMain",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "title": "ProductImageResponse"
+            },
+            "ProductImageListResponse": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/components/schemas/ProductImageResponse"
+                },
+                "title": "ProductImageListResponse"
+            },
             "ProductResponse": {
                 "type": "object",
                 "properties": {
@@ -734,57 +1098,7 @@
                         "x-native-type": "date"
                     },
                     "images": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string"
-                                },
-                                "productId": {
-                                    "type": "string"
-                                },
-                                "variantId": {
-                                    "anyOf": [
-                                        {
-                                            "type": "string"
-                                        },
-                                        {
-                                            "type": "null"
-                                        }
-                                    ]
-                                },
-                                "url": {
-                                    "type": "string"
-                                },
-                                "displayOrder": {
-                                    "type": "number"
-                                },
-                                "isMain": {
-                                    "type": "boolean"
-                                },
-                                "createdAt": {
-                                    "type": "string",
-                                    "format": "date-time",
-                                    "x-native-type": "date"
-                                },
-                                "updatedAt": {
-                                    "type": "string",
-                                    "format": "date-time",
-                                    "x-native-type": "date"
-                                }
-                            },
-                            "required": [
-                                "id",
-                                "productId",
-                                "variantId",
-                                "url",
-                                "displayOrder",
-                                "isMain",
-                                "createdAt",
-                                "updatedAt"
-                            ]
-                        }
+                        "$ref": "#/components/schemas/ProductImageListResponse"
                     }
                 },
                 "required": [
@@ -1015,57 +1329,7 @@
                         }
                     },
                     "images": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string"
-                                },
-                                "productId": {
-                                    "type": "string"
-                                },
-                                "variantId": {
-                                    "anyOf": [
-                                        {
-                                            "type": "string"
-                                        },
-                                        {
-                                            "type": "null"
-                                        }
-                                    ]
-                                },
-                                "url": {
-                                    "type": "string"
-                                },
-                                "displayOrder": {
-                                    "type": "number"
-                                },
-                                "isMain": {
-                                    "type": "boolean"
-                                },
-                                "createdAt": {
-                                    "type": "string",
-                                    "format": "date-time",
-                                    "x-native-type": "date"
-                                },
-                                "updatedAt": {
-                                    "type": "string",
-                                    "format": "date-time",
-                                    "x-native-type": "date"
-                                }
-                            },
-                            "required": [
-                                "id",
-                                "productId",
-                                "variantId",
-                                "url",
-                                "displayOrder",
-                                "isMain",
-                                "createdAt",
-                                "updatedAt"
-                            ]
-                        }
+                        "$ref": "#/components/schemas/ProductImageListResponse"
                     }
                 },
                 "required": [
@@ -1479,11 +1743,41 @@
                 ],
                 "title": "Product"
             },
-            "cart.getCartResponse": {
+            "CartResponse": {
                 "type": "object",
                 "properties": {
                     "cart": {
-                        "not": {}
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "userId": {
+                                "type": "string"
+                            },
+                            "expiresAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            "createdAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            "updatedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "userId",
+                            "expiresAt",
+                            "createdAt",
+                            "updatedAt"
+                        ]
                     },
                     "items": {
                         "type": "array",
@@ -1491,7 +1785,47 @@
                             "type": "object",
                             "properties": {
                                 "item": {
-                                    "not": {}
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "cartId": {
+                                            "type": "string"
+                                        },
+                                        "productId": {
+                                            "type": "string"
+                                        },
+                                        "variantId": {
+                                            "type": "string"
+                                        },
+                                        "quantity": {
+                                            "type": "number"
+                                        },
+                                        "priceAtAdd": {
+                                            "type": "string"
+                                        },
+                                        "createdAt": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "x-native-type": "date"
+                                        },
+                                        "updatedAt": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "x-native-type": "date"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "cartId",
+                                        "productId",
+                                        "variantId",
+                                        "quantity",
+                                        "priceAtAdd",
+                                        "createdAt",
+                                        "updatedAt"
+                                    ]
                                 },
                                 "product": {
                                     "$ref": "#/components/schemas/Product"
@@ -1567,7 +1901,7 @@
                     "cart",
                     "items"
                 ],
-                "title": "cart.getCartResponse"
+                "title": "CartResponse"
             },
             "cart.clearCartRequest": {
                 "type": "object",
@@ -1611,18 +1945,6 @@
                 ],
                 "title": "cart.addItemRequest"
             },
-            "cart.addItemResponse": {
-                "type": "object",
-                "properties": {
-                    "success": {
-                        "type": "boolean"
-                    }
-                },
-                "required": [
-                    "success"
-                ],
-                "title": "cart.addItemResponse"
-            },
             "cart.updateItemRequest": {
                 "type": "object",
                 "properties": {
@@ -1641,18 +1963,6 @@
                 ],
                 "title": "cart.updateItemRequest"
             },
-            "cart.updateItemResponse": {
-                "type": "object",
-                "properties": {
-                    "success": {
-                        "type": "boolean"
-                    }
-                },
-                "required": [
-                    "success"
-                ],
-                "title": "cart.updateItemResponse"
-            },
             "cart.removeItemRequest": {
                 "type": "object",
                 "properties": {
@@ -1664,18 +1974,6 @@
                     "id"
                 ],
                 "title": "cart.removeItemRequest"
-            },
-            "cart.removeItemResponse": {
-                "type": "object",
-                "properties": {
-                    "success": {
-                        "type": "boolean"
-                    }
-                },
-                "required": [
-                    "success"
-                ],
-                "title": "cart.removeItemResponse"
             },
             "address.createAddressRequest": {
                 "type": "object",
@@ -1745,6 +2043,10 @@
                     "id"
                 ],
                 "title": "address.createAddressResponse"
+            },
+            "AddressResponse": {
+                "not": {},
+                "title": "AddressResponse"
             },
             "address.updateAddressRequest": {
                 "type": "object",
@@ -1895,13 +2197,17 @@
                 ],
                 "title": "order.createOrderResponse"
             },
+            "OrderListItem": {
+                "not": {},
+                "title": "OrderListItem"
+            },
             "order.getUserOrdersResponse": {
                 "type": "object",
                 "properties": {
                     "data": {
                         "type": "array",
                         "items": {
-                            "not": {}
+                            "$ref": "#/components/schemas/OrderListItem"
                         }
                     },
                     "meta": {
@@ -1942,25 +2248,33 @@
                 ],
                 "title": "order.getUserOrdersResponse"
             },
+            "OrderVendorTracking": {
+                "not": {},
+                "title": "OrderVendorTracking"
+            },
+            "VendorOrderListItem": {
+                "type": "object",
+                "properties": {
+                    "tracking": {
+                        "$ref": "#/components/schemas/OrderVendorTracking"
+                    },
+                    "order": {
+                        "$ref": "#/components/schemas/OrderListItem"
+                    }
+                },
+                "required": [
+                    "tracking",
+                    "order"
+                ],
+                "title": "VendorOrderListItem"
+            },
             "order.getVendorOrdersResponse": {
                 "type": "object",
                 "properties": {
                     "data": {
                         "type": "array",
                         "items": {
-                            "type": "object",
-                            "properties": {
-                                "tracking": {
-                                    "not": {}
-                                },
-                                "order": {
-                                    "not": {}
-                                }
-                            },
-                            "required": [
-                                "tracking",
-                                "order"
-                            ]
+                            "$ref": "#/components/schemas/VendorOrderListItem"
                         }
                     },
                     "meta": {
@@ -2007,7 +2321,7 @@
                     "data": {
                         "type": "array",
                         "items": {
-                            "not": {}
+                            "$ref": "#/components/schemas/OrderListItem"
                         }
                     },
                     "meta": {
@@ -2197,79 +2511,83 @@
                 ],
                 "title": "review.createReviewResponse"
             },
+            "ReviewResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "productId": {
+                        "type": "string"
+                    },
+                    "userId": {
+                        "type": "string"
+                    },
+                    "orderId": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "rating": {
+                        "type": "number"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "comment": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isVerifiedPurchase": {
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    }
+                },
+                "required": [
+                    "id",
+                    "productId",
+                    "userId",
+                    "orderId",
+                    "rating",
+                    "title",
+                    "comment",
+                    "isVerifiedPurchase",
+                    "status",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "title": "ReviewResponse"
+            },
             "review.getProductReviewsResponse": {
                 "type": "object",
                 "properties": {
                     "data": {
                         "type": "array",
                         "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string"
-                                },
-                                "productId": {
-                                    "type": "string"
-                                },
-                                "userId": {
-                                    "type": "string"
-                                },
-                                "orderId": {
-                                    "anyOf": [
-                                        {
-                                            "type": "string"
-                                        },
-                                        {
-                                            "type": "null"
-                                        }
-                                    ]
-                                },
-                                "rating": {
-                                    "type": "number"
-                                },
-                                "title": {
-                                    "type": "string"
-                                },
-                                "comment": {
-                                    "anyOf": [
-                                        {
-                                            "type": "string"
-                                        },
-                                        {
-                                            "type": "null"
-                                        }
-                                    ]
-                                },
-                                "isVerifiedPurchase": {
-                                    "type": "boolean"
-                                },
-                                "status": {
-                                    "type": "string"
-                                },
-                                "createdAt": {
-                                    "type": "string",
-                                    "format": "date-time",
-                                    "x-native-type": "date"
-                                },
-                                "updatedAt": {
-                                    "type": "string",
-                                    "format": "date-time",
-                                    "x-native-type": "date"
-                                }
-                            },
-                            "required": [
-                                "id",
-                                "productId",
-                                "userId",
-                                "orderId",
-                                "rating",
-                                "title",
-                                "comment",
-                                "isVerifiedPurchase",
-                                "status",
-                                "createdAt",
-                                "updatedAt"
-                            ]
+                            "$ref": "#/components/schemas/ReviewResponse"
                         }
                     },
                     "meta": {
@@ -2514,13 +2832,17 @@
                 ],
                 "title": "promo.createPromoCodeResponse"
             },
+            "PromoCodeResponse": {
+                "not": {},
+                "title": "PromoCodeResponse"
+            },
             "promo.listPromoCodesResponse": {
                 "type": "object",
                 "properties": {
                     "data": {
                         "type": "array",
                         "items": {
-                            "not": {}
+                            "$ref": "#/components/schemas/PromoCodeResponse"
                         }
                     },
                     "meta": {
@@ -2590,7 +2912,7 @@
                 ],
                 "title": "promo.validatePromoCodeRequest"
             },
-            "promo.validatePromoCodeResponse": {
+            "PromoCodeValidationResponse": {
                 "type": "object",
                 "properties": {
                     "valid": {
@@ -2607,7 +2929,7 @@
                     "valid",
                     "promoCode"
                 ],
-                "title": "promo.validatePromoCodeResponse"
+                "title": "PromoCodeValidationResponse"
             },
             "promo.updatePromoCodeRequest": {
                 "type": "object",
@@ -2768,6 +3090,112 @@
                     "id"
                 ],
                 "title": "promotional.createPromotionalContentResponse"
+            },
+            "PromotionalContentResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "imageUrl": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "link": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "displayOrder": {
+                        "type": "number"
+                    },
+                    "startDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "endDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    },
+                    "categoryIds": {
+                        "anyOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProductResponse"
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "type",
+                    "title",
+                    "description",
+                    "imageUrl",
+                    "link",
+                    "displayOrder",
+                    "startDate",
+                    "endDate",
+                    "isActive",
+                    "categoryIds",
+                    "createdAt",
+                    "updatedAt",
+                    "products"
+                ],
+                "title": "PromotionalContentResponse"
             },
             "promotional.updatePromotionalContentRequest": {
                 "type": "object",
@@ -3293,305 +3721,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {
-                                                "type": "string"
-                                            },
-                                            "name": {
-                                                "type": "string"
-                                            },
-                                            "slug": {
-                                                "type": "string"
-                                            },
-                                            "description": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "parentId": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "imageUrl": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "isActive": {
-                                                "type": "boolean"
-                                            },
-                                            "displayOrder": {
-                                                "type": "number"
-                                            },
-                                            "createdAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "updatedAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "children": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "id": {
-                                                            "type": "string"
-                                                        },
-                                                        "name": {
-                                                            "type": "string"
-                                                        },
-                                                        "slug": {
-                                                            "type": "string"
-                                                        },
-                                                        "description": {
-                                                            "anyOf": [
-                                                                {
-                                                                    "type": "string"
-                                                                },
-                                                                {
-                                                                    "type": "null"
-                                                                }
-                                                            ]
-                                                        },
-                                                        "parentId": {
-                                                            "anyOf": [
-                                                                {
-                                                                    "type": "string"
-                                                                },
-                                                                {
-                                                                    "type": "null"
-                                                                }
-                                                            ]
-                                                        },
-                                                        "imageUrl": {
-                                                            "anyOf": [
-                                                                {
-                                                                    "type": "string"
-                                                                },
-                                                                {
-                                                                    "type": "null"
-                                                                }
-                                                            ]
-                                                        },
-                                                        "isActive": {
-                                                            "type": "boolean"
-                                                        },
-                                                        "displayOrder": {
-                                                            "type": "number"
-                                                        },
-                                                        "createdAt": {
-                                                            "type": "string",
-                                                            "format": "date-time",
-                                                            "x-native-type": "date"
-                                                        },
-                                                        "updatedAt": {
-                                                            "type": "string",
-                                                            "format": "date-time",
-                                                            "x-native-type": "date"
-                                                        },
-                                                        "children": {
-                                                            "type": "array",
-                                                            "items": {
-                                                                "type": "object",
-                                                                "properties": {
-                                                                    "id": {
-                                                                        "type": "string"
-                                                                    },
-                                                                    "name": {
-                                                                        "type": "string"
-                                                                    },
-                                                                    "slug": {
-                                                                        "type": "string"
-                                                                    },
-                                                                    "description": {
-                                                                        "anyOf": [
-                                                                            {
-                                                                                "type": "string"
-                                                                            },
-                                                                            {
-                                                                                "type": "null"
-                                                                            }
-                                                                        ]
-                                                                    },
-                                                                    "parentId": {
-                                                                        "anyOf": [
-                                                                            {
-                                                                                "type": "string"
-                                                                            },
-                                                                            {
-                                                                                "type": "null"
-                                                                            }
-                                                                        ]
-                                                                    },
-                                                                    "imageUrl": {
-                                                                        "anyOf": [
-                                                                            {
-                                                                                "type": "string"
-                                                                            },
-                                                                            {
-                                                                                "type": "null"
-                                                                            }
-                                                                        ]
-                                                                    },
-                                                                    "isActive": {
-                                                                        "type": "boolean"
-                                                                    },
-                                                                    "displayOrder": {
-                                                                        "type": "number"
-                                                                    },
-                                                                    "createdAt": {
-                                                                        "type": "string",
-                                                                        "format": "date-time",
-                                                                        "x-native-type": "date"
-                                                                    },
-                                                                    "updatedAt": {
-                                                                        "type": "string",
-                                                                        "format": "date-time",
-                                                                        "x-native-type": "date"
-                                                                    },
-                                                                    "children": {
-                                                                        "type": "array",
-                                                                        "items": {
-                                                                            "type": "object",
-                                                                            "properties": {
-                                                                                "id": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "name": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "slug": {
-                                                                                    "type": "string"
-                                                                                },
-                                                                                "description": {
-                                                                                    "anyOf": [
-                                                                                        {
-                                                                                            "type": "string"
-                                                                                        },
-                                                                                        {
-                                                                                            "type": "null"
-                                                                                        }
-                                                                                    ]
-                                                                                },
-                                                                                "parentId": {
-                                                                                    "anyOf": [
-                                                                                        {
-                                                                                            "type": "string"
-                                                                                        },
-                                                                                        {
-                                                                                            "type": "null"
-                                                                                        }
-                                                                                    ]
-                                                                                },
-                                                                                "imageUrl": {
-                                                                                    "anyOf": [
-                                                                                        {
-                                                                                            "type": "string"
-                                                                                        },
-                                                                                        {
-                                                                                            "type": "null"
-                                                                                        }
-                                                                                    ]
-                                                                                },
-                                                                                "isActive": {
-                                                                                    "type": "boolean"
-                                                                                },
-                                                                                "displayOrder": {
-                                                                                    "type": "number"
-                                                                                },
-                                                                                "createdAt": {
-                                                                                    "type": "string",
-                                                                                    "format": "date-time",
-                                                                                    "x-native-type": "date"
-                                                                                },
-                                                                                "updatedAt": {
-                                                                                    "type": "string",
-                                                                                    "format": "date-time",
-                                                                                    "x-native-type": "date"
-                                                                                },
-                                                                                "children": {}
-                                                                            },
-                                                                            "required": [
-                                                                                "id",
-                                                                                "name",
-                                                                                "slug",
-                                                                                "description",
-                                                                                "parentId",
-                                                                                "imageUrl",
-                                                                                "isActive",
-                                                                                "displayOrder",
-                                                                                "createdAt",
-                                                                                "updatedAt"
-                                                                            ]
-                                                                        }
-                                                                    }
-                                                                },
-                                                                "required": [
-                                                                    "id",
-                                                                    "name",
-                                                                    "slug",
-                                                                    "description",
-                                                                    "parentId",
-                                                                    "imageUrl",
-                                                                    "isActive",
-                                                                    "displayOrder",
-                                                                    "createdAt",
-                                                                    "updatedAt",
-                                                                    "children"
-                                                                ]
-                                                            }
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "id",
-                                                        "name",
-                                                        "slug",
-                                                        "description",
-                                                        "parentId",
-                                                        "imageUrl",
-                                                        "isActive",
-                                                        "displayOrder",
-                                                        "createdAt",
-                                                        "updatedAt",
-                                                        "children"
-                                                    ]
-                                                }
-                                            }
-                                        },
-                                        "required": [
-                                            "id",
-                                            "name",
-                                            "slug",
-                                            "description",
-                                            "parentId",
-                                            "imageUrl",
-                                            "isActive",
-                                            "displayOrder",
-                                            "createdAt",
-                                            "updatedAt",
-                                            "children"
-                                        ]
+                                        "$ref": "#/components/schemas/CategoryTreeNode"
                                     }
                                 }
                             }
@@ -3624,7 +3754,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/category.getCategoryResponse"
+                                    "$ref": "#/components/schemas/CategoryResponse"
                                 }
                             }
                         }
@@ -4148,7 +4278,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/cart.getCartResponse"
+                                    "$ref": "#/components/schemas/CartResponse"
                                 }
                             }
                         }
@@ -4206,7 +4336,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/cart.addItemResponse"
+                                    "$ref": "#/components/schemas/CartResponse"
                                 }
                             }
                         }
@@ -4236,7 +4366,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/cart.updateItemResponse"
+                                    "$ref": "#/components/schemas/CartResponse"
                                 }
                             }
                         }
@@ -4264,7 +4394,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/cart.removeItemResponse"
+                                    "$ref": "#/components/schemas/CartResponse"
                                 }
                             }
                         }
@@ -4315,7 +4445,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "not": {}
+                                        "$ref": "#/components/schemas/AddressResponse"
                                     }
                                 }
                             }
@@ -5045,7 +5175,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/promo.validatePromoCodeResponse"
+                                    "$ref": "#/components/schemas/PromoCodeValidationResponse"
                                 }
                             }
                         }
@@ -5156,109 +5286,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {
-                                                "type": "string"
-                                            },
-                                            "type": {
-                                                "type": "string"
-                                            },
-                                            "title": {
-                                                "type": "string"
-                                            },
-                                            "description": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "imageUrl": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "link": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "displayOrder": {
-                                                "type": "number"
-                                            },
-                                            "startDate": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "endDate": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "isActive": {
-                                                "type": "boolean"
-                                            },
-                                            "categoryIds": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "array",
-                                                        "items": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "createdAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "updatedAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "products": {
-                                                "type": "array",
-                                                "items": {
-                                                    "$ref": "#/components/schemas/ProductResponse"
-                                                }
-                                            }
-                                        },
-                                        "required": [
-                                            "id",
-                                            "type",
-                                            "title",
-                                            "description",
-                                            "imageUrl",
-                                            "link",
-                                            "displayOrder",
-                                            "startDate",
-                                            "endDate",
-                                            "isActive",
-                                            "categoryIds",
-                                            "createdAt",
-                                            "updatedAt",
-                                            "products"
-                                        ]
+                                        "$ref": "#/components/schemas/PromotionalContentResponse"
                                     }
                                 }
                             }
@@ -5282,109 +5310,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {
-                                                "type": "string"
-                                            },
-                                            "type": {
-                                                "type": "string"
-                                            },
-                                            "title": {
-                                                "type": "string"
-                                            },
-                                            "description": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "imageUrl": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "link": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "displayOrder": {
-                                                "type": "number"
-                                            },
-                                            "startDate": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "endDate": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "isActive": {
-                                                "type": "boolean"
-                                            },
-                                            "categoryIds": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "array",
-                                                        "items": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "createdAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "updatedAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "products": {
-                                                "type": "array",
-                                                "items": {
-                                                    "$ref": "#/components/schemas/ProductResponse"
-                                                }
-                                            }
-                                        },
-                                        "required": [
-                                            "id",
-                                            "type",
-                                            "title",
-                                            "description",
-                                            "imageUrl",
-                                            "link",
-                                            "displayOrder",
-                                            "startDate",
-                                            "endDate",
-                                            "isActive",
-                                            "categoryIds",
-                                            "createdAt",
-                                            "updatedAt",
-                                            "products"
-                                        ]
+                                        "$ref": "#/components/schemas/PromotionalContentResponse"
                                     }
                                 }
                             }
@@ -5408,109 +5334,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {
-                                                "type": "string"
-                                            },
-                                            "type": {
-                                                "type": "string"
-                                            },
-                                            "title": {
-                                                "type": "string"
-                                            },
-                                            "description": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "imageUrl": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "link": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "displayOrder": {
-                                                "type": "number"
-                                            },
-                                            "startDate": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "endDate": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "isActive": {
-                                                "type": "boolean"
-                                            },
-                                            "categoryIds": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "array",
-                                                        "items": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "createdAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "updatedAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "products": {
-                                                "type": "array",
-                                                "items": {
-                                                    "$ref": "#/components/schemas/ProductResponse"
-                                                }
-                                            }
-                                        },
-                                        "required": [
-                                            "id",
-                                            "type",
-                                            "title",
-                                            "description",
-                                            "imageUrl",
-                                            "link",
-                                            "displayOrder",
-                                            "startDate",
-                                            "endDate",
-                                            "isActive",
-                                            "categoryIds",
-                                            "createdAt",
-                                            "updatedAt",
-                                            "products"
-                                        ]
+                                        "$ref": "#/components/schemas/PromotionalContentResponse"
                                     }
                                 }
                             }
@@ -5534,109 +5358,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {
-                                                "type": "string"
-                                            },
-                                            "type": {
-                                                "type": "string"
-                                            },
-                                            "title": {
-                                                "type": "string"
-                                            },
-                                            "description": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "imageUrl": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "link": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "displayOrder": {
-                                                "type": "number"
-                                            },
-                                            "startDate": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "endDate": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "isActive": {
-                                                "type": "boolean"
-                                            },
-                                            "categoryIds": {
-                                                "anyOf": [
-                                                    {
-                                                        "type": "array",
-                                                        "items": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    {
-                                                        "type": "null"
-                                                    }
-                                                ]
-                                            },
-                                            "createdAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "updatedAt": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "x-native-type": "date"
-                                            },
-                                            "products": {
-                                                "type": "array",
-                                                "items": {
-                                                    "$ref": "#/components/schemas/ProductResponse"
-                                                }
-                                            }
-                                        },
-                                        "required": [
-                                            "id",
-                                            "type",
-                                            "title",
-                                            "description",
-                                            "imageUrl",
-                                            "link",
-                                            "displayOrder",
-                                            "startDate",
-                                            "endDate",
-                                            "isActive",
-                                            "categoryIds",
-                                            "createdAt",
-                                            "updatedAt",
-                                            "products"
-                                        ]
+                                        "$ref": "#/components/schemas/PromotionalContentResponse"
                                     }
                                 }
                             }
