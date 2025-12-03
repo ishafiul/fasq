@@ -218,7 +218,19 @@ export const selectProductImageSchema = z.object({
 });
 
 // Product response schemas for API responses
-export const productImageResponseSchema = selectProductImageSchema;
+export const productImageResponseSchema = oz.openapi(
+  selectProductImageSchema,
+  {
+    title: 'ProductImageResponse',
+  }
+);
+
+export const productImageListResponseSchema = oz.openapi(
+  z.array(productImageResponseSchema),
+  {
+    title: 'ProductImageListResponse',
+  }
+);
 export const productVariantOptionResponseSchema =
   selectProductVariantOptionSchema;
 export const productVariantResponseSchema = selectProductVariantSchema.extend({
@@ -226,7 +238,7 @@ export const productVariantResponseSchema = selectProductVariantSchema.extend({
 });
 export const productResponseSchema = oz.openapi(
   selectProductSchema.extend({
-    images: z.array(productImageResponseSchema),
+    images: productImageListResponseSchema,
   }),
   {
     title: "ProductResponse",
@@ -235,7 +247,7 @@ export const productResponseSchema = oz.openapi(
 export const productDetailResponseSchema = oz.openapi(
   selectProductSchema.extend({
     variants: z.array(productVariantResponseSchema),
-    images: z.array(productImageResponseSchema),
+    images: productImageListResponseSchema,
   }),
   {
     title: "ProductDetailResponse",
@@ -257,3 +269,5 @@ export type InsertProductVariantOption = z.infer<
 export type InsertProductImage = z.infer<typeof insertProductImageSchema>;
 export type ProductResponse = z.infer<typeof productResponseSchema>;
 export type ProductDetailResponse = z.infer<typeof productDetailResponseSchema>;
+export type ProductImageResponse = z.infer<typeof productImageResponseSchema>;
+export type ProductImageListResponse = z.infer<typeof productImageListResponseSchema>;

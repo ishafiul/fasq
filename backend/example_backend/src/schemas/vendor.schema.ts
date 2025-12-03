@@ -1,6 +1,7 @@
 import { pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import z from 'zod/v3';
+import { oz } from '@orpc/zod';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 import { users } from './user.schema';
@@ -36,7 +37,12 @@ export const insertVendorSchema = createInsertSchema(vendors, {
 export const selectVendorSchema = createSelectSchema(vendors) as any;
 
 // Vendor response schema for API responses
-export const vendorResponseSchema = selectVendorSchema;
+export const vendorResponseSchema = oz.openapi(
+  selectVendorSchema,
+  {
+    title: 'VendorResponse',
+  }
+);
 
 export type SelectVendor = z.infer<typeof selectVendorSchema>;
 export type InsertVendor = z.infer<typeof insertVendorSchema>;

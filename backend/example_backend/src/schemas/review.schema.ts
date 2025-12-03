@@ -1,5 +1,6 @@
 import { pgTable, text, integer, boolean } from 'drizzle-orm/pg-core';
 import z from 'zod/v3';
+import { oz } from '@orpc/zod';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 import { users } from './user.schema';
@@ -77,7 +78,12 @@ export const selectProductReviewSchema = z.object({
 });
 
 // Review response schema for API responses
-export const reviewResponseSchema = selectProductReviewSchema;
+export const reviewResponseSchema = oz.openapi(
+  selectProductReviewSchema,
+  {
+    title: 'ReviewResponse',
+  }
+);
 
 export type SelectProductReview = z.infer<typeof selectProductReviewSchema>;
 export type InsertProductReview = z.infer<typeof insertProductReviewSchema>;

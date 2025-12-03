@@ -69,14 +69,19 @@ export async function addItemToCart(
   }
 
   const id = uuidv4();
+  const insertData: InsertCartItem = {
+    ...data,
+    id,
+    cartId,
+  };
   const [item] = await db
     .insert(cartItems)
-    .values({
-      ...data,
-      id,
-      cartId,
-    })
+    .values(insertData)
     .returning();
+
+  if (!item) {
+    throw new Error('Failed to create cart item');
+  }
 
   return item;
 }
@@ -112,13 +117,18 @@ export async function clearCart(db: DB, cartId: string) {
 }
 
 export async function getCartWithItems(db: DB, cartId: string) {
-  const cart = await db
+  const cartResult = await db
     .select()
     .from(carts)
     .where(eq(carts.id, cartId))
     .limit(1);
 
-  if (!cart || cart.length === 0) {
+  if (!cartResult || cartResult.length === 0) {
+    return null;
+  }
+
+  const cart = cartResult[0];
+  if (!cart) {
     return null;
   }
 
@@ -134,7 +144,7 @@ export async function getCartWithItems(db: DB, cartId: string) {
     .where(eq(cartItems.cartId, cartId));
 
   return {
-    cart: cart[0],
+    cart,
     items,
   };
 }

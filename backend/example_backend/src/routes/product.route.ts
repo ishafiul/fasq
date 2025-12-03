@@ -1,7 +1,9 @@
 import z from "zod/v3";
-import { ORPCError } from '@orpc/server';
-import { publicProcedure, protectedProcedure } from '../procedures';
-import type { TRPCContext } from '../context';
+import { oz } from "@orpc/zod";
+
+import { ORPCError } from "@orpc/server";
+import { publicProcedure, protectedProcedure } from "../procedures";
+import type { TRPCContext } from "../context";
 import {
   createProduct,
   getProductById,
@@ -17,30 +19,34 @@ import {
   updateInventory,
   createVariantOption,
   getVariantOptions,
-} from '../repositories/product.repository';
-import { productStatusSchema } from '../schemas/common.schema';
-import { getVendorByUserId } from '../repositories/vendor.repository';
+} from "../repositories/product.repository";
+import { productStatusSchema } from "../schemas/common.schema";
+import { getVendorByUserId } from "../repositories/vendor.repository";
 import {
   getPaginationParams,
   paginationQuerySchema,
-} from '../utils/pagination.utils';
+} from "../utils/pagination.utils";
 import {
   productFiltersSchema,
   productSearchSchema,
-} from '../utils/search.utils';
-import { generateUploadToken, generateProductImageKey, getPublicUrl } from '../utils/r2.utils';
+} from "../utils/search.utils";
+import {
+  generateUploadToken,
+  generateProductImageKey,
+  getPublicUrl,
+} from "../utils/r2.utils";
 import {
   productResponseSchema,
   productDetailResponseSchema,
-} from '../schemas/product.schema';
+} from "../schemas/product.schema";
 
-const OPENAPI_TAG = 'Product';
+const OPENAPI_TAG = "Product";
 
 export const productRoutes = {
-  createProduct: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  createProduct: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'POST',
-      path: '/products',
+      method: "POST",
+      path: "/products",
       tags: [OPENAPI_TAG],
     })
     .input(
@@ -58,24 +64,27 @@ export const productRoutes = {
     .output(z.object({ id: z.string(), name: z.string(), slug: z.string() }))
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
-      const authUser = ctx.get('authUser');
-      const authUserRoles = ctx.get('authUserRoles') || [];
+      const db = ctx.get("db");
+      const authUser = ctx.get("authUser");
+      const authUserRoles = ctx.get("authUserRoles") || [];
 
       if (!authUser) {
-        throw new ORPCError('UNAUTHORIZED', { message: 'User not authenticated' });
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User not authenticated",
+        });
       }
 
-      const isAdmin = authUserRoles.includes('admin') || authUserRoles.includes('superadmin');
-      
+      const isAdmin =
+        authUserRoles.includes("admin") || authUserRoles.includes("superadmin");
+
       let vendorId: string;
       if (isAdmin && input.vendorId) {
         vendorId = input.vendorId;
       } else {
         const vendor = await getVendorByUserId(db, authUser.id);
-        if (!vendor || vendor.status !== 'approved') {
-          throw new ORPCError('FORBIDDEN', {
-            message: 'No approved vendor account found',
+        if (!vendor || vendor.status !== "approved") {
+          throw new ORPCError("FORBIDDEN", {
+            message: "No approved vendor account found",
           });
         }
         vendorId = vendor.id;
@@ -85,7 +94,7 @@ export const productRoutes = {
       const product = await createProduct(db, {
         ...productData,
         vendorId,
-        status: input.status || 'draft',
+        status: input.status || "draft",
       });
 
       return product;
@@ -93,12 +102,14 @@ export const productRoutes = {
 
   listProducts: publicProcedure
     .route({
-      method: 'GET',
-      path: '/products',
+      method: "GET",
+      path: "/products",
       tags: [OPENAPI_TAG],
     })
     .input(
-      productFiltersSchema.merge(productSearchSchema).merge(paginationQuerySchema)
+      productFiltersSchema
+        .merge(productSearchSchema)
+        .merge(paginationQuerySchema)
     )
     .output(
       z.object({
@@ -115,7 +126,7 @@ export const productRoutes = {
     )
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
+      const db = ctx.get("db");
 
       const pagination = getPaginationParams(input);
       const filters = productFiltersSchema.parse(input);
@@ -127,19 +138,23 @@ export const productRoutes = {
 
   getProduct: publicProcedure
     .route({
-      method: 'GET',
-      path: '/products/:id',
+      method: "GET",
+      path: "/products/:id",
       tags: [OPENAPI_TAG],
     })
-    .input(z.object({ id: z.string() }))
+    .input(
+      oz.openapi(z.object({ id: z.string() }), {
+        title: "GetProductInput",
+      })
+    )
     .output(productDetailResponseSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
+      const db = ctx.get("db");
 
       const product = await getProductById(db, input.id);
       if (!product) {
-        throw new ORPCError('NOT_FOUND', { message: 'Product not found' });
+        throw new ORPCError("NOT_FOUND", { message: "Product not found" });
       }
 
       const [variants, images] = await Promise.all([
@@ -161,10 +176,10 @@ export const productRoutes = {
       };
     }),
 
-  updateProduct: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  updateProduct: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'PATCH',
-      path: '/products/:id',
+      method: "PATCH",
+      path: "/products/:id",
       tags: [OPENAPI_TAG],
     })
     .input(
@@ -181,26 +196,29 @@ export const productRoutes = {
     .output(z.object({ success: z.boolean() }))
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
-      const authUser = ctx.get('authUser');
-      const authUserRoles = ctx.get('authUserRoles') || [];
+      const db = ctx.get("db");
+      const authUser = ctx.get("authUser");
+      const authUserRoles = ctx.get("authUserRoles") || [];
 
       if (!authUser) {
-        throw new ORPCError('UNAUTHORIZED', { message: 'User not authenticated' });
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User not authenticated",
+        });
       }
 
       const product = await getProductById(db, input.id);
       if (!product) {
-        throw new ORPCError('NOT_FOUND', { message: 'Product not found' });
+        throw new ORPCError("NOT_FOUND", { message: "Product not found" });
       }
 
-      const isAdmin = authUserRoles.includes('admin') || authUserRoles.includes('superadmin');
-      
+      const isAdmin =
+        authUserRoles.includes("admin") || authUserRoles.includes("superadmin");
+
       if (!isAdmin) {
         const vendor = await getVendorByUserId(db, authUser.id);
         if (!vendor || vendor.id !== product.vendorId) {
-          throw new ORPCError('FORBIDDEN', {
-            message: 'Not authorized to update this product',
+          throw new ORPCError("FORBIDDEN", {
+            message: "Not authorized to update this product",
           });
         }
       }
@@ -211,36 +229,39 @@ export const productRoutes = {
       return { success: true };
     }),
 
-  deleteProduct: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  deleteProduct: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'DELETE',
-      path: '/products/:id',
+      method: "DELETE",
+      path: "/products/:id",
       tags: [OPENAPI_TAG],
     })
     .input(z.object({ id: z.string() }))
     .output(z.object({ success: z.boolean() }))
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
-      const authUser = ctx.get('authUser');
-      const authUserRoles = ctx.get('authUserRoles') || [];
+      const db = ctx.get("db");
+      const authUser = ctx.get("authUser");
+      const authUserRoles = ctx.get("authUserRoles") || [];
 
       if (!authUser) {
-        throw new ORPCError('UNAUTHORIZED', { message: 'User not authenticated' });
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User not authenticated",
+        });
       }
 
       const product = await getProductById(db, input.id);
       if (!product) {
-        throw new ORPCError('NOT_FOUND', { message: 'Product not found' });
+        throw new ORPCError("NOT_FOUND", { message: "Product not found" });
       }
 
-      const isAdmin = authUserRoles.includes('admin') || authUserRoles.includes('superadmin');
-      
+      const isAdmin =
+        authUserRoles.includes("admin") || authUserRoles.includes("superadmin");
+
       if (!isAdmin) {
         const vendor = await getVendorByUserId(db, authUser.id);
         if (!vendor || vendor.id !== product.vendorId) {
-          throw new ORPCError('FORBIDDEN', {
-            message: 'Not authorized to delete this product',
+          throw new ORPCError("FORBIDDEN", {
+            message: "Not authorized to delete this product",
           });
         }
       }
@@ -249,10 +270,10 @@ export const productRoutes = {
       return { success: true };
     }),
 
-  requestImageUpload: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  requestImageUpload: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'POST',
-      path: '/products/:productId/images/upload-url',
+      method: "POST",
+      path: "/products/:productId/images/upload-url",
       tags: [OPENAPI_TAG],
     })
     .input(
@@ -272,32 +293,39 @@ export const productRoutes = {
     )
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
+      const db = ctx.get("db");
       const env = ctx.env;
-      const authUser = ctx.get('authUser');
-      const authUserRoles = ctx.get('authUserRoles') || [];
+      const authUser = ctx.get("authUser");
+      const authUserRoles = ctx.get("authUserRoles") || [];
 
       if (!authUser) {
-        throw new ORPCError('UNAUTHORIZED', { message: 'User not authenticated' });
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User not authenticated",
+        });
       }
 
       const product = await getProductById(db, input.productId);
       if (!product) {
-        throw new ORPCError('NOT_FOUND', { message: 'Product not found' });
+        throw new ORPCError("NOT_FOUND", { message: "Product not found" });
       }
 
-      const isAdmin = authUserRoles.includes('admin') || authUserRoles.includes('superadmin');
-      
+      const isAdmin =
+        authUserRoles.includes("admin") || authUserRoles.includes("superadmin");
+
       if (!isAdmin) {
         const vendor = await getVendorByUserId(db, authUser.id);
         if (!vendor || vendor.id !== product.vendorId) {
-          throw new ORPCError('FORBIDDEN', {
-            message: 'Not authorized to upload images for this product',
+          throw new ORPCError("FORBIDDEN", {
+            message: "Not authorized to upload images for this product",
           });
         }
       }
 
-      const key = generateProductImageKey(product.vendorId, input.productId, input.filename);
+      const key = generateProductImageKey(
+        product.vendorId,
+        input.productId,
+        input.filename
+      );
       const { token } = await generateUploadToken(key);
       const publicUrl = getPublicUrl(env.R2_PUBLIC_URL, key);
       const uploadUrl = `/api/upload/image`;
@@ -305,10 +333,10 @@ export const productRoutes = {
       return { token, key, publicUrl, uploadUrl };
     }),
 
-  uploadImage: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  uploadImage: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'POST',
-      path: '/upload/image',
+      method: "POST",
+      path: "/upload/image",
       tags: [OPENAPI_TAG],
     })
     .input(
@@ -327,14 +355,16 @@ export const productRoutes = {
         const { key, expiresAt } = decoded;
 
         if (Date.now() > expiresAt) {
-          throw new ORPCError('BAD_REQUEST', { message: 'Upload token expired' });
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Upload token expired",
+          });
         }
 
         const formData = await ctx.c.req.formData();
-        const file = formData.get('file') as File;
-        
+        const file = formData.get("file") as File;
+
         if (!file) {
-          throw new ORPCError('BAD_REQUEST', { message: 'No file provided' });
+          throw new ORPCError("BAD_REQUEST", { message: "No file provided" });
         }
 
         const arrayBuffer = await file.arrayBuffer();
@@ -347,16 +377,16 @@ export const productRoutes = {
         const publicUrl = getPublicUrl(env.R2_PUBLIC_URL, key);
         return { success: true, url: publicUrl };
       } catch (error) {
-        throw new ORPCError('INTERNAL_SERVER_ERROR', {
-          message: 'Failed to upload image',
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Failed to upload image",
         });
       }
     }),
 
-  addProductImage: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  addProductImage: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'POST',
-      path: '/products/:productId/images',
+      method: "POST",
+      path: "/products/:productId/images",
       tags: [OPENAPI_TAG],
     })
     .input(
@@ -371,36 +401,36 @@ export const productRoutes = {
     .output(z.object({ id: z.string() }))
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
+      const db = ctx.get("db");
 
       const image = await addProductImage(db, input);
       return image;
     }),
 
-  deleteProductImage: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  deleteProductImage: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'DELETE',
-      path: '/products/:productId/images/:imageId',
+      method: "DELETE",
+      path: "/products/:productId/images/:imageId",
       tags: [OPENAPI_TAG],
     })
     .input(z.object({ productId: z.string(), imageId: z.string() }))
     .output(z.object({ success: z.boolean() }))
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
+      const db = ctx.get("db");
 
       const image = await deleteProductImage(db, input.imageId);
       if (!image) {
-        throw new ORPCError('NOT_FOUND', { message: 'Image not found' });
+        throw new ORPCError("NOT_FOUND", { message: "Image not found" });
       }
 
       return { success: true };
     }),
 
-  createVariant: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  createVariant: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'POST',
-      path: '/products/:productId/variants',
+      method: "POST",
+      path: "/products/:productId/variants",
       tags: [OPENAPI_TAG],
     })
     .input(
@@ -412,21 +442,23 @@ export const productRoutes = {
         compareAtPrice: z.string().optional(),
         inventoryQuantity: z.number().int().min(0),
         lowStockThreshold: z.number().int().min(0).optional(),
-        options: z.array(
-          z.object({
-            optionType: z.string(),
-            optionValue: z.string(),
-          })
-        ).optional(),
+        options: z
+          .array(
+            z.object({
+              optionType: z.string(),
+              optionValue: z.string(),
+            })
+          )
+          .optional(),
       })
     )
     .output(z.object({ id: z.string() }))
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
+      const db = ctx.get("db");
 
       const { options, productId, ...variantFields } = input;
-      
+
       const variant = await createVariant(db, {
         productId,
         sku: variantFields.sku,
@@ -452,10 +484,10 @@ export const productRoutes = {
       return variant;
     }),
 
-  updateVariantInventory: protectedProcedure({ anyOf: ['vendor', 'admin'] })
+  updateVariantInventory: protectedProcedure({ anyOf: ["vendor", "admin"] })
     .route({
-      method: 'PATCH',
-      path: '/products/:productId/variants/:variantId/inventory',
+      method: "PATCH",
+      path: "/products/:productId/variants/:variantId/inventory",
       tags: [OPENAPI_TAG],
     })
     .input(
@@ -468,10 +500,9 @@ export const productRoutes = {
     .output(z.object({ success: z.boolean() }))
     .handler(async ({ input, context }) => {
       const ctx = context as TRPCContext;
-      const db = ctx.get('db');
+      const db = ctx.get("db");
 
       await updateInventory(db, input.variantId, input.quantity);
       return { success: true };
     }),
 };
-

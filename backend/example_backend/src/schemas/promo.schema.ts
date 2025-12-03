@@ -1,6 +1,7 @@
 import { pgTable, text, numeric, integer, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import z from 'zod/v3';
+import { oz } from '@orpc/zod';
 import { timestamps } from './common.schema';
 
 export const discountTypeEnum = ['percentage', 'fixed'] as const;
@@ -48,13 +49,23 @@ export const insertPromoCodeSchema = createInsertSchema(promoCodes, {
 export const selectPromoCodeSchema = createSelectSchema(promoCodes) as any;
 
 // Promo code response schemas for API responses
-export const promoCodeResponseSchema = selectPromoCodeSchema;
+export const promoCodeResponseSchema = oz.openapi(
+  selectPromoCodeSchema,
+  {
+    title: 'PromoCodeResponse',
+  }
+);
 
-export const promoCodeValidationResponseSchema = z.object({
+export const promoCodeValidationResponseSchema = oz.openapi(
+  z.object({
   valid: z.boolean(),
   error: z.string().optional(),
   promoCode: promoCodeResponseSchema.optional(),
-});
+  }),
+  {
+    title: 'PromoCodeValidationResponse',
+  }
+);
 
 export type SelectPromoCode = z.infer<typeof selectPromoCodeSchema>;
 export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;

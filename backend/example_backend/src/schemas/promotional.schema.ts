@@ -1,6 +1,7 @@
 import { pgTable, text, integer, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import z from 'zod/v3';
+import { oz } from '@orpc/zod';
 import { timestamps, promotionalTypeSchema } from './common.schema';
 import { productResponseSchema, productImageResponseSchema } from './product.schema';
 
@@ -42,7 +43,8 @@ export const selectPromotionalContentSchema =
 // Product schemas are imported from product.schema.ts
 
 // Promotional content response schema (with products instead of productIds)
-export const promotionalContentResponseSchema = z.object({
+export const promotionalContentResponseSchema = oz.openapi(
+  z.object({
   id: z.string(),
   type: z.string(),
   title: z.string(),
@@ -57,7 +59,11 @@ export const promotionalContentResponseSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   products: z.array(productResponseSchema),
-});
+  }),
+  {
+    title: 'PromotionalContentResponse',
+  }
+);
 
 export type SelectPromotionalContent = z.infer<
   typeof selectPromotionalContentSchema

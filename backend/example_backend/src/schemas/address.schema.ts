@@ -1,6 +1,7 @@
 import { pgTable, text, boolean } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import z from 'zod/v3';
+import { oz } from '@orpc/zod';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 import { users } from './user.schema';
@@ -51,7 +52,12 @@ export const insertShippingAddressSchema = createInsertSchema(
 export const selectShippingAddressSchema = createSelectSchema(shippingAddresses) as any;
 
 // Address response schema for API responses
-export const addressResponseSchema = selectShippingAddressSchema;
+export const addressResponseSchema = oz.openapi(
+  selectShippingAddressSchema,
+  {
+    title: 'AddressResponse',
+  }
+);
 
 export type SelectShippingAddress = z.infer<typeof selectShippingAddressSchema>;
 export type InsertShippingAddress = z.infer<typeof insertShippingAddressSchema>;

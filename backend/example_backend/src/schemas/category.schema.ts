@@ -1,5 +1,6 @@
 import { pgTable, text, boolean, integer } from 'drizzle-orm/pg-core';
 import z from 'zod/v3';
+import { oz } from '@orpc/zod';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 
@@ -53,17 +54,32 @@ export const selectCategorySchema = z.object({
 });
 
 // Category response schema (for single category)
-export const categoryResponseSchema = selectCategorySchema;
+export const categoryResponseSchema = oz.openapi(
+  selectCategorySchema,
+  {
+    title: 'CategoryResponse',
+  }
+);
 
 // Category tree node schema (recursive structure with children)
 type CategoryTreeNodeType = z.infer<typeof selectCategorySchema> & {
   children: CategoryTreeNodeType[];
 };
 
-const _categoryTreeNodeSchema: z.ZodType<CategoryTreeNodeType> = selectCategorySchema.extend({
-  children: z.lazy(() => z.array(_categoryTreeNodeSchema)),
-});
-export const categoryTreeNodeSchema = _categoryTreeNodeSchema;
+const createCategoryTreeNodeSchema = (): z.ZodType<CategoryTreeNodeType> => {
+  return selectCategorySchema.extend({
+    children: z.lazy(() => z.array(createCategoryTreeNodeSchema())),
+  });
+};
+
+const _categoryTreeNodeSchema = createCategoryTreeNodeSchema();
+
+export const categoryTreeNodeSchema = oz.openapi(
+  _categoryTreeNodeSchema,
+  {
+    title: 'CategoryTreeNode',
+  }
+);
 
 // Input schemas for API routes
 export const createCategoryInputSchema = insertCategorySchema.omit({ id: true }).extend({

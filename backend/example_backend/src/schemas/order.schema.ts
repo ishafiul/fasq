@@ -7,6 +7,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import z from 'zod/v3';
+import { oz } from '@orpc/zod';
 import { timestamps } from './common.schema';
 import { relations } from 'drizzle-orm';
 import { users } from './user.schema';
@@ -183,22 +184,43 @@ export const selectOrderVendorTrackingSchema =
   createSelectSchema(orderVendorTracking) as any;
 
 // Order response schemas for API responses
-export const orderVendorTrackingResponseSchema = selectOrderVendorTrackingSchema;
+export const orderVendorTrackingResponseSchema = oz.openapi(
+  selectOrderVendorTrackingSchema,
+  {
+    title: 'OrderVendorTracking',
+  }
+);
 
-export const orderItemResponseSchema = (selectOrderItemSchema as any).extend({
+export const orderItemResponseSchema = oz.openapi(
+  (selectOrderItemSchema as any).extend({
   product: selectProductSchema,
   variant: selectProductVariantSchema,
-});
+  }),
+  {
+    title: 'OrderItem',
+  }
+);
 
-export const orderListItemResponseSchema = selectOrderSchema;
+export const orderListItemResponseSchema = oz.openapi(
+  selectOrderSchema,
+  {
+    title: 'OrderListItem',
+  }
+);
 
 // Vendor order response schema (for vendor orders list with tracking)
-export const vendorOrderListItemResponseSchema = z.object({
+export const vendorOrderListItemResponseSchema = oz.openapi(
+  z.object({
   tracking: orderVendorTrackingResponseSchema,
   order: orderListItemResponseSchema,
-});
+  }),
+  {
+    title: 'VendorOrderListItem',
+  }
+);
 
-export const orderResponseSchema = (selectOrderSchema as any).extend({
+export const orderResponseSchema = oz.openapi(
+  (selectOrderSchema as any).extend({
   items: z.array(orderItemResponseSchema),
   vendorTracking: z.array(orderVendorTrackingResponseSchema),
   shippingAddress: z.object({
@@ -216,7 +238,11 @@ export const orderResponseSchema = (selectOrderSchema as any).extend({
     createdAt: z.coerce.date(),
     updatedAt: z.coerce.date(),
   }),
-});
+  }),
+  {
+    title: 'OrderResponse',
+  }
+);
 
 export type SelectOrder = z.infer<typeof selectOrderSchema>;
 export type SelectOrderItem = z.infer<typeof selectOrderItemSchema>;
