@@ -1,12 +1,10 @@
-import 'package:ecommerce/api/models/category_get_category_response.dart';
-import 'package:ecommerce/api/models/get_categories_response.dart';
-import 'package:ecommerce/api/models/get_promotional_best_deals_response.dart';
-import 'package:ecommerce/api/models/get_promotional_current_offers_response.dart';
-import 'package:ecommerce/api/models/get_promotional_featured_response.dart';
-import 'package:ecommerce/api/models/get_promotional_top_products_response.dart';
+import 'package:ecommerce/api/models/cart_response.dart';
+import 'package:ecommerce/api/models/category_response.dart';
+import 'package:ecommerce/api/models/category_tree_node.dart';
 import 'package:ecommerce/api/models/product_detail_response.dart';
 import 'package:ecommerce/api/models/product_list_products_response.dart';
 import 'package:ecommerce/api/models/product_response.dart';
+import 'package:ecommerce/api/models/promotional_content_response.dart';
 import 'package:ecommerce/api/models/review_get_product_reviews_response.dart';
 import 'package:ecommerce/api/models/vendor_get_vendor_response.dart';
 import 'package:fasq/fasq.dart';
@@ -41,44 +39,43 @@ class QueryKeys {
       TypedQueryKey<ProductDetailResponse>('product:detail:$id', ProductDetailResponse);
 
   /// Query key for featured products.
-  static TypedQueryKey<List<GetPromotionalFeaturedResponse>> get featuredProducts =>
-      const TypedQueryKey<List<GetPromotionalFeaturedResponse>>(
+  static TypedQueryKey<List<PromotionalContentResponse>> get featuredProducts =>
+      const TypedQueryKey<List<PromotionalContentResponse>>(
         'promotional:featured',
-        List<GetPromotionalFeaturedResponse>,
+        List<PromotionalContentResponse>,
       );
 
   /// Query key for top products.
-  static TypedQueryKey<List<GetPromotionalTopProductsResponse>> get topProducts =>
-      const TypedQueryKey<List<GetPromotionalTopProductsResponse>>(
+  static TypedQueryKey<List<PromotionalContentResponse>> get topProducts =>
+      const TypedQueryKey<List<PromotionalContentResponse>>(
         'promotional:top-products',
-        List<GetPromotionalTopProductsResponse>,
+        List<PromotionalContentResponse>,
       );
 
   /// Query key for best deals.
-  static TypedQueryKey<List<GetPromotionalBestDealsResponse>> get bestDeals =>
-      const TypedQueryKey<List<GetPromotionalBestDealsResponse>>(
+  static TypedQueryKey<List<PromotionalContentResponse>> get bestDeals =>
+      const TypedQueryKey<List<PromotionalContentResponse>>(
         'promotional:best-deals',
-        List<GetPromotionalBestDealsResponse>,
+        List<PromotionalContentResponse>,
       );
 
   /// Query key for current offers.
-  static TypedQueryKey<List<GetPromotionalCurrentOffersResponse>> get currentOffers =>
-      const TypedQueryKey<List<GetPromotionalCurrentOffersResponse>>(
+  static TypedQueryKey<List<PromotionalContentResponse>> get currentOffers =>
+      const TypedQueryKey<List<PromotionalContentResponse>>(
         'promotional:current-offers',
-        List<GetPromotionalCurrentOffersResponse>,
+        List<PromotionalContentResponse>,
       );
 
   // Categories
   /// Query key for category tree.
-  static TypedQueryKey<List<GetCategoriesResponse>> get categoryTree =>
-      const TypedQueryKey<List<GetCategoriesResponse>>(
+  static TypedQueryKey<List<CategoryTreeNode>> get categoryTree => const TypedQueryKey<List<CategoryTreeNode>>(
         'categories:tree',
-        List<GetCategoriesResponse>,
+        List<CategoryTreeNode>,
       );
 
   /// Query key for a single category by ID.
-  static TypedQueryKey<CategoryGetCategoryResponse> category(String id) =>
-      TypedQueryKey<CategoryGetCategoryResponse>('category:$id', CategoryGetCategoryResponse);
+  static TypedQueryKey<CategoryResponse> category(String id) =>
+      TypedQueryKey<CategoryResponse>('category:$id', CategoryResponse);
 
   // Vendors
   /// Query key for a single vendor by ID.
@@ -103,4 +100,8 @@ class QueryKeys {
 
   /// Query key for user login status.
   static TypedQueryKey<bool> get isLoggedIn => const TypedQueryKey<bool>('user:isLoggedIn', bool);
+
+  // Cart
+  /// Query key for the current cart.
+  static TypedQueryKey<CartResponse> get cart => const TypedQueryKey<CartResponse>('cart', CartResponse);
 }

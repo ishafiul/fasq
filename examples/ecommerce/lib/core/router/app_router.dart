@@ -15,11 +15,12 @@ final class AppRouter extends RootStackRouter {
 
   @override
   List<AutoRoute> get routes => [
-    AutoRoute(path: '/auth/login', page: LoginRoute.page),
-    AutoRoute(path: '/profile', page: ProfileRoute.page),
-    AutoRoute(path: '/products/:id', page: ProductDetailRoute.page),
-    AutoRoute(path: '/', page: HomeRoute.page),
-  ];
+        AutoRoute(path: '/auth/login', page: LoginRoute.page),
+        AutoRoute(path: '/profile', page: ProfileRoute.page),
+        AutoRoute(path: '/products/:id', page: ProductDetailRoute.page),
+        AutoRoute(path: '/cart', page: CartRoute.page),
+        AutoRoute(path: '/', page: HomeRoute.page),
+      ];
 }
 
 /// Extension to easily access the [AppRouter] from GetIt.
