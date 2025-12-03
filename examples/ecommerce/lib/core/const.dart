@@ -303,8 +303,8 @@ class TypographyScale {
       fontWeight: FontWeight.w500,
     ),
     'titleSmall': _TypographyStyleConfig(
-      sizeIndex: 0,
-      lineHeightMultiplier: 1.5,
+      sizeIndex: 1,
+      lineHeightMultiplier: 0,
       letterSpacing: 0.1,
       fontWeight: FontWeight.w500,
     ),
