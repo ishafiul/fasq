@@ -1,6 +1,6 @@
 # dpk configuration for ecommerce Flutter app
 # See: https://pub.dev/packages/dpk
-
+version: 0.6.2
 mode: global
 
 scripts:
@@ -85,6 +85,8 @@ scripts:
     fi
     echo "📡 Running swagger_parser..."
     dart run swagger_parser
+    echo "🧩 Fixing generated enums..."
+    dart run tool/fix_api_gen.dart
     echo "🧱 Running build_runner..."
     dart run build_runner build --delete-conflicting-outputs
     echo "🧩 Fixing generated enums..."
