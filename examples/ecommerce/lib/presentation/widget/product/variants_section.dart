@@ -24,15 +24,33 @@ class VariantsSection extends StatelessWidget {
       queryKey: QueryKeys.productDetail(productId),
       queryFn: () => locator.get<ProductService>().getProductById(productId),
       builder: (context, productState) {
-        if (productState.data == null && !productState.isLoading) {
+        if (productState.isLoading) {
+          return ShimmerLoading(
+            isLoading: true,
+            child: AppCard(
+              children: [
+                VariantSelector(
+                  variants: const [],
+                  onVariantSelected: onVariantSelected,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final product = productState.data;
+        if (product == null) {
           return const SizedBox.shrink();
         }
+
+        final variants = product.variants;
+
         return ShimmerLoading(
-          isLoading: productState.isLoading,
+          isLoading: false,
           child: AppCard(
             children: [
               VariantSelector(
-                variants: productState.data!.variants,
+                variants: variants,
                 onVariantSelected: onVariantSelected,
               ),
             ],

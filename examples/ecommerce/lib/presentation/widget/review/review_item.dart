@@ -1,4 +1,4 @@
-import 'package:ecommerce/api/models/data2.dart';
+import 'package:ecommerce/api/models/review_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/widgets/badge.dart' as core;
@@ -12,7 +12,7 @@ class ReviewItem extends StatelessWidget {
     required this.review,
   });
 
-  final Data2 review;
+  final ReviewResponse review;
 
   @override
   Widget build(BuildContext context) {

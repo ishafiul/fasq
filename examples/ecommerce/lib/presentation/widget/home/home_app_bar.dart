@@ -3,6 +3,7 @@ import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/widgets/input.dart';
+import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
 import 'package:flutter/material.dart';
 
 /// Custom app bar for the home screen.
@@ -45,6 +46,8 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
           SizedBox(width: spacing.sm),
+          // Cart Icon
+          const CartIconButton(),
           // Profile Icon
           IconButton(
             onPressed: () {

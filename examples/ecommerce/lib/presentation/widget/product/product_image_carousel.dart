@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:ecommerce/api/models/images2.dart';
+import 'package:ecommerce/api/models/product_image_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
@@ -58,7 +58,7 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
             child: NoData(message: 'Failed to load product details'),
           );
         }
-        final sortedImages = List<Images2>.from(productState.data!.images)
+        final sortedImages = List<ProductImageResponse>.from(productState.data!.images)
           ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
         return Column(

@@ -22,7 +22,6 @@ class VariantSelector extends StatefulWidget {
 class _VariantSelectorState extends State<VariantSelector> {
   final Map<String, String> _selectedOptions = {};
   Variants? _selectedVariant;
-  bool _isInitializing = true;
 
   @override
   void initState() {
@@ -30,22 +29,41 @@ class _VariantSelectorState extends State<VariantSelector> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _initializeSelection();
-      _isInitializing = false;
     });
   }
 
+  @override
+  void didUpdateWidget(VariantSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.variants != widget.variants) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _initializeSelection();
+      });
+    }
+  }
+
   void _initializeSelection() {
-    if (widget.variants.isEmpty) return;
+    if (widget.variants.isEmpty) {
+      _selectedVariant = null;
+      widget.onVariantSelected?.call(null);
+      return;
+    }
 
     final optionTypes = _getOptionTypes();
+    bool needsUpdate = false;
+
     for (final optionType in optionTypes) {
       final options = _getOptionsForType(optionType);
       if (options.isNotEmpty && _selectedOptions[optionType] == null) {
         _selectedOptions[optionType] = options.first.optionValue;
+        needsUpdate = true;
       }
     }
 
-    _updateSelectedVariant();
+    if (needsUpdate || _selectedVariant == null) {
+      _updateSelectedVariant();
+    }
   }
 
   List<String> _getOptionTypes() {
@@ -108,15 +126,11 @@ class _VariantSelectorState extends State<VariantSelector> {
 
     if (_selectedVariant?.id != matchingVariant?.id) {
       _selectedVariant = matchingVariant;
-      if (!_isInitializing) {
-        widget.onVariantSelected?.call(_selectedVariant);
-      } else {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            widget.onVariantSelected?.call(_selectedVariant);
-          }
-        });
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.onVariantSelected?.call(_selectedVariant);
+        }
+      });
     }
   }
 

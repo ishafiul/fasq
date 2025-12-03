@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:ecommerce/api/models/get_promotional_current_offers_response.dart';
+import 'package:ecommerce/api/models/promotional_content_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 class PromotionalBanner extends StatelessWidget {
   const PromotionalBanner({super.key, this.onBannerTap});
 
-  final ValueChanged<GetPromotionalCurrentOffersResponse?>? onBannerTap;
+  final ValueChanged<PromotionalContentResponse?>? onBannerTap;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +22,7 @@ class PromotionalBanner extends StatelessWidget {
     final typography = context.typography;
     final radius = context.radius;
 
-    return QueryBuilder<List<GetPromotionalCurrentOffersResponse>>(
+    return QueryBuilder<List<PromotionalContentResponse>>(
       queryKey: QueryKeys.currentOffers,
       queryFn: () => locator.get<PromotionalService>().getCurrentOffers(),
       builder: (context, state) {
@@ -77,7 +77,7 @@ class _BannerItem extends StatelessWidget {
     required this.radius,
   });
 
-  final GetPromotionalCurrentOffersResponse? offer;
+  final PromotionalContentResponse? offer;
   final VoidCallback onTap;
   final AppPalette palette;
   final Spacing spacing;

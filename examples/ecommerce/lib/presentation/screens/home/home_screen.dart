@@ -1,9 +1,7 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:ecommerce/api/models/get_promotional_best_deals_response.dart';
-import 'package:ecommerce/api/models/get_promotional_featured_response.dart';
-import 'package:ecommerce/api/models/get_promotional_top_products_response.dart';
 import 'package:ecommerce/api/models/product_list_products_response.dart';
 import 'package:ecommerce/api/models/product_response.dart';
+import 'package:ecommerce/api/models/promotional_content_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
@@ -108,7 +106,7 @@ class _FeaturedProductsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return QueryBuilder<List<GetPromotionalFeaturedResponse>>(
+    return QueryBuilder<List<PromotionalContentResponse>>(
       queryKey: QueryKeys.featuredProducts,
       queryFn: () => locator.get<PromotionalService>().getFeaturedProducts(),
       options: QueryOptions(staleTime: const Duration(minutes: 5), cacheTime: const Duration(minutes: 30)),
@@ -155,7 +153,7 @@ class _BestDealsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return QueryBuilder<List<GetPromotionalBestDealsResponse>>(
+    return QueryBuilder<List<PromotionalContentResponse>>(
       queryKey: QueryKeys.bestDeals,
       queryFn: () => locator.get<PromotionalService>().getBestDeals(),
       options: QueryOptions(staleTime: const Duration(minutes: 5), cacheTime: const Duration(minutes: 30)),
@@ -202,7 +200,7 @@ class _TopProductsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return QueryBuilder<List<GetPromotionalTopProductsResponse>>(
+    return QueryBuilder<List<PromotionalContentResponse>>(
       queryKey: QueryKeys.topProducts,
       queryFn: () => locator.get<PromotionalService>().getTopProducts(),
       options: QueryOptions(staleTime: const Duration(minutes: 5), cacheTime: const Duration(minutes: 30)),

@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:ecommerce/api/models/get_categories_response.dart';
+import 'package:ecommerce/api/models/category_tree_node.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 class CategorySection extends StatelessWidget {
   const CategorySection({super.key, this.onCategoryTap});
 
-  final ValueChanged<GetCategoriesResponse?>? onCategoryTap;
+  final ValueChanged<CategoryTreeNode?>? onCategoryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +24,7 @@ class CategorySection extends StatelessWidget {
     final radius = context.radius;
 
     return Shimmer(
-      child: QueryBuilder<List<GetCategoriesResponse>>(
+      child: QueryBuilder<List<CategoryTreeNode>>(
         queryKey: QueryKeys.categoryTree,
         queryFn: () => locator.get<CategoryService>().getCategoryTree(),
         builder: (context, state) {
@@ -88,7 +88,7 @@ class _CategoryCard extends StatelessWidget {
     required this.radius,
   });
 
-  final GetCategoriesResponse? category;
+  final CategoryTreeNode? category;
   final VoidCallback onTap;
   final AppPalette palette;
   final Spacing spacing;
