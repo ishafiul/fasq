@@ -1,24 +1,43 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:ecommerce/api/models/variants.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
-import 'package:ecommerce/core/widgets/devider.dart';
+import 'package:ecommerce/core/widgets/card.dart';
 import 'package:ecommerce/presentation/widget/product/product_bottom_action_bar.dart';
 import 'package:ecommerce/presentation/widget/product/product_details_tab.dart';
 import 'package:ecommerce/presentation/widget/product/product_image_carousel.dart';
 import 'package:ecommerce/presentation/widget/product/product_info_section.dart';
 import 'package:ecommerce/presentation/widget/product/product_reviews_tab.dart';
 import 'package:ecommerce/presentation/widget/product/variants_section.dart';
-import 'package:ecommerce/presentation/widget/vendor/vendor_section.dart';
 import 'package:flutter/material.dart';
 
 @RoutePage()
-class ProductDetailScreen extends StatelessWidget {
+class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({
     super.key,
     required this.id,
   });
 
   final String id;
+
+  @override
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  Variants? _selectedVariant;
+
+  void _handleVariantSelected(Variants? variant) {
+    if (!mounted) return;
+    setState(() {
+      _selectedVariant = variant;
+    });
+  }
+
+  bool get _isOutOfStock {
+    if (_selectedVariant == null) return true;
+    return _selectedVariant!.inventoryQuantity <= 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,16 +54,11 @@ class ProductDetailScreen extends StatelessWidget {
               ),
               SliverToBoxAdapter(
                 child: ProductImageCarousel(
-                  id: id,
+                  id: widget.id,
                 ),
               ),
               SliverToBoxAdapter(
-                child: SizedBox(height: context.spacing.md),
-              ),
-              SliverToBoxAdapter(
-                child: AppDivider.base(
-                  axis: Axis.horizontal,
-                ),
+                child: SizedBox(height: context.spacing.sm),
               ),
               SliverPersistentHeader(
                 delegate: _SliverAppBarDelegate(
@@ -57,6 +71,7 @@ class ProductDetailScreen extends StatelessWidget {
                     labelColor: context.palette.brand,
                     unselectedLabelColor: context.palette.textSecondary,
                     indicatorColor: context.palette.brand,
+                    labelPadding: EdgeInsets.symmetric(horizontal: context.spacing.sm),
                   ),
                 ),
                 pinned: true,
@@ -66,25 +81,28 @@ class ProductDetailScreen extends StatelessWidget {
           body: TabBarView(
             children: [
               _ProductTab(
-                id: id,
+                id: widget.id,
+                onVariantSelected: _handleVariantSelected,
               ),
               ProductDetailsTab(
-                productId: id,
+                productId: widget.id,
               ),
               ProductReviewsTab(
-                productId: id,
+                productId: widget.id,
               ),
             ],
           ),
         ),
       ),
       bottomNavigationBar: ProductBottomActionBar(
-        productId: id,
-        onAddToCart: () {
-          // TODO: Add to cart
+        productId: widget.id,
+        isOutOfStock: _isOutOfStock,
+        maxQuantity: _selectedVariant?.inventoryQuantity.toInt(),
+        onAddToCart: (quantity) {
+          // TODO: Add to cart with quantity
         },
-        onBuyNow: () {
-          // TODO: Buy now
+        onBuyNow: (quantity) {
+          // TODO: Buy now with quantity
         },
       ),
     );
@@ -122,28 +140,33 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
 class _ProductTab extends StatelessWidget {
   final String id;
+  final ValueChanged<Variants?>? onVariantSelected;
 
-  const _ProductTab({required this.id});
+  const _ProductTab({
+    required this.id,
+    this.onVariantSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
+
     return CustomScrollView(
       slivers: [
         SliverPadding(
-          padding: EdgeInsets.all(context.spacing.sm),
+          padding: EdgeInsets.all(spacing.sm),
           sliver: SliverList(
             delegate: SliverChildListDelegate(
               [
-                ProductInfoSection(
-                  id: id,
+                AppCard(
+                  children: [
+                    ProductInfoSection(id: id),
+                  ],
                 ),
                 SizedBox(height: spacing.md),
-                VendorSection(
-                  productId: id,
-                ),
                 VariantsSection(
                   productId: id,
+                  onVariantSelected: onVariantSelected,
                 ),
               ],
             ),

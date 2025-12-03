@@ -1,54 +1,124 @@
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/widgets/button/button.dart';
+import 'package:ecommerce/core/widgets/number_stepper.dart';
 import 'package:flutter/material.dart';
 
-class ProductBottomActionBar extends StatelessWidget {
+class ProductBottomActionBar extends StatefulWidget {
   const ProductBottomActionBar({
     super.key,
     required this.productId,
     this.isLoading = false,
+    this.isOutOfStock = false,
     this.onAddToCart,
     this.onBuyNow,
+    this.maxQuantity,
   });
 
   final String productId;
   final bool isLoading;
-  final VoidCallback? onAddToCart;
-  final VoidCallback? onBuyNow;
+  final bool isOutOfStock;
+  final ValueChanged<int>? onAddToCart;
+  final ValueChanged<int>? onBuyNow;
+  final int? maxQuantity;
+
+  @override
+  State<ProductBottomActionBar> createState() => _ProductBottomActionBarState();
+}
+
+class _ProductBottomActionBarState extends State<ProductBottomActionBar> {
+  int _quantity = 1;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
     final colors = context.colors;
+
+    final isDisabled = widget.isLoading || widget.isOutOfStock;
 
     return SafeArea(
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(spacing.md),
+        padding: EdgeInsets.all(spacing.sm),
         decoration: BoxDecoration(
           color: colors.surface,
           border: Border(
-            top: BorderSide(color: context.palette.border, width: 1),
+            top: BorderSide(color: palette.border, width: 1),
           ),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Button.primary(
-                onPressed: isLoading ? null : onAddToCart,
-                isBlock: true,
-                child: const Text('Add to Cart'),
+            if (widget.isOutOfStock)
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing.sm,
+                  vertical: spacing.xs,
+                ),
+                margin: EdgeInsets.only(bottom: spacing.sm),
+                decoration: BoxDecoration(
+                  color: palette.danger.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(context.radius.sm),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 16,
+                      color: palette.danger,
+                    ),
+                    SizedBox(width: spacing.xs),
+                    Text(
+                      'Out of Stock',
+                      style: typography.bodySmall
+                          .toTextStyle(
+                            color: palette.danger,
+                          )
+                          .copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(width: spacing.md),
-            Expanded(
-              child: Button(
-                onPressed: isLoading ? null : onBuyNow,
-                fill: ButtonFill.outline,
-                isBlock: true,
-                child: const Text('Buy Now'),
-              ),
+            Row(
+              children: [
+                NumberStepper(
+                  value: _quantity,
+                  min: 1,
+                  max: widget.maxQuantity,
+                  step: 1,
+                  disabled: isDisabled,
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _quantity = value.toInt();
+                      });
+                    }
+                  },
+                ),
+                SizedBox(width: spacing.sm),
+                Expanded(
+                  child: Button.primary(
+                    onPressed: isDisabled ? null : () => widget.onAddToCart?.call(_quantity),
+                    isBlock: true,
+                    child: const Text('Add to Cart'),
+                  ),
+                ),
+                SizedBox(width: spacing.xs),
+                Expanded(
+                  child: Button(
+                    onPressed: isDisabled ? null : () => widget.onBuyNow?.call(_quantity),
+                    fill: ButtonFill.outline,
+                    isBlock: true,
+                    child: const Text('Buy Now'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -56,4 +126,3 @@ class ProductBottomActionBar extends StatelessWidget {
     );
   }
 }
-

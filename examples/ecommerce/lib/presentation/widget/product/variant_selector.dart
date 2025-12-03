@@ -22,11 +22,16 @@ class VariantSelector extends StatefulWidget {
 class _VariantSelectorState extends State<VariantSelector> {
   final Map<String, String> _selectedOptions = {};
   Variants? _selectedVariant;
+  bool _isInitializing = true;
 
   @override
   void initState() {
     super.initState();
-    _initializeSelection();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _initializeSelection();
+      _isInitializing = false;
+    });
   }
 
   void _initializeSelection() {
@@ -103,7 +108,15 @@ class _VariantSelectorState extends State<VariantSelector> {
 
     if (_selectedVariant?.id != matchingVariant?.id) {
       _selectedVariant = matchingVariant;
-      widget.onVariantSelected?.call(_selectedVariant);
+      if (!_isInitializing) {
+        widget.onVariantSelected?.call(_selectedVariant);
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            widget.onVariantSelected?.call(_selectedVariant);
+          }
+        });
+      }
     }
   }
 
@@ -130,18 +143,22 @@ class _VariantSelectorState extends State<VariantSelector> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final optionType in optionTypes) ...[
-          SizedBox(height: spacing.md),
+          if (optionTypes.indexOf(optionType) > 0) SizedBox(height: spacing.sm),
           Text(
             optionType,
-            style: typography.labelMedium.toTextStyle(color: palette.textPrimary),
+            style: typography.bodyMedium
+                .toTextStyle(
+                  color: palette.textPrimary,
+                )
+                .copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
           ),
           SizedBox(height: spacing.xs),
           _buildOptionSelector(optionType),
         ],
-        if (_selectedVariant != null) ...[
-          SizedBox(height: spacing.md),
-          _buildVariantInfo(),
-        ],
+        SizedBox(height: spacing.sm),
+        _buildVariantInfo(),
       ],
     );
   }
@@ -162,35 +179,48 @@ class _VariantSelectorState extends State<VariantSelector> {
       }
     }
 
-    final segmentedOptions = <SegmentedOption<String>>[];
+    return Builder(
+      builder: (context) {
+        final typography = context.typography;
 
-    for (final optionValue in availableOptions) {
-      segmentedOptions.add(
-        SegmentedOption<String>(
-          value: optionValue,
-          child: Text(optionValue),
-        ),
-      );
-    }
+        final segmentedOptions = <SegmentedOption<String>>[];
 
-    for (final optionValue in unavailableOptions) {
-      segmentedOptions.add(
-        SegmentedOption<String>(
-          value: optionValue,
-          child: Text(optionValue),
-          disabled: true,
-        ),
-      );
-    }
+        for (final optionValue in availableOptions) {
+          segmentedOptions.add(
+            SegmentedOption<String>(
+              value: optionValue,
+              child: Text(
+                optionValue,
+                style: typography.bodyMedium.toTextStyle(),
+              ),
+            ),
+          );
+        }
 
-    if (segmentedOptions.isEmpty) {
-      return const SizedBox.shrink();
-    }
+        for (final optionValue in unavailableOptions) {
+          segmentedOptions.add(
+            SegmentedOption<String>(
+              value: optionValue,
+              child: Text(
+                optionValue,
+                style: typography.bodyMedium.toTextStyle(),
+              ),
+              disabled: true,
+            ),
+          );
+        }
 
-    return Segmented<String>(
-      value: selectedValue,
-      onValueChanged: (value) => _onOptionChanged(optionType, value),
-      options: segmentedOptions,
+        if (segmentedOptions.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Segmented<String>(
+          value: selectedValue,
+          onValueChanged: (value) => _onOptionChanged(optionType, value),
+          options: segmentedOptions,
+          block: true,
+        );
+      },
     );
   }
 
@@ -211,7 +241,35 @@ class _VariantSelectorState extends State<VariantSelector> {
     final typography = context.typography;
     final palette = context.palette;
 
-    if (_selectedVariant == null) return const SizedBox.shrink();
+    if (_selectedVariant == null) {
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(
+          horizontal: spacing.sm,
+          vertical: spacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: palette.surface,
+          borderRadius: BorderRadius.circular(context.radius.sm),
+          border: Border.all(color: palette.border),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              color: palette.textSecondary,
+              size: 16,
+            ),
+            SizedBox(width: spacing.xs),
+            Text(
+              'Variant not available',
+              style: typography.bodySmall.toTextStyle(color: palette.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
 
     final variant = _selectedVariant!;
     final price = double.tryParse(variant.price) ?? 0;
@@ -222,10 +280,13 @@ class _VariantSelectorState extends State<VariantSelector> {
     final isInStock = _isVariantAvailable(variant);
 
     return Container(
-      padding: EdgeInsets.all(spacing.md),
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.sm,
+        vertical: spacing.xs,
+      ),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(context.radius.sm),
         border: Border.all(color: palette.border),
       ),
       child: Column(
@@ -237,25 +298,40 @@ class _VariantSelectorState extends State<VariantSelector> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       variant.name,
-                      style: typography.titleSmall.toTextStyle(color: palette.textPrimary),
+                      style: typography.bodyMedium
+                          .toTextStyle(
+                            color: palette.textPrimary,
+                          )
+                          .copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                     SizedBox(height: spacing.xs / 2),
                     Row(
                       children: [
                         Text(
                           '\$${price.toStringAsFixed(2)}',
-                          style: typography.titleSmall.toTextStyle(color: palette.textPrimary).copyWith(
-                                fontWeight: FontWeight.w600,
+                          style: typography.titleMedium
+                              .toTextStyle(
+                                color: palette.brand,
+                              )
+                              .copyWith(
+                                fontWeight: FontWeight.w700,
                               ),
                         ),
                         if (hasDiscount) ...[
                           SizedBox(width: spacing.xs),
                           Text(
                             '\$${compareAtPrice.toStringAsFixed(2)}',
-                            style: typography.bodySmall.toTextStyle(color: palette.textSecondary).copyWith(
+                            style: typography.bodySmall
+                                .toTextStyle(
+                                  color: palette.textSecondary,
+                                )
+                                .copyWith(
                                   decoration: TextDecoration.lineThrough,
                                   decorationColor: palette.textSecondary,
                                 ),
@@ -266,37 +342,61 @@ class _VariantSelectorState extends State<VariantSelector> {
                   ],
                 ),
               ),
-              if (isInStock)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: spacing.xs, vertical: spacing.xs / 2),
-                  decoration: BoxDecoration(
-                    color: palette.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'In Stock',
-                    style: typography.labelSmall.toTextStyle(color: palette.success),
-                  ),
-                )
-              else
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: spacing.xs, vertical: spacing.xs / 2),
-                  decoration: BoxDecoration(
-                    color: palette.danger.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'Out of Stock',
-                    style: typography.labelSmall.toTextStyle(color: palette.danger),
-                  ),
+              SizedBox(width: spacing.xs),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing.xs,
+                  vertical: spacing.xs / 2,
                 ),
+                decoration: BoxDecoration(
+                  color: isInStock ? palette.success.withValues(alpha: 0.1) : palette.danger.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(context.radius.xs),
+                ),
+                child: Text(
+                  isInStock ? 'In Stock' : 'Out of Stock',
+                  style: typography.labelSmall
+                      .toTextStyle(
+                        color: isInStock ? palette.success : palette.danger,
+                      )
+                      .copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
             ],
           ),
           if (variant.inventoryQuantity > 0 && variant.inventoryQuantity <= variant.lowStockThreshold.toDouble()) ...[
             SizedBox(height: spacing.xs),
-            Text(
-              'Only ${variant.inventoryQuantity.toInt()} left in stock',
-              style: typography.labelSmall.toTextStyle(color: palette.warning),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.xs,
+                vertical: spacing.xs / 2,
+              ),
+              decoration: BoxDecoration(
+                color: palette.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(context.radius.xs),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 14,
+                    color: palette.warning,
+                  ),
+                  SizedBox(width: spacing.xs / 2),
+                  Text(
+                    'Only ${variant.inventoryQuantity.toInt()} left',
+                    style: typography.labelSmall
+                        .toTextStyle(
+                          color: palette.warning,
+                        )
+                        .copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],

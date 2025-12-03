@@ -1,10 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/services/product_service.dart';
+import 'package:ecommerce/core/services/review_service.dart';
+import 'package:ecommerce/core/services/vendor_service.dart';
 import 'package:ecommerce/core/widgets/no_data.dart';
 import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
+import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/core/widgets/tag.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +23,10 @@ class ProductInfoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
+
     return QueryBuilder(
       queryKey: QueryKeys.productDetail(id),
       queryFn: () => locator.get<ProductService>().getProductById(id),
@@ -28,71 +36,386 @@ class ProductInfoSection extends StatelessWidget {
             child: NoData(message: 'Failed to load product details'),
           );
         }
-        final basePrice = double.parse(productState.data?.basePrice ?? '0');
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ShimmerLoading(
-              height: 20,
-              isLoading: productState.isLoading,
-              child: Text(
-                productState.data?.name ?? '',
-                style: context.typography.bodyMedium
+
+        final product = productState.data;
+        final basePrice = double.tryParse(product?.basePrice ?? '0') ?? 0;
+        final tags = product?.tags ?? [];
+        final variants = product?.variants ?? [];
+
+        final hasInStock = variants.any((v) => v.inventoryQuantity > 0);
+        final totalStock = variants.fold<int>(0, (sum, v) => sum + v.inventoryQuantity.toInt());
+
+        return ShimmerLoading(
+          isLoading: productState.isLoading,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                product?.name ?? '',
+                style: typography.bodyLarge
                     .toTextStyle(
-                      color: productState.isLoading ? Colors.transparent : context.palette.textPrimary,
+                      color: productState.isLoading ? Colors.transparent : palette.textPrimary,
                     )
                     .copyWith(
                       fontWeight: FontWeight.w600,
                     ),
               ),
+              SizedBox(height: spacing.xs),
+              Row(
+                children: [
+                  Text(
+                    '\$${basePrice.toStringAsFixed(2)}',
+                    style: typography.titleMedium
+                        .toTextStyle(
+                          color: productState.isLoading ? Colors.transparent : palette.brand,
+                        )
+                        .copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  SizedBox(width: spacing.xs),
+                  _RatingDisplay(productId: id),
+                ],
+              ),
+              SizedBox(height: spacing.sm),
+              if (tags.isNotEmpty) ...[
+                Wrap(
+                  spacing: spacing.xs,
+                  runSpacing: spacing.xs,
+                  children: tags.map((tag) {
+                    return Tag(
+                      fill: TagFill.outline,
+                      child: Text(
+                        tag,
+                        style: typography.labelSmall.toTextStyle(),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                SizedBox(height: spacing.md),
+              ],
+              _StockStatusIndicator(
+                hasInStock: hasInStock,
+                totalStock: totalStock,
+                isLoading: productState.isLoading,
+              ),
+              if (product?.vendorId.isNotEmpty == true) ...[
+                SizedBox(height: spacing.md),
+                _VendorInfo(vendorId: product!.vendorId),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StockStatusIndicator extends StatelessWidget {
+  const _StockStatusIndicator({
+    required this.hasInStock,
+    required this.totalStock,
+    required this.isLoading,
+  });
+
+  final bool hasInStock;
+  final int totalStock;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const SizedBox.shrink();
+    }
+
+    final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
+
+    if (!hasInStock) {
+      return Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: spacing.sm,
+          vertical: spacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: palette.danger.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(context.radius.sm),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 16,
+              color: palette.danger,
             ),
-            SizedBox(height: context.spacing.xs),
-            ShimmerLoading(
-              height: 20,
-              isLoading: productState.isLoading,
-              child: Container(
-                color: productState.isLoading ? Colors.transparent : null,
-                child: Text(
-                  basePrice > 0 ? '\$${basePrice.toStringAsFixed(2)}' : '\$0.00',
-                  style: context.typography.titleMedium
+            SizedBox(width: spacing.xs),
+            Text(
+              'Out of Stock',
+              style: typography.bodySmall
+                  .toTextStyle(
+                    color: palette.danger,
+                  )
+                  .copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (totalStock <= 10) {
+      return Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: spacing.sm,
+          vertical: spacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: palette.warning.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(context.radius.sm),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              size: 16,
+              color: palette.warning,
+            ),
+            SizedBox(width: spacing.xs),
+            Text(
+              'Only $totalStock left',
+              style: typography.bodySmall
+                  .toTextStyle(
+                    color: palette.warning,
+                  )
+                  .copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.sm,
+        vertical: spacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: palette.success.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(context.radius.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.check_circle_outline,
+            size: 16,
+            color: palette.success,
+          ),
+          SizedBox(width: spacing.xs),
+          Text(
+            'In Stock',
+            style: typography.bodySmall
+                .toTextStyle(
+                  color: palette.success,
+                )
+                .copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RatingDisplay extends StatelessWidget {
+  const _RatingDisplay({
+    required this.productId,
+  });
+
+  final String productId;
+
+  @override
+  Widget build(BuildContext context) {
+    final typography = context.typography;
+    final palette = context.palette;
+
+    return QueryBuilder(
+      queryKey: QueryKeys.productReviews(productId),
+      queryFn: () => locator.get<ReviewService>().getProductReviews(productId, limit: 1),
+      builder: (context, state) {
+        if (state.hasError || state.data == null) {
+          return const SizedBox.shrink();
+        }
+
+        final rating = state.data?.rating;
+        final isLoading = state.isLoading;
+
+        if (rating == null && !isLoading) {
+          return const SizedBox.shrink();
+        }
+
+        return ShimmerLoading(
+          isLoading: isLoading,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.spacing.sm,
+              vertical: context.spacing.xs / 2,
+            ),
+            decoration: BoxDecoration(
+              color: palette.brand.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(context.radius.sm),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.star_rounded,
+                  size: 16,
+                  color: palette.brand,
+                ),
+                SizedBox(width: context.spacing.xs / 2),
+                Text(
+                  rating != null ? rating.averageRating.toStringAsFixed(1) : '0.0',
+                  style: typography.bodyMedium
                       .toTextStyle(
-                        color: productState.isLoading ? Colors.transparent : context.palette.textPrimary,
+                        color: palette.brand,
                       )
                       .copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-              ),
+              ],
             ),
-            SizedBox(
-              height: context.spacing.sm,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _VendorInfo extends StatelessWidget {
+  const _VendorInfo({
+    required this.vendorId,
+  });
+
+  final String vendorId;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
+    final radius = context.radius;
+    final colors = context.colors;
+
+    return QueryBuilder(
+      queryKey: QueryKeys.vendor(vendorId),
+      queryFn: () => locator.get<VendorService>().getVendorById(vendorId),
+      builder: (context, vendorState) {
+        if (vendorState.isLoading || vendorState.hasError || vendorState.data == null) {
+          return const SizedBox.shrink();
+        }
+
+        final vendor = vendorState.data!;
+
+        return ShimmerLoading(
+          isLoading: vendorState.isLoading,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: spacing.sm,
+              vertical: spacing.xs,
             ),
-            ShimmerLoading(
-              isLoading: productState.isLoading,
-              child: Wrap(
-                spacing: context.spacing.xs,
-                runSpacing: context.spacing.xs,
-                children:
-                    (productState.isLoading || productState.data?.tags == null || productState.data!.tags!.isEmpty)
-                        ? [
-                            const Tag(
-                              color: TagColor.primary,
-                              child: Text('TAG'),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: radius.all(radius.sm),
+              border: Border.all(color: palette.border),
+            ),
+            child: Row(
+              children: [
+                if (vendor.logo != null && vendor.logo!.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: radius.all(radius.xs),
+                    child: CachedNetworkImage(
+                      imageUrl: vendor.logo!,
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        width: 40,
+                        height: 40,
+                        color: palette.surface,
+                        child: Center(
+                          child: CircularProgressSpinner(
+                            color: palette.brand,
+                            size: 16,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        width: 40,
+                        height: 40,
+                        color: palette.surface,
+                        child: Icon(
+                          Icons.store_outlined,
+                          color: palette.weak,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: palette.surface,
+                      borderRadius: radius.all(radius.xs),
+                    ),
+                    child: Icon(
+                      Icons.store_outlined,
+                      color: palette.weak,
+                      size: 20,
+                    ),
+                  ),
+                SizedBox(width: spacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Sold by',
+                        style: typography.labelSmall.toTextStyle(
+                          color: palette.textSecondary,
+                        ),
+                      ),
+                      SizedBox(height: spacing.xs / 2),
+                      Text(
+                        vendor.businessName,
+                        style: typography.bodyMedium
+                            .toTextStyle(
+                              color: palette.textPrimary,
+                            )
+                            .copyWith(
+                              fontWeight: FontWeight.w600,
                             ),
-                            const Tag(
-                              color: TagColor.primary,
-                              child: Text('TAG'),
-                            ),
-                          ]
-                        : productState.data!.tags!.map((tag) {
-                            return Tag(
-                              color: TagColor.primary,
-                              child: Text(tag.toUpperCase()),
-                            );
-                          }).toList(),
-              ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
