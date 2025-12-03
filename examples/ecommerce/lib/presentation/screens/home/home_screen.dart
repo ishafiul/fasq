@@ -15,11 +15,11 @@ import 'package:ecommerce/core/widgets/pull_to_refresh.dart';
 import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
 import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/core/widgets/un_focus.dart';
-import 'package:ecommerce/presentation/widget/category_section.dart';
-import 'package:ecommerce/presentation/widget/home_app_bar.dart';
-import 'package:ecommerce/presentation/widget/product_card.dart';
-import 'package:ecommerce/presentation/widget/product_list.dart';
-import 'package:ecommerce/presentation/widget/promotional_banner.dart';
+import 'package:ecommerce/presentation/widget/category/category_section.dart';
+import 'package:ecommerce/presentation/widget/home/home_app_bar.dart';
+import 'package:ecommerce/presentation/widget/product/product_card.dart';
+import 'package:ecommerce/presentation/widget/product/product_list.dart';
+import 'package:ecommerce/presentation/widget/promotional/promotional_banner.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart' hide Badge;
 

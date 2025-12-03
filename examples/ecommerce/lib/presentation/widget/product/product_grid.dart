@@ -1,7 +1,7 @@
 import 'package:ecommerce/api/models/product_response.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
-import 'package:ecommerce/presentation/widget/product_card.dart';
+import 'package:ecommerce/presentation/widget/product/product_card.dart';
 import 'package:flutter/material.dart';
 
 /// A grid widget for displaying products.

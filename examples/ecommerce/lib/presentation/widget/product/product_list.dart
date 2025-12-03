@@ -1,7 +1,7 @@
 import 'package:ecommerce/api/models/product_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
-import 'package:ecommerce/presentation/widget/product_grid.dart';
+import 'package:ecommerce/presentation/widget/product/product_grid.dart';
 import 'package:flutter/material.dart';
 
 /// A widget for displaying a list of products with title and grid.
