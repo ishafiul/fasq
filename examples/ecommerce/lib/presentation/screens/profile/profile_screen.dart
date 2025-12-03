@@ -13,6 +13,7 @@ import 'package:ecommerce/core/widgets/segmented.dart';
 import 'package:ecommerce/core/widgets/spinner/rotating_dots.dart';
 import 'package:ecommerce/core/widgets/steps/steps_export.dart';
 import 'package:ecommerce/core/widgets/svg_icon.dart';
+import 'package:ecommerce/core/widgets/swiper.dart';
 import 'package:ecommerce/core/widgets/switch.dart';
 import 'package:ecommerce/core/widgets/uploader/image_uploader.dart';
 import 'package:ecommerce/gen/assets.gen.dart';
@@ -276,6 +277,64 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     SizedBox(height: spacing.xs),
                     const _InteractiveMaskExample(),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: spacing.lg),
+            // Swiper Examples
+            Text(
+              'Swiper Examples',
+              style: typography.titleMedium.toTextStyle(color: palette.textPrimary),
+            ),
+            SizedBox(height: spacing.md),
+            Card(
+              child: Padding(
+                padding: EdgeInsets.all(spacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Basic Swiper',
+                      style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
+                    ),
+                    SizedBox(height: spacing.xs),
+                    const _BasicSwiperExample(),
+                    SizedBox(height: spacing.md),
+                    Text(
+                      'With Autoplay',
+                      style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
+                    ),
+                    SizedBox(height: spacing.xs),
+                    const _AutoplaySwiperExample(),
+                    SizedBox(height: spacing.md),
+                    Text(
+                      'Loop Mode',
+                      style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
+                    ),
+                    SizedBox(height: spacing.xs),
+                    const _LoopSwiperExample(),
+                    SizedBox(height: spacing.md),
+                    Text(
+                      'Without Indicator',
+                      style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
+                    ),
+                    SizedBox(height: spacing.xs),
+                    const _NoIndicatorSwiperExample(),
+                    SizedBox(height: spacing.md),
+                    Text(
+                      'Custom Indicator',
+                      style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
+                    ),
+                    SizedBox(height: spacing.xs),
+                    const _CustomIndicatorSwiperExample(),
+                    SizedBox(height: spacing.md),
+                    Text(
+                      'Interactive Example',
+                      style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
+                    ),
+                    SizedBox(height: spacing.xs),
+                    const _InteractiveSwiperExample(),
                   ],
                 ),
               ),
@@ -945,6 +1004,375 @@ class _InteractiveMaskExampleState extends State<_InteractiveMaskExample> {
         );
       },
       child: const Text('Show Interactive Mask'),
+    );
+  }
+}
+
+class _BasicSwiperExample extends StatelessWidget {
+  const _BasicSwiperExample();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return SizedBox(
+      height: 200,
+      child: Swiper(
+        children: [
+          SwiperItem(
+            child: Container(
+              color: palette.brand,
+              child: Center(
+                child: Text(
+                  'Slide 1',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.info,
+              child: Center(
+                child: Text(
+                  'Slide 2',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.success,
+              child: Center(
+                child: Text(
+                  'Slide 3',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AutoplaySwiperExample extends StatelessWidget {
+  const _AutoplaySwiperExample();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return SizedBox(
+      height: 200,
+      child: Swiper(
+        autoplay: SwiperAutoplay.forward,
+        autoplayInterval: const Duration(seconds: 2),
+        children: [
+          SwiperItem(
+            child: Container(
+              color: palette.warning,
+              child: Center(
+                child: Text(
+                  'Auto 1',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.danger,
+              child: Center(
+                child: Text(
+                  'Auto 2',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.brand,
+              child: Center(
+                child: Text(
+                  'Auto 3',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoopSwiperExample extends StatelessWidget {
+  const _LoopSwiperExample();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return SizedBox(
+      height: 200,
+      child: Swiper(
+        loop: true,
+        children: [
+          SwiperItem(
+            child: Container(
+              color: palette.brand,
+              child: Center(
+                child: Text(
+                  'Loop 1',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.info,
+              child: Center(
+                child: Text(
+                  'Loop 2',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.success,
+              child: Center(
+                child: Text(
+                  'Loop 3',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoIndicatorSwiperExample extends StatelessWidget {
+  const _NoIndicatorSwiperExample();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return SizedBox(
+      height: 200,
+      child: Swiper(
+        showIndicator: false,
+        children: [
+          SwiperItem(
+            child: Container(
+              color: palette.warning,
+              child: Center(
+                child: Text(
+                  'No Indicator 1',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.danger,
+              child: Center(
+                child: Text(
+                  'No Indicator 2',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomIndicatorSwiperExample extends StatelessWidget {
+  const _CustomIndicatorSwiperExample();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return SizedBox(
+      height: 200,
+      child: Swiper(
+        indicator: (total, current) {
+          return Container(
+            padding: EdgeInsets.symmetric(horizontal: context.spacing.sm, vertical: context.spacing.xs),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(context.radius.sm),
+            ),
+            child: Text(
+              '${current + 1} / $total',
+              style: context.typography.bodySmall.toTextStyle(color: Colors.white),
+            ),
+          );
+        },
+        children: [
+          SwiperItem(
+            child: Container(
+              color: palette.brand,
+              child: Center(
+                child: Text(
+                  'Custom 1',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.info,
+              child: Center(
+                child: Text(
+                  'Custom 2',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          SwiperItem(
+            child: Container(
+              color: palette.success,
+              child: Center(
+                child: Text(
+                  'Custom 3',
+                  style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InteractiveSwiperExample extends StatefulWidget {
+  const _InteractiveSwiperExample();
+
+  @override
+  State<_InteractiveSwiperExample> createState() => _InteractiveSwiperExampleState();
+}
+
+class _InteractiveSwiperExampleState extends State<_InteractiveSwiperExample> {
+  final SwiperRef _swiperRef = SwiperRef();
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final spacing = context.spacing;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 200,
+          child: Swiper(
+            ref: _swiperRef,
+            defaultIndex: _currentIndex,
+            onIndexChange: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            children: [
+              SwiperItem(
+                child: Container(
+                  color: palette.brand,
+                  child: Center(
+                    child: Text(
+                      'Slide 1',
+                      style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+              SwiperItem(
+                child: Container(
+                  color: palette.info,
+                  child: Center(
+                    child: Text(
+                      'Slide 2',
+                      style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+              SwiperItem(
+                child: Container(
+                  color: palette.success,
+                  child: Center(
+                    child: Text(
+                      'Slide 3',
+                      style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+              SwiperItem(
+                child: Container(
+                  color: palette.warning,
+                  child: Center(
+                    child: Text(
+                      'Slide 4',
+                      style: context.typography.titleLarge.toTextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: spacing.sm),
+        Row(
+          children: [
+            Button(
+              onPressed: _currentIndex > 0
+                  ? () {
+                      _swiperRef.swipePrev();
+                    }
+                  : null,
+              child: const Text('Previous'),
+            ),
+            SizedBox(width: spacing.xs),
+            Expanded(
+              child: Center(
+                child: Text(
+                  'Slide ${_currentIndex + 1} of 4',
+                  style: context.typography.bodySmall.toTextStyle(color: palette.textSecondary),
+                ),
+              ),
+            ),
+            SizedBox(width: spacing.xs),
+            Button(
+              onPressed: _currentIndex < 3
+                  ? () {
+                      _swiperRef.swipeNext();
+                    }
+                  : null,
+              child: const Text('Next'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
