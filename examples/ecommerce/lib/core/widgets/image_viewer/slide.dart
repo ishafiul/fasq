@@ -1,28 +1,16 @@
+import 'dart:async';
 import 'dart:math' as math;
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
-import 'package:flutter/foundation.dart' show clampDouble;
+import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:flutter/material.dart';
 
-class _Bounds {
-  const _Bounds({
-    required this.position,
-    required this.min,
-    required this.max,
-  });
-
-  final double position;
-  final double min;
-  final double max;
-}
-
-class ImageViewerSlide extends StatefulWidget {
-  const ImageViewerSlide({
+class Slide extends StatefulWidget {
+  const Slide({
     super.key,
     required this.image,
-    this.maxZoom,
+    required this.maxZoom,
     this.onTap,
     this.onZoomChange,
     this.dragLockRef,
@@ -31,26 +19,35 @@ class ImageViewerSlide extends StatefulWidget {
   });
 
   final String image;
-  final double? maxZoom;
+  final double maxZoom;
   final VoidCallback? onTap;
   final ValueChanged<double>? onZoomChange;
   final ValueNotifier<bool>? dragLockRef;
-  final Widget Function(String image, {required ImageProvider imageProvider, required int index})? imageRender;
+  final Widget Function(String image, {required GlobalKey imageKey, required int index})? imageRender;
   final int? index;
 
   @override
-  State<ImageViewerSlide> createState() => _ImageViewerSlideState();
+  State<Slide> createState() => _SlideState();
 }
 
-class _ImageViewerSlideState extends State<ImageViewerSlide> with SingleTickerProviderStateMixin {
+class _SlideState extends State<Slide> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<Matrix4> _matrixAnimation;
-  Matrix4 _targetMatrix = Matrix4.identity();
-  Matrix4 _currentMatrix = Matrix4.identity();
-  final GlobalKey _controlKey = GlobalKey();
-  final GlobalKey _imageKey = GlobalKey();
-  Size? _controlSize;
+  Matrix4 _matrix = Matrix4.identity();
+
+  double _scale = 1.0;
+  double _targetScale = 1.0;
+  Offset _translation = Offset.zero;
+  Offset _targetTranslation = Offset.zero;
+  Offset _lastPanPosition = Offset.zero;
   Size? _imageSize;
+  Size? _viewportSize;
+  bool _isPinching = false;
+  bool _isPanning = false;
+  Timer? _tapTimer;
+  Offset? _lastTapPosition;
+  double _initialPinchScale = 1.0;
+  Offset _initialPinchTranslation = Offset.zero;
+  Offset _initialPinchFocalPoint = Offset.zero;
 
   @override
   void initState() {
@@ -59,304 +56,221 @@ class _ImageViewerSlideState extends State<ImageViewerSlide> with SingleTickerPr
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-    _matrixAnimation = Matrix4Tween(begin: Matrix4.identity(), end: Matrix4.identity()).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _controller.value = 1.0;
+
+    _controller.addListener(_updateMatrix);
   }
 
   @override
   void dispose() {
+    _tapTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  void _updateSizes() {
-    final controlBox = _controlKey.currentContext?.findRenderObject() as RenderBox?;
-    final imageBox = _imageKey.currentContext?.findRenderObject() as RenderBox?;
-    if (controlBox != null && imageBox != null) {
-      if (mounted) {
-        setState(() {
-          _controlSize = controlBox.size;
-          _imageSize = imageBox.size;
-        });
-      }
-    }
-  }
-
-  double _getScaleX(Matrix4 matrix) {
-    return math.sqrt(matrix.entry(0, 0) * matrix.entry(0, 0) + matrix.entry(1, 0) * matrix.entry(1, 0));
-  }
-
-  double _getTranslateX(Matrix4 matrix) {
-    return matrix.entry(0, 3);
-  }
-
-  double _getTranslateY(Matrix4 matrix) {
-    return matrix.entry(1, 3);
-  }
-
-  Matrix4 _createMatrix() {
-    return Matrix4.identity();
-  }
-
-  Matrix4 _translate(Matrix4 matrix, double x, double y) {
-    final result = Matrix4.copy(matrix);
-    result.translate(x, y);
-    return result;
-  }
-
-  Matrix4 _scale(Matrix4 matrix, double scale) {
-    final result = Matrix4.copy(matrix);
-    result.scale(scale);
-    return result;
-  }
-
-  Offset _apply(Matrix4 matrix, double x, double y) {
-    final w = matrix.entry(3, 0) * x + matrix.entry(3, 1) * y + matrix.entry(3, 3);
-    if (w == 0) return Offset(x, y);
-    final resultX = (matrix.entry(0, 0) * x + matrix.entry(0, 1) * y + matrix.entry(0, 3)) / w;
-    final resultY = (matrix.entry(1, 0) * x + matrix.entry(1, 1) * y + matrix.entry(1, 3)) / w;
-    return Offset(resultX, resultY);
-  }
-
-  _Bounds _getMinAndMaxX(Matrix4 nextMatrix) {
-    if (_controlSize == null || _imageSize == null) {
-      return _Bounds(position: 0, min: 0, max: 0);
-    }
-
-    final controlLeft = -_controlSize!.width / 2;
-    final imgLeft = -_imageSize!.width / 2;
-    final zoom = _getScaleX(nextMatrix);
-    final scaledImgWidth = zoom * _imageSize!.width;
-    final minX = controlLeft - (scaledImgWidth - _controlSize!.width);
-    final maxX = controlLeft;
-
-    final point = _apply(nextMatrix, imgLeft, -_imageSize!.height / 2);
-    final x = point.dx;
-
-    return _Bounds(position: x, min: minX, max: maxX);
-  }
-
-  _Bounds _getMinAndMaxY(Matrix4 nextMatrix) {
-    if (_controlSize == null || _imageSize == null) {
-      return _Bounds(position: 0, min: 0, max: 0);
-    }
-
-    final controlTop = -_controlSize!.height / 2;
-    final imgTop = -_imageSize!.height / 2;
-    final zoom = _getScaleX(nextMatrix);
-    final scaledImgHeight = zoom * _imageSize!.height;
-    final minY = controlTop - (scaledImgHeight - _controlSize!.height);
-    final maxY = controlTop;
-
-    final point = _apply(nextMatrix, -_imageSize!.width / 2, imgTop);
-    final y = point.dy;
-
-    return _Bounds(position: y, min: minY, max: maxY);
-  }
-
-  double _bound(double value, double min, double max) {
-    return clampDouble(value, min, max);
-  }
-
-  double _rubberbandIfOutOfBounds(double value, double min, double max, double factor) {
-    if (value < min) {
-      final overscroll = min - value;
-      return min - overscroll / (1 + overscroll / factor);
-    }
-    if (value > max) {
-      final overscroll = value - max;
-      return max + overscroll / (1 + overscroll / factor);
-    }
-    return value;
-  }
-
-  Matrix4 _boundMatrix(Matrix4 nextMatrix, String type, {bool last = false}) {
-    if (_controlSize == null || _imageSize == null) return nextMatrix;
-
-    final zoom = _getScaleX(nextMatrix);
-    final scaledImgWidth = zoom * _imageSize!.width;
-    final scaledImgHeight = zoom * _imageSize!.height;
-
-    final xBounds = _getMinAndMaxX(nextMatrix);
-    final yBounds = _getMinAndMaxY(nextMatrix);
-
-    if (type == 'translate') {
-      double boundedX = xBounds.position;
-      double boundedY = yBounds.position;
-
-      if (scaledImgWidth > _controlSize!.width) {
-        boundedX = last
-            ? _bound(xBounds.position, xBounds.min, xBounds.max)
-            : _rubberbandIfOutOfBounds(xBounds.position, xBounds.min, xBounds.max, zoom * 50);
-      } else {
-        boundedX = -scaledImgWidth / 2;
-      }
-
-      if (scaledImgHeight > _controlSize!.height) {
-        boundedY = last
-            ? _bound(yBounds.position, yBounds.min, yBounds.max)
-            : _rubberbandIfOutOfBounds(yBounds.position, yBounds.min, yBounds.max, zoom * 50);
-      } else {
-        boundedY = -scaledImgHeight / 2;
-      }
-
-      final currentX = _getTranslateX(nextMatrix);
-      final currentY = _getTranslateY(nextMatrix);
-      return _translate(nextMatrix, boundedX - currentX, boundedY - currentY);
-    }
-
-    if (type == 'scale' && last) {
-      final xBounds = _getMinAndMaxX(nextMatrix);
-      final yBounds = _getMinAndMaxY(nextMatrix);
-      final boundedX = scaledImgWidth > _controlSize!.width
-          ? _bound(xBounds.position, xBounds.min, xBounds.max)
-          : -scaledImgWidth / 2;
-      final boundedY = scaledImgHeight > _controlSize!.height
-          ? _bound(yBounds.position, yBounds.min, yBounds.max)
-          : -scaledImgHeight / 2;
-
-      final currentX = _getTranslateX(nextMatrix);
-      final currentY = _getTranslateY(nextMatrix);
-      return _translate(nextMatrix, boundedX - currentX, boundedY - currentY);
-    }
-
-    return nextMatrix;
-  }
-
-  void _updateMatrix(Matrix4 newMatrix, {bool immediate = false}) {
+  void _updateMatrix() {
+    if (!mounted) return;
+    final t = _controller.value;
+    final currentScale = _scale + (_targetScale - _scale) * t;
+    final currentTranslation = Offset.lerp(_translation, _targetTranslation, t) ?? _targetTranslation;
     setState(() {
-      _targetMatrix = newMatrix;
-      if (immediate) {
-        _currentMatrix = newMatrix;
-      }
+      _matrix = Matrix4.identity()
+        ..translate(currentTranslation.dx, currentTranslation.dy)
+        ..scale(currentScale);
     });
-    if (immediate) {
-      _matrixAnimation = Matrix4Tween(begin: _currentMatrix, end: _targetMatrix).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-      );
-      _controller.value = 1.0;
+  }
+
+  double _getNextZoomLevel(double currentZoom) {
+    final maxZoom = widget.maxZoom;
+
+    if (currentZoom < 1.5) {
+      return math.min(2.0, maxZoom);
+    }
+    if (currentZoom < 2.5 && maxZoom >= 3.0) {
+      return 3.0;
+    }
+    return 1.0;
+  }
+
+  double _clampZoom(double zoom) {
+    final maxZoom = widget.maxZoom;
+    return zoom.clamp(1.0, maxZoom);
+  }
+
+  void _applyZoom(double newScale, Offset focalPoint, {bool animate = true}) {
+    if (_imageSize == null || _viewportSize == null) return;
+
+    final clampedScale = _clampZoom(newScale);
+    final scaleChange = clampedScale / _scale;
+
+    final viewportCenter = Offset(_viewportSize!.width / 2, _viewportSize!.height / 2);
+
+    final focalPointInImage = focalPoint - viewportCenter;
+    final currentImagePoint = focalPointInImage - _translation;
+
+    final newTranslation = _translation - (currentImagePoint * (scaleChange - 1));
+
+    _targetScale = clampedScale;
+    _targetTranslation = newTranslation;
+    _constrainTranslation();
+
+    if (animate && !_isPinching) {
+      _scale = _targetScale;
+      _translation = _targetTranslation;
+      _updateMatrix();
+      _controller.forward(from: 0.0);
     } else {
-      _matrixAnimation = Matrix4Tween(begin: _currentMatrix, end: _targetMatrix).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+      _scale = _targetScale;
+      _translation = _targetTranslation;
+      _updateMatrix();
+      _controller.value = 1.0;
+    }
+
+    widget.onZoomChange?.call(_scale);
+    if (_scale > 1.0) {
+      widget.dragLockRef?.value = true;
+    } else {
+      widget.dragLockRef?.value = false;
+    }
+  }
+
+  void _constrainTranslation() {
+    if (_imageSize == null || _viewportSize == null) return;
+
+    final scaledWidth = _imageSize!.width * _targetScale;
+    final scaledHeight = _imageSize!.height * _targetScale;
+
+    final maxX = math.max(0.0, (scaledWidth - _viewportSize!.width) / 2);
+    final maxY = math.max(0.0, (scaledHeight - _viewportSize!.height) / 2);
+
+    if (scaledWidth <= _viewportSize!.width) {
+      _targetTranslation = Offset(0, _targetTranslation.dy);
+    } else {
+      _targetTranslation = Offset(
+        _targetTranslation.dx.clamp(-maxX, maxX),
+        _targetTranslation.dy,
       );
-      _currentMatrix = _matrixAnimation.value;
-      _controller.value = 0.0;
-      _controller.forward().then((_) {
-        if (mounted) {
-          setState(() {
-            _currentMatrix = _targetMatrix;
-          });
-        }
+    }
+
+    if (scaledHeight <= _viewportSize!.height) {
+      _targetTranslation = Offset(_targetTranslation.dx, 0);
+    } else {
+      _targetTranslation = Offset(
+        _targetTranslation.dx,
+        _targetTranslation.dy.clamp(-maxY, maxY),
+      );
+    }
+  }
+
+  void _handleDoubleTap() {
+    if (_isPinching || _isPanning) return;
+
+    _tapTimer?.cancel();
+    _tapTimer = null;
+
+    final viewportSize = _viewportSize;
+    if (viewportSize == null) return;
+
+    final focalPoint = _lastTapPosition ?? Offset(viewportSize.width / 2, viewportSize.height / 2);
+    final nextZoom = _getNextZoomLevel(_scale);
+    _applyZoom(nextZoom, focalPoint);
+  }
+
+  void _handleScaleStart(ScaleStartDetails details) {
+    _tapTimer?.cancel();
+    _tapTimer = null;
+
+    if (details.pointerCount == 2) {
+      _isPinching = true;
+      _initialPinchScale = _scale;
+      _initialPinchTranslation = _translation;
+      _initialPinchFocalPoint = details.localFocalPoint;
+      _lastPanPosition = details.localFocalPoint;
+    } else if (details.pointerCount == 1 && _scale > 1.0) {
+      _isPanning = true;
+      _lastPanPosition = details.localFocalPoint;
+    }
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if (details.pointerCount == 2 && _isPinching) {
+      final newScale = _initialPinchScale * details.scale;
+      final clampedScale = _clampZoom(newScale);
+      final scaleChange = clampedScale / _initialPinchScale;
+
+      if (_viewportSize == null || _imageSize == null) return;
+
+      final viewportCenter = Offset(_viewportSize!.width / 2, _viewportSize!.height / 2);
+      final currentFocalPoint = details.localFocalPoint;
+      final initialFocalPointInViewport = _initialPinchFocalPoint - viewportCenter;
+      final currentFocalPointInViewport = currentFocalPoint - viewportCenter;
+
+      final pointInImageSpace = initialFocalPointInViewport - _initialPinchTranslation;
+      final scaledPointInImageSpace = pointInImageSpace * scaleChange;
+      final newTranslation = currentFocalPointInViewport - scaledPointInImageSpace;
+
+      _targetScale = clampedScale;
+      _targetTranslation = newTranslation;
+      _constrainTranslation();
+
+      _scale = _targetScale;
+      _translation = _targetTranslation;
+      _controller.value = 1.0;
+      _updateMatrix();
+
+      widget.onZoomChange?.call(_scale);
+      if (_scale > 1.0) {
+        widget.dragLockRef?.value = true;
+      } else {
+        widget.dragLockRef?.value = false;
+      }
+    } else if (details.pointerCount == 1 && _scale > 1.0) {
+      _isPanning = true;
+      final delta = details.localFocalPoint - _lastPanPosition;
+      _targetTranslation = _translation + delta;
+      _translation = _targetTranslation;
+      _lastPanPosition = details.localFocalPoint;
+      _constrainTranslation();
+      _targetTranslation = _translation;
+      _controller.value = 1.0;
+      setState(() {
+        _matrix = Matrix4.identity()
+          ..translate(_translation.dx, _translation.dy)
+          ..scale(_scale);
       });
     }
   }
 
-  double _initialScale = 1.0;
-  double _initialZoom = 1.0;
-
-  void _handleScaleStart(ScaleStartDetails details) {
-    if (details.pointerCount != 2) return;
-    _controller.stop();
-    _currentMatrix = _matrixAnimation.value;
-    _initialScale = 1.0;
-    _initialZoom = _getScaleX(_currentMatrix);
-  }
-
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if (details.pointerCount != 2) return;
-    _controller.stop();
-    _currentMatrix = _matrixAnimation.value;
-
-    final currentZoom = _getScaleX(_currentMatrix);
-    final scaleChange = details.scale / _initialScale;
-
-    if (scaleChange <= 0) return;
-
-    double mergedMaxZoom;
-    if (widget.maxZoom == null) {
-      mergedMaxZoom = _controlSize != null && _imageSize != null
-          ? math.max(_controlSize!.height / _imageSize!.height, _controlSize!.width / _imageSize!.width)
-          : 1.0;
-    } else {
-      mergedMaxZoom = widget.maxZoom!;
-    }
-
-    final nextZoom = _initialZoom * scaleChange;
-    final clampedZoom = _bound(nextZoom, 1.0, mergedMaxZoom);
-
-    widget.onZoomChange?.call(clampedZoom);
-
-    if (clampedZoom <= 1.0) {
-      _updateMatrix(_createMatrix(), immediate: true);
-      if (widget.dragLockRef != null) {
-        widget.dragLockRef!.value = false;
-      }
-      return;
-    }
-
-    if (_controlSize == null) return;
-
-    final focalPoint = details.focalPoint;
-    final originOffsetX = focalPoint.dx - _controlSize!.width / 2;
-    final originOffsetY = focalPoint.dy - _controlSize!.height / 2;
-
-    var nextMatrix = _translate(_currentMatrix, -originOffsetX, -originOffsetY);
-    nextMatrix = _scale(nextMatrix, clampedZoom / currentZoom);
-    nextMatrix = _translate(nextMatrix, originOffsetX, originOffsetY);
-    nextMatrix = _boundMatrix(nextMatrix, 'scale', last: false);
-
-    _updateMatrix(nextMatrix, immediate: true);
-
-    if (widget.dragLockRef != null) {
-      widget.dragLockRef!.value = true;
-    }
-  }
-
   void _handleScaleEnd(ScaleEndDetails details) {
-    final currentZoom = _getScaleX(_currentMatrix);
-    double mergedMaxZoom;
-    if (widget.maxZoom == null) {
-      mergedMaxZoom = _controlSize != null && _imageSize != null
-          ? math.max(_controlSize!.height / _imageSize!.height, _controlSize!.width / _imageSize!.width)
-          : 1.0;
-    } else {
-      mergedMaxZoom = widget.maxZoom!;
-    }
+    _isPinching = false;
+    _isPanning = false;
+    _scale = _targetScale;
+    _translation = _targetTranslation;
+    _constrainTranslation();
+    _targetTranslation = _translation;
+    _controller.forward(from: 0.0);
+  }
 
-    final clampedZoom = _bound(currentZoom, 1.0, mergedMaxZoom);
-    widget.onZoomChange?.call(clampedZoom);
-
-    if (clampedZoom <= 1.0) {
-      _updateMatrix(_createMatrix());
-      if (widget.dragLockRef != null) {
-        widget.dragLockRef!.value = false;
-      }
-    } else {
-      final boundedMatrix = _boundMatrix(_currentMatrix, 'scale', last: true);
-      _updateMatrix(boundedMatrix);
+  void _handleTapDown(TapDownDetails details) {
+    if (!_isPinching && !_isPanning) {
+      _lastTapPosition = details.localPosition;
     }
   }
 
   void _handleTap() {
-    final currentZoom = _getScaleX(_currentMatrix);
-    if (currentZoom > 1.0) {
-      _updateMatrix(_createMatrix());
-      if (widget.dragLockRef != null) {
-        widget.dragLockRef!.value = false;
-      }
-      widget.onZoomChange?.call(1.0);
-    } else {
-      widget.onTap?.call();
+    if (_isPinching || _isPanning || _scale > 1.0) {
+      debugPrint('[Slide] Tap ignored: isPinching=$_isPinching, isPanning=$_isPanning, scale=$_scale');
+      return;
     }
-  }
 
-  ImageProvider _getImageProvider() {
-    if (widget.image.startsWith('http://') || widget.image.startsWith('https://')) {
-      return CachedNetworkImageProvider(widget.image);
-    }
-    return AssetImage(widget.image);
+    _tapTimer?.cancel();
+    _tapTimer = Timer(const Duration(milliseconds: 250), () {
+      if (!_isPinching && !_isPanning && _scale <= 1.0) {
+        debugPrint('[Slide] Single tap confirmed, calling onTap');
+        widget.onTap?.call();
+      } else {
+        debugPrint('[Slide] Single tap cancelled: isPinching=$_isPinching, isPanning=$_isPanning, scale=$_scale');
+      }
+    });
   }
 
   @override
@@ -366,55 +280,87 @@ class _ImageViewerSlideState extends State<ImageViewerSlide> with SingleTickerPr
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _updateSizes();
-        });
+        _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
 
         return GestureDetector(
+          onTapDown: _handleTapDown,
           onTap: _handleTap,
+          onDoubleTap: _handleDoubleTap,
           onScaleStart: _handleScaleStart,
           onScaleUpdate: _handleScaleUpdate,
           onScaleEnd: _handleScaleEnd,
-          child: Container(
-            key: _controlKey,
-            width: constraints.maxWidth,
-            height: constraints.maxHeight,
-            color: Colors.transparent,
-            child: Center(
-              child: AnimatedBuilder(
-                animation: _matrixAnimation,
-                builder: (context, child) {
-                  return Transform(
-                    transform: _matrixAnimation.value,
-                    alignment: Alignment.center,
-                    child: widget.imageRender != null
-                        ? widget.imageRender!(
-                            widget.image,
-                            imageProvider: _getImageProvider(),
-                            index: widget.index ?? 0,
-                          )
-                        : Image(
-                            key: _imageKey,
-                            image: _getImageProvider(),
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 200,
-                                height: 200,
-                                color: palette.surface,
-                                child: Icon(
-                                  Icons.image_not_supported_outlined,
-                                  color: palette.weak,
-                                  size: spacing.lg,
-                                ),
-                              );
-                            },
-                          ),
-                  );
-                },
-              ),
+          behavior: HitTestBehavior.opaque,
+          child: Center(
+            child: Transform(
+              transform: _matrix,
+              alignment: Alignment.center,
+              child: _buildImage(palette, spacing),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImage(AppPalette palette, Spacing spacing) {
+    final imageKey = GlobalKey();
+
+    void updateImageSize() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final renderObject = imageKey.currentContext?.findRenderObject();
+        if (renderObject is RenderBox) {
+          final size = renderObject.size;
+          if (size.width > 0 && size.height > 0 && _imageSize != size) {
+            setState(() {
+              _imageSize = size;
+            });
+          }
+        }
+      });
+    }
+
+    if (widget.imageRender != null) {
+      final customWidget = widget.imageRender!(
+        widget.image,
+        imageKey: imageKey,
+        index: widget.index ?? 0,
+      );
+      updateImageSize();
+      return customWidget;
+    }
+
+    return CachedNetworkImage(
+      imageUrl: widget.image,
+      fit: BoxFit.contain,
+      placeholder: (context, url) => Center(
+        child: CircularProgressSpinner(
+          color: palette.brand,
+          size: 24,
+          strokeWidth: 2,
+        ),
+      ),
+      errorWidget: (context, url, error) => ColoredBox(
+        color: palette.surface,
+        child: Center(
+          child: Icon(
+            Icons.image_not_supported_outlined,
+            color: palette.weak,
+            size: spacing.lg,
+          ),
+        ),
+      ),
+      imageBuilder: (context, imageProvider) {
+        return Image(
+          key: imageKey,
+          image: imageProvider,
+          fit: BoxFit.contain,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (frame != null) {
+              updateImageSize();
+            }
+            return child;
+          },
         );
       },
     );

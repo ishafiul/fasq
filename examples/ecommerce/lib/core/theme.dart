@@ -1,6 +1,5 @@
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
-import 'package:ecommerce/core/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
@@ -142,7 +141,6 @@ ThemeData appTheme(Brightness brightness) {
 }
 
 TextTheme _textTheme(ColorScheme scheme, TypographyScale typography) {
-  logger.d(typography.toTextTheme(color: scheme.onSurface).bodyMedium?.fontSize);
   return typography.toTextTheme(color: scheme.onSurface);
 }
 

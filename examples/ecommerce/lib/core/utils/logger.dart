@@ -6,6 +6,7 @@ import 'package:logger/logger.dart';
 /// Configured differently for debug and release modes.
 final logger = Logger(
   printer: PrettyPrinter(
+    lineLength: 100,
     dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
   ),
   level: kDebugMode ? Level.debug : Level.warning,

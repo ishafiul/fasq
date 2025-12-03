@@ -16,19 +16,39 @@ import 'package:flutter/material.dart';
 /// )
 /// ```
 ///
+/// With height constraint:
+/// ```dart
+/// Shimmer(
+///   child: ShimmerLoading(
+///     isLoading: state.isLoading,
+///     height: 20,
+///     child: Text('Loading...'),
+///   ),
+/// )
+/// ```
+///
 /// Note: This widget must be a descendant of a [Shimmer] widget to work properly.
 class ShimmerLoading extends StatefulWidget {
   /// Creates a shimmer loading widget.
   ///
   /// [isLoading] determines whether to show shimmer effect or actual content.
   /// [child] is the widget that will be wrapped with shimmer effect.
-  const ShimmerLoading({super.key, required this.isLoading, required this.child});
+  /// [height] is an optional height constraint. If provided, wraps the child with a SizedBox.
+  const ShimmerLoading({
+    super.key,
+    required this.isLoading,
+    required this.child,
+    this.height,
+  });
 
   /// Whether to show the shimmer loading effect.
   final bool isLoading;
 
   /// The widget to wrap with shimmer effect.
   final Widget child;
+
+  /// Optional height constraint. If provided, wraps the child with a SizedBox.
+  final double? height;
 
   @override
   State<ShimmerLoading> createState() => _ShimmerLoadingState();
@@ -63,18 +83,32 @@ class _ShimmerLoadingState extends State<ShimmerLoading> {
     }
   }
 
+  Widget _buildChild() {
+    final child = widget.height != null
+        ? Container(
+            color: Colors.transparent,
+            height: widget.height,
+            child: widget.child,
+          )
+        : widget.child;
+
+    return child;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final child = _buildChild();
+
     // If not loading, show the actual content
     if (!widget.isLoading) {
-      return widget.child;
+      return child;
     }
 
     // Get the shimmer widget from ancestor
     final shimmer = Shimmer.of(context);
     if (shimmer == null) {
       // If no shimmer ancestor found, just show the child
-      return widget.child;
+      return child;
     }
 
     // Wait for shimmer to be laid out
@@ -99,7 +133,7 @@ class _ShimmerLoadingState extends State<ShimmerLoading> {
           Rect.fromLTWH(-offsetWithinShimmer.dx, -offsetWithinShimmer.dy, shimmerSize.width, shimmerSize.height),
         );
       },
-      child: widget.child,
+      child: child,
     );
   }
 }

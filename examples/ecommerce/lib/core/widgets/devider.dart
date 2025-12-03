@@ -67,7 +67,7 @@ class TextDivider extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Flexible(flex: position == TextDividerPosition.right ? 7 : 1, child: BaseDivider(axis: Axis.horizontal)),
+        Flexible(flex: position == TextDividerPosition.right ? 7 : 1, child: const BaseDivider(axis: Axis.horizontal)),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: spacing.sm),
           child: Text(
@@ -76,7 +76,7 @@ class TextDivider extends StatelessWidget {
             style: typography.bodySmall.toTextStyle(color: palette.textSecondary),
           ),
         ),
-        Flexible(flex: position == TextDividerPosition.left ? 7 : 1, child: BaseDivider(axis: Axis.horizontal)),
+        Flexible(flex: position == TextDividerPosition.left ? 7 : 1, child: const BaseDivider(axis: Axis.horizontal)),
       ],
     );
   }
@@ -91,10 +91,10 @@ class BaseDivider extends StatelessWidget {
     this.endIndent,
     this.height,
     required this.axis,
-  }) : assert(width == null || width >= 0.0),
-       assert(thickness == null || thickness >= 0.0),
-       assert(indent == null || indent >= 0.0),
-       assert(endIndent == null || endIndent >= 0.0);
+  })  : assert(width == null || width >= 0.0),
+        assert(thickness == null || thickness >= 0.0),
+        assert(indent == null || indent >= 0.0),
+        assert(endIndent == null || endIndent >= 0.0);
 
   Color _getColor(BuildContext context) {
     return context.palette.border;
