@@ -1,25 +1,14 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:ecommerce/api/models/product_detail_response.dart';
-import 'package:ecommerce/api/models/variants.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
-import 'package:ecommerce/core/get_it.dart';
-import 'package:ecommerce/core/query_keys.dart';
-import 'package:ecommerce/core/services/product_service.dart';
-import 'package:ecommerce/core/services/review_service.dart';
-import 'package:ecommerce/core/services/vendor_service.dart';
-import 'package:ecommerce/core/widgets/button/button.dart';
-import 'package:ecommerce/core/widgets/no_data.dart';
-import 'package:ecommerce/core/widgets/rating.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
-import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
-import 'package:ecommerce/core/widgets/tag.dart';
-import 'package:ecommerce/presentation/widget/product_image_carousel.dart';
-import 'package:ecommerce/presentation/widget/review_item.dart';
-import 'package:ecommerce/presentation/widget/variant_selector.dart';
-import 'package:ecommerce/presentation/widget/vendor_info_card.dart';
-import 'package:fasq/fasq.dart';
+import 'package:ecommerce/core/widgets/devider.dart';
+import 'package:ecommerce/presentation/widget/product/product_bottom_action_bar.dart';
+import 'package:ecommerce/presentation/widget/product/product_details_tab.dart';
+import 'package:ecommerce/presentation/widget/product/product_image_carousel.dart';
+import 'package:ecommerce/presentation/widget/product/product_info_section.dart';
+import 'package:ecommerce/presentation/widget/product/product_reviews_tab.dart';
+import 'package:ecommerce/presentation/widget/product/variants_section.dart';
+import 'package:ecommerce/presentation/widget/vendor/vendor_section.dart';
 import 'package:flutter/material.dart';
 
 @RoutePage()
@@ -33,339 +22,134 @@ class ProductDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Shimmer(
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Product Details'),
-          backgroundColor: palette.surface,
-          elevation: 0,
-          surfaceTintColor: Colors.transparent,
-        ),
-        body: QueryBuilder(
-          queryKey: QueryKeys.productDetail(id),
-          queryFn: () => locator.get<ProductService>().getProductById(id),
-          builder: (context, productState) {
-            if (productState.isLoading) {
-              return const ShimmerLoading(
-                isLoading: true,
-                child: SizedBox.shrink(),
-              );
-            }
-
-            if (productState.hasError || productState.data == null) {
-              return Center(
-                child: NoData(message: 'Failed to load product details'),
-              );
-            }
-
-            final product = productState.data!;
-
-            return CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: ProductImageCarousel(images: product.images),
+    return Scaffold(
+      body: DefaultTabController(
+        length: 3,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              const SliverAppBar(
+                title: Text('Product Details'),
+                floating: true,
+                snap: true,
+              ),
+              SliverToBoxAdapter(
+                child: ProductImageCarousel(
+                  id: id,
                 ),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: context.spacing.md),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(height: context.spacing.md),
+              ),
+              SliverToBoxAdapter(
+                child: AppDivider.base(
+                  axis: Axis.horizontal,
                 ),
-                SliverToBoxAdapter(
-                  child: _ProductInfoSection(product: product),
-                ),
-                SliverToBoxAdapter(
-                  child: QueryBuilder(
-                    queryKey: QueryKeys.vendor(product.vendorId),
-                    queryFn: () => locator.get<VendorService>().getVendorById(product.vendorId),
-                    builder: (context, vendorState) {
-                      if (vendorState.isLoading) {
-                        return const SizedBox.shrink();
-                      }
-
-                      if (vendorState.hasError || vendorState.data == null) {
-                        return const SizedBox.shrink();
-                      }
-
-                      return Padding(
-                        padding: EdgeInsets.symmetric(horizontal: context.spacing.sm),
-                        child: VendorInfoCard(vendor: vendorState.data!),
-                      );
-                    },
+              ),
+              SliverPersistentHeader(
+                delegate: _SliverAppBarDelegate(
+                  TabBar(
+                    tabs: const [
+                      Tab(text: 'Product'),
+                      Tab(text: 'Details'),
+                      Tab(text: 'Reviews'),
+                    ],
+                    labelColor: context.palette.brand,
+                    unselectedLabelColor: context.palette.textSecondary,
+                    indicatorColor: context.palette.brand,
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: context.spacing.md),
-                ),
-                SliverToBoxAdapter(
-                  child: _VariantsSection(variants: product.variants),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: context.spacing.md),
-                ),
-                SliverToBoxAdapter(
-                  child: _ReviewsSection(productId: product.id),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: context.spacing.xxl),
-                ),
-              ],
-            );
+                pinned: true,
+              ),
+            ];
           },
-        ),
-        bottomNavigationBar: _BottomActionBar(productId: id),
-      ),
-    );
-  }
-}
-
-class _ProductInfoSection extends StatelessWidget {
-  const _ProductInfoSection({
-    required this.product,
-  });
-
-  final ProductDetailResponse product;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final spacing = context.spacing;
-    final typography = context.typography;
-
-    final basePrice = double.tryParse(product.basePrice) ?? 0;
-    final tags = product.tags;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: spacing.sm, vertical: spacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            product.name,
-            style: typography.bodyMedium.toTextStyle(color: palette.textPrimary).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          SizedBox(height: spacing.xs),
-          Row(
+          body: TabBarView(
             children: [
-              Text(
-                '\$${basePrice.toStringAsFixed(2)}',
-                style: typography.titleMedium.toTextStyle(color: palette.textPrimary).copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+              _ProductTab(
+                id: id,
+              ),
+              ProductDetailsTab(
+                productId: id,
+              ),
+              ProductReviewsTab(
+                productId: id,
               ),
             ],
           ),
-          if (tags != null && tags.isNotEmpty) ...[
-            SizedBox(height: spacing.sm),
-            Wrap(
-              spacing: spacing.xs,
-              runSpacing: spacing.xs,
-              children: tags.map((tag) {
-                return Tag(
-                  color: TagColor.primary,
-                  child: Text(tag.toUpperCase()),
-                );
-              }).toList(),
-            ),
-          ],
-          if (product.description != null && product.description!.isNotEmpty) ...[
-            SizedBox(height: spacing.md),
-            Text(
-              product.description!,
-              style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
-            ),
-          ],
-        ],
+        ),
+      ),
+      bottomNavigationBar: ProductBottomActionBar(
+        productId: id,
+        onAddToCart: () {
+          // TODO: Add to cart
+        },
+        onBuyNow: () {
+          // TODO: Buy now
+        },
       ),
     );
   }
 }
 
-class _VariantsSection extends StatelessWidget {
-  const _VariantsSection({
-    required this.variants,
-  });
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this._tabBar);
 
-  final List<Variants> variants;
+  final TabBar _tabBar;
 
   @override
-  Widget build(BuildContext context) {
-    final spacing = context.spacing;
-    final typography = context.typography;
-    final palette = context.palette;
+  double get minExtent => _tabBar.preferredSize.height;
 
-    if (variants.isEmpty) {
-      return const SizedBox.shrink();
-    }
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: spacing.sm),
-          child: Text(
-            'Variants',
-            style: typography.titleSmall.toTextStyle(color: palette.textPrimary),
-          ),
-        ),
-        SizedBox(height: spacing.sm),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: spacing.sm),
-          child: VariantSelector(
-            variants: variants,
-            onVariantSelected: (variant) {
-              // Handle variant selection
-            },
-          ),
-        ),
-        SizedBox(height: spacing.md),
-      ],
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(child: _tabBar),
     );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }
 
-class _ReviewsSection extends StatelessWidget {
-  const _ReviewsSection({
-    required this.productId,
-  });
+class _ProductTab extends StatelessWidget {
+  final String id;
 
-  final String productId;
+  const _ProductTab({required this.id});
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
-    final typography = context.typography;
-    final palette = context.palette;
-
-    return QueryBuilder(
-      queryKey: QueryKeys.productReviews(productId),
-      queryFn: () => locator.get<ReviewService>().getProductReviews(productId),
-      builder: (context, state) {
-        if (state.isLoading) {
-          return Padding(
-            padding: EdgeInsets.all(spacing.md),
-            child: Center(
-              child: CircularProgressSpinner(color: palette.brand, size: 24, strokeWidth: 2),
-            ),
-          );
-        }
-
-        if (state.hasError || state.data == null) {
-          return const SizedBox.shrink();
-        }
-
-        final reviewsData = state.data!;
-        final reviews = reviewsData.data;
-        final rating = reviewsData.rating;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: spacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Reviews',
-                    style: typography.titleSmall.toTextStyle(color: palette.textPrimary),
-                  ),
-                  SizedBox(height: spacing.sm),
-                  Row(
-                    children: [
-                      Rating(
-                        value: rating.averageRating.toDouble(),
-                        readOnly: true,
-                        starSize: 18,
-                      ),
-                      SizedBox(width: spacing.sm),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            rating.averageRating.toStringAsFixed(1),
-                            style: typography.bodyLarge.toTextStyle(color: palette.textPrimary).copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                          Text(
-                            '${rating.totalReviews.toInt()} reviews',
-                            style: typography.bodySmall.toTextStyle(color: palette.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: spacing.md),
-            if (reviews.isEmpty)
-              Padding(
-                padding: EdgeInsets.all(spacing.xxl),
-                child: Center(
-                  child: NoData(message: 'No reviews yet'),
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.all(context.spacing.sm),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate(
+              [
+                ProductInfoSection(
+                  id: id,
                 ),
-              )
-            else
-              Column(
-                children: reviews.map((review) => ReviewItem(review: review)).toList(),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _BottomActionBar extends StatelessWidget {
-  const _BottomActionBar({
-    required this.productId,
-  });
-
-  final String productId;
-
-  @override
-  Widget build(BuildContext context) {
-    final spacing = context.spacing;
-    final colors = context.colors;
-
-    return SafeArea(
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(spacing.md),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          border: Border(
-            top: BorderSide(color: context.palette.border, width: 1),
+                SizedBox(height: spacing.md),
+                VendorSection(
+                  productId: id,
+                ),
+                VariantsSection(
+                  productId: id,
+                ),
+              ],
+            ),
           ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Button.primary(
-                onPressed: () {
-                  // TODO: Add to cart
-                },
-                isBlock: true,
-                child: const Text('Add to Cart'),
-              ),
-            ),
-            SizedBox(width: spacing.md),
-            Expanded(
-              child: Button(
-                onPressed: () {
-                  // TODO: Buy now
-                },
-                fill: ButtonFill.outline,
-                isBlock: true,
-                child: const Text('Buy Now'),
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }
