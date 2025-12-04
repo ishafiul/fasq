@@ -1,8 +1,11 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
+import 'package:ecommerce/core/router/app_router.gr.dart';
+import 'package:ecommerce/core/services/category_service.dart';
 import 'package:ecommerce/core/services/product_service.dart';
 import 'package:ecommerce/core/services/review_service.dart';
 import 'package:ecommerce/core/services/vendor_service.dart';
@@ -102,6 +105,10 @@ class ProductInfoSection extends StatelessWidget {
               if (product?.vendorId.isNotEmpty == true) ...[
                 SizedBox(height: spacing.md),
                 _VendorInfo(vendorId: product!.vendorId),
+              ],
+              if (product != null && product.categoryId != null && product.categoryId!.isNotEmpty) ...[
+                SizedBox(height: spacing.md),
+                _CategoryInfo(categoryId: product.categoryId!),
               ],
             ],
           ),
@@ -327,93 +334,225 @@ class _VendorInfo extends StatelessWidget {
 
         return ShimmerLoading(
           isLoading: vendorState.isLoading,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: spacing.sm,
-              vertical: spacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: radius.all(radius.sm),
-              border: Border.all(color: palette.border),
-            ),
-            child: Row(
-              children: [
-                if (vendor.logo != null && vendor.logo!.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: radius.all(radius.xs),
-                    child: CachedNetworkImage(
-                      imageUrl: vendor.logo!,
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
+          child: GestureDetector(
+            onTap: () {
+              context.router.push(VendorRoute(id: vendorState.data!.id));
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.sm,
+                vertical: spacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: radius.all(radius.sm),
+                border: Border.all(color: palette.border),
+              ),
+              child: Row(
+                children: [
+                  if (vendor.logo != null && vendor.logo!.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: radius.all(radius.xs),
+                      child: CachedNetworkImage(
+                        imageUrl: vendor.logo!,
                         width: 40,
                         height: 40,
-                        color: palette.surface,
-                        child: Center(
-                          child: CircularProgressSpinner(
-                            color: palette.brand,
-                            size: 16,
-                            strokeWidth: 2,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 40,
+                          height: 40,
+                          color: palette.surface,
+                          child: Center(
+                            child: CircularProgressSpinner(
+                              color: palette.brand,
+                              size: 16,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 40,
+                          height: 40,
+                          color: palette.surface,
+                          child: Icon(
+                            Icons.store_outlined,
+                            color: palette.weak,
+                            size: 20,
                           ),
                         ),
                       ),
-                      errorWidget: (context, url, error) => Container(
+                    )
+                  else
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: palette.surface,
+                        borderRadius: radius.all(radius.xs),
+                      ),
+                      child: Icon(
+                        Icons.store_outlined,
+                        color: palette.weak,
+                        size: 20,
+                      ),
+                    ),
+                  SizedBox(width: spacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Sold by',
+                          style: typography.labelSmall.toTextStyle(
+                            color: palette.textSecondary,
+                          ),
+                        ),
+                        SizedBox(height: spacing.xs / 2),
+                        Text(
+                          vendor.businessName,
+                          style: typography.bodyMedium
+                              .toTextStyle(
+                                color: palette.textPrimary,
+                              )
+                              .copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CategoryInfo extends StatelessWidget {
+  const _CategoryInfo({
+    required this.categoryId,
+  });
+
+  final String categoryId;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
+    final radius = context.radius;
+    final colors = context.colors;
+
+    return QueryBuilder(
+      queryKey: QueryKeys.category(categoryId),
+      queryFn: () => locator.get<CategoryService>().getCategoryById(categoryId),
+      builder: (context, categoryState) {
+        if (categoryState.isLoading || categoryState.hasError || categoryState.data == null) {
+          return const SizedBox.shrink();
+        }
+
+        final category = categoryState.data!;
+
+        return ShimmerLoading(
+          isLoading: categoryState.isLoading,
+          child: GestureDetector(
+            onTap: () {
+              context.router.push(CategoryRoute(id: categoryState.data!.id));
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.sm,
+                vertical: spacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: radius.all(radius.sm),
+                border: Border.all(color: palette.border),
+              ),
+              child: Row(
+                children: [
+                  if (category.imageUrl != null && category.imageUrl!.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: radius.all(radius.xs),
+                      child: CachedNetworkImage(
+                        imageUrl: category.imageUrl!,
                         width: 40,
                         height: 40,
-                        color: palette.surface,
-                        child: Icon(
-                          Icons.store_outlined,
-                          color: palette.weak,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: palette.surface,
-                      borderRadius: radius.all(radius.xs),
-                    ),
-                    child: Icon(
-                      Icons.store_outlined,
-                      color: palette.weak,
-                      size: 20,
-                    ),
-                  ),
-                SizedBox(width: spacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Sold by',
-                        style: typography.labelSmall.toTextStyle(
-                          color: palette.textSecondary,
-                        ),
-                      ),
-                      SizedBox(height: spacing.xs / 2),
-                      Text(
-                        vendor.businessName,
-                        style: typography.bodyMedium
-                            .toTextStyle(
-                              color: palette.textPrimary,
-                            )
-                            .copyWith(
-                              fontWeight: FontWeight.w600,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 40,
+                          height: 40,
+                          color: palette.surface,
+                          child: Center(
+                            child: CircularProgressSpinner(
+                              color: palette.brand,
+                              size: 16,
+                              strokeWidth: 2,
                             ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 40,
+                          height: 40,
+                          color: palette.surface,
+                          child: Icon(
+                            Icons.category_outlined,
+                            color: palette.weak,
+                            size: 20,
+                          ),
+                        ),
                       ),
-                    ],
+                    )
+                  else
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: palette.surface,
+                        borderRadius: radius.all(radius.xs),
+                      ),
+                      child: Icon(
+                        Icons.category_outlined,
+                        color: palette.weak,
+                        size: 20,
+                      ),
+                    ),
+                  SizedBox(width: spacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Category',
+                          style: typography.labelSmall.toTextStyle(
+                            color: palette.textSecondary,
+                          ),
+                        ),
+                        SizedBox(height: spacing.xs / 2),
+                        Text(
+                          category.name,
+                          style: typography.bodyMedium
+                              .toTextStyle(
+                                color: palette.textPrimary,
+                              )
+                              .copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
