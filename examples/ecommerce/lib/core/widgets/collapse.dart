@@ -123,8 +123,7 @@ class _CollapseItem extends StatefulWidget {
   State<_CollapseItem> createState() => _CollapseItemState();
 }
 
-class _CollapseItemState extends State<_CollapseItem>
-    with SingleTickerProviderStateMixin {
+class _CollapseItemState extends State<_CollapseItem> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _heightFactor;
   late Animation<double> _iconTurns;
@@ -168,9 +167,8 @@ class _CollapseItemState extends State<_CollapseItem>
 
   @override
   Widget build(BuildContext context) {
-    final arrow = widget.panel.arrowIcon ??
-        widget.arrowIcon ??
-        const Icon(Icons.keyboard_arrow_down, size: 16); // Default arrow
+    final arrow =
+        widget.panel.arrowIcon ?? widget.arrowIcon ?? const Icon(Icons.keyboard_arrow_down, size: 16); // Default arrow
 
     // Wrap arrow with rotation
     final rotatedArrow = RotationTransition(
@@ -190,8 +188,7 @@ class _CollapseItemState extends State<_CollapseItem>
         AnimatedBuilder(
           animation: _controller.view,
           builder: (context, child) {
-            final closed =
-                !widget.active && _controller.status == AnimationStatus.dismissed;
+            final closed = !widget.active && _controller.status == AnimationStatus.dismissed;
             if (closed && widget.panel.destroyOnClose) {
               return const SizedBox.shrink();
             }
