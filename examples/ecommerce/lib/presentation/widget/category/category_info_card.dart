@@ -11,7 +11,7 @@ class CategoryInfoCard extends StatelessWidget {
     required this.category,
   });
 
-  final CategoryResponse category;
+  final CategoryResponse? category;
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +30,11 @@ class CategoryInfoCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (category.imageUrl != null && category.imageUrl!.isNotEmpty)
+          if (category?.imageUrl != null && category!.imageUrl!.isNotEmpty)
             ClipRRect(
               borderRadius: radius.all(radius.sm),
               child: CachedNetworkImage(
-                imageUrl: category.imageUrl!,
+                imageUrl: category!.imageUrl!,
                 width: 60,
                 height: 60,
                 fit: BoxFit.cover,
@@ -79,15 +79,15 @@ class CategoryInfoCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  category.name,
+                  category?.name ?? 'Category Name',
                   style: typography.titleMedium.toTextStyle(color: palette.textPrimary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (category.description != null && category.description!.isNotEmpty) ...[
+                if (category?.description != null && category!.description!.isNotEmpty) ...[
                   SizedBox(height: spacing.xs / 2),
                   Text(
-                    category.description!,
+                    category!.description!,
                     style: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
