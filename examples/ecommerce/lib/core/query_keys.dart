@@ -77,10 +77,32 @@ class QueryKeys {
   static TypedQueryKey<CategoryResponse> category(String id) =>
       TypedQueryKey<CategoryResponse>('category:$id', CategoryResponse);
 
+  /// Query key for category products with pagination.
+  static TypedQueryKey<ProductListProductsResponse> categoryProducts(
+    String categoryId, {
+    int page = 1,
+    int limit = 20,
+  }) =>
+      TypedQueryKey<ProductListProductsResponse>(
+        'category:products:$categoryId:$page:$limit',
+        ProductListProductsResponse,
+      );
+
   // Vendors
   /// Query key for a single vendor by ID.
   static TypedQueryKey<VendorGetVendorResponse> vendor(String id) =>
       TypedQueryKey<VendorGetVendorResponse>('vendor:$id', VendorGetVendorResponse);
+
+  /// Query key for vendor products with pagination.
+  static TypedQueryKey<ProductListProductsResponse> vendorProducts(
+    String vendorId, {
+    int page = 1,
+    int limit = 20,
+  }) =>
+      TypedQueryKey<ProductListProductsResponse>(
+        'vendor:products:$vendorId:$page:$limit',
+        ProductListProductsResponse,
+      );
 
   // Reviews
   /// Query key for product reviews with pagination.

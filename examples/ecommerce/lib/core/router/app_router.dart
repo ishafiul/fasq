@@ -18,6 +18,9 @@ final class AppRouter extends RootStackRouter {
         AutoRoute(path: '/auth/login', page: LoginRoute.page),
         AutoRoute(path: '/profile', page: ProfileRoute.page),
         AutoRoute(path: '/products/:id', page: ProductDetailRoute.page),
+        AutoRoute(path: '/categories', page: CategoriesListRoute.page),
+        AutoRoute(path: '/categories/:id', page: CategoryRoute.page),
+        AutoRoute(path: '/vendors/:id', page: VendorRoute.page),
         AutoRoute(path: '/cart', page: CartRoute.page),
         AutoRoute(path: '/', page: HomeRoute.page),
       ];
