@@ -24,4 +24,3 @@ class UserService {
     return await _authService.isLoggedIn();
   }
 }
-

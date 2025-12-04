@@ -83,10 +83,9 @@ class AuthService {
       }
     } catch (e) {
       // Fallback to basic info if device info fails
-      deviceType =
-          Platform.isAndroid
-              ? 'Android'
-              : Platform.isIOS
+      deviceType = Platform.isAndroid
+          ? 'Android'
+          : Platform.isIOS
               ? 'iOS'
               : 'Unknown';
       osName = deviceType;

@@ -211,8 +211,7 @@ class _PullToRefreshState extends State<PullToRefresh> with TickerProviderStateM
   /// notifications, downward scroll direction, and that we're at the top.
   bool _shouldStart(ScrollNotification notification) {
     // Follow Flutter's RefreshIndicator pattern exactly
-    final bool result =
-        ((notification is ScrollStartNotification && notification.dragDetails != null) ||
+    final bool result = ((notification is ScrollStartNotification && notification.dragDetails != null) ||
             (notification is ScrollUpdateNotification && notification.dragDetails != null)) &&
         notification.metrics.axisDirection == AxisDirection.down &&
         notification.metrics.extentBefore == 0.0 &&
@@ -545,10 +544,10 @@ class _RenderSliverRefreshIndicator extends RenderSliverSingleBoxAdapter {
     required bool hasLayoutExtent,
     required double layoutExtent,
     required bool isActive,
-  }) : _refreshIndicatorExtent = refreshIndicatorExtent,
-       _hasLayoutExtent = hasLayoutExtent,
-       _layoutExtent = layoutExtent,
-       _isActive = isActive;
+  })  : _refreshIndicatorExtent = refreshIndicatorExtent,
+        _hasLayoutExtent = hasLayoutExtent,
+        _layoutExtent = layoutExtent,
+        _isActive = isActive;
 
   double _refreshIndicatorExtent;
   bool _hasLayoutExtent;

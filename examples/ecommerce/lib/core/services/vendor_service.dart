@@ -19,4 +19,3 @@ class VendorService {
     return await _apiClient.vendor.getVendorsId(id: id);
   }
 }
-

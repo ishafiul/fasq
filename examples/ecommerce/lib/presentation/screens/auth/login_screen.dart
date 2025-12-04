@@ -93,9 +93,10 @@ class _LoginAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: Text('Sign in', style: context.typography.titleSmall.toTextStyle().copyWith(
-            fontWeight: FontWeight.w600,
-          )),
+      title: Text('Sign in',
+          style: context.typography.titleSmall.toTextStyle().copyWith(
+                fontWeight: FontWeight.w600,
+              )),
       centerTitle: true,
       elevation: 0,
       leading: currentStep == _AuthStep.otp

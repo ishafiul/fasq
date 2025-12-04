@@ -16,9 +16,9 @@ class FadingFourSpinner extends StatefulWidget {
     this.duration = const Duration(milliseconds: 1200),
     this.controller,
   }) : assert(
-         !(itemBuilder is IndexedWidgetBuilder && color is Color) && !(itemBuilder == null && color == null),
-         'You should specify either a itemBuilder or a color',
-       );
+          !(itemBuilder is IndexedWidgetBuilder && color is Color) && !(itemBuilder == null && color == null),
+          'You should specify either a itemBuilder or a color',
+        );
 
   final Color? color;
   final BoxShape shape;
@@ -102,8 +102,7 @@ class _FadingFourSpinnerState extends State<FadingFourSpinner> with TickerProvid
     );
   }
 
-  Widget _itemBuilder(int index, Color defaultColor) =>
-      widget.itemBuilder != null
-          ? widget.itemBuilder!(context, index)
-          : DecoratedBox(decoration: BoxDecoration(color: widget.color ?? defaultColor, shape: widget.shape));
+  Widget _itemBuilder(int index, Color defaultColor) => widget.itemBuilder != null
+      ? widget.itemBuilder!(context, index)
+      : DecoratedBox(decoration: BoxDecoration(color: widget.color ?? defaultColor, shape: widget.shape));
 }

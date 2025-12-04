@@ -101,4 +101,3 @@ class VendorInfoCard extends StatelessWidget {
     );
   }
 }
-
