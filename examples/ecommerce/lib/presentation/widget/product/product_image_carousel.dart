@@ -9,6 +9,7 @@ import 'package:ecommerce/core/widgets/image_viewer/image_viewer.dart';
 import 'package:ecommerce/core/widgets/image_viewer/image_viewer_show.dart';
 import 'package:ecommerce/core/widgets/no_data.dart';
 import 'package:ecommerce/core/widgets/page_indicator.dart';
+import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/core/widgets/swiper.dart';
 import 'package:fasq/fasq.dart';
@@ -51,7 +52,24 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
       queryFn: () => locator.get<ProductService>().getProductById(widget.id),
       builder: (context, productState) {
         if (productState.isLoading) {
-          return const Text("lolading");
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              const aspectRatio = 0.75;
+              final height = width * aspectRatio;
+              return ShimmerLoading(
+                isLoading: true,
+                child: Container(
+                  width: width,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: palette.surface,
+                    borderRadius: radius.all(radius.sm),
+                  ),
+                ),
+              );
+            },
+          );
         }
         if (productState.hasError || productState.data == null) {
           return const Center(

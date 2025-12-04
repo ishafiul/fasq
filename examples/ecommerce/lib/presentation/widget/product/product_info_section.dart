@@ -54,10 +54,10 @@ class ProductInfoSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                product?.name ?? '',
+                product?.name ?? 'Product Name',
                 style: typography.bodyLarge
                     .toTextStyle(
-                      color: productState.isLoading ? Colors.transparent : palette.textPrimary,
+                      color: palette.textPrimary,
                     )
                     .copyWith(
                       fontWeight: FontWeight.w600,
@@ -70,7 +70,7 @@ class ProductInfoSection extends StatelessWidget {
                     '\$${basePrice.toStringAsFixed(2)}',
                     style: typography.titleMedium
                         .toTextStyle(
-                          color: productState.isLoading ? Colors.transparent : palette.brand,
+                          color: palette.brand,
                         )
                         .copyWith(
                           fontWeight: FontWeight.w700,

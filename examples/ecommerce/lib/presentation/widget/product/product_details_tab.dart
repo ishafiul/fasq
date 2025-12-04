@@ -62,7 +62,7 @@ class _ProductDescriptionSection extends StatelessWidget {
     final spacing = context.spacing;
     final typography = context.typography;
 
-    if (product?.description == null || product!.description!.isEmpty) {
+    if (!isLoading && (product?.description == null || product!.description!.isEmpty)) {
       return const SizedBox.shrink();
     }
 
@@ -75,10 +75,9 @@ class _ProductDescriptionSection extends StatelessWidget {
         ),
         SizedBox(height: spacing.sm),
         ShimmerLoading(
-          height: 20,
           isLoading: isLoading,
           child: Text(
-            product!.description!,
+            product?.description ?? '',
             style: typography.bodyMedium.toTextStyle(
               color: palette.textSecondary,
             ),
