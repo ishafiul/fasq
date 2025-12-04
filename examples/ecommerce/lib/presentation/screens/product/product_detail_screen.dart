@@ -45,7 +45,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   bool get _isOutOfStock {
-    if (_selectedVariant == null) return true;
+    if (_selectedVariant == null) return false;
     return _selectedVariant!.inventoryQuantity <= 0;
   }
 
@@ -229,16 +229,13 @@ class _AddToCartButtonState extends State<_AddToCartButton> {
                 }
               });
             },
-            onBuyNow: (quantity) {
-              // TODO: Buy now with quantity
-            },
           );
         }
 
         if (widget.selectedVariant == null) {
           return ProductBottomActionBar(
             productId: widget.productId,
-            isOutOfStock: true,
+            isOutOfStock: false,
             maxQuantity: widget.maxQuantity,
             onAddToCart: (quantity) {
               showSnackBar(
@@ -247,9 +244,6 @@ class _AddToCartButtonState extends State<_AddToCartButton> {
                 message: 'Please select a variant',
                 withIcon: true,
               );
-            },
-            onBuyNow: (quantity) {
-              // TODO: Buy now with quantity
             },
           );
         }
@@ -291,9 +285,6 @@ class _AddToCartButtonState extends State<_AddToCartButton> {
                   priceAtAdd: priceAtAdd,
                 );
                 mutate(request);
-              },
-              onBuyNow: (quantity) {
-                // TODO: Buy now with quantity
               },
             );
           },

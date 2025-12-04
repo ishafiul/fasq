@@ -11,7 +11,6 @@ class ProductBottomActionBar extends StatefulWidget {
     this.isLoading = false,
     this.isOutOfStock = false,
     this.onAddToCart,
-    this.onBuyNow,
     this.maxQuantity,
   });
 
@@ -19,7 +18,6 @@ class ProductBottomActionBar extends StatefulWidget {
   final bool isLoading;
   final bool isOutOfStock;
   final ValueChanged<int>? onAddToCart;
-  final ValueChanged<int>? onBuyNow;
   final int? maxQuantity;
 
   @override
@@ -51,7 +49,7 @@ class _ProductBottomActionBarState extends State<ProductBottomActionBar> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (widget.isOutOfStock)
+            if (!widget.isLoading && widget.isOutOfStock)
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(
@@ -107,15 +105,6 @@ class _ProductBottomActionBarState extends State<ProductBottomActionBar> {
                     onPressed: isDisabled ? null : () => widget.onAddToCart?.call(_quantity),
                     isBlock: true,
                     child: const Text('Add to Cart'),
-                  ),
-                ),
-                SizedBox(width: spacing.xs),
-                Expanded(
-                  child: Button(
-                    onPressed: isDisabled ? null : () => widget.onBuyNow?.call(_quantity),
-                    fill: ButtonFill.outline,
-                    isBlock: true,
-                    child: const Text('Buy Now'),
                   ),
                 ),
               ],
