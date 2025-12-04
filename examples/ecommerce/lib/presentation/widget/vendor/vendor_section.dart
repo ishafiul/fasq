@@ -3,6 +3,7 @@ import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/services/product_service.dart';
 import 'package:ecommerce/core/services/vendor_service.dart';
+import 'package:ecommerce/core/utils/logger.dart';
 import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/presentation/widget/vendor/vendor_info_card.dart';
 import 'package:fasq/fasq.dart';
@@ -53,7 +54,11 @@ class VendorSection extends StatelessWidget {
 
             return ShimmerLoading(
               isLoading: vendorState.isLoading,
-              child: VendorInfoCard(vendor: vendorState.data!),
+              child: GestureDetector(
+                  onTap: () {
+                    logger.i(":");
+                  },
+                  child: VendorInfoCard(vendor: vendorState.data!)),
             );
           },
         );
