@@ -9,6 +9,8 @@ import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/product_service.dart';
 import 'package:ecommerce/core/services/vendor_service.dart';
 import 'package:ecommerce/core/widgets/no_data.dart';
+import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
+import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/presentation/widget/product/product_grid.dart';
 import 'package:ecommerce/presentation/widget/vendor/vendor_info_card.dart';
@@ -112,86 +114,89 @@ class _VendorScreenState extends State<VendorScreen> {
   Widget build(BuildContext context) {
     final spacing = context.spacing;
 
-    return Scaffold(
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          SliverAppBar(
-            title: QueryBuilder(
-              queryKey: QueryKeys.vendor(widget.id),
-              queryFn: () => locator.get<VendorService>().getVendorById(widget.id),
-              builder: (context, vendorState) {
-                if (vendorState.data != null) {
-                  return Text(vendorState.data!.businessName);
-                }
-                return const Text('Vendor');
-              },
+    return Shimmer(
+      child: Scaffold(
+        body: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverAppBar(
+              title: QueryBuilder(
+                queryKey: QueryKeys.vendor(widget.id),
+                queryFn: () => locator.get<VendorService>().getVendorById(widget.id),
+                builder: (context, vendorState) {
+                  if (vendorState.data != null) {
+                    return Text(vendorState.data!.businessName);
+                  }
+                  return const Text('Vendor');
+                },
+              ),
+              floating: true,
+              snap: true,
             ),
-            floating: true,
-            snap: true,
-          ),
-          SliverPadding(
-            padding: EdgeInsets.all(spacing.sm),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                QueryBuilder(
-                  queryKey: QueryKeys.vendor(widget.id),
-                  queryFn: () => locator.get<VendorService>().getVendorById(widget.id),
-                  options: QueryOptions(
-                    staleTime: const Duration(minutes: 5),
-                    cacheTime: const Duration(minutes: 30),
+            SliverPadding(
+              padding: EdgeInsets.all(spacing.sm),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  QueryBuilder(
+                    queryKey: QueryKeys.vendor(widget.id),
+                    queryFn: () => locator.get<VendorService>().getVendorById(widget.id),
+                    options: QueryOptions(
+                      staleTime: const Duration(minutes: 5),
+                      cacheTime: const Duration(minutes: 30),
+                    ),
+                    builder: (context, vendorState) {
+                      if (vendorState.isLoading && vendorState.data == null) {
+                        return ShimmerLoading(
+                          isLoading: true,
+                          child: _VendorInfoCardPlaceholder(),
+                        );
+                      }
+
+                      if (vendorState.hasError && vendorState.data == null) {
+                        return Center(
+                          child: Column(
+                            children: [
+                              const NoData(message: 'Failed to load vendor information'),
+                              SizedBox(height: spacing.md),
+                              ElevatedButton(
+                                onPressed: () {
+                                  final queryClient = context.queryClient;
+                                  if (queryClient != null) {
+                                    queryClient.invalidateQuery(QueryKeys.vendor(widget.id));
+                                  }
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final vendor = vendorState.data;
+                      if (vendor == null) {
+                        return const Center(child: NoData(message: 'Vendor not found'));
+                      }
+
+                      return ShimmerLoading(
+                        isLoading: vendorState.isLoading,
+                        child: VendorInfoCard(vendor: vendor),
+                      );
+                    },
                   ),
-                  builder: (context, vendorState) {
-                    if (vendorState.isLoading && vendorState.data == null) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressSpinner(),
-                        ),
-                      );
-                    }
-
-                    if (vendorState.hasError && vendorState.data == null) {
-                      return Center(
-                        child: Column(
-                          children: [
-                            const NoData(message: 'Failed to load vendor information'),
-                            SizedBox(height: spacing.md),
-                            ElevatedButton(
-                              onPressed: () {
-                                final queryClient = context.queryClient;
-                                if (queryClient != null) {
-                                  queryClient.invalidateQuery(QueryKeys.vendor(widget.id));
-                                }
-                              },
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    final vendor = vendorState.data;
-                    if (vendor == null) {
-                      return const Center(child: NoData(message: 'Vendor not found'));
-                    }
-
-                    return VendorInfoCard(vendor: vendor);
-                  },
-                ),
-                SizedBox(height: spacing.md),
-                _VendorProductsSection(
-                  vendorId: widget.id,
-                  accumulatedProducts: _accumulatedProducts,
-                  hasMorePages: _hasMorePages,
-                  isLoadingMore: _isLoadingMore,
-                  onLoadMore: _loadNextPage,
-                  onReset: _resetPagination,
-                ),
-              ]),
+                  SizedBox(height: spacing.md),
+                  _VendorProductsSection(
+                    vendorId: widget.id,
+                    accumulatedProducts: _accumulatedProducts,
+                    hasMorePages: _hasMorePages,
+                    isLoadingMore: _isLoadingMore,
+                    onLoadMore: _loadNextPage,
+                    onReset: _resetPagination,
+                  ),
+                ]),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -357,6 +362,67 @@ class _VendorProductsSectionState extends State<_VendorProductsSection> {
           ],
         );
       },
+    );
+  }
+}
+
+class _VendorInfoCardPlaceholder extends StatelessWidget {
+  const _VendorInfoCardPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final spacing = context.spacing;
+    final radius = context.radius;
+    final colors = context.colors;
+
+    return Container(
+      padding: EdgeInsets.all(spacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: radius.all(radius.md),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: palette.surface,
+              borderRadius: radius.all(radius.sm),
+            ),
+          ),
+          SizedBox(width: spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 20,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: palette.surface,
+                    borderRadius: radius.all(radius.xs),
+                  ),
+                ),
+                SizedBox(height: spacing.xs / 2),
+                FractionallySizedBox(
+                  widthFactor: 0.7,
+                  child: Container(
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: palette.surface,
+                      borderRadius: radius.all(radius.xs),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

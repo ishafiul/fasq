@@ -10,6 +10,7 @@ import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/cart_service.dart';
 import 'package:ecommerce/core/services/user_service.dart';
 import 'package:ecommerce/core/widgets/card.dart';
+import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
 import 'package:ecommerce/core/widgets/snackbar.dart';
 import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
 import 'package:ecommerce/presentation/widget/product/product_bottom_action_bar.dart';
@@ -54,56 +55,58 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Scaffold(
       body: DefaultTabController(
         length: 3,
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              SliverAppBar(
-                title: const Text('Product Details'),
-                floating: true,
-                snap: true,
-                actions: const [
-                  CartIconButton(),
-                ],
-              ),
-              SliverToBoxAdapter(
-                child: ProductImageCarousel(
-                  id: widget.id,
+        child: Shimmer(
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverAppBar(
+                  title: const Text('Product Details'),
+                  floating: true,
+                  snap: true,
+                  actions: const [
+                    CartIconButton(),
+                  ],
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: SizedBox(height: context.spacing.sm),
-              ),
-              SliverPersistentHeader(
-                delegate: _SliverAppBarDelegate(
-                  TabBar(
-                    tabs: const [
-                      Tab(text: 'Product'),
-                      Tab(text: 'Details'),
-                      Tab(text: 'Reviews'),
-                    ],
-                    labelColor: context.palette.brand,
-                    unselectedLabelColor: context.palette.textSecondary,
-                    indicatorColor: context.palette.brand,
-                    labelPadding: EdgeInsets.symmetric(horizontal: context.spacing.sm),
+                SliverToBoxAdapter(
+                  child: ProductImageCarousel(
+                    id: widget.id,
                   ),
                 ),
-                pinned: true,
-              ),
-            ];
-          },
-          body: TabBarView(
-            children: [
-              _ProductTab(
-                id: widget.id,
-                onVariantSelected: _handleVariantSelected,
-              ),
-              ProductDetailsTab(
-                productId: widget.id,
-              ),
-              ProductReviewsTab(
-                productId: widget.id,
-              ),
-            ],
+                SliverToBoxAdapter(
+                  child: SizedBox(height: context.spacing.sm),
+                ),
+                SliverPersistentHeader(
+                  delegate: _SliverAppBarDelegate(
+                    TabBar(
+                      tabs: const [
+                        Tab(text: 'Product'),
+                        Tab(text: 'Details'),
+                        Tab(text: 'Reviews'),
+                      ],
+                      labelColor: context.palette.brand,
+                      unselectedLabelColor: context.palette.textSecondary,
+                      indicatorColor: context.palette.brand,
+                      labelPadding: EdgeInsets.symmetric(horizontal: context.spacing.sm),
+                    ),
+                  ),
+                  pinned: true,
+                ),
+              ];
+            },
+            body: TabBarView(
+              children: [
+                _ProductTab(
+                  id: widget.id,
+                  onVariantSelected: _handleVariantSelected,
+                ),
+                ProductDetailsTab(
+                  productId: widget.id,
+                ),
+                ProductReviewsTab(
+                  productId: widget.id,
+                ),
+              ],
+            ),
           ),
         ),
       ),
