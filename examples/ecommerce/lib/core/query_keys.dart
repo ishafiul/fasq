@@ -88,6 +88,17 @@ class QueryKeys {
         ProductListProductsResponse,
       );
 
+  /// Query key for searching products in a category.
+  static TypedQueryKey<ProductListProductsResponse> categoryProductSearch(
+    String categoryId,
+    String search, {
+    int limit = 10,
+  }) =>
+      TypedQueryKey<ProductListProductsResponse>(
+        'category:products:search:$categoryId:$search:$limit',
+        ProductListProductsResponse,
+      );
+
   // Vendors
   /// Query key for a single vendor by ID.
   static TypedQueryKey<VendorGetVendorResponse> vendor(String id) =>
