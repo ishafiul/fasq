@@ -101,4 +101,3 @@ class CategoryInfoCard extends StatelessWidget {
     );
   }
 }
-
