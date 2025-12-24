@@ -3,6 +3,52 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-11-20
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.3.6`](#fasq---v036)
+ - [`fasq_bloc` - `v0.2.4`](#fasq_bloc---v024)
+ - [`fasq_hooks` - `v0.2.4`](#fasq_hooks---v024)
+ - [`fasq_riverpod` - `v0.2.4`](#fasq_riverpod---v024)
+ - [`fasq_security` - `v0.1.3`](#fasq_security---v013)
+
+---
+
+#### `fasq` - `v0.3.6`
+
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FEAT**: introduce cache data codec (#38).
+
+#### `fasq_bloc` - `v0.2.4`
+
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FEAT**: introduce cache data codec (#38).
+
+#### `fasq_hooks` - `v0.2.4`
+
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FEAT**: introduce cache data codec (#38).
+
+#### `fasq_riverpod` - `v0.2.4`
+
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FEAT**: introduce cache data codec (#38).
+
+#### `fasq_security` - `v0.1.3`
+
+ - **FEAT**: enhance CacheDatabase schema setup (#39).
+ - **FEAT**: introduce cache data codec (#38).
+
+
 ## 2025-11-09
 
 ### Changes

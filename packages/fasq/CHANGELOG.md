@@ -1,3 +1,8 @@
+## 0.3.6
+
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FEAT**: introduce cache data codec (#38).
+
 ## 0.3.5
 
  - **FEAT**: harden persistence across cache layers (#36).
