@@ -88,8 +88,11 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
     _initializeQuery();
   }
 
-  void _initializeQuery() {
+  Future<void> _initializeQuery() async {
     final client = _client ?? QueryClient();
+
+    await client.persistenceInitialization;
+
     final query = client.getQuery<T>(
       widget.queryKey,
       widget.queryFn,
