@@ -29,12 +29,15 @@ class QueryClientService {
       persistenceProvider: _persistenceProvider,
     );
 
-    // Configure QueryClient with security plugin
+    // Configure QueryClient with security plugin and persistence enabled
     _client = QueryClient(
       config: const CacheConfig(
         defaultStaleTime: Duration(minutes: 5),
         defaultCacheTime: Duration(minutes: 30),
         maxCacheSize: 100 * 1024 * 1024, // 100MB
+      ),
+      persistenceOptions: const PersistenceOptions(
+        enabled: true,
       ),
       securityPlugin: _securityPlugin,
     );

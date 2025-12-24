@@ -1,6 +1,5 @@
 swagger_parser:
   schema_url: https://example_backend.shafiulislam20.workers.dev/spec.json
-  ## schema_url: http://engineer:e4febe16-8187-lk78-b70c-98jek8b1b67@localhost:8080/swagger.json
 
   output_directory: lib/api/
   language: dart
