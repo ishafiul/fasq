@@ -352,6 +352,14 @@ class QueryClient with WidgetsBindingObserver {
   /// Useful for direct cache access in tests or advanced use cases.
   QueryCache get cache => _cache;
 
+  /// Gets the persistence initialization future.
+  ///
+  /// Use this to wait for persisted cache entries to be loaded
+  /// before creating queries. This ensures queries can use cached
+  /// data immediately instead of making unnecessary network requests.
+  Future<void> get persistenceInitialization =>
+      _cache.persistenceInitialization;
+
   /// The isolate pool for heavy computation tasks.
   IsolatePool get isolatePool => _isolatePool;
 
