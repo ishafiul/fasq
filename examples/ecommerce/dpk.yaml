@@ -1,6 +1,6 @@
 # dpk configuration for ecommerce Flutter app
 # See: https://pub.dev/packages/dpk
-version: 0.6.2
+version: 0.6.5
 mode: global
 
 scripts:

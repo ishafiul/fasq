@@ -59,11 +59,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
-                SliverAppBar(
-                  title: const Text('Product Details'),
+                const SliverAppBar(
+                  title: Text('Product Details'),
                   floating: true,
                   snap: true,
-                  actions: const [
+                  actions: [
                     CartIconButton(),
                   ],
                 ),

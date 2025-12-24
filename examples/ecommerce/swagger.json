@@ -1,0 +1,1774 @@
+{
+    "info": {
+        "title": "Identity Service",
+        "version": "1.0.0",
+        "description": "Identity Service"
+    },
+    "servers": [
+        {
+            "url": "/api"
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "cookieAccessTokenAuth": {
+                "type": "apiKey",
+                "in": "cookie",
+                "name": "rsv3_access"
+            },
+            "cookieRefreshTokenAuth": {
+                "type": "apiKey",
+                "in": "cookie",
+                "name": "rsv3_refresh"
+            },
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer"
+            },
+            "serverAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "x-server-token"
+            }
+        },
+        "schemas": {
+            "RegisterInput": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "pattern": "[A-Z]",
+                        "allOf": [
+                            {
+                                "pattern": "[a-z]"
+                            },
+                            {
+                                "pattern": "[0-9]"
+                            },
+                            {
+                                "pattern": "[!@#$%^&*(),.?\":{}|<>]"
+                            }
+                        ]
+                    },
+                    "firstName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "required": [
+                    "email",
+                    "password",
+                    "firstName",
+                    "lastName"
+                ]
+            },
+            "LoginInput": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "deviceInfo": {
+                        "type": "object",
+                        "properties": {
+                            "deviceName": {
+                                "type": "string"
+                            },
+                            "manufacturer": {
+                                "type": "string"
+                            },
+                            "model": {
+                                "type": "string"
+                            },
+                            "platform": {
+                                "type": "string"
+                            },
+                            "osVersion": {
+                                "type": "string"
+                            },
+                            "deviceUuid": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ]
+            },
+            "CreateOrResetPasswordInput": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "pattern": "[A-Z]",
+                        "allOf": [
+                            {
+                                "pattern": "[a-z]"
+                            },
+                            {
+                                "pattern": "[0-9]"
+                            },
+                            {
+                                "pattern": "[!@#$%^&*(),.?\":{}|<>]"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "token",
+                    "password"
+                ]
+            },
+            "ChangePasswordInput": {
+                "type": "object",
+                "properties": {
+                    "currentPassword": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "newPassword": {
+                        "type": "string",
+                        "minLength": 8
+                    }
+                },
+                "required": [
+                    "currentPassword",
+                    "newPassword"
+                ],
+                "title": "ChangePasswordInput"
+            },
+            "UpdateMyProfileInput": {
+                "type": "object",
+                "properties": {
+                    "firstName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "phoneNumber": {
+                        "type": "string"
+                    }
+                },
+                "title": "UpdateMyProfileInput"
+            },
+            "CreateUserInputSchema": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "firstName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "phoneNumber": {
+                        "type": "string"
+                    },
+                    "businessUnit": {
+                        "type": "string"
+                    },
+                    "department": {
+                        "type": "string"
+                    },
+                    "location": {
+                        "type": "string"
+                    },
+                    "costCenter": {
+                        "type": "string"
+                    },
+                    "sapId": {
+                        "type": "string"
+                    },
+                    "note": {
+                        "type": "string"
+                    },
+                    "roleIds": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "email",
+                    "firstName",
+                    "lastName",
+                    "roleIds"
+                ]
+            },
+            "UpdateUserInput": {
+                "type": "object",
+                "properties": {
+                    "firstName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "phoneNumber": {
+                        "type": "string"
+                    },
+                    "businessUnit": {
+                        "type": "string"
+                    },
+                    "department": {
+                        "type": "string"
+                    },
+                    "location": {
+                        "type": "string"
+                    },
+                    "costCenter": {
+                        "type": "string"
+                    },
+                    "sapId": {
+                        "type": "string"
+                    },
+                    "note": {
+                        "type": "string"
+                    },
+                    "roleIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "status": {
+                        "enum": [
+                            "ACTIVE",
+                            "INACTIVE",
+                            "ARCHIVE"
+                        ]
+                    }
+                },
+                "required": [
+                    "firstName",
+                    "lastName"
+                ],
+                "title": "UpdateUserInput"
+            },
+            "ChangePasswordOutput": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "message"
+                ],
+                "title": "ChangePasswordOutput"
+            },
+            "ResetPasswordOutput": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "message"
+                ],
+                "title": "ResetPasswordOutput"
+            },
+            "User": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "email": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "emailVerified": {
+                        "type": "boolean"
+                    },
+                    "organizationId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "employeeId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 100
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isLocked": {
+                        "type": "boolean"
+                    },
+                    "lockoutEnd": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "failedLoginAttempts": {
+                        "type": "integer",
+                        "minimum": -2147483648,
+                        "maximum": 2147483647
+                    },
+                    "lastLoginAt": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "lastPasswordChangeAt": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "deletedAt": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    }
+                },
+                "required": [
+                    "id",
+                    "email",
+                    "emailVerified",
+                    "organizationId",
+                    "employeeId",
+                    "isLocked",
+                    "lockoutEnd",
+                    "failedLoginAttempts",
+                    "lastLoginAt",
+                    "lastPasswordChangeAt",
+                    "deletedAt",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "title": "User"
+            },
+            "UserProfile": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "userId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "firstName": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "phoneNumber": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 50
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "phoneVerified": {
+                        "type": "boolean"
+                    },
+                    "businessUnit": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "department": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "location": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "costCenter": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "sapId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 100
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "note": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    }
+                },
+                "required": [
+                    "id",
+                    "userId",
+                    "firstName",
+                    "lastName",
+                    "phoneNumber",
+                    "phoneVerified",
+                    "businessUnit",
+                    "department",
+                    "location",
+                    "costCenter",
+                    "sapId",
+                    "note",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "title": "UserProfile"
+            },
+            "Role": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "organizationId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "permissions": {
+                        "type": "array",
+                        "items": {
+                            "not": {}
+                        }
+                    },
+                    "createdBy": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "deletedAt": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "organizationId",
+                    "permissions",
+                    "createdBy",
+                    "deletedAt",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "title": "Role"
+            },
+            "UserRoleWithRole": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "userId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "roleId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isSystem": {
+                        "type": "boolean"
+                    },
+                    "systemRoleName": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "role": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Role"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "userId",
+                    "roleId",
+                    "isSystem",
+                    "systemRoleName",
+                    "createdAt",
+                    "updatedAt",
+                    "role"
+                ],
+                "title": "UserRoleWithRole"
+            },
+            "UserWithDetails": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "email": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "emailVerified": {
+                        "type": "boolean"
+                    },
+                    "organizationId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "uuid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "employeeId": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 100
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "isLocked": {
+                        "type": "boolean"
+                    },
+                    "lockoutEnd": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "failedLoginAttempts": {
+                        "type": "integer",
+                        "minimum": -2147483648,
+                        "maximum": 2147483647
+                    },
+                    "lastLoginAt": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "lastPasswordChangeAt": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "deletedAt": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time",
+                                "x-native-type": "date"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "x-native-type": "date"
+                    },
+                    "userProfile": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/UserProfile"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "userRoles": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UserRoleWithRole"
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "email",
+                    "emailVerified",
+                    "organizationId",
+                    "employeeId",
+                    "isLocked",
+                    "lockoutEnd",
+                    "failedLoginAttempts",
+                    "lastLoginAt",
+                    "lastPasswordChangeAt",
+                    "deletedAt",
+                    "createdAt",
+                    "updatedAt",
+                    "userProfile",
+                    "userRoles"
+                ],
+                "title": "UserWithDetails"
+            },
+            "Pagination": {
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "type": "number"
+                    },
+                    "page": {
+                        "type": "number"
+                    },
+                    "limit": {
+                        "type": "number"
+                    },
+                    "totalPages": {
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "total",
+                    "page",
+                    "limit",
+                    "totalPages"
+                ],
+                "title": "Pagination"
+            },
+            "AdminUsersOutput": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UserWithDetails"
+                        }
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    }
+                },
+                "required": [
+                    "items",
+                    "pagination"
+                ],
+                "title": "AdminUsersOutput"
+            },
+            "DeleteUserOutput": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "message"
+                ],
+                "title": "DeleteUserOutput"
+            },
+            "AdminResetPasswordOutput": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "message"
+                ],
+                "title": "AdminResetPasswordOutput"
+            }
+        }
+    },
+    "security": [
+        {
+            "cookieAccessTokenAuth": [],
+            "cookieRefreshTokenAuth": []
+        }
+    ],
+    "openapi": "3.1.1",
+    "paths": {
+        "/health": {
+            "get": {
+                "operationId": "health",
+                "tags": [
+                    "Health"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "const": "ok"
+                                        },
+                                        "timestamp": {
+                                            "type": "string"
+                                        },
+                                        "service": {
+                                            "const": "identity"
+                                        }
+                                    },
+                                    "required": [
+                                        "status",
+                                        "timestamp",
+                                        "service"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ready": {
+            "get": {
+                "operationId": "ready",
+                "tags": [
+                    "Health"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "const": "ok"
+                                        },
+                                        "timestamp": {
+                                            "type": "string"
+                                        },
+                                        "service": {
+                                            "const": "identity"
+                                        }
+                                    },
+                                    "required": [
+                                        "status",
+                                        "timestamp",
+                                        "service"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "operationId": "auth.register",
+                "summary": "Register a new user",
+                "description": "Create a new user account with email and password",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "userId": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "email": {
+                                            "type": "string",
+                                            "format": "email"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "userId",
+                                        "email",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "operationId": "auth.login",
+                "summary": "Login with email and password",
+                "description": "Authenticate user and return access and refresh tokens",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "accessToken": {
+                                            "type": "string"
+                                        },
+                                        "refreshToken": {
+                                            "type": "string"
+                                        },
+                                        "user": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "format": "email"
+                                                },
+                                                "firstName": {
+                                                    "type": "string"
+                                                },
+                                                "lastName": {
+                                                    "type": "string"
+                                                },
+                                                "emailVerified": {
+                                                    "type": "boolean"
+                                                }
+                                            },
+                                            "required": [
+                                                "id",
+                                                "email",
+                                                "firstName",
+                                                "lastName",
+                                                "emailVerified"
+                                            ]
+                                        },
+                                        "expiresInS": {
+                                            "type": "number"
+                                        },
+                                        "refreshTokenExpiresInS": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "required": [
+                                        "accessToken",
+                                        "refreshToken",
+                                        "user",
+                                        "expiresInS",
+                                        "refreshTokenExpiresInS"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/verify-email": {
+            "get": {
+                "operationId": "auth.verifyEmail",
+                "summary": "Verify email",
+                "description": "Verify email using a verification token",
+                "tags": [
+                    "Authentication"
+                ],
+                "parameters": [
+                    {
+                        "name": "email",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "email"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "token",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "email": {
+                                            "type": "string",
+                                            "format": "email"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "email"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "operationId": "auth.refresh",
+                "summary": "Refresh access token",
+                "description": "Get a new access token using a valid refresh token (token rotation)",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "accessToken": {
+                                            "type": "string"
+                                        },
+                                        "refreshToken": {
+                                            "type": "string"
+                                        },
+                                        "expiresInS": {
+                                            "type": "number"
+                                        },
+                                        "refreshTokenExpiresInS": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "required": [
+                                        "accessToken",
+                                        "refreshToken",
+                                        "expiresInS",
+                                        "refreshTokenExpiresInS"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": [],
+                        "cookieRefreshTokenAuth": []
+                    }
+                ]
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "operationId": "auth.logout",
+                "summary": "Logout user",
+                "description": "Revoke refresh token and invalidate session",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            }
+        },
+        "/auth/jwks": {
+            "get": {
+                "operationId": "auth.jwks",
+                "summary": "Jwks Internal Api",
+                "description": "Broadcast the Jwks of the identity service",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "jwks": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "kid": {
+                                                        "type": "string"
+                                                    },
+                                                    "key": {
+                                                        "not": {}
+                                                    }
+                                                },
+                                                "required": [
+                                                    "kid",
+                                                    "key"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "jwks"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "serverAuth": []
+                    }
+                ]
+            }
+        },
+        "/auth/create-or-reset-password": {
+            "post": {
+                "operationId": "auth.createOrResetPassword",
+                "summary": "Create or reset password for invited user",
+                "description": "Set password using invite token received via email",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateOrResetPasswordInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "email": {
+                                            "type": "string",
+                                            "format": "email"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "email"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/auth/password": {
+            "patch": {
+                "operationId": "auth.changePassword",
+                "summary": "Change Password",
+                "description": "Change the authenticated user password",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePasswordInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChangePasswordOutput"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            }
+        },
+        "/auth/reset-password": {
+            "post": {
+                "operationId": "auth.resetMyPassword",
+                "summary": "Reset My Password",
+                "description": "Generate password reset link for current user",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ResetPasswordOutput"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            }
+        },
+        "/user/me": {
+            "get": {
+                "operationId": "user.me",
+                "summary": "Current User",
+                "description": "Return the authenticated user",
+                "tags": [
+                    "User"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "user.updateMe",
+                "summary": "Update My Profile",
+                "description": "Update the authenticated user profile",
+                "tags": [
+                    "User"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateMyProfileInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserWithDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            }
+        },
+        "/admin/users": {
+            "get": {
+                "operationId": "user.adminList",
+                "summary": "List Users",
+                "description": "Get a list of users with filtering and pagination",
+                "tags": [
+                    "Admin User"
+                ],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991,
+                            "default": 1
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 10
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "enum": [
+                                "ACTIVE",
+                                "INACTIVE",
+                                "ARCHIVE"
+                            ]
+                        },
+                        "style": "deepObject",
+                        "explode": true,
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "location",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "businessUnit",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    },
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "allowEmptyValue": true,
+                        "allowReserved": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminUsersOutput"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "user.createUser",
+                "summary": "Create User",
+                "description": "Create a new user",
+                "tags": [
+                    "Admin User"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateUserInputSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserWithDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            }
+        },
+        "/admin/users/:userId": {
+            "get": {
+                "operationId": "user.adminGetUser",
+                "summary": "Get User",
+                "description": "Get a user by ID",
+                "tags": [
+                    "Admin User"
+                ],
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserWithDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "user.updateUser",
+                "summary": "Update User",
+                "description": "It will update the user info",
+                "tags": [
+                    "Admin User"
+                ],
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateUserInput"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserWithDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "user.deleteUser",
+                "summary": "Delete User",
+                "description": "Soft delete a user by setting deletedAt timestamp",
+                "tags": [
+                    "Admin User"
+                ],
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeleteUserOutput"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            }
+        },
+        "/admin/users/:userId/reset-password": {
+            "post": {
+                "operationId": "user.adminResetPassword",
+                "summary": "Admin Reset Password",
+                "description": "Generate password reset link for a user",
+                "tags": [
+                    "Admin User"
+                ],
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminResetPasswordOutput"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAccessTokenAuth": []
+                    }
+                ]
+            }
+        }
+    }
+}

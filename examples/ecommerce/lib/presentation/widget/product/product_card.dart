@@ -1,17 +1,24 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ecommerce/api/models/cart_add_item_request.dart';
+import 'package:ecommerce/api/models/cart_response.dart';
+import 'package:ecommerce/api/models/cart_update_item_request.dart';
 import 'package:ecommerce/api/models/product_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
+import 'package:ecommerce/core/get_it.dart';
+import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
+import 'package:ecommerce/core/services/cart_service.dart';
+import 'package:ecommerce/core/services/product_service.dart';
+import 'package:ecommerce/core/services/user_service.dart';
 import 'package:ecommerce/core/widgets/badge.dart' as core;
-import 'package:ecommerce/core/widgets/button/button.dart';
 import 'package:ecommerce/core/widgets/card.dart';
+import 'package:ecommerce/core/widgets/number_stepper.dart';
 import 'package:ecommerce/core/widgets/rating.dart';
 import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
-import 'package:ecommerce/core/widgets/svg_icon.dart';
 import 'package:ecommerce/core/widgets/tag.dart';
-import 'package:ecommerce/gen/assets.gen.dart';
+import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 
 enum ProductTagType {
@@ -134,25 +141,10 @@ class ProductCard extends StatelessWidget {
               ),
               if (showAddToCart) ...[
                 SizedBox(height: spacing.xs / 2),
-                Button.primary(
-                  onPressed: onAddToCart,
-                  fill: ButtonFill.solid,
-                  shape: ButtonShape.base,
-                  buttonSize: ButtonSize.mini,
-                  isBlock: true,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SvgIcon(
-                        svg: Assets.icons.outlined.shoppingCart,
-                        size: 14,
-                        color: colors.onPrimary,
-                      ),
-                      const SizedBox(width: 4),
-                      const Text('Add'),
-                    ],
-                  ),
+                GestureDetector(
+                  onTap: () {},
+                  behavior: HitTestBehavior.opaque,
+                  child: _ProductCartStepper(product: product),
                 ),
               ],
             ],
@@ -452,25 +444,10 @@ class ProductCardHorizontal extends StatelessWidget {
                     originalPrice: originalPrice,
                   ),
                   if (showAddToCart) ...[
-                    Button.primary(
-                      onPressed: onAddToCart,
-                      fill: ButtonFill.solid,
-                      shape: ButtonShape.base,
-                      buttonSize: ButtonSize.mini,
-                      isBlock: true,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SvgIcon(
-                            svg: Assets.icons.outlined.shoppingCart,
-                            size: 14,
-                            color: colors.onPrimary,
-                          ),
-                          const SizedBox(width: 4),
-                          const Text('Add'),
-                        ],
-                      ),
+                    GestureDetector(
+                      onTap: () {},
+                      behavior: HitTestBehavior.opaque,
+                      child: _ProductCartStepper(product: product),
                     ),
                   ],
                 ],
@@ -611,6 +588,214 @@ class _PriceSectionHorizontal extends StatelessWidget {
           .copyWith(
             fontWeight: FontWeight.w600,
           ),
+    );
+  }
+}
+
+class _ProductCartStepper extends StatelessWidget {
+  const _ProductCartStepper({
+    required this.product,
+  });
+
+  final ProductResponse? product;
+
+  @override
+  Widget build(BuildContext context) {
+    if (product == null) {
+      return const SizedBox.shrink();
+    }
+
+    return QueryBuilder<bool>(
+      queryKey: QueryKeys.isLoggedIn,
+      queryFn: () => locator.get<UserService>().isLoggedIn(),
+      builder: (context, authState) {
+        if (authState.isLoading || authState.data != true) {
+          return NumberStepper(
+            value: 0,
+            min: 0,
+            max: 999,
+            step: 1,
+            compact: true,
+            onChanged: (value) {
+              if (value != null && value > 0) {
+                context.router.push(ProductDetailRoute(id: product!.id));
+              }
+            },
+          );
+        }
+
+        return QueryBuilder<CartResponse>(
+          queryKey: QueryKeys.cart,
+          queryFn: () => locator.get<CartService>().getCart(),
+          options: QueryOptions(
+            staleTime: const Duration(seconds: 30),
+            cacheTime: const Duration(minutes: 5),
+          ),
+          builder: (context, cartState) {
+            final cartItems = cartState.data?.items ?? [];
+            final productItems = cartItems.where((item) => item.product.id == product!.id).toList();
+
+            final currentQuantity = productItems.fold<int>(
+              0,
+              (sum, item) {
+                final quantity = item.item.quantity;
+                final qty = quantity is int ? quantity : quantity.toInt();
+                return sum + qty;
+              },
+            );
+
+            if (currentQuantity == 0) {
+              return MutationBuilder<CartResponse, CartAddItemRequest>(
+                mutationFn: (request) => locator.get<CartService>().addItem(
+                      productId: request.productId,
+                      variantId: request.variantId,
+                      quantity: request.quantity,
+                      priceAtAdd: request.priceAtAdd,
+                    ),
+                options: MutationOptions(
+                  meta: const MutationMeta(
+                    successMessage: 'Item added to cart',
+                    errorMessage: 'Failed to add item to cart',
+                  ),
+                  onSuccess: (data) {
+                    final queryClient = context.queryClient;
+                    if (queryClient != null) {
+                      queryClient.setQueryData(QueryKeys.cart, data);
+                    }
+                  },
+                ),
+                builder: (context, state, mutate) {
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      NumberStepper(
+                        value: 0,
+                        min: 0,
+                        max: 999,
+                        step: 1,
+                        compact: true,
+                        disabled: state.isLoading,
+                        onChanged: (value) async {
+                          if (value == null || value <= 0) return;
+
+                          final productService = locator.get<ProductService>();
+                          try {
+                            final productDetail = await productService.getProductById(product!.id);
+                            final variants = productDetail.variants;
+
+                            if (variants.isEmpty) {
+                              if (context.mounted) {
+                                context.router.push(ProductDetailRoute(id: product!.id));
+                              }
+                              return;
+                            }
+
+                            final availableVariant = variants.firstWhere(
+                              (v) => v.inventoryQuantity > 0,
+                              orElse: () => variants.first,
+                            );
+
+                            final request = CartAddItemRequest(
+                              productId: product!.id,
+                              variantId: availableVariant.id,
+                              quantity: value.toInt(),
+                              priceAtAdd: availableVariant.price,
+                            );
+                            await mutate(request);
+                          } catch (e) {
+                            if (context.mounted) {
+                              context.router.push(ProductDetailRoute(id: product!.id));
+                            }
+                          }
+                        },
+                      ),
+                      if (state.isLoading)
+                        Positioned.fill(
+                          child: ColoredBox(
+                            color: context.palette.background.withValues(alpha: 0.7),
+                            child: Center(
+                              child: CircularProgressSpinner(
+                                color: context.palette.brand,
+                                size: 20,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              );
+            }
+
+            final firstItem = productItems.first;
+            final itemId = firstItem.item.id;
+            final variant = firstItem.variant;
+            final maxQuantity = variant.inventoryQuantity.toInt();
+
+            return MutationBuilder<CartResponse, CartUpdateItemRequest>(
+              mutationFn: (request) => locator.get<CartService>().updateItem(
+                    id: request.id,
+                    quantity: request.quantity,
+                  ),
+              options: MutationOptions(
+                onSuccess: (data) {
+                  final queryClient = context.queryClient;
+                  if (queryClient != null) {
+                    queryClient.setQueryData(QueryKeys.cart, data);
+                  }
+                },
+              ),
+              builder: (context, state, mutate) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    NumberStepper(
+                      value: currentQuantity,
+                      min: 0,
+                      max: maxQuantity,
+                      compact: true,
+                      disabled: state.isLoading,
+                      onChanged: (value) async {
+                        if (value == null) return;
+
+                        if (value == 0) {
+                          final cartService = locator.get<CartService>();
+                          await cartService.removeItem(id: itemId);
+                          final queryClient = context.queryClient;
+                          if (queryClient != null) {
+                            final updatedCart = await cartService.getCart();
+                            queryClient.setQueryData(QueryKeys.cart, updatedCart);
+                          }
+                        } else if (value != currentQuantity) {
+                          final request = CartUpdateItemRequest(
+                            id: itemId,
+                            quantity: value.toInt(),
+                          );
+                          await mutate(request);
+                        }
+                      },
+                    ),
+                    if (state.isLoading)
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: context.palette.background.withValues(alpha: 0.7),
+                          child: Center(
+                            child: CircularProgressSpinner(
+                              color: context.palette.brand,
+                              size: 20,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

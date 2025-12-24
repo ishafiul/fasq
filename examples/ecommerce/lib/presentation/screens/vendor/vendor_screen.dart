@@ -270,9 +270,9 @@ class _VendorProductsSectionState extends State<_VendorProductsSection> {
                 products: [],
                 isLoading: true,
                 onProductTap: (product) {
-                  if (product != null) {
-                    context.router.push(ProductDetailRoute(id: product.id));
-                  }
+                  // if (product != null) {
+                  //   context.router.push(ProductDetailRoute(id: product.id));
+                  // }
                 },
               ),
             ],
