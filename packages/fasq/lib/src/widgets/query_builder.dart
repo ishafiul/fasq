@@ -76,6 +76,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
   void initState() {
     super.initState();
     _client = QueryClient.maybeInstance ?? QueryClient();
+    _state = QueryState<T>.loading(isFetching: true);
   }
 
   @override
