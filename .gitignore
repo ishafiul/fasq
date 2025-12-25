@@ -47,3 +47,7 @@ app.*.map.json
 .melos_tool/
 
 /.cursor/
+
+# deps
+node_modules/
+.wrangler

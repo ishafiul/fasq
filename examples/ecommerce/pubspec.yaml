@@ -1,0 +1,85 @@
+name: ecommerce
+version: 0.0.1+1
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+description: A new Flutter project.
+
+dependencies:
+  auto_route: ^10.2.2
+  dio: ^5.8.0+1
+  drift: ^2.28.1
+  drift_flutter: ^0.2.5
+  envied: ^1.1.1
+  fasq: 0.3.5
+  fasq_security: 0.1.2
+  file_picker: ^10.3.1
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_svg: ^2.2.0
+  freezed_annotation: ^3.0.0
+  get_it: ^8.0.3
+  image_picker: ^1.2.0
+  injectable: ^2.5.0
+  intl: ^0.20.2
+  intl_phone_number_input: ^0.7.5
+  json_annotation: ^4.9.0
+  logger: ^2.5.0
+  luthor: ^0.15.0
+  mime: ^1.0.4
+  path: ^1.9.1
+  photo_view: ^0.15.0
+  pinput: ^5.0.2
+  path_provider: ^2.1.5
+  retrofit: ^4.4.2
+  share_plus: ^7.0.0
+  stack_trace: ^1.12.1
+  stream_transform: ^2.1.1
+  cached_network_image: ^3.4.1
+  vibration: ^3.1.4
+  device_info_plus: ^11.2.0
+  flutter_secure_storage: ^9.2.2
+  package_info_plus: ^8.1.2
+
+dev_dependencies:
+  auto_route_generator: ^10.2.2
+  build_runner: ^2.4.15
+  flutter_gen_runner:
+  envied_generator: ^1.1.1
+  flutter_test:
+    sdk: flutter
+  freezed: ^3.0.6
+  injectable_generator: ^2.7.0
+  json_serializable: ^6.9.5
+  lint: ^2.8.0
+  retrofit_generator: ^9.1.9
+  swagger_parser: ^1.36.0
+  drift_dev: ^2.28.0
+
+flutter_gen:
+  integrations:
+    image: true
+    flutter_svg: true
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/icons/outlined/
+    - assets/icons/filled/
+    - assets/icons/twotone/
+    - assets/fonts/
+  fonts:
+    - family: Arial
+      fonts:
+        - asset: assets/fonts/ARIAL.ttf
+        - asset: assets/fonts/ARIALBD.ttf
+          weight: 700
+        - asset: assets/fonts/ARIALI.ttf
+          style: italic
+        - asset: assets/fonts/ARIALBI.ttf
+          weight: 700
+          style: italic
