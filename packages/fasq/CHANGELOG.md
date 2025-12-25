@@ -1,3 +1,7 @@
+## 0.3.7+1
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
 ## 0.3.7
 
  - **FIX**: wait for persistence initialization before creating queries (#41).

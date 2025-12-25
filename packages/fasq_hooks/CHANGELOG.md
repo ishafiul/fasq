@@ -1,3 +1,7 @@
+## 0.2.4+2
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
 ## 0.2.4+1
 
  - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.

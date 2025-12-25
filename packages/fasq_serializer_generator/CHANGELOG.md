@@ -1,3 +1,7 @@
+## 0.1.1+1
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
 ## 0.1.1
 
  - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).

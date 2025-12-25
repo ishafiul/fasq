@@ -3,6 +3,52 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-12-26
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.3.7+1`](#fasq---v0371)
+ - [`fasq_bloc` - `v0.2.4+2`](#fasq_bloc---v0242)
+ - [`fasq_hooks` - `v0.2.4+2`](#fasq_hooks---v0242)
+ - [`fasq_riverpod` - `v0.2.4+2`](#fasq_riverpod---v0242)
+ - [`fasq_security` - `v0.1.4+1`](#fasq_security---v0141)
+ - [`fasq_serializer_generator` - `v0.1.1+1`](#fasq_serializer_generator---v0111)
+
+---
+
+#### `fasq` - `v0.3.7+1`
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
+#### `fasq_bloc` - `v0.2.4+2`
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
+#### `fasq_hooks` - `v0.2.4+2`
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
+#### `fasq_riverpod` - `v0.2.4+2`
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
+#### `fasq_security` - `v0.1.4+1`
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
+#### `fasq_serializer_generator` - `v0.1.1+1`
+
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+
+
 ## 2025-12-25
 
 ### Changes
