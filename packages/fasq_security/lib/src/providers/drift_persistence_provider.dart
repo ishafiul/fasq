@@ -15,24 +15,39 @@ class DriftPersistenceProvider implements PersistenceProvider {
 
   late CacheDatabase _database;
   bool _initialized = false;
+  bool _isDisposed = false;
+  final _initLock = _AsyncLock();
   final void Function()? _onDispose;
 
   bool get isInitialized => _initialized;
-  bool get isDisposed => !_initialized;
+  bool get isDisposed => _isDisposed;
 
   @override
   bool get supportsEncryptionKeyRotation => true;
 
   @override
   Future<void> initialize() async {
+    print(
+        'DriftPersistenceProvider($hashCode): initialize() called. _initialized=$_initialized');
     if (_initialized) return;
 
-    try {
-      _database = await CacheDatabase.open();
-      _initialized = true;
-    } catch (e) {
-      throw PersistenceException('Failed to initialize database: $e');
-    }
+    await _initLock.synchronized(() async {
+      if (_initialized) return;
+
+      try {
+        print('DriftPersistenceProvider($hashCode): Initializing database...');
+        _database = await CacheDatabase.open();
+        print(
+            'DriftPersistenceProvider($hashCode): Database path: ${_database.path}');
+        _initialized = true;
+        _isDisposed = false;
+        print('DriftPersistenceProvider($hashCode): Database initialized.');
+      } catch (e) {
+        print(
+            'DriftPersistenceProvider($hashCode): Failed to initialize database: $e');
+        throw PersistenceException('Failed to initialize database: $e');
+      }
+    });
   }
 
   @override
@@ -43,16 +58,20 @@ class DriftPersistenceProvider implements PersistenceProvider {
     DateTime? expiresAt,
   }) async {
     if (!_initialized) {
-      throw PersistenceException('Provider not initialized');
+      throw PersistenceException('DriftPersistenceProvider not initialized');
     }
 
     try {
+      print(
+          'DriftPersistenceProvider: Persisting key=$key, dataLength=${encryptedData.length}');
       await _database.insertCacheEntries(
         {key: encryptedData},
         createdAt: createdAt != null ? {key: createdAt} : null,
         expiresAt: {key: expiresAt},
       );
+      print('DriftPersistenceProvider: Persisted key=$key successfully');
     } catch (e) {
+      print('DriftPersistenceProvider: Failed to persist key=$key: $e');
       throw PersistenceException('Failed to persist data for key $key: $e');
     }
   }
@@ -60,13 +79,23 @@ class DriftPersistenceProvider implements PersistenceProvider {
   @override
   Future<List<int>?> retrieve(String key) async {
     if (!_initialized) {
-      throw PersistenceException('Provider not initialized');
+      throw PersistenceException('DriftPersistenceProvider not initialized');
     }
 
     try {
+      print('DriftPersistenceProvider: Retrieving key=$key');
       final entries = await _database.getCacheEntries([key]);
-      return entries[key];
+
+      if (entries.containsKey(key)) {
+        final data = entries[key];
+        print(
+            'DriftPersistenceProvider: Retrieved key=$key, dataLength=${data?.length}');
+        return data;
+      }
+      print('DriftPersistenceProvider: Key=$key not found');
+      return null;
     } catch (e) {
+      print('DriftPersistenceProvider: Failed to retrieve key=$key: $e');
       throw PersistenceException('Failed to retrieve data for key $key: $e');
     }
   }
@@ -279,11 +308,63 @@ class DriftPersistenceProvider implements PersistenceProvider {
 
   @override
   Future<void> dispose() async {
-    if (!_initialized) {
+    if (_isDisposed) {
       return;
     }
-    await _database.close();
-    _initialized = false;
-    _onDispose?.call();
+
+    await _initLock.synchronized(() async {
+      if (_isDisposed) return;
+
+      if (_initialized) {
+        await _database.close();
+        _initialized = false;
+      }
+
+      _isDisposed = true;
+      _onDispose?.call();
+    });
+  }
+}
+
+class _AsyncLock {
+  final _queue = <Completer<void>>[];
+  bool _locked = false;
+
+  Future<void> acquire() async {
+    final completer = Completer<void>();
+
+    if (!_locked) {
+      _locked = true;
+      completer.complete();
+      return completer.future;
+    }
+
+    _queue.add(completer);
+
+    return completer.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        _queue.remove(completer);
+        throw TimeoutException('Lock acquisition timed out after 30 seconds');
+      },
+    );
+  }
+
+  void release() {
+    if (_queue.isNotEmpty) {
+      final next = _queue.removeAt(0);
+      next.complete();
+    } else {
+      _locked = false;
+    }
+  }
+
+  Future<T> synchronized<T>(Future<T> Function() fn) async {
+    await acquire();
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
   }
 }

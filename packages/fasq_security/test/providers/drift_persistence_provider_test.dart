@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq/fasq.dart';
 import 'package:fasq_security/src/providers/drift_persistence_provider.dart';
 import 'package:fasq_security/src/exceptions/persistence_exception.dart';
+import 'package:fasq_security/src/exceptions/encryption_exception.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -61,9 +62,9 @@ void main() {
 
         // Setup decryption/encryption responses
         mockEncryptionProvider.decryptResponses = {
-          'key1': [10, 11, 12],
-          'key2': [13, 14, 15],
-          'key3': [16, 17, 18],
+          'key1': [1, 10, 11],
+          'key2': [4, 13, 14],
+          'key3': [7, 16, 17],
         };
         mockEncryptionProvider.encryptResponses = {
           'key1': [20, 21, 22],
@@ -108,13 +109,16 @@ void main() {
 
         // Setup decryption/encryption responses with one failure
         mockEncryptionProvider.decryptResponses = {
-          'key1': [10, 11, 12],
-          'key3': [16, 17, 18], // key2 missing - will fail
+          'key1': [1, 10, 11],
+          'key2': [4, 13, 14],
+          'key3': [7, 16, 17],
         };
         mockEncryptionProvider.encryptResponses = {
           'key1': [20, 21, 22],
-          'key3': [26, 27, 28], // key2 missing - will fail
+          'key3': [26, 27, 28],
         };
+        // Configure mock to throw for key2
+        mockEncryptionProvider.keysToThrowOnEncrypt.add('key2');
 
         await expectLater(
           provider.rotateEncryptionKey(
@@ -126,7 +130,7 @@ void main() {
         );
 
         expect(mockEncryptionProvider.decryptCallCount, equals(3));
-        expect(mockEncryptionProvider.encryptCallCount, equals(2));
+        expect(mockEncryptionProvider.encryptCallCount, equals(3));
 
         expect(await provider.exists('key1'), isTrue);
         expect(await provider.exists('key2'), isTrue);
@@ -144,9 +148,9 @@ void main() {
 
         // Setup successful responses
         mockEncryptionProvider.decryptResponses = {
-          'key1': [10, 11, 12],
-          'key2': [13, 14, 15],
-          'key3': [16, 17, 18],
+          'key1': [1, 10, 11],
+          'key2': [4, 13, 14],
+          'key3': [7, 16, 17],
         };
         mockEncryptionProvider.encryptResponses = {
           'key1': [20, 21, 22],
@@ -289,6 +293,7 @@ class MockEncryptionProvider implements EncryptionProvider {
   List<String> encryptedKeys = [];
   Map<String, List<int>> decryptResponses = {};
   Map<String, List<int>> encryptResponses = {};
+  Set<String> keysToThrowOnEncrypt = {};
 
   @override
   Future<List<int>> decrypt(List<int> data, String key) async {
@@ -303,7 +308,11 @@ class MockEncryptionProvider implements EncryptionProvider {
   Future<List<int>> encrypt(List<int> data, String key) async {
     encryptCallCount++;
     // Simulate key extraction for tracking
+    // Simulate key extraction for tracking
     final keyName = _extractKeyName(data);
+    if (keysToThrowOnEncrypt.contains(keyName)) {
+      throw EncryptionException('Simulated encryption failure for $keyName');
+    }
     encryptedKeys.add(keyName);
     return encryptResponses[keyName] ?? data;
   }
