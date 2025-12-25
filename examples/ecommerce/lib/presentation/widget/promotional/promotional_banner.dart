@@ -27,10 +27,13 @@ class PromotionalBanner extends StatelessWidget {
       queryFn: () => locator.get<PromotionalService>().getCurrentOffers(),
       builder: (context, state) {
         if (state.hasError) {
+          debugPrint('PromotionalBanner: Error - ${state.error}');
           return const SizedBox.shrink();
         }
 
         final offers = state.data ?? [];
+        debugPrint(
+            'PromotionalBanner: Status=${state.status}, DataLength=${offers.length}, IsLoading=${state.isLoading}, IsFetching=${state.isFetching}, IsStale=${state.isStale}, DataUpdatedAt=${state.dataUpdatedAt}');
         final isLoading = state.isLoading;
 
         if (!isLoading && offers.isEmpty) {
@@ -111,7 +114,7 @@ class _BannerItem extends StatelessWidget {
                     child: Center(child: CircularProgressIndicator(color: palette.brand)),
                   ),
                   errorWidget: (context, url, error) => ColoredBox(
-                    color: palette.brand.withOpacity(0.1),
+                    color: palette.brand.withValues(alpha: 0.1),
                     child: Icon(Icons.image_not_supported, color: palette.textSecondary, size: spacing.xl),
                   ),
                 )
