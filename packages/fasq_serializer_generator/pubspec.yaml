@@ -1,7 +1,6 @@
 name: fasq_serializer_generator
 description: Build runner generator for automatically registering serializers from TypedQueryKey declarations
-version: 0.1.0
-publish_to: none
+version: 0.1.1
 repository: https://github.com/ishafiul/fasq
 issue_tracker: https://github.com/ishafiul/fasq/issues
 
@@ -13,8 +12,7 @@ dependencies:
   source_gen: ^4.1.0
   analyzer: ^8.1.1
   path:
-  fasq:
-    path: ../fasq 
+  fasq: ^0.3.7
 
 dev_dependencies:
   dart_style: 

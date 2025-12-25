@@ -15,6 +15,28 @@ Packages with breaking changes:
 
 Packages with other changes:
 
+ - [`fasq_serializer_generator` - `v0.1.1`](#fasq_serializer_generator---v011)
+
+---
+
+#### `fasq_serializer_generator` - `v0.1.1`
+
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
+
+## 2025-12-25
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
  - [`ecommerce` - `v0.0.2`](#ecommerce---v002)
  - [`fasq` - `v0.3.7`](#fasq---v037)
  - [`fasq_bloc` - `v0.2.4+1`](#fasq_bloc---v0241)
