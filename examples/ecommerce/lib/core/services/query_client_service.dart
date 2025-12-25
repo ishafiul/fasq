@@ -1,3 +1,4 @@
+import 'package:ecommerce/core/query_keys.dart';
 import 'package:fasq/fasq.dart';
 import 'package:fasq_security/fasq_security.dart';
 import 'package:injectable/injectable.dart';
@@ -29,15 +30,21 @@ class QueryClientService {
       persistenceProvider: _persistenceProvider,
     );
 
-    // Configure QueryClient with security plugin and persistence enabled
+    // Automatically register serializers for all QueryKeys types
+    final codecRegistry = registerQueryKeySerializers(
+      const CacheDataCodecRegistry(),
+    );
+
+    // Configure QueryClient with security plugin
     _client = QueryClient(
       config: const CacheConfig(
         defaultStaleTime: Duration(minutes: 5),
         defaultCacheTime: Duration(minutes: 30),
         maxCacheSize: 100 * 1024 * 1024, // 100MB
       ),
-      persistenceOptions: const PersistenceOptions(
+      persistenceOptions: PersistenceOptions(
         enabled: true,
+        codecRegistry: codecRegistry,
       ),
       securityPlugin: _securityPlugin,
     );
@@ -48,6 +55,7 @@ class QueryClientService {
   /// This must be called before using the QueryClient.
   Future<void> initialize() async {
     await _securityPlugin.initialize();
+    await _client.cache.persistenceInitialization;
   }
 
   /// Gets the QueryClient instance.

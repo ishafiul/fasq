@@ -9,10 +9,13 @@ import 'package:ecommerce/api/models/review_get_product_reviews_response.dart';
 import 'package:ecommerce/api/models/vendor_get_vendor_response.dart';
 import 'package:fasq/fasq.dart';
 
+part 'query_keys.g.dart';
+
 /// Type-safe query keys for the application.
 ///
 /// This class provides centralized query key definitions for all API queries.
 /// All query keys use TypedQueryKey for type safety and better IDE support.
+@AutoRegisterSerializers()
 class QueryKeys {
   QueryKeys._();
 
