@@ -1,0 +1,87 @@
+# Metadata
+
+Metadata allows you to attach arbitrary information to your queries and mutations. This is powerful for handling global side effects, such as showing error toasts or analytics, without coupling your UI widgets to specific logic.
+
+## Query Meta
+
+You can attach a `QueryMeta` object to any query options.
+
+```dart
+QueryOptions(
+  meta: QueryMeta(
+    successMessage: 'Data loaded successfully',
+    errorMessage: 'Failed to load daily stats',
+    // Custom arbitrary data map
+    extras: {'showToast': true, 'severity': 'info'},
+  ),
+)
+```
+
+### Global Side Effects
+
+The real power comes when combining metadata with `QueryClientObserver`. You can create a global observer that listens to all queries and reacts based on their metadata.
+
+```dart
+class GlobalFeedbackObserver extends QueryClientObserver {
+  @override
+  void onQueryError(Query query, Object error) {
+    // Check if the query has an error message defined in meta
+    final meta = query.options.meta;
+    if (meta?.errorMessage != null) {
+      showToast(meta!.errorMessage!);
+    }
+  }
+}
+
+// Register it at app startup
+final client = QueryClient();
+client.addObserver(GlobalFeedbackObserver());
+```
+
+## Mutation Meta
+
+Similarly, mutations support `MutationMeta`.
+
+```dart
+MutationOptions(
+  meta: MutationMeta(
+    successMessage: 'Item created!',
+    triggerCriticalHandler: true,
+  ),
+)
+```
+
+### Usage Example
+
+```dart
+MutationBuilder<Todo, String>(
+  mutationFn: addTodo,
+  options: MutationOptions(
+    meta: const MutationMeta(
+      successMessage: 'Todo added successfully',
+    ),
+  ),
+  builder: (context, state, mutate) {
+    // ...
+  },
+)
+```
+
+## API Reference
+
+### QueryMeta Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `successMessage` | `String?` | Optional message for success events. |
+| `errorMessage` | `String?` | Optional message for error events. |
+| `invalidateKeys` | `List<QueryKey>` | Keys to invalidate on success (handled by observers). |
+| `refetchKeys` | `List<QueryKey>` | Keys to refetch on success (handled by observers). |
+
+### MutationMeta Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `successMessage` | `String?` | Optional message for success events. |
+| `errorMessage` | `String?` | Optional message for error events. |
+| `invalidateKeys` | `List<QueryKey>` | Keys to invalidate on success. |

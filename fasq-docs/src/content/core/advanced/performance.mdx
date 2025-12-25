@@ -1,0 +1,77 @@
+# Performance & Isolates
+
+Fasq includes built-in tools to keep your application frame-perfect, even when dealing with heavy data parsing or transformations.
+
+## Isolate Pool
+
+Parsing large JSON responses on the main thread can cause UI jank. Fasq provides a managed `IsolatePool` to offload these tasks effortlessly.
+
+> [!NOTE]
+> Fasq does **not** automatically run your `queryFn` in an isolate. Networking and basic async operations are already non-blocking in Dart. Isolates are only needed for CPU-intensive work like parsing large JSON blobs (100KB+).
+
+### Usage
+
+Global configuration:
+```dart
+// Configure the pool size (defaults to number of processor cores)
+// This is automatically initialized by QueryClient
+IsolatePool.concurrency = 4; // Optional manual config
+```
+
+Offloading a task:
+```dart
+Future<List<User>> fetchAndParseUsers() async {
+  final response = await http.get(...);
+  
+  // Use IsolatePool to parse JSON in a background thread
+  return IsolatePool().compute(
+    (jsonString) {
+      final List data = jsonDecode(jsonString);
+      return data.map((e) => User.fromJson(e)).toList();
+    },
+    response.body,
+  );
+}
+```
+
+This ensures your UI animation stays at 60/120fps while parsing megabytes of data.
+
+## Performance Monitor
+
+Fasq tracks the performance of your queries internally.
+
+```dart
+final monitor = PerformanceMonitor();
+
+// Log query usage stats
+print(monitor.getMetrics());
+```
+
+## Cache Metrics
+
+You can inspect the cache health to optimize your configurations.
+
+```dart
+final cache = client.queryCache;
+
+print('Total Queries: ${cache.length}');
+// Useful for debugging memory usage
+```
+
+## Hot Cache
+
+Fasq exposes a `HotCache` class, which is a specialized high-performance LRU cache designed for extremely frequent access patterns (O(1) access).
+
+While `QueryCache` manages async `Query` state, `HotCache<T>` is a synchronous memory cache for direct object storage.
+
+```dart
+final hotCache = HotCache<String>(maxSize: 100);
+
+// Add items
+hotCache.put('key1', 'value1');
+
+// Retrieve (updates LRU position)
+final value = hotCache.get('key1');
+```
+
+Use this if you need to build a custom synchronous memory layer on top of Fasq's async primitives.

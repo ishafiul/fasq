@@ -1,0 +1,44 @@
+# Type Safety & Query Keys
+
+Fasq is designed to be fully type-safe. Using `TypedQueryKey` allows you to enforce type constraints between your query keys and the data they return, preventing runtime casting errors.
+
+## TypedQueryKey
+
+A `TypedQueryKey<T>` binds a specific data type `T` to a query key string.
+
+### Definition
+
+```dart
+// Define keys with their expected return types
+final userKey = TypedQueryKey<User>('user', User);
+final postsKey = TypedQueryKey<List<Post>>('posts', List<Post>);
+```
+
+### Usage with QueryBuilder
+
+When you use a `TypedQueryKey`, `QueryBuilder` (and `QueryClient`) infer the data type automatically.
+
+```dart
+QueryBuilder(
+  queryKey: userKey, // T is inferred as User
+  queryFn: () => fetchUser(),
+  builder: (context, state) {
+    // state.data is strictly typed as User?
+    // No casting required: (state.data as User)
+    return Text(state.data?.name ?? 'Loading...');
+  },
+)
+```
+
+### Parameterized Keys
+
+`TypedQueryKey` also supports parameters while maintaining type safety.
+
+```dart
+// Base key for a detail view
+final todoDetailKey = TypedQueryKey<Todo>('todo', Todo);
+
+// Generate a specific key for ID '123'
+// The resulting key is still a TypedQueryKey<Todo>
+final myTodoKey = todoDetailKey.withParam('123'); 
+```

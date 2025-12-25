@@ -1,803 +1,87 @@
 # QueryClient
 
-The `QueryClient` is the central hub for managing all queries, mutations, and the cache in Fasq. It provides methods for cache management, query invalidation, and advanced operations.
+The `QueryClient` is the core controller of Fasq. It manages the query cache, deduplication, and garbage collection.
 
-## Basic Usage
+## Initialization
+
+It is best to provide the `QueryClient` at the top of your widget tree using `QueryClientProvider`, but it can also be used as a singleton if desired.
 
 ```dart
-final queryClient = QueryClient(
-  config: const CacheConfig(
-    defaultCacheTime: Duration(minutes: 10),
-  ),
-);
-
-final messenger = EffectMessenger();
+import 'package:fasq/fasq.dart';
 
 void main() {
-  GlobalQueryEffects.install(
-    client: queryClient,
-    messenger: messenger,
-    resolveMessage: AppStrings.toast,
-  );
+  final client = QueryClient();
 
-  runApp(MyApp(
-    client: queryClient,
-    messengerKey: messenger.key,
-  ));
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({
-    required this.client,
-    required this.messengerKey,
-    super.key,
-  });
-
-  final QueryClient client;
-  final GlobalKey<ScaffoldMessengerState> messengerKey;
-
-  @override
-  Widget build(BuildContext context) {
-    return QueryClientProvider(
+  runApp(
+    QueryClientProvider(
       client: client,
-      child: MaterialApp(
-        scaffoldMessengerKey: messengerKey,
-        title: 'Fasq App',
-        home: const HomePage(),
-      ),
-    );
-  }
+      child: MyApp(),
+    ),
+  );
 }
 ```
+
+## Global Configuration
+
+You can define default behaviors for all queries in your app.
 
 ```dart
-class GlobalQueryEffects extends QueryClientObserver {
-  GlobalQueryEffects._({
-    required this.client,
-    required this.messenger,
-    this.resolveMessage,
-  });
-
-  final QueryClient client;
-  final EffectMessenger messenger;
-  final String Function(String message)? resolveMessage;
-
-  static GlobalQueryEffects install({
-    required QueryClient client,
-    required EffectMessenger messenger,
-    String Function(String message)? resolveMessage,
-    String Function(String message)? resolveMessage,
-  }) {
-    final effects = GlobalQueryEffects._(
-      client: client,
-      messenger: messenger,
-      resolveMessage: resolveMessage,
-    );
-
-    client.addObserver(effects);
-    return effects;
-  }
-
-  @override
-  void onMutationSuccess(
-    MutationSnapshot snapshot,
-    MutationMeta? meta,
-    BuildContext? context,
-  ) {
-    final message = meta?.successMessage;
-    if (message != null) {
-      final resolved = resolveMessage?.call(message) ?? message;
-      final state = context != null && context.mounted
-          ? ScaffoldMessenger.maybeOf(context)
-          : messenger.key.currentState;
-
-      state?.showSnackBar(SnackBar(content: Text(resolved)));
-    }
-
-    for (final key in meta?.invalidateKeys ?? const []) {
-      client.invalidateQuery(key);
-    }
-  }
-}
+final client = QueryClient(
+  config: const CacheConfig(
+    defaultStaleTime: Duration(minutes: 5), // Data is fresh for 5 mins
+    defaultCacheTime: Duration(minutes: 30), // Inactive data kept for 30 mins
+  ),
+);
 ```
-
-`EffectMessenger` is a lightweight helper that wraps a `GlobalKey<ScaffoldMessengerState>`; feel free to implement your own messenger to route toast/snackbar delivery.
-
-`MutationBuilder` and `QueryBuilder` automatically capture the current `BuildContext` and forward it to observers. When mutations run outside the widget tree, the observer still fires with `context == null`, so global services (scaffold messenger, navigator, auth) can take over.
-
-`EffectMessenger` is optional—when omitted, observers will use the forwarded `BuildContext` and silently skip UI work if no messenger or context is available.
 
 ## Cache Management
 
-### Getting Cache Information
+### Invalidation
+
+Mark data as stale so it gets refetched the next time it's used.
 
 ```dart
-class CacheInfoScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Cache Info')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            final queryClient = QueryClient();
-            final info = queryClient.getCacheInfo();
-            
-            print('Cache Statistics:');
-            print('- Total entries: ${info.entryCount}');
-            print('- Cache size: ${info.sizeBytes} bytes');
-            print('- Hit rate: ${(info.metrics.hitRate * 100).toStringAsFixed(1)}%');
-            print('- Hits: ${info.metrics.hits}');
-            print('- Misses: ${info.metrics.misses}');
-          },
-          child: Text('Print Cache Info'),
-        ),
-      ),
-    );
-  }
-}
+// Invalidate a single query
+client.invalidateQuery('todos'.toQueryKey());
+
+// Invalidate with refetch (default behavior for active queries)
+client.invalidateQuery('todos'.toQueryKey(), refetchType: InvalidateType.active);
 ```
 
-### Manual Cache Operations
+### Pre-fetching
+
+Load data before the user navigates there to provide an instant experience.
 
 ```dart
-class CacheManager extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Cache Manager')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Set query data manually
-              queryClient.setQueryData('users'.toQueryKey(), [
-                User(id: '1', name: 'John'),
-                User(id: '2', name: 'Jane'),
-              ]);
-              
-              print('Users data set manually');
-            },
-            child: Text('Set Users Data'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Get query data
-              final users = queryClient.getQueryData<List<User>>('users'.toQueryKey());
-              if (users != null) {
-                print('Users in cache: ${users.length}');
-              } else {
-                print('No users in cache');
-              }
-            },
-            child: Text('Get Users Data'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Remove specific query
-              queryClient.removeQuery('users'.toQueryKey());
-              print('Users query removed');
-            },
-            child: Text('Remove Users Query'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Clear all queries
-              queryClient.clear();
-              print('All queries cleared');
-            },
-            child: Text('Clear All'),
-          ),
-        ],
-      ),
-    );
-  }
-}
+await client.prefetchQuery(
+  'todos'.toQueryKey(),
+  () => fetchTodos(),
+);
 ```
 
-## Query Invalidation
+### Manual Updates
 
-### Invalidate Specific Queries
+You can update the cache directly without hitting the network (useful for optimistic updates).
 
 ```dart
-class QueryInvalidator extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Query Invalidator')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Invalidate specific query
-              queryClient.invalidateQuery('users'.toQueryKey());
-              print('Users query invalidated');
-            },
-            child: Text('Invalidate Users'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Invalidate multiple queries with prefix
-              queryClient.invalidateQueriesWithPrefix('user:');
-              print('All user queries invalidated');
-            },
-            child: Text('Invalidate User Queries'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Invalidate with custom logic
-              queryClient.invalidateQueriesWhere((key) => key.contains('stale'));
-              print('Stale queries invalidated');
-            },
-            child: Text('Invalidate Stale Queries'),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Update data
+client.setQueryData<List<Todo>>(
+  'todos'.toQueryKey(),
+  (oldData) => [...?oldData, newTodo],
+);
+
+// Read data
+final todos = client.getQueryData<List<Todo>>('todos'.toQueryKey());
 ```
 
-### Conditional Invalidation
+## API Reference
 
-```dart
-class ConditionalInvalidator extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Conditional Invalidator')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Only invalidate if data exists
-              final users = queryClient.getQueryData<List<User>>('users'.toQueryKey());
-              if (users != null) {
-                queryClient.invalidateQuery('users'.toQueryKey());
-                print('Users invalidated (data existed)');
-              } else {
-                print('No users data to invalidate');
-              }
-            },
-            child: Text('Conditional Invalidate'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Invalidate based on data age
-              final query = queryClient.getQueryByKey<List<User>>('users'.toQueryKey());
-              if (query != null) {
-                final age = DateTime.now().difference(query.lastUpdated);
-                if (age.inMinutes > 5) {
-                  queryClient.invalidateQuery('users'.toQueryKey());
-                  print('Users invalidated (data was stale)');
-                } else {
-                  print('Users data is still fresh');
-                }
-              }
-            },
-            child: Text('Age-based Invalidate'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-## Query Management
-
-### Direct Query Access
-
-```dart
-class QueryManager extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Query Manager')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Get specific query
-              final query = queryClient.getQueryByKey<List<User>>('users'.toQueryKey());
-              if (query != null) {
-                print('Query found: ${query.queryKey}');
-                print('Status: ${query.state.status}');
-                print('Data: ${query.state.data?.length ?? 0} users');
-              } else {
-                print('Query not found');
-              }
-            },
-            child: Text('Get Query'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Check if query exists
-              final exists = queryClient.hasQuery('users'.toQueryKey());
-              print('Users query exists: $exists');
-            },
-            child: Text('Check Query Exists'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Get query and trigger refetch
-              final query = queryClient.getQueryByKey<List<User>>('users'.toQueryKey());
-              query?.fetch();
-              print('Query refetch triggered');
-            },
-            child: Text('Refetch Query'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-### Query Lifecycle Management
-
-```dart
-class QueryLifecycleManager extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Query Lifecycle')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Create a new query manually
-              queryClient.prefetchQuery(
-                'manual-query'.toQueryKey(),
-                () => api.fetchUsers(),
-              );
-              print('Manual query created');
-            },
-            child: Text('Create Manual Query'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Get all active queries
-              final queries = queryClient.getAllQueries();
-              print('Active queries: ${queries.length}');
-              for (final query in queries) {
-                print('- ${query.queryKey}: ${query.state.status}');
-              }
-            },
-            child: Text('List All Queries'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Remove inactive queries
-              queryClient.garbageCollect();
-              print('Garbage collection completed');
-            },
-            child: Text('Garbage Collect'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-## Prefetching
-
-### Prefetch Queries
-
-```dart
-class PrefetchManager extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Prefetch Manager')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Prefetch users data
-              queryClient.prefetchQuery(
-                'users'.toQueryKey(),
-                () => api.fetchUsers(),
-              );
-              print('Users prefetched');
-            },
-            child: Text('Prefetch Users'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Prefetch specific user
-              queryClient.prefetchQuery(
-                'user:123'.toQueryKey(),
-                () => api.fetchUser('123'),
-              );
-              print('User 123 prefetched');
-            },
-            child: Text('Prefetch User 123'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Prefetch multiple queries
-              queryClient.prefetchQuery('users'.toQueryKey(), () => api.fetchUsers());
-              queryClient.prefetchQuery('posts'.toQueryKey(), () => api.fetchPosts());
-              queryClient.prefetchQuery('comments'.toQueryKey(), () => api.fetchComments());
-              
-              print('Multiple queries prefetched');
-            },
-            child: Text('Prefetch Multiple'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-### Conditional Prefetching
-
-```dart
-class ConditionalPrefetch extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Conditional Prefetch')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Only prefetch if not already cached
-              if (!queryClient.hasQuery('posts')) {
-                queryClient.prefetchQuery('posts'.toQueryKey(), () => api.fetchPosts());
-                print('Posts prefetched (not cached)');
-              } else {
-                print('Posts already cached');
-              }
-            },
-            child: Text('Conditional Prefetch'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Prefetch based on user interaction
-              queryClient.prefetchQuery(
-                'user-profile'.toQueryKey(),
-                () => api.fetchUserProfile(),
-                options: QueryOptions(
-                  staleTime: Duration(minutes: 10),
-                ),
-              );
-              print('User profile prefetched');
-            },
-            child: Text('Prefetch on Interaction'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-## Error Recovery
-
-### Handle Cache Errors
-
-```dart
-class ErrorRecoveryManager extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Error Recovery')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              try {
-                // Attempt to get cached data
-                final users = queryClient.getQueryData<List<User>>('users'.toQueryKey());
-                
-                if (users == null) {
-                  // Data not in cache, fetch it
-                  queryClient.prefetchQuery('users'.toQueryKey(), () => api.fetchUsers());
-                  print('Users data fetched (not in cache)');
-                } else {
-                  print('Users data found in cache: ${users.length}');
-                }
-              } catch (error) {
-                // Handle cache errors
-                print('Cache error: $error');
-                
-                // Clear problematic cache
-                queryClient.removeQuery('users'.toQueryKey());
-                
-                // Refetch fresh data
-                queryClient.prefetchQuery('users', () => api.fetchUsers());
-                print('Cache cleared and data refetched');
-              }
-            },
-            child: Text('Error Recovery'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Reset all queries to initial state
-              queryClient.resetQueries();
-              print('All queries reset');
-            },
-            child: Text('Reset All Queries'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-## Performance Monitoring
-
-### Monitor Cache Performance
-
-```dart
-class PerformanceMonitor extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Performance Monitor')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              final info = queryClient.getCacheInfo();
-              
-              // Check cache efficiency
-              if (info.metrics.hitRate < 0.5) {
-                print('Warning: Low cache hit rate (${(info.metrics.hitRate * 100).toStringAsFixed(1)}%)');
-              } else {
-                print('Good cache hit rate: ${(info.metrics.hitRate * 100).toStringAsFixed(1)}%');
-              }
-              
-              // Check memory usage
-              if (info.sizeBytes > 10 * 1024 * 1024) { // 10MB
-                print('Warning: High cache memory usage (${info.sizeBytes} bytes)');
-              } else {
-                print('Cache memory usage: ${(info.sizeBytes / 1024 / 1024).toStringAsFixed(1)}MB');
-              }
-              
-              // Log performance metrics
-              print('Cache Performance:');
-              print('- Hit rate: ${(info.metrics.hitRate * 100).toStringAsFixed(1)}%');
-              print('- Memory usage: ${(info.sizeBytes / 1024 / 1024).toStringAsFixed(1)}MB');
-              print('- Active queries: ${info.entryCount}');
-            },
-            child: Text('Monitor Performance'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Optimize cache by removing old entries
-              queryClient.optimizeCache();
-              print('Cache optimized');
-            },
-            child: Text('Optimize Cache'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-## Type Safety
-
-### Type-Safe Operations
-
-```dart
-class TypeSafeOperations extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Type Safe Operations')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Type-safe data access
-              final users = queryClient.getQueryData<List<User>>('users'.toQueryKey());
-              // users is List<User>?
-              
-              if (users != null) {
-                print('Users: ${users.length}');
-                for (final user in users) {
-                  print('- ${user.name} (${user.email})');
-                }
-              }
-            },
-            child: Text('Type Safe Access'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Type-safe data setting
-              queryClient.setQueryData<List<User>>('users', [
-                User(id: '1', name: 'John', email: 'john@example.com'),
-                User(id: '2', name: 'Jane', email: 'jane@example.com'),
-              ]);
-              
-              print('Type-safe data set');
-            },
-            child: Text('Type Safe Setting'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Type-safe query access
-              final query = queryClient.getQueryByKey<List<User>>('users'.toQueryKey());
-              // query is Query<List<User>>?
-              
-              if (query != null) {
-                print('Query type: ${query.runtimeType}');
-                print('Data type: ${query.state.data.runtimeType}');
-              }
-            },
-            child: Text('Type Safe Query'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-## Common Patterns
-
-### Cache Warming
-
-```dart
-class CacheWarmer extends StatefulWidget {
-  @override
-  State<CacheWarmer> createState() => _CacheWarmerState();
-}
-
-class _CacheWarmerState extends State<CacheWarmer> {
-  @override
-  void initState() {
-    super.initState();
-    _warmCache();
-  }
-  
-  void _warmCache() {
-    final queryClient = QueryClient();
-    
-    // Warm cache on app start
-    queryClient.prefetchQuery('users'.toQueryKey(), () => api.fetchUsers());
-    queryClient.prefetchQuery('posts'.toQueryKey(), () => api.fetchPosts());
-    queryClient.prefetchQuery('comments'.toQueryKey(), () => api.fetchComments());
-    
-    print('Cache warmed');
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Cache Warmer')),
-      body: Center(
-        child: Text('Cache warming...'),
-      ),
-    );
-  }
-}
-```
-
-### Cache Cleanup
-
-```dart
-class CacheCleanup extends StatefulWidget {
-  @override
-  State<CacheCleanup> createState() => _CacheCleanupState();
-}
-
-class _CacheCleanupState extends State<CacheCleanup> {
-  @override
-  void dispose() {
-    // Cleanup on unmount
-    final queryClient = QueryClient();
-    queryClient.invalidateQueriesWithPrefix('temp:');
-    super.dispose();
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Cache Cleanup')),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Create temporary data
-              queryClient.setQueryData('temp:data'.toQueryKey(), {'temp': true});
-              print('Temporary data created');
-            },
-            child: Text('Create Temp Data'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final queryClient = QueryClient();
-              
-              // Clean up temporary data
-              queryClient.invalidateQueriesWithPrefix('temp:');
-              print('Temporary data cleaned up');
-            },
-            child: Text('Cleanup Temp Data'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-## Performance Tips
-
-1. **Use prefetching strategically** - Load data before it's needed
-2. **Monitor cache performance** - Track hit rates and memory usage
-3. **Invalidate selectively** - Only invalidate what's necessary
-4. **Use type-safe operations** - Leverage compile-time safety
-5. **Handle errors gracefully** - Implement proper error recovery
-6. **Clean up unused data** - Remove temporary or stale data
-7. **Optimize cache size** - Use appropriate cache policies
-
-## Next Steps
-
-- **[QueryState](/docs/core/query-state)** - Learn about query state management
-- **[QueryOptions](/docs/core/query-options)** - Learn about configuration options
-- **[Cache Configuration](/docs/core/cache-configuration)** - Learn about cache policies
-- **[Cache Invalidation](/docs/core/cache-invalidation)** - Learn about invalidation strategies
+| Method | Description |
+|--------|-------------|
+| `fetchQuery` | Fetches a query and returns the result (throws on error). |
+| `prefetchQuery` | Fetches a query and stores it in cache (no return, safe). |
+| `getQueryData` | Synchronously returns the current data in cache. |
+| `setQueryData` | Synchronously updates the data in cache. |
+| `invalidateQuery` | Marks queries as stale and potentially refetches them. |
+| `cancelQuery` | Cancels any outgoing fetches for a query. |
+| `resetQuery` | Resets a query to its initial state. |

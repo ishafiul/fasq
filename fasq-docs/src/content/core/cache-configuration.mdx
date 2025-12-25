@@ -1,711 +1,89 @@
-# QueryOptions
+# Cache Configuration
 
-The `QueryOptions` class provides configuration options for queries in Fasq. It allows you to customize caching behavior, refetching strategies, and lifecycle callbacks.
+Fasq provides a flexible caching system that efficiently manages memory and freshness. You can configure global policies for cache size, eviction strategies, and default entry lifespans.
 
-## Basic Structure
+## Usage
 
-```dart
-class QueryOptions<T> {
-  final bool enabled;                    // Whether the query is enabled
-  final Duration? staleTime;             // How long data stays fresh
-  final Duration? cacheTime;             // How long data stays in cache
-  final bool refetchOnMount;             // Refetch when component mounts
-  final bool refetchOnWindowFocus;       // Refetch when window gains focus
-  final Duration? refetchInterval;       // Automatic refetch interval
-  final void Function(T data)? onSuccess; // Success callback
-  final void Function(Object error)? onError; // Error callback
-  final int retryCount;                  // Number of retry attempts
-  final Duration retryDelay;             // Delay between retries
-}
-```
-
-## Basic Usage
+Configure the cache when creating your `QueryClient`.
 
 ```dart
-class BasicQueryOptionsExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        staleTime: Duration(minutes: 5),    // Data fresh for 5 minutes
-        cacheTime: Duration(minutes: 30),   // Keep in cache for 30 minutes
-        refetchOnMount: true,               // Refetch when mounted
-        refetchOnWindowFocus: true,         // Refetch on focus
-      ),
-      builder: (context, state) {
-        return state.when(
-          loading: () => CircularProgressIndicator(),
-          error: (error, stack) => Text('Error: $error'),
-          data: (users) => ListView.builder(
-            itemCount: users.length,
-            itemBuilder: (context, index) {
-              final user = users[index];
-              return ListTile(title: Text(user.name));
-            },
-          ),
-        );
-      },
-    );
-  }
-}
+import 'package:fasq/fasq.dart';
+
+final client = QueryClient(
+  config: const CacheConfig(
+    // 1. Storage Limits
+    maxSizeBytes: 10 * 1024 * 1024, // 10 MB
+    maxEntries: 100,                // 100 Queries
+
+    // 2. Default Query Behavior
+    defaultStaleTime: Duration(minutes: 5),
+    defaultCacheTime: Duration(minutes: 30),
+  ),
+);
 ```
 
-## Caching Configuration
+## API
 
-### Stale Time
+### CacheConfig Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `maxSizeBytes` | `int` | `50MB` | limits the total memory usage of the cache. |
+| `maxEntries` | `int?` | `null` | max number of query entries to keep. |
+| `defaultStaleTime` | `Duration` | `Duration.zero` | default time before data becomes stale. |
+| `defaultCacheTime` | `Duration` | `5 mins` | default time to keep inactive data. |
+| `enableGarbageCollection` | `bool` | `true` | ensures removed queries free memory. |
+| `gcInterval` | `Duration` | `5 mins` | how often to run the garbage collector. |
+
+### Eviction Policies
+
+When the cache reaches its `maxSizeBytes` or `maxEntries` limit, it must decide which items to remove.
+
+| Policy | Description | Use Case |
+|--------|-------------|----------|
+| `EvictionPolicy.lru` | **Least Recently Used**. Removes the items that haven't been accessed for the longest time. | **Default**. Best for general purpose caching. |
+| `EvictionPolicy.lfu` | **Least Frequently Used**. Removes items that are accessed least often. | Good when some data is "hot" and should stick around, while other data is one-off. |
+| `EvictionPolicy.fifo` | **First In, First Out**. Removes the oldest items created. | Simple buffer behavior. |
+
+## Examples
+
+### LRU Strategy (Least Recently Used)
+
+Fasq uses an LRU eviction policy by default. When the cache exceeds limits, the least recently accessed queries are removed first.
+
 
 ```dart
-class StaleTimeExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        staleTime: Duration(minutes: 10), // Data considered fresh for 10 minutes
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            Text('Stale Time: 10 minutes'),
-            if (state.lastUpdated != null)
-              Text('Last Updated: ${state.lastUpdated}'),
-            Expanded(
-              child: state.when(
-                loading: () => CircularProgressIndicator(),
-                error: (error, stack) => Text('Error: $error'),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
+final client = QueryClient(
+  config: const CacheConfig(
+    maxEntries: 50, // Keep only the latest 50 visited queries
+  ),
+);
 ```
 
-### Cache Time
+### High-Performance / Realtime Setup
+
+For apps that need frequent updates but want to avoid memory leaks.
 
 ```dart
-class CacheTimeExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        cacheTime: Duration(hours: 1), // Keep in cache for 1 hour
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            Text('Cache Time: 1 hour'),
-            ElevatedButton(
-              onPressed: () {
-                // Data will remain in cache for 1 hour after unmount
-                Navigator.pop(context);
-              },
-              child: Text('Navigate Away'),
-            ),
-            Expanded(
-              child: state.when(
-                loading: () => CircularProgressIndicator(),
-                error: (error, stack) => Text('Error: $error'),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
+final client = QueryClient(
+  config: const CacheConfig(
+    defaultStaleTime: Duration.zero,     // Always refetch for freshness
+    defaultCacheTime: Duration(minutes: 2), // aggressively free memory
+    gcInterval: Duration(minutes: 1),    // Cleanup often
+  ),
+);
 ```
 
-## Refetching Configuration
+### Static Data Setup
 
-### Refetch on Mount
+For apps like e-readers or catalogs where data rarely changes.
 
 ```dart
-class RefetchOnMountExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        refetchOnMount: true, // Always refetch when component mounts
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            Text('Refetch on Mount: Enabled'),
-            Text('Fetch Count: ${state.fetchCount}'),
-            Expanded(
-              child: state.when(
-                loading: () => CircularProgressIndicator(),
-                error: (error, stack) => Text('Error: $error'),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
+final client = QueryClient(
+  config: const CacheConfig(
+    defaultStaleTime: Duration(hours: 1),  // Data stays fresh for 1 hour
+    defaultCacheTime: Duration(hours: 24), // Keep in memory all day
+    maxSizeBytes: 100 * 1024 * 1024,       // Allow large cache (100 MB)
+  ),
+);
 ```
-
-### Refetch on Window Focus
-
-```dart
-class RefetchOnFocusExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        refetchOnWindowFocus: true, // Refetch when app regains focus
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            Text('Refetch on Focus: Enabled'),
-            Text('Last Updated: ${state.lastUpdated}'),
-            Expanded(
-              child: state.when(
-                loading: () => CircularProgressIndicator(),
-                error: (error, stack) => Text('Error: $error'),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-```
-
-### Refetch Interval
-
-```dart
-class RefetchIntervalExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        refetchInterval: Duration(seconds: 30), // Refetch every 30 seconds
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            Text('Refetch Interval: 30 seconds'),
-            if (state.isFetching && !state.isLoading)
-              LinearProgressIndicator(),
-            Text('Fetch Count: ${state.fetchCount}'),
-            Expanded(
-              child: state.when(
-                loading: () => CircularProgressIndicator(),
-                error: (error, stack) => Text('Error: $error'),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-```
-
-## Conditional Queries
-
-### Enabled Option
-
-```dart
-class ConditionalQueryExample extends StatefulWidget {
-  @override
-  State<ConditionalQueryExample> createState() => _ConditionalQueryExampleState();
-}
-
-class _ConditionalQueryExampleState extends State<ConditionalQueryExample> {
-  bool _enabled = false;
-  
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Switch(
-          value: _enabled,
-          onChanged: (value) {
-            setState(() {
-              _enabled = value;
-            });
-          },
-        ),
-        Text('Query Enabled: $_enabled'),
-        Expanded(
-          child: QueryBuilder<List<User>>(
-            queryKey: 'users',
-            queryFn: () => api.fetchUsers(),
-            options: QueryOptions(
-              enabled: _enabled, // Only fetch when enabled
-            ),
-            builder: (context, state) {
-              if (!_enabled) {
-                return Center(child: Text('Query disabled'));
-              }
-              
-              return state.when(
-                idle: () => Center(child: Text('Ready to fetch')),
-                loading: () => Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(child: Text('Error: $error')),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-```
-
-### Dynamic Enabled
-
-```dart
-class DynamicEnabledExample extends StatefulWidget {
-  @override
-  State<DynamicEnabledExample> createState() => _DynamicEnabledExampleState();
-}
-
-class _DynamicEnabledExampleState extends State<DynamicEnabledExample> {
-  String? _selectedUserId;
-  
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        DropdownButton<String?>(
-          value: _selectedUserId,
-          hint: Text('Select User'),
-          items: [
-            DropdownMenuItem(value: null, child: Text('None')),
-            DropdownMenuItem(value: '1', child: Text('User 1')),
-            DropdownMenuItem(value: '2', child: Text('User 2')),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _selectedUserId = value;
-            });
-          },
-        ),
-        Expanded(
-          child: QueryBuilder<User>(
-            queryKey: 'user:$_selectedUserId',
-            queryFn: () => api.fetchUser(_selectedUserId!),
-            options: QueryOptions(
-              enabled: _selectedUserId != null, // Only fetch when user selected
-            ),
-            builder: (context, state) {
-              if (_selectedUserId == null) {
-                return Center(child: Text('Please select a user'));
-              }
-              
-              return state.when(
-                idle: () => Center(child: Text('Ready to fetch user')),
-                loading: () => Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(child: Text('Error: $error')),
-                data: (user) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Name: ${user.name}'),
-                      Text('Email: ${user.email}'),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-```
-
-## Callbacks
-
-### Success Callback
-
-```dart
-class SuccessCallbackExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        onSuccess: (users) {
-          // Called when query succeeds
-          print('Successfully fetched ${users.length} users');
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Loaded ${users.length} users'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        },
-      ),
-      builder: (context, state) {
-        return state.when(
-          loading: () => Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(child: Text('Error: $error')),
-          data: (users) => ListView.builder(
-            itemCount: users.length,
-            itemBuilder: (context, index) {
-              final user = users[index];
-              return ListTile(title: Text(user.name));
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-```
-
-### Error Callback
-
-```dart
-class ErrorCallbackExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        onError: (error) {
-          // Called when query fails
-          print('Failed to fetch users: $error');
-          
-          // Show error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to load users: $error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        },
-      ),
-      builder: (context, state) {
-        return state.when(
-          loading: () => Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error, size: 64, color: Colors.red),
-                SizedBox(height: 16),
-                Text('Error: $error'),
-              ],
-            ),
-          ),
-          data: (users) => ListView.builder(
-            itemCount: users.length,
-            itemBuilder: (context, index) {
-              final user = users[index];
-              return ListTile(title: Text(user.name));
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-```
-
-## Retry Configuration
-
-### Retry Count and Delay
-
-```dart
-class RetryConfigurationExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        retryCount: 3,                    // Retry up to 3 times
-        retryDelay: Duration(seconds: 2), // Wait 2 seconds between retries
-        onError: (error) {
-          print('Query failed, will retry: $error');
-        },
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            Text('Retry Count: 3'),
-            Text('Retry Delay: 2 seconds'),
-            Text('Fetch Count: ${state.fetchCount}'),
-            Expanded(
-              child: state.when(
-                loading: () => Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error, size: 64, color: Colors.red),
-                      SizedBox(height: 16),
-                      Text('Error: $error'),
-                      SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          // Manual retry
-                          QueryClient().invalidateQuery('users');
-                        },
-                        child: Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-```
-
-## Advanced Configuration
-
-### Complex Options
-
-```dart
-class ComplexOptionsExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        // Caching
-        staleTime: Duration(minutes: 5),
-        cacheTime: Duration(minutes: 30),
-        
-        // Refetching
-        refetchOnMount: true,
-        refetchOnWindowFocus: false, // Don't refetch on focus
-        refetchInterval: Duration(minutes: 10), // Refetch every 10 minutes
-        
-        // Retry
-        retryCount: 2,
-        retryDelay: Duration(seconds: 1),
-        
-        // Callbacks
-        onSuccess: (users) {
-          print('Successfully loaded ${users.length} users');
-        },
-        onError: (error) {
-          print('Failed to load users: $error');
-        },
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            Text('Complex Configuration'),
-            Text('Stale Time: 5 minutes'),
-            Text('Cache Time: 30 minutes'),
-            Text('Refetch Interval: 10 minutes'),
-            Text('Retry Count: 2'),
-            Expanded(
-              child: state.when(
-                loading: () => Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(child: Text('Error: $error')),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-```
-
-## Common Patterns
-
-### Real-time Data
-
-```dart
-class RealTimeDataExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        refetchInterval: Duration(seconds: 30), // Poll every 30 seconds
-        refetchOnWindowFocus: true,            // Refetch when app gains focus
-        staleTime: Duration(seconds: 10),      // Data stale after 10 seconds
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            if (state.isFetching && !state.isLoading)
-              LinearProgressIndicator(),
-            Text('Real-time Updates'),
-            Text('Last Updated: ${state.lastUpdated}'),
-            Expanded(
-              child: state.when(
-                loading: () => Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(child: Text('Error: $error')),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-```
-
-### Offline Support
-
-```dart
-class OfflineSupportExample extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
-      options: QueryOptions(
-        cacheTime: Duration(hours: 24),        // Keep in cache for 24 hours
-        staleTime: Duration(minutes: 30),      // Data stale after 30 minutes
-        refetchOnMount: false,                 // Don't refetch on mount
-        refetchOnWindowFocus: false,           // Don't refetch on focus
-        retryCount: 5,                         // Retry more times for offline
-        retryDelay: Duration(seconds: 5),      // Longer delay between retries
-      ),
-      builder: (context, state) {
-        return Column(
-          children: [
-            Text('Offline Support'),
-            Text('Cache Time: 24 hours'),
-            Text('Stale Time: 30 minutes'),
-            Expanded(
-              child: state.when(
-                loading: () => Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.wifi_off, size: 64, color: Colors.orange),
-                      SizedBox(height: 16),
-                      Text('Offline or Error'),
-                      Text('$error'),
-                    ],
-                  ),
-                ),
-                data: (users) => ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(title: Text(user.name));
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-```
-
-## Performance Tips
-
-1. **Set appropriate stale times** - Balance freshness with performance
-2. **Use cache time wisely** - Keep data in cache for reasonable periods
-3. **Disable unnecessary refetching** - Turn off refetchOnMount/focus when not needed
-4. **Configure retry strategies** - Set appropriate retry counts and delays
-5. **Use callbacks for side effects** - Handle success/error states appropriately
-6. **Enable queries conditionally** - Use the enabled option for dependent queries
-7. **Monitor performance** - Track fetch counts and cache hit rates
-
-## Next Steps
-
-- **[Cache Configuration](/docs/core/cache-configuration)** - Learn about cache policies
-- **[Cache Invalidation](/docs/core/cache-invalidation)** - Learn about invalidation strategies
-- **[Error Handling](/docs/core/error-handling)** - Learn about error handling patterns
-- **[QueryClient](/docs/core/query-client)** - Learn about cache management

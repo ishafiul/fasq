@@ -1,235 +1,67 @@
 # Prefetching
 
-Prefetching allows you to warm the cache with data before it's explicitly requested by a UI component. This enables predictive loading, faster user experiences, and reduced loading states.
+Prefetching improves user experience by loading data into the cache *before* it is needed.
 
-## What is Prefetching?
+## Usage
 
-Prefetching is the process of fetching data in the background and storing it in the cache before the user actually needs it. When the user navigates to a screen or hovers over a link, the data is already available, resulting in instant loading.
-
-## Core Prefetch API
-
-### Manual Prefetching
-
-The `QueryClient` provides methods for manual prefetching:
+Use the `QueryClient` to prefetch.
 
 ```dart
 final client = QueryClient();
 
-// Prefetch a single query
 await client.prefetchQuery(
-  'users'.toQueryKey(),
-  () => api.fetchUsers(),
-);
-
-// Prefetch multiple queries in parallel
-await client.prefetchQueries([
-  PrefetchConfig(queryKey: 'users'.toQueryKey(), queryFn: () => api.fetchUsers()),
-  PrefetchConfig(queryKey: 'posts'.toQueryKey(), queryFn: () => api.fetchPosts()),
-  PrefetchConfig(queryKey: 'comments'.toQueryKey(), queryFn: () => api.fetchComments()),
-]);
-```
-
-### PrefetchConfig
-
-Use `PrefetchConfig` to define multiple queries for batch prefetching:
-
-```dart
-class PrefetchConfig<T> {
-  final QueryKey queryKey;
-  final Future<T> Function() queryFn;
-  final QueryOptions? options;
-  
-  const PrefetchConfig({
-    required this.queryKey,
-    required this.queryFn,
-    this.options,
-  });
-}
-```
-
-## Cache Behavior
-
-### Silent Background Fetches
-
-Prefetched queries execute silently in the background without exposing loading states to the UI. This means:
-
-- No loading indicators are shown
-- No error states are displayed
-- The prefetch operation is transparent to the user
-
-### Cache Population
-
-When a query is prefetched:
-
-1. The data is fetched using the provided `queryFn`
-2. The result is stored in the cache with the specified key
-3. The temporary query instance is disposed
-4. Subsequent queries with the same key will use the cached data
-
-### Staleness Check
-
-Prefetching respects cache staleness:
-
-```dart
-// If cache is fresh, prefetch is skipped
-final cachedEntry = cache.get('users');
-if (cachedEntry != null && cachedEntry.isFresh) {
-  return; // Skip prefetch
-}
-```
-
-## Performance Considerations
-
-### When to Prefetch
-
-Prefetching is most effective when:
-
-- **Navigation**: Prefetch data for the next likely screen
-- **Hover**: Prefetch on hover for links or buttons
-- **Mount**: Prefetch related data when a component mounts
-- **Tab Changes**: Prefetch data for inactive tabs
-
-### Batch Prefetching
-
-Use `prefetchQueries` for multiple related queries:
-
-```dart
-// More efficient than individual prefetches
-await client.prefetchQueries([
-  PrefetchConfig(queryKey: 'user-profile'.toQueryKey(), queryFn: () => api.fetchUser(userId)),
-  PrefetchConfig(queryKey: 'user-posts'.toQueryKey(), queryFn: () => api.fetchUserPosts(userId)),
-  PrefetchConfig(queryKey: 'user-followers'.toQueryKey(), queryFn: () => api.fetchUserFollowers(userId)),
-]);
-```
-
-## Best Practices
-
-### 1. Prefetch Strategically
-
-Only prefetch data that users are likely to need:
-
-```dart
-// Good: Prefetch on hover for likely navigation
-onHover: () => prefetch('user-123', () => api.fetchUser('123'));
-
-// Avoid: Prefetching everything on app start
-useEffect(() => {
-  prefetchAllData(); // Too aggressive
-}, []);
-```
-
-### 2. Use Appropriate Cache Times
-
-Set reasonable cache times for prefetched data:
-
-```dart
-await client.prefetchQuery(
-  'users'.toQueryKey(),
-  () => api.fetchUsers(),
-  options: QueryOptions(
-    staleTime: Duration(minutes: 5), // Fresh for 5 minutes
-    cacheTime: Duration(hours: 1),   // Cached for 1 hour
-  ),
+  'todos'.toQueryKey(),
+  () => fetchTodos(),
 );
 ```
 
-### 3. Handle Errors Gracefully
+## API
 
-Prefetch errors should not break the user experience:
+| Method | Description |
+|--------|-------------|
+| `prefetchQuery(key, fn)` | Fetches data and stores it in the cache. Does nothing if data is already fresh. |
+
+## Examples
+
+### Prefetch on Hover
+
+On the web, or for specific interactions, prefetching can make navigation feel instant.
 
 ```dart
-try {
-  await client.prefetchQuery('users'.toQueryKey(), () => api.fetchUsers());
-} catch (e) {
-  // Log error but don't show to user
-  logger.warning('Prefetch failed: $e');
+InkWell(
+  onHover: (hovering) {
+    if (hovering) {
+      QueryClient().prefetchQuery('profile'.toQueryKey(), fetchProfile);
+    }
+  },
+  onTap: () => Navigator.pushNamed(context, '/profile'),
+  child: Text('Go to Profile'),
+)
+```
+
+### Prefetch for Next Screen
+
+Call prefetch before pushing a new route.
+
+```dart
+void goToDetails(String id) {
+  // Start fetching now
+  QueryClient().prefetchQuery('details:$id'.toQueryKey(), () => fetchDetails(id));
+  
+  // Navigate
+  Navigator.push(context, MaterialPageRoute(builder: (_) => DetailsPage(id)));
 }
 ```
 
-### 4. Respect Network Conditions
+### Staleness
 
-Consider network conditions when prefetching:
-
-```dart
-if (isWifiConnection && !isLowBattery) {
-  await client.prefetchQuery('heavy-data'.toQueryKey(), () => api.fetchHeavyData());
-}
-```
-
-## Integration Patterns
-
-### Route-Based Prefetching
-
-Prefetch data before navigation:
+Prefetching respects `staleTime`. If the data is already in cache and fresh, `prefetchQuery` will **not** trigger a network request.
 
 ```dart
-class NavigationService {
-  Future<void> navigateToUserProfile(String userId) async {
-    // Prefetch user data before navigation
-    await queryClient.prefetchQuery(
-      'user-$userId'.toQueryKey(),
-      () => api.fetchUser(userId),
-    );
-    
-    // Navigate to profile screen
-    router.push('/user/$userId');
-  }
-}
+// Won't refetch if data is < 5 mins old
+client.prefetchQuery(
+  'todos'.toQueryKey(),
+  fetchTodos,
+  options: QueryOptions(staleTime: Duration(minutes: 5)),
+);
 ```
-
-### Component-Based Prefetching
-
-Prefetch related data when components mount:
-
-```dart
-class UserDashboard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    // Prefetch related data on mount
-    useEffect(() {
-      queryClient.prefetchQueries([
-        PrefetchConfig(queryKey: 'user-stats'.toQueryKey(), queryFn: () => api.fetchUserStats()),
-        PrefetchConfig(queryKey: 'recent-activity'.toQueryKey(), queryFn: () => api.fetchRecentActivity()),
-      ]);
-      return null;
-    }, []);
-    
-    return DashboardContent();
-  }
-}
-```
-
-## Testing Prefetching
-
-Test prefetching behavior:
-
-```dart
-test('prefetch populates cache correctly', () async {
-  final client = QueryClient();
-  
-  await client.prefetchQuery('test-key'.toQueryKey(), () => Future.value('test-data'));
-  
-  final cachedData = client.cache.get('test-key');
-  expect(cachedData?.data, equals('test-data'));
-});
-
-test('prefetch skips if cache is fresh', () async {
-  final client = QueryClient();
-  int fetchCount = 0;
-  
-  Future<String> fetchData() async {
-    fetchCount++;
-    return 'test-data';
-  }
-  
-  // First prefetch
-  await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
-  expect(fetchCount, equals(1));
-  
-  // Second prefetch should be skipped
-  await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
-  expect(fetchCount, equals(1)); // Still 1
-});
-```
-
-Prefetching is a powerful tool for improving user experience by reducing loading times and making your app feel more responsive. Use it strategically to anticipate user needs and provide instant data access.

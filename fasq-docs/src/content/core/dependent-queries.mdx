@@ -1,20 +1,79 @@
 # Dependent Queries
 
-Dependent queries wait for prerequisite data before fetching. Use `QueryOptions.enabled` and include dependency values in the dependent key.
+Dependent queries are queries that should only execute after some other data is available.
+
+## Usage
+
+Use the `enabled` option in `QueryOptions` to delay execution until a condition is met.
 
 ```dart
-final user = useQuery('user', () => fetchUser());
-final posts = useQuery(
-  'posts:${user.data?.id}',
-  () => fetchPosts(user.data!.id),
-  options: QueryOptions(enabled: user.isSuccess),
+// 1. Fetch the User first
+final userQuery = QueryBuilder<User>(
+  queryKey: 'user'.toQueryKey(), 
+  /* ... */ 
 );
+
+// 2. Fetch Posts *only* when User ID is available
+QueryBuilder<List<Post>>(
+  // Key depends on user ID
+  queryKey: 'posts:${userQuery.state.data?.id}'.toQueryKey(),
+  queryFn: () => api.fetchPosts(userQuery.state.data!.id),
+  
+  // Disable until we have the ID
+  options: QueryOptions(
+    enabled: userQuery.state.hasData, // <--- The magic switch
+  ),
+  builder: (context, state) {
+    if (state.isIdle) return Text('Waiting for user...');
+    /* ... */
+  }
+)
 ```
 
-Tips:
-- Keep keys stable and include parameters
-- Use `enabled` to guard against nulls
-- Only dependency shows errors when it fails
+## API
 
+| Option | Type | Description |
+|--------|------|-------------|
+| `enabled` | `bool` | Set to `false` to prevent the query from fetching automatically. Defaults to `true`. |
 
+## Examples
 
+### Serial Fetching
+Sometimes you need to chain requests A -> B -> C.
+
+```dart
+// This pattern typically involves nesting QueryBuilders
+// or using the result of one query to drive the next.
+
+QueryBuilder<User>(
+  queryKey: 'user'.toQueryKey(),
+  builder: (context, userState) {
+    if (!userState.hasData) return Loading();
+
+    return QueryBuilder<List<Project>>(
+      // Dependent key
+      queryKey: 'projects:${userState.data.id}'.toQueryKey(),
+      queryFn: () => fetchProjects(userState.data.id),
+      // Only run when user is loaded (redundant if nested, but good practice)
+      options: QueryOptions(enabled: userState.hasData),
+      builder: (context, projectState) {
+        // ...
+      }
+    );
+  }
+)
+```
+
+### Waiting for User Input
+Don't search until the user types something.
+
+```dart
+QueryBuilder(
+  queryKey: 'search:$searchTerm'.toQueryKey(),
+  queryFn: () => searchApi(searchTerm),
+  options: QueryOptions(
+    enabled: searchTerm.isNotEmpty, // Only fetch if text exists
+  ),
+  /* ... */
+)
+```

@@ -14,5 +14,7 @@ export default {
   'cache-invalidation': 'Cache Invalidation',
   'error-handling': 'Error Handling',
   security: 'Security Features',
+  advanced: 'Advanced Topics',
+  'type-safety': 'Type Safety',
   examples: 'Examples',
 }
