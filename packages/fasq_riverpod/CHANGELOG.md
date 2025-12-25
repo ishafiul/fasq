@@ -1,3 +1,7 @@
+## 0.2.4+1
+
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
 ## 0.2.4
 
  - **FIX**: ensure query cache cleanup and proper disposal.

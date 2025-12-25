@@ -3,6 +3,56 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-12-25
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`ecommerce` - `v0.0.2`](#ecommerce---v002)
+ - [`fasq` - `v0.3.7`](#fasq---v037)
+ - [`fasq_bloc` - `v0.2.4+1`](#fasq_bloc---v0241)
+ - [`fasq_hooks` - `v0.2.4+1`](#fasq_hooks---v0241)
+ - [`fasq_riverpod` - `v0.2.4+1`](#fasq_riverpod---v0241)
+ - [`fasq_security` - `v0.1.4`](#fasq_security---v014)
+
+---
+
+#### `ecommerce` - `v0.0.2`
+
+ - **FEAT**(tests): add persistence check tests for promotional content and query client integration.
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+
+#### `fasq` - `v0.3.7`
+
+ - **FIX**: wait for persistence initialization before creating queries (#41).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
+#### `fasq_bloc` - `v0.2.4+1`
+
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
+#### `fasq_hooks` - `v0.2.4+1`
+
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
+#### `fasq_riverpod` - `v0.2.4+1`
+
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
+#### `fasq_security` - `v0.1.4`
+
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
+
 ## 2025-11-20
 
 ### Changes

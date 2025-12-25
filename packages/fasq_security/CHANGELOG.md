@@ -1,3 +1,8 @@
+## 0.1.4
+
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
 ## 0.1.3
 
  - **FEAT**: enhance CacheDatabase schema setup (#39).

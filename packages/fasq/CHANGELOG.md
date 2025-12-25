@@ -1,3 +1,9 @@
+## 0.3.7
+
+ - **FIX**: wait for persistence initialization before creating queries (#41).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
 ## 0.3.6
 
  - **FIX**: ensure query cache cleanup and proper disposal.
