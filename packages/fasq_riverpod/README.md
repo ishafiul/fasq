@@ -1,5 +1,10 @@
 # fasq_riverpod
 
+> ⚠️ **WARNING: NOT READY FOR PRODUCTION USE**
+> 
+> This package is currently in active development and is **NOT ready for production use**. 
+> APIs may change, features may be incomplete, and there may be bugs. Use at your own risk.
+
 Riverpod adapter for FASQ (Flutter Async State Query) - bringing powerful async state management to your Riverpod-based Flutter apps.
 
 ## Features
@@ -8,7 +13,7 @@ Riverpod adapter for FASQ (Flutter Async State Query) - bringing powerful async 
 - ♾️ **infiniteQueryProvider** - Provider factory for infinite queries
 - 🔄 **QueryNotifier** - StateNotifier for query state
 - 🔀 **combineQueries2/3** - Combine multiple query providers
-- 🚀 **Automatic caching** - Built on FASQ's production-ready cache
+- 🚀 **Automatic caching** - Built on FASQ's intelligent cache system
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
 - 🎯 **Type-safe** - Compile-time safety with Riverpod
 

@@ -1,5 +1,10 @@
 # fasq_hooks
 
+> ⚠️ **WARNING: NOT READY FOR PRODUCTION USE**
+> 
+> This package is currently in active development and is **NOT ready for production use**. 
+> APIs may change, features may be incomplete, and there may be bugs. Use at your own risk.
+
 Flutter Hooks adapter for FASQ (Flutter Async State Query) - bringing powerful async state management to your hooks-based Flutter apps.
 
 ## Features
@@ -8,7 +13,7 @@ Flutter Hooks adapter for FASQ (Flutter Async State Query) - bringing powerful a
 - ♾️ **`useInfiniteQuery`** - Infinite queries for pagination and load-more
 - 🔄 **`useMutation`** - Server mutations made simple
 - 🔀 **`useQueries`** - Execute multiple queries in parallel
-- 🚀 **Automatic caching** - Built on FASQ's production-ready cache
+- 🚀 **Automatic caching** - Built on FASQ's intelligent cache system
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
 - 🎯 **Type-safe** - Full TypeScript-like type safety
 

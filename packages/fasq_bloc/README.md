@@ -1,5 +1,10 @@
 # fasq_bloc
 
+> ⚠️ **WARNING: NOT READY FOR PRODUCTION USE**
+> 
+> This package is currently in active development and is **NOT ready for production use**. 
+> APIs may change, features may be incomplete, and there may be bugs. Use at your own risk.
+
 Bloc/Cubit adapter for FASQ (Flutter Async State Query) - bringing powerful async state management to your Bloc-based Flutter apps.
 
 ## Features
@@ -8,7 +13,7 @@ Bloc/Cubit adapter for FASQ (Flutter Async State Query) - bringing powerful asyn
 - ♾️ **InfiniteQueryCubit** - Abstract base cubit for infinite queries
 - 🔄 **MutationCubit** - Abstract base cubit for server mutations
 - 🔀 **MultiQueryBuilder** - Execute multiple queries in parallel
-- 🚀 **Automatic caching** - Built on FASQ's production-ready cache
+- 🚀 **Automatic caching** - Built on FASQ's intelligent cache system
 - ⚡ **Background refetching** - Stale-while-revalidate pattern
 - 🎯 **Type-safe** - Full type safety with Bloc
 

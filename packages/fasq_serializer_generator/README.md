@@ -1,5 +1,10 @@
 # fasq_serializer_generator
 
+> ⚠️ **WARNING: NOT READY FOR PRODUCTION USE**
+> 
+> This package is currently in active development and is **NOT ready for production use**. 
+> APIs may change, features may be incomplete, and there may be bugs. Use at your own risk.
+
 Build runner generator for automatically registering serializers from `TypedQueryKey` declarations in QueryKeys classes.
 
 ## Usage

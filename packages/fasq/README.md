@@ -1,9 +1,14 @@
 # FASQ
 
+> ⚠️ **WARNING: NOT READY FOR PRODUCTION USE**
+> 
+> This package is currently in active development and is **NOT ready for production use**. 
+> APIs may change, features may be incomplete, and there may be bugs. Use at your own risk.
+
 A powerful async state management library for Flutter. Handles API calls, database queries, file operations, and any async operation with intelligent caching, automatic refetching, and error recovery.
 
 **Current Version:** 0.3.4  
-**Status:** Production Ready
+**Status:** ⚠️ Development - Not Production Ready
 
 ## Features
 
@@ -17,7 +22,7 @@ A powerful async state management library for Flutter. Handles API calls, databa
 - ✅ **Shared Queries** - Multiple widgets share the same query and cache
 - ✅ **Type Safe** - Full generic type support for your data
 - ✅ **Thread Safe** - Concurrent access protection with async locks
-- ✅ **Production Ready** - Comprehensive testing and error handling
+- ✅ **Comprehensive Testing** - Extensive test coverage and error handling
 - ✅ **Infinite Queries** - Pagination and infinite scroll with memory management
 - ✅ **Dependent Queries** - Chain queries using enabled gating
 - ✅ **Offline Mutation Queue** - Persist mutations offline and sync when online
