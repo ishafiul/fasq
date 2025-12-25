@@ -1,378 +1,47 @@
 # Parallel Queries
 
-Execute multiple queries simultaneously with coordinated state management across all adapters.
+Fasq is designed to handle multiple concurrent queries efficiently. When you use multiple `QueryBuilder` widgets in the same screen, they fetch in parallel automatically.
 
-## Use Cases
+## Usage
 
-- **Dashboard screens** loading multiple data sources
-- **Master-detail views** requiring multiple APIs
-- **Parallel independent data fetches** for better performance
-- **Complex UIs** with multiple data dependencies
-
-## Core Concepts
-
-- **Independent Execution**: Each query runs independently without blocking others
-- **Combined State**: Helper methods check aggregate states across all queries
-- **No Coupling**: Queries don't interfere with each other's lifecycle
-- **Shared Cache**: Queries with same key still benefit from deduplication
-- **Type Safety**: Full generic type support flows through all adapters
-
-## Examples
-
-### Hooks Adapter
+Simply use multiple query widgets side-by-side (e.g., in a Column).
 
 ```dart
-import 'package:fasq_hooks/fasq_hooks.dart';
-
-class DashboardHooks extends HookWidget {
-  @override
-  Widget build(BuildContext context) {
-    final queries = useQueries([
-      QueryConfig('users', () => api.fetchUsers()),
-      QueryConfig('posts', () => api.fetchPosts()),
-      QueryConfig('comments', () => api.fetchComments()),
-    ]);
-    
-    final allLoaded = queries.every((q) => q.hasData);
-    final anyError = queries.any((q) => q.hasError);
-    
-    return Column(
-      children: [
-        if (!allLoaded) LinearProgressIndicator(),
-        if (anyError) ErrorBanner(),
-        UsersList(queries[0]),
-        PostsList(queries[1]),
-        CommentsList(queries[2]),
-      ],
-    );
-  }
-}
-```
-
-### Bloc Adapter
-
-```dart
-import 'package:fasq_bloc/fasq_bloc.dart';
-
-class DashboardBloc extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MultiQueryBuilder(
-      configs: [
-        MultiQueryConfig(key: 'users', queryFn: () => api.fetchUsers()),
-        MultiQueryConfig(key: 'posts', queryFn: () => api.fetchPosts()),
-        MultiQueryConfig(key: 'comments', queryFn: () => api.fetchComments()),
-      ],
-      builder: (context, state) {
-        return Column(
-          children: [
-            if (!state.isAllSuccess) LinearProgressIndicator(),
-            if (state.hasAnyError) ErrorBanner(),
-            UsersList(state.getState<List<User>>(0)),
-            PostsList(state.getState<List<Post>>(1)),
-            CommentsList(state.getState<List<Comment>>(2)),
-          ],
-        );
-      },
-    );
-  }
-}
-```
-
-### Riverpod Adapter
-
-#### Index-based Access
-
-```dart
-import 'package:fasq_riverpod/fasq_riverpod.dart';
-
-// Define providers
-final usersProvider = queryProvider('users', () => api.fetchUsers());
-final postsProvider = queryProvider('posts', () => api.fetchPosts());
-final commentsProvider = queryProvider('comments', () => api.fetchComments());
-final dashboardProvider = combineQueries([usersProvider, postsProvider, commentsProvider]);
-
-class DashboardRiverpod extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final combined = ref.watch(dashboardProvider);
-    
-    return Column(
-      children: [
-        if (!combined.isAllSuccess) LinearProgressIndicator(),
-        if (combined.hasAnyError) ErrorBanner(),
-        UsersList(combined.getState<List<User>>(0)),
-        PostsList(combined.getState<List<Post>>(1)),
-        CommentsList(combined.getState<List<Comment>>(2)),
-      ],
-    );
-  }
-}
-```
-
-#### Named Access
-
-```dart
-import 'package:fasq_riverpod/fasq_riverpod.dart';
-
-// Define providers
-final usersProvider = queryProvider('users', () => api.fetchUsers());
-final postsProvider = queryProvider('posts', () => api.fetchPosts());
-final commentsProvider = queryProvider('comments', () => api.fetchComments());
-final dashboardProvider = combineNamedQueries({
-  'users': usersProvider,
-  'posts': postsProvider,
-  'comments': commentsProvider,
-});
-
-class DashboardRiverpod extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final combined = ref.watch(dashboardProvider);
-    
-    return Column(
-      children: [
-        if (!combined.isAllSuccess) LinearProgressIndicator(),
-        if (combined.hasAnyError) ErrorBanner(),
-        UsersList(combined.getState<List<User>>('users')),
-        PostsList(combined.getState<List<Post>>('posts')),
-        CommentsList(combined.getState<List<Comment>>('comments')),
-      ],
-    );
-  }
-}
-```
-
-## State Helpers
-
-All adapters provide helper methods to check aggregate states:
-
-### Hooks Adapter
-```dart
-final queries = useQueries(configs);
-
-// Check individual states
-final allLoaded = queries.every((q) => q.hasData);
-final anyLoading = queries.any((q) => q.isLoading);
-final hasError = queries.any((q) => q.hasError);
-```
-
-### Bloc Adapter
-```dart
-MultiQueryBuilder(
-  builder: (context, state) {
-    // Built-in helpers
-    if (state.isAllLoading) return CircularProgressIndicator();
-    if (state.isAnyLoading) return PartialLoadingWidget();
-    if (state.isAllSuccess) return SuccessWidget();
-    if (state.hasAnyError) return ErrorWidget();
-    
-    // Access individual states
-    final userState = state.getState<List<User>>(0);
-    final postState = state.getState<List<Post>>(1);
-  },
+Column(
+  children: [
+    QueryBuilder<User>(
+      queryKey: 'user'.toQueryKey(),
+      builder: /* ... */,
+    ),
+    QueryBuilder<List<Post>>(
+      queryKey: 'posts'.toQueryKey(),
+      builder: /* ... */,
+    ),
+  ],
 )
 ```
 
-### Riverpod Adapter
+## How It Works
 
-#### Index-based Access
+1. **Independent Execution**: Each query runs its own async operation.
+2. **Non-Blocking**: One slow query does not stop the others from loading.
+3. **Deduplication**: If two components request the same key, only one network request is made.
+
+## Examples
+
+### Dynamic Parallel Queries
+
+If you need to fetch a dynamic list of items (e.g. valid IDs), mapping them to queries works seamlessly.
+
 ```dart
-final combined = ref.watch(dashboardProvider);
-
-// Built-in helpers
-if (combined.isAllLoading) return CircularProgressIndicator();
-if (combined.isAnyLoading) return PartialLoadingWidget();
-if (combined.isAllSuccess) return SuccessWidget();
-if (combined.hasAnyError) return ErrorWidget();
-
-// Access individual states by index
-final userState = combined.getState<List<User>>(0);
-final postState = combined.getState<List<Post>>(1);
+// Fetching multiple posts by ID in parallel
+Column(
+  children: postIds.map((id) => 
+    QueryBuilder(
+      queryKey: 'post:$id'.toQueryKey(),
+      queryFn: () => api.fetchPost(id),
+      builder: (context, state) => PostTile(state.data),
+    )
+  ).toList(),
+)
 ```
-
-#### Named Access
-```dart
-final combined = ref.watch(dashboardProvider);
-
-// Built-in helpers
-if (combined.isAllLoading) return CircularProgressIndicator();
-if (combined.isAnyLoading) return PartialLoadingWidget();
-if (combined.isAllSuccess) return SuccessWidget();
-if (combined.hasAnyError) return ErrorWidget();
-
-// Access individual states by name
-final userState = combined.getState<List<User>>('users');
-final postState = combined.getState<List<Post>>('posts');
-
-// Check specific query states
-if (combined.isLoading('users')) return UserSkeleton();
-if (combined.hasError('posts')) return PostErrorWidget();
-```
-
-## Performance Characteristics
-
-- **True Parallelism**: Queries execute concurrently using Dart's async/await
-- **Independent Timing**: Each query completes at its own pace
-- **No Blocking**: Slow queries don't delay fast ones
-- **Memory Efficient**: No additional overhead beyond individual queries
-- **Cache Sharing**: Queries with same key still deduplicate requests
-
-## Best Practices
-
-### 1. Use for Truly Independent Data
-```dart
-// Good: Independent data sources
-final queries = useQueries([
-  QueryConfig('users', () => api.fetchUsers()),
-  QueryConfig('posts', () => api.fetchPosts()),
-  QueryConfig('settings', () => api.fetchSettings()),
-]);
-
-// Avoid: Dependent data (use dependent queries instead)
-final queries = useQueries([
-  QueryConfig('user', () => api.fetchUser()),
-  QueryConfig('user-posts', () => api.fetchUserPosts(userId)), // Depends on user
-]);
-```
-
-### 2. Handle Partial Loading States
-```dart
-// Show progress for individual sections
-Widget build(BuildContext context) {
-  return Column(
-    children: [
-      if (userState.isLoading) UserSkeleton(),
-      if (postState.isLoading) PostSkeleton(),
-      if (commentState.isLoading) CommentSkeleton(),
-      
-      if (userState.hasData) UserList(userState.data),
-      if (postState.hasData) PostList(postState.data),
-      if (commentState.hasData) CommentList(commentState.data),
-    ],
-  );
-}
-```
-
-### 3. Consider UX for Slow Queries
-```dart
-// Show partial data while waiting for slow queries
-Widget build(BuildContext context) {
-  return Column(
-    children: [
-      // Show fast data immediately
-      if (fastQuery.hasData) FastDataWidget(fastQuery.data),
-      
-      // Show loading indicator for slow query
-      if (slowQuery.isLoading) SlowDataSkeleton(),
-      if (slowQuery.hasData) SlowDataWidget(slowQuery.data),
-    ],
-  );
-}
-```
-
-### 4. Error Handling Strategy
-```dart
-// Option 1: Show all data, hide errors
-if (state.hasAnyError) {
-  // Log errors but don't block UI
-  debugPrint('Some queries failed: ${state.states.where((s) => s.hasError)}');
-}
-
-// Option 2: Show error banner
-if (state.hasAnyError) {
-  return ErrorBanner(
-    onRetry: () => state.states.forEach((s) => s.refetch()),
-  );
-}
-
-// Option 3: Graceful degradation
-Widget build(BuildContext context) {
-  return Column(
-    children: [
-      if (userState.hasData) UserList(userState.data)
-      else if (userState.hasError) UserErrorWidget(),
-      
-      if (postState.hasData) PostList(postState.data)
-      else if (postState.hasError) PostErrorWidget(),
-    ],
-  );
-}
-```
-
-## Migration from Individual Queries
-
-### Before (Individual Queries)
-```dart
-class Dashboard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        QueryBuilder<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-          builder: (context, state) => UserList(state),
-        ),
-        QueryBuilder<List<Post>>(
-          queryKey: 'posts',
-          queryFn: () => api.fetchPosts(),
-          builder: (context, state) => PostList(state),
-        ),
-        QueryBuilder<List<Comment>>(
-          queryKey: 'comments',
-          queryFn: () => api.fetchComments(),
-          builder: (context, state) => CommentList(state),
-        ),
-      ],
-    );
-  }
-}
-```
-
-### After (Parallel Queries)
-```dart
-class Dashboard extends HookWidget {
-  @override
-  Widget build(BuildContext context) {
-    final queries = useQueries([
-      QueryConfig('users', () => api.fetchUsers()),
-      QueryConfig('posts', () => api.fetchPosts()),
-      QueryConfig('comments', () => api.fetchComments()),
-    ]);
-    
-    return Column(
-      children: [
-        if (queries.any((q) => q.isLoading)) LinearProgressIndicator(),
-        UserList(queries[0]),
-        PostList(queries[1]),
-        CommentList(queries[2]),
-      ],
-    );
-  }
-}
-```
-
-## Troubleshooting
-
-### Queries Not Executing in Parallel
-- Ensure each query has a unique key
-- Check that query functions are truly independent
-- Verify no shared state or dependencies between queries
-
-### Memory Issues
-- Parallel queries don't add memory overhead beyond individual queries
-- Each query manages its own lifecycle independently
-- Use `QueryClient.resetForTesting()` in tests to prevent memory leaks
-
-### State Not Updating
-- Ensure proper listener management in custom implementations
-- Check that state changes trigger rebuilds correctly
-- Verify query keys are stable (not changing on each render)
-
-## Related Topics
-
-- [Dependent Queries](./dependent-queries) - For queries that depend on other queries
-- [Infinite Queries](./infinite-queries) - For paginated data loading
-- [Mutations](./mutations) - For data modifications
-- [Caching](./caching) - Understanding the underlying cache system

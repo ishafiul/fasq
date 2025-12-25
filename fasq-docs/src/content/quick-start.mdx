@@ -1,12 +1,10 @@
 # Quick Start
 
-Get up and running with Fasq in 5 minutes. This guide shows you the basics with a simple user list example.
+Get up and running with Fasq in 5 minutes. This guide focuses on the core `QueryBuilder` widget, which works with any Flutter setup.
 
-## 1. Basic Query
+## 1. Simple Data Fetching
 
-Let's fetch a list of users and display them. Here's how it looks with each adapter:
-
-### Core Package (QueryBuilder)
+Let's fetch a list of users and display them.
 
 ```dart
 import 'package:fasq/fasq.dart';
@@ -15,15 +13,20 @@ class UsersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QueryBuilder<List<User>>(
-      queryKey: 'users',
+      // 1. Unique key for caching
+      queryKey: 'users'.toQueryKey(),
+      
+      // 2. Async function that returns Future<List<User>>
       queryFn: () => api.fetchUsers(),
+      
+      // 3. Builder callback
       builder: (context, state) {
         if (state.isLoading) {
-          return CircularProgressIndicator();
+          return const Center(child: CircularProgressIndicator());
         }
         
         if (state.hasError) {
-          return Text('Error: ${state.error}');
+          return Center(child: Text('Error: ${state.error}'));
         }
         
         if (state.hasData) {
@@ -39,299 +42,86 @@ class UsersScreen extends StatelessWidget {
           );
         }
         
-        return SizedBox();
+        return const SizedBox();
       },
     );
   }
 }
 ```
 
-### Hooks Adapter
+## 2. Using Adapters (Optional)
+
+If you use a specific state management library, you can use the corresponding adapter for a more integrated feel.
+
+### Hooks (`flutter_hooks`)
 
 ```dart
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:fasq_hooks/fasq_hooks.dart';
-
+// Using fasq_hooks
 class UsersScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    final usersState = useQuery('users', () => api.fetchUsers());
+    final state = useQuery('users', () => api.fetchUsers());
     
-    if (usersState.isLoading) {
-      return CircularProgressIndicator();
-    }
-    
-    if (usersState.hasError) {
-      return Text('Error: ${usersState.error}');
-    }
-    
-    if (usersState.hasData) {
-      return ListView.builder(
-        itemCount: usersState.data!.length,
-        itemBuilder: (context, index) {
-          final user = usersState.data![index];
-          return ListTile(
-            title: Text(user.name),
-            subtitle: Text(user.email),
-          );
-        },
-      );
-    }
-    
-    return SizedBox();
+    if (state.isLoading) return const CircularProgressIndicator();
+    // ... same UI logic
   }
 }
 ```
 
-### Bloc Adapter
+*Note: Requires `fasq_hooks` package.*
+
+### Bloc (`flutter_bloc`)
 
 ```dart
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:fasq_bloc/fasq_bloc.dart';
-
-class UsersScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => QueryCubit<List<User>>(
-        key: 'users',
-        queryFn: () => api.fetchUsers(),
-      ),
-      child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return CircularProgressIndicator();
-          }
-          
-          if (state.hasError) {
-            return Text('Error: ${state.error}');
-          }
-          
-          if (state.hasData) {
-            return ListView.builder(
-              itemCount: state.data!.length,
-              itemBuilder: (context, index) {
-                final user = state.data![index];
-                return ListTile(
-                  title: Text(user.name),
-                  subtitle: Text(user.email),
-                );
-              },
-            );
-          }
-          
-          return SizedBox();
-        },
-      ),
-    );
-  }
-}
-```
-
-### Riverpod Adapter
-
-```dart
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fasq_riverpod/fasq_riverpod.dart';
-
-final usersProvider = queryProvider<List<User>>(
-  'users',
-  () => api.fetchUsers(),
-);
-
-class UsersScreen extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final usersState = ref.watch(usersProvider);
-    
-    if (usersState.isLoading) {
-      return CircularProgressIndicator();
-    }
-    
-    if (usersState.hasError) {
-      return Text('Error: ${usersState.error}');
-    }
-    
-    if (usersState.hasData) {
-      return ListView.builder(
-        itemCount: usersState.data!.length,
-        itemBuilder: (context, index) {
-          final user = usersState.data![index];
-          return ListTile(
-            title: Text(user.name),
-            subtitle: Text(user.email),
-          );
-        },
-      );
-    }
-    
-    return SizedBox();
-  }
-}
-```
-
-## 2. Add Error Handling
-
-Let's improve our error handling with a retry button:
-
-```dart
-QueryBuilder<List<User>>(
-  queryKey: 'users',
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) {
-    if (state.isLoading) {
-      return CircularProgressIndicator();
-    }
-    
-    if (state.hasError) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('Error: ${state.error}'),
-          SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // Retry the query
-              QueryClient().getQueryByKey<List<User>>('users')?.fetch();
-            },
-            child: Text('Retry'),
-          ),
-        ],
-      );
-    }
-    
-    if (state.hasData) {
-      return UserList(users: state.data!);
-    }
-    
-    return SizedBox();
-  },
+// Using fasq_bloc
+BlocProvider(
+  create: (_) => QueryCubit(key: 'users', queryFn: api.fetchUsers),
+  child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
+    builder: (context, state) {
+       if (state.isLoading) return const CircularProgressIndicator();
+       // ...
+    },
+  ),
 )
 ```
 
-## 3. Configure Caching
+*Note: Requires `fasq_bloc` package.*
 
-Add caching configuration to improve performance:
+## 3. Configuration & Caching
+
+Add caching behavior by customizing `QueryOptions`.
 
 ```dart
 QueryBuilder<List<User>>(
-  queryKey: 'users',
+  queryKey: 'users'.toQueryKey(),
   queryFn: () => api.fetchUsers(),
   options: QueryOptions(
-    staleTime: Duration(minutes: 5),  // Data fresh for 5 minutes
-    cacheTime: Duration(minutes: 10), // Keep in cache for 10 minutes
+    staleTime: Duration(minutes: 5),  // Fresh for 5 minutes (no refetch)
+    cacheTime: Duration(minutes: 30), // Keep in memory for 30 minutes
   ),
-  builder: (context, state) => buildUI(state),
+  builder: (context, state) => /* ... */,
 )
 ```
 
-## 4. Add a Mutation
+## 4. Retrying & Refreshing
 
-Let's add the ability to create new users:
-
-```dart
-class CreateUserScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MutationBuilder<User, String>(
-      mutationFn: (name) => api.createUser(name),
-      options: MutationOptions(
-        onSuccess: (user) {
-          // Invalidate users query to refetch
-          QueryClient().invalidateQuery('users');
-          Navigator.pop(context);
-        },
-        onError: (error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $error')),
-          );
-        },
-      ),
-      builder: (context, state, mutate) {
-        return Column(
-          children: [
-            TextField(
-              decoration: InputDecoration(labelText: 'User Name'),
-              onSubmitted: (name) {
-                if (name.isNotEmpty) {
-                  mutate(name);
-                }
-              },
-            ),
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: state.isLoading ? null : () {
-                // Get name from TextField and mutate
-                mutate('John Doe');
-              },
-              child: state.isLoading 
-                ? CircularProgressIndicator()
-                : Text('Create User'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-```
-
-## 5. Share Queries Across Widgets
-
-Multiple widgets can share the same query by using the same `queryKey`:
+Use the provided `QueryClient` to interact with queries manually.
 
 ```dart
-// Widget A
-QueryBuilder<List<User>>(
-  queryKey: 'users',
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) => UserList(users: state.data ?? []),
-)
+// Refresh (Refetch)
+QueryClient().invalidateQuery('users'.toQueryKey());
 
-// Widget B (shares the same query!)
-QueryBuilder<List<User>>(
-  queryKey: 'users',
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) => UserStats(count: state.data?.length ?? 0),
-)
-```
-
-Only ONE network request happens, both widgets receive the same state.
-
-## What's Next?
-
-You've learned the basics! Here's what to explore next:
-
-- **[Core Concepts](/docs/core-concepts)** - Deep dive into queries, mutations, and caching
-- **[Choose Your Adapter](/docs/core)** - Detailed guides for each state management approach
-- **[Guides](/docs/guides)** - Advanced patterns like pagination, optimistic updates, and forms
-- **[Examples](/docs/examples)** - Real-world examples and use cases
-
-## Common Patterns
-
-### Loading States
-```dart
-if (state.isLoading) return CircularProgressIndicator();
-if (state.isFetching) return LinearProgressIndicator(); // Background refresh
-```
-
-### Error States
-```dart
+// Manual Retry (if error)
 if (state.hasError) {
-  return Text('Error: ${state.error}');
+  ElevatedButton(
+    onPressed: () => QueryClient().refetchQuery('users'.toQueryKey()),
+    child: Text('Retry'),
+  );
 }
 ```
 
-### Empty States
-```dart
-if (state.hasData && state.data!.isEmpty) {
-  return Text('No data available');
-}
-```
+## Next Steps
 
-### Success States
-```dart
-if (state.hasData) {
-  return YourDataWidget(data: state.data!);
-}
-```
+- **[Core Concepts](/docs/core-concepts)** - Deep dive into how queries work
+- **[Examples](/docs/examples)** - See real-world patterns
+- **[API Reference](/docs/core/query-builder)** - Full details on QueryBuilder

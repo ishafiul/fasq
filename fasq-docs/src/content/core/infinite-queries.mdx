@@ -1,64 +1,101 @@
-import { Tabs } from 'nextra/components'
-
 # Infinite Queries
 
-Infinite queries manage a list of pages with next/previous fetching, per-page errors, and memory caps.
+Infinite queries allow you to handle paginated data, such as "Load More" lists or infinite scrolls.
 
-## API
+## Usage
 
-```ts
-InfiniteQueryOptions<TData, TParam> {
-  getNextPageParam?: (pages, lastPageData) => TParam | null
-  getPreviousPageParam?: (pages, firstPageData) => TParam | null
-  maxPages?: number
+Since Fasq currently provides the raw logic for infinite queries, you can use it with a standard `StreamBuilder`.
+
+```dart
+// 1. Define the fetch function
+Future<List<Post>> fetchPosts(int page) async {
+  return api.getPosts(page: page);
+}
+
+// 2. Create the InfiniteQuery
+final query = QueryClient().getInfiniteQuery<List<Post>, int>(
+  'posts'.toQueryKey(),
+  (page) => fetchPosts(page),
+  options: InfiniteQueryOptions(
+     // Define how to get the next page param
+     getNextPageParam: (pages, lastPage) {
+       return pages.length; // Simple page number logic
+     },
+  ),
+);
+
+// 3. Use standard StreamBuilder
+class PostList extends StatefulWidget {
+  @override
+  _PostListState createState() => _PostListState();
+}
+
+class _PostListState extends State<PostList> {
+  @override
+  void initState() {
+    super.initState();
+    // Start listening to data
+    query.addListener();
+    // Fetch first page if needed
+    if (query.state.pages.isEmpty) {
+        query.fetchNextPage(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    query.removeListener();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: query.stream,
+      initialData: query.state,
+      builder: (context, snapshot) {
+        final state = snapshot.data!;
+        
+        // Flatten pages into a single list
+        final posts = state.pages.expand((page) => page.data ?? []).toList();
+
+        return ListView.builder(
+          itemCount: posts.length + 1,
+          itemBuilder: (context, index) {
+            if (index == posts.length) {
+              // Load more button
+              return ElevatedButton(
+                onPressed: state.isFetchingNextPage 
+                   ? null 
+                   : () => query.fetchNextPage(),
+                child: state.isFetchingNextPage
+                   ? const CircularProgressIndicator()
+                   : const Text('Load More'),
+              );
+            }
+            return ListTile(title: Text(posts[index].title));
+          },
+        );
+      },
+    );
+  }
 }
 ```
 
-## Pagination Strategies
+## API
 
-- Page-number: `PageNumberPagination(startAt, pageSize)` → `getNextPageParam`
-- Cursor: `CursorPagination(nextSelector, prevSelector?)`
+### InfiniteQueryOptions
 
-## Examples
+| Property | Description |
+|----------|-------------|
+| `getNextPageParam` | Function to calculate the next page parameter given the current pages. Return `null` to indicate no more pages. |
+| `getPreviousPageParam` | Function to calculate the previous page parameter. |
+| `maxPages` | Maximum number of pages to keep in memory (auto-garbage collection for lists). |
 
-<Tabs items={['Hooks', 'Bloc', 'Riverpod']}>
-  <Tabs.Tab>
+### InfiniteQueryState
 
-```dart
-final state = useInfiniteQuery<List<Post>, int>(
-  'posts',
-  (page) => api.fetchPosts(page: page),
-  InfiniteQueryOptions(
-    getNextPageParam: (pages, last) => pages.length + 1,
-    maxPages: 5,
-  ),
-);
-```
-  </Tabs.Tab>
-  <Tabs.Tab>
-
-```dart
-final cubit = InfiniteQueryCubit<List<Post>, int>(
-  key: 'posts',
-  queryFn: (page) => api.fetchPosts(page: page),
-  options: InfiniteQueryOptions(
-    getNextPageParam: (pages, last) => pages.length + 1,
-  ),
-);
-```
-  </Tabs.Tab>
-  <Tabs.Tab>
-
-```dart
-final provider = infiniteQueryProvider<List<Post>, int>(
-  'posts',
-  (page) => api.fetchPosts(page: page),
-  options: InfiniteQueryOptions(
-    getNextPageParam: (pages, last) => pages.length + 1,
-  ),
-);
-```
-  </Tabs.Tab>
-</Tabs>
-
-
+| Property | Description |
+|----------|-------------|
+| `pages` | List of `Page<TData, TParam>` objects containing your data. |
+| `hasNextPage` | Boolean indicating if there is more data to fetch. |
+| `isFetchingNextPage` | True if currently fetching the next page. |

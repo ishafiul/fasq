@@ -1,276 +1,88 @@
 # Introduction
 
-**Fasq** is a powerful async state management library for Flutter that handles API calls, database queries, file operations, and any async operation with intelligent caching, automatic refetching, and error recovery.
+**Fasq** (Flutter Async State Query) is a powerful, developer-friendly state management solution for asynchronous data in Flutter. It handles fetching, caching, synchronizing, and updating server state in your application with zero boilerplate.
 
-## What is Fasq?
+## Why Fasq?
 
-Fasq treats async operation state as fundamentally different from synchronous client state. While client state like form inputs or UI toggles belongs to the component that created it, async operation results represent shared data that can be accessed by any part of your application.
+Managing server state in Flutter can be challenging. You often need to:
+- Show loading spinners while fetching data
+- Handle errors gracefully
+- Cache data to save bandwidth and improve performance
+- Update UI instantly when data changes
+- Refresh data in the background
 
-## Why Use Fasq?
+**Fasq** handles all of this for you with a simple, widget-based API that feels native to Flutter.
 
-### **Drastically Reduce Boilerplate**
+## Key Features
 
-Instead of writing 50+ lines of code for each async operation, Fasq handles loading states, error handling, caching, and refetching automatically.
+- **Automatic Caching**: Data is cached automatically. Navigation back to a screen shows data instantly.
+- **Background Refetching**: Stale data is shown immediately while fresh data is fetched in the background.
+- **Request Deduplication**: Multiple widgets asking for the same data? Only one network request is made.
+- **Window Focus Refetching**: Automatically refetch data when the app comes back to the foreground.
+- **Optimisitc Updates**: Update your UI immediately when performing mutations, then sync with the server.
+- **Infinite Queries**: Built-in support for infinite scrolling lists.
+- **Offline Support**: Queue mutations when offline and sync when online.
 
-**Before (vanilla Flutter):**
-```dart
-class UserScreen extends StatefulWidget {
-  @override
-  _UserScreenState createState() => _UserScreenState();
-}
+## Installation
 
-class _UserScreenState extends State<UserScreen> {
-  List<User>? users;
-  bool isLoading = false;
-  String? error;
-  
-  @override
-  void initState() {
-    super.initState();
-    _fetchUsers();
-  }
-  
-  Future<void> _fetchUsers() async {
-    setState(() {
-      isLoading = true;
-      error = null;
-    });
-    
-    try {
-      final fetchedUsers = await api.fetchUsers();
-      setState(() {
-        users = fetchedUsers;
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
-    }
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) return CircularProgressIndicator();
-    if (error != null) return Text('Error: $error');
-    if (users == null) return SizedBox();
-    
-    return ListView.builder(
-      itemCount: users!.length,
-      itemBuilder: (context, index) => UserTile(users![index]),
-    );
-  }
-}
+Add `fasq` to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  fasq: ^0.3.7
 ```
 
-**After (with Fasq):**
+## Quick Example
+
+Fasq is designed to work out of the box with `QueryBuilder`:
+
 ```dart
-class UserScreen extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:fasq/fasq.dart';
+
+class TodoList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return QueryBuilder<List<User>>(
-      queryKey: 'users',
-      queryFn: () => api.fetchUsers(),
+    return QueryBuilder<List<Todo>>(
+      queryKey: 'todos'.toQueryKey(), 
+      queryFn: () => api.fetchTodos(),
       builder: (context, state) {
-        if (state.isLoading) return CircularProgressIndicator();
-        if (state.hasError) return Text('Error: ${state.error}');
-        if (state.hasData) return UserList(users: state.data!);
-        return SizedBox();
+        if (state.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (state.hasError) {
+          return Center(child: Text('Error: ${state.error}'));
+        }
+
+        if (state.hasData) {
+          return ListView.builder(
+            itemCount: state.data!.length,
+            itemBuilder: (context, index) {
+              final todo = state.data![index];
+              return ListTile(title: Text(todo.title));
+            },
+          );
+        }
+
+        return const SizedBox();
       },
     );
   }
 }
 ```
 
-### **Intelligent Caching**
+## Ecosystem
 
-Fasq automatically caches your data and serves it instantly on subsequent requests. Configure how long data stays fresh, and Fasq handles the rest.
+Fasq works great on its own, but also integrates with your favorite state management solutions via adapters:
 
-```dart
-QueryBuilder<UserProfile>(
-  queryKey: 'userProfile',
-  queryFn: () => api.fetchProfile(),
-  options: QueryOptions(
-    staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
-    cacheTime: Duration(minutes: 10),  // Cached for 10 minutes
-  ),
-  builder: (context, state) => buildUI(state),
-)
-```
-
-**What happens:**
-- First fetch: loads from network, caches for 5 minutes
-- Within 5 min: serves instantly from cache, no refetch
-- After 5 min: serves from cache, refetches in background
-- After 10 min inactive: cache cleared, next access fetches fresh
-
-### **Request Deduplication**
-
-When multiple widgets request the same data simultaneously, only one network request is made. All requesters receive the same result.
-
-```dart
-// Widget A
-QueryBuilder<Data>(
-  queryKey: 'shared-data',
-  queryFn: () => fetchData(),
-  builder: (context, state) => WidgetA(state),
-)
-
-// Widget B (shares the same query!)
-QueryBuilder<Data>(
-  queryKey: 'shared-data',
-  queryFn: () => fetchData(),
-  builder: (context, state) => WidgetB(state),
-)
-```
-
-Only ONE fetch happens, both widgets receive the same state.
-
-### **Type Safety**
-
-Full generic type support ensures compile-time safety for your data.
-
-```dart
-QueryBuilder<List<User>>(
-  queryKey: 'users',
-  queryFn: () => api.fetchUsers(), // Returns Future<List<User>>
-  builder: (context, state) {
-    // state.data is List<User>?
-    // state.error is Object?
-    // state.isLoading is bool
-    return UserList(users: state.data!);
-  },
-)
-```
-
-## Multiple State Management Options
-
-Fasq works with your existing state management solution:
-
-### **Hooks** (flutter_hooks)
-```dart
-final usersState = useQuery('users', () => api.fetchUsers());
-if (usersState.isLoading) return Loading();
-return UserList(usersState.data!);
-```
-
-### **Bloc** (flutter_bloc)
-```dart
-BlocProvider(
-  create: (_) => QueryCubit(key: 'users', queryFn: () => api.fetchUsers()),
-  child: BlocBuilder<QueryCubit<List<User>>, QueryState<List<User>>>(
-    builder: (context, state) => buildUI(state),
-  ),
-)
-```
-
-### **Riverpod** (flutter_riverpod)
-```dart
-final usersProvider = queryProvider('users', () => api.fetchUsers());
-
-class UsersScreen extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(usersProvider);
-    if (state.isLoading) return Loading();
-    return UserList(state.data!);
-  }
-}
-```
-
-### **Core** (QueryBuilder)
-```dart
-QueryBuilder<List<User>>(
-  queryKey: 'users',
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) => buildUI(state),
-)
-```
-
-## What Fasq Handles For You
-
-- **Loading States** - Automatic loading indicators
-- **Error Handling** - Consistent error states and recovery
-- **Caching** - Intelligent cache with configurable policies
-- **Background Refetching** - Keep data fresh automatically
-- **Request Deduplication** - Prevent duplicate network calls
-- **Memory Management** - Automatic cleanup and eviction
-- **Type Safety** - Full generic type support
-- **Thread Safety** - Concurrent access protection
-- **Security Features** - Secure cache entries, encrypted persistence, input validation
-
-## Security Features 
-
-Fasq includes comprehensive security features for production applications:
-
-### Secure Cache Entries
-Mark sensitive data to prevent persistence and enable automatic cleanup:
-
-```dart
-QueryBuilder<String>(
-  queryKey: 'auth-token',
-  queryFn: () => api.getAuthToken(),
-  options: QueryOptions(
-    isSecure: true,                    // Mark as secure
-    maxAge: Duration(minutes: 15),     // Required TTL
-  ),
-  builder: (context, state) {
-    // Secure data never persisted, cleared on app background
-    return Text('Token: ${state.data}');
-  },
-)
-```
-
-### Encrypted Persistence
-Optional encryption for persisted cache data:
-
-```dart
-final secureClient = QueryClient(
-  persistenceOptions: const PersistenceOptions(enabled: true),
-);
-
-QueryClientProvider(
-  client: secureClient,
-  child: const MyApp(),
-);
-```
-
-### Input Validation
-Comprehensive validation prevents injection attacks:
-
-```dart
-// Valid query keys
-queryKey: 'user:123'        // Alphanumeric, colon, hyphen, underscore only
-
-// Invalid query keys throw clear errors
-queryKey: 'user@123'        // Special characters not allowed
-```
-
-**Security Benefits:**
-- Never persisted to disk for secure entries
-- AES-GCM encryption for data at rest
-- Platform-specific secure key storage
-- Automatic cleanup on app lifecycle events
-- Input validation preventing injection attacks
-
-## What Fasq Doesn't Do
-
-- **Local State Management** - Use your existing solution for UI state
-- **HTTP Client** - Works with any Future-returning function
-- **Serialization** - You handle JSON parsing
-- **GraphQL** - Focuses on REST/HTTP APIs (for now)
+- **[fasq_hooks](https://pub.dev/packages/fasq_hooks)**: For `flutter_hooks` users.
+- **[fasq_bloc](https://pub.dev/packages/fasq_bloc)**: For `flutter_bloc` users.
+- **[fasq_riverpod](https://pub.dev/packages/fasq_riverpod)**: For `flutter_riverpod` users.
 
 ## Next Steps
-
-Ready to get started? Choose your path:
 
 - **[Installation](/docs/installation)** - Add Fasq to your project
 - **[Quick Start](/docs/quick-start)** - Get up and running in 5 minutes
 - **[Core Concepts](/docs/core-concepts)** - Understand queries, mutations, and caching
-- **[Security Features](/docs/core/security)** - Learn about secure cache entries, encrypted persistence, and input validation
-- **[Choose Your Adapter](/docs/core)** - Pick the approach that fits your app
-
-## Inspiration
-
-Fasq draws inspiration from proven solutions like React Query and SWR, adapted for Flutter's unique characteristics and state management diversity.
+- **[Security Features](/docs/core/security)** - Learn about secure cache entries and encryption

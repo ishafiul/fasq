@@ -4,297 +4,107 @@ Understanding the fundamental concepts of Fasq will help you build better applic
 
 ## Queries
 
-A **query** is a declarative dependency on an asynchronous data source. Queries are tied to a unique key and can be used to fetch, cache, and synchronize data in your application.
+A **query** is a declarative dependency on an asynchronous data source. Queries are tied to a unique `QueryKey` and can be used to fetch, cache, and synchronize data.
 
 ### Query Lifecycle
 
-Every query goes through these states:
-
-1. **Idle** - Query hasn't been executed yet
-2. **Loading** - Query is fetching data for the first time
-3. **Success** - Query has successfully fetched data
-4. **Error** - Query encountered an error
-
-```dart
-QueryBuilder<User>(
-  queryKey: 'user:123'.toQueryKey(),
-  queryFn: () => api.fetchUser('123'),
-  builder: (context, state) {
-    switch (state.status) {
-      case QueryStatus.idle:
-        return Text('Ready to fetch');
-      case QueryStatus.loading:
-        return CircularProgressIndicator();
-      case QueryStatus.success:
-        return Text('User: ${state.data!.name}');
-      case QueryStatus.error:
-        return Text('Error: ${state.error}');
-    }
-  },
-)
-```
+1. **Idle**: Query hasn't started yet.
+2. **Loading**: Initial fetch is in progress.
+3. **Success**: Data is available.
+4. **Error**: Fetch failed.
 
 ### Query Keys
 
-Query keys uniquely identify queries and are used for:
-- Caching data
-- Sharing queries between widgets
-- Invalidating queries
-- Request deduplication
-
-#### String Keys (Simple)
+Fasq uses `QueryKey` to identify cache entries. The simplest way to create one is using the `.toQueryKey()` extension on strings.
 
 ```dart
 // Simple key
-queryKey: 'users'.toQueryKey()
+'users'.toQueryKey()
 
-// Parameterized key
-queryKey: 'user:123'.toQueryKey()
+// Parameterized key (using string interpolation)
+'user:$userId'.toQueryKey()
 
-// Complex key
-queryKey: 'posts:user:123:page:1'.toQueryKey()
+// Hierarchical key
+'posts:user:$userId:page:$page'.toQueryKey()
 ```
 
-#### Type-Safe Query Keys (Recommended)
+### Typed Query Keys
 
-For better type safety and IDE support, use `TypedQueryKey`:
+For type safety, you can use `TypedQueryKey`.
 
 ```dart
-// Define query keys in a central location
-class QueryKeys {
-  static TypedQueryKey<List<User>> get users =>
-      const TypedQueryKey<List<User>>('users', List<User>);
-
-  static TypedQueryKey<User> user(String id) =>
-      TypedQueryKey<User>('user:$id', User);
-
-  static TypedQueryKey<List<Post>> postsByUser(String userId) =>
-      TypedQueryKey<List<Post>>('posts:user:$userId', List<Post>);
-}
-
-// Use in queries
-QueryBuilder<List<User>>(
-  queryKey: QueryKeys.users,
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) => ...,
-)
-
-QueryBuilder<User>(
-  queryKey: QueryKeys.user('123'),
-  queryFn: () => api.fetchUser('123'),
-  builder: (context, state) => ...,
-)
+// Strongly typed key for List<User>
+const usersKey = TypedQueryKey<List<User>>('users');
 ```
-
-**Best Practices:**
-- Use descriptive, hierarchical keys
-- Include parameters in keys for parameterized queries
-- Keep keys consistent across your app
-- Prefer type-safe `TypedQueryKey` for better IDE support and type checking
-- Define query keys in a central `QueryKeys` class
 
 ## Mutations
 
-**Mutations** are used to create, update, or delete data. Unlike queries, mutations:
-- Don't cache results (each execution is unique)
-- Are manually triggered (not auto-fetch)
-- Are perfect for form submissions and server modifications
+**Mutations** are for creating, updating, or deleting data. Unlike queries:
+- They are active only when triggered (via `mutate()`).
+- They do not auto-refetch.
+- They are one-off operations.
 
 ```dart
 MutationBuilder<User, String>(
   mutationFn: (name) => api.createUser(name),
   builder: (context, state, mutate) {
     return ElevatedButton(
-      onPressed: state.isLoading ? null : () => mutate('John Doe'),
-      child: state.isLoading 
-        ? CircularProgressIndicator()
-        : Text('Create User'),
+      onPressed: () => mutate('New Name'),
+      child: Text('Create'),
     );
   },
 )
 ```
 
-### Mutation Lifecycle
+## Caching & Staleness
 
-Mutations have their own lifecycle:
+Fasq implements a **Stale-While-Revalidate** strategy.
 
-1. **Idle** - Mutation hasn't been executed
-2. **Loading** - Mutation is executing
-3. **Success** - Mutation completed successfully
-4. **Error** - Mutation failed
+### 1. Stale Time
+The duration data is considered "fresh".
+- If data is **fresh**, Fasq returns it from cache **without** a network request.
+- If data is **stale**, Fasq returns it from cache **immediately**, but triggers a background refetch.
+- Default: `Duration.zero` (always stale).
 
-## Caching and Staleness
-
-Fasq uses intelligent caching to dramatically improve app performance and user experience.
-
-### Three Data States
-
-1. **Fresh Data** (age < staleTime)
-   - Served instantly from cache
-   - No refetch triggered
-   - Perfect for data that doesn't change often
-
-2. **Stale Data** (age >= staleTime)
-   - Served instantly from cache (no loading state!)
-   - Background refetch triggered automatically
-   - `state.isFetching` indicates background activity
-   - UI updates when fresh data arrives
-
-3. **Missing Data** (not in cache)
-   - Must fetch from source
-   - Shows loading state
-   - Caches result for future requests
-
-### Key Timing Concepts
-
-- **staleTime** - How long data is considered fresh (default: 0 = always stale)
-- **cacheTime** - How long inactive data stays in cache (default: 5 minutes)
+### 2. Cache Time
+The duration inactive data remains in memory.
+- If a query is unmounted (e.g., user leaves the screen), the data sits in cache for this duration.
+- If accessed again within this time, it's reused.
+- If not accessed, it is garbage collected.
+- Default: `5 minutes`.
 
 ```dart
 QueryOptions(
-  staleTime: Duration(minutes: 5),  // Fresh for 5 min
-  cacheTime: Duration(minutes: 30), // Kept in cache for 30 min
+  staleTime: Duration(minutes: 5),  // Trust cache for 5 minutes
+  cacheTime: Duration(minutes: 30), // Keep in memory for 30 minutes
 )
 ```
-
-**Timeline:**
-- 0-5 min: Fresh (instant, no refetch)
-- 5-30 min: Stale (instant + background refetch)
-- 30+ min (inactive): Garbage collected
 
 ## Request Deduplication
 
-When multiple widgets request the same data simultaneously:
-- **Without Fasq:** Multiple network requests
-- **With Fasq:** 1 network request, all widgets get the result
-
-This happens automatically, no configuration needed.
+If multiple widgets request the same `queryKey` at the same time, Fasq sends **only one** network request. Once the request completes, all widgets update with the data simultaneously.
 
 ```dart
 // Widget A
-QueryBuilder<Data>(
-  queryKey: 'shared-data'.toQueryKey(),
-  queryFn: () => fetchData(),
-  builder: (context, state) => WidgetA(state),
-)
+QueryBuilder(queryKey: 'data'.toQueryKey(), ...)
 
-// Widget B (shares the same query!)
-QueryBuilder<Data>(
-  queryKey: 'shared-data'.toQueryKey(),
-  queryFn: () => fetchData(),
-  builder: (context, state) => WidgetB(state),
-)
+// Widget B (same key)
+QueryBuilder(queryKey: 'data'.toQueryKey(), ...)
+
+// -> 1 Fetch only!
 ```
 
-## Query State
+## Global State
 
-Every query has a state with these properties:
+The `QueryClient` acts as the single source of truth. It holds the cache and manages all active queries.
 
 ```dart
-class QueryState<T> {
-  final T? data;           // The result of the async operation
-  final Object? error;     // The error if the operation failed
-  final StackTrace? stackTrace; // Stack trace for debugging errors
-  final QueryStatus status; // Current status: idle, loading, success, or error
-  final bool isLoading;    // Boolean flag for loading state
-  final bool hasData;      // Boolean flag indicating data is available
-  final bool hasError;     // Boolean flag indicating an error occurred
-  final bool isSuccess;    // Boolean flag for successful completion
-  final bool isFetching;   // Boolean flag for background refetch
-}
+// Access globally
+final client = QueryClient();
+
+// Invalidate specific data
+client.invalidateQuery('users'.toQueryKey());
+
+// Prefetch data
+client.prefetchQuery('profile'.toQueryKey(), fetchProfile);
 ```
-
-## Background Refetching
-
-Fasq automatically refetches stale data in the background to keep your UI fresh.
-
-```dart
-QueryBuilder<Data>(
-  queryKey: 'data'.toQueryKey(),
-  queryFn: () => fetchData(),
-  options: QueryOptions(staleTime: Duration(minutes: 5)),
-  builder: (context, state) {
-    return Column(
-      children: [
-        if (state.isFetching)
-          LinearProgressIndicator(), // Show background activity
-        if (state.hasData)
-          DataWidget(state.data!),
-      ],
-    );
-  },
-)
-```
-
-## Cache Invalidation
-
-Invalidate cached data when you know it's changed:
-
-```dart
-// After updating data
-await api.updateUser(user);
-
-// Invalidate the cache
-QueryClient().invalidateQuery('user:123'.toQueryKey());
-
-// Or invalidate multiple
-QueryClient().invalidateQueriesWithPrefix('user:');
-
-// Or use custom logic
-QueryClient().invalidateQueriesWhere((key) => key.contains('stale'));
-```
-
-## Manual Cache Updates
-
-Set cache data manually for optimistic updates:
-
-```dart
-// Optimistically update cache
-QueryClient().setQueryData('user:123'.toQueryKey(), updatedUser);
-
-// Make API call
-await api.updateUser(updatedUser);
-
-// Get cached data
-final cachedUser = QueryClient().getQueryData<User>('user:123'.toQueryKey());
-```
-
-## Error Handling
-
-Fasq provides comprehensive error handling:
-
-```dart
-QueryBuilder<Data>(
-  queryKey: 'data'.toQueryKey(),
-  queryFn: () => fetchData(),
-  options: QueryOptions(
-    onError: (error) {
-      // Handle error globally
-      print('Query failed: $error');
-    },
-  ),
-  builder: (context, state) {
-    if (state.hasError) {
-      return ErrorWidget(
-        error: state.error!,
-        onRetry: () {
-          // Retry the query
-          QueryClient().getQueryByKey<Data>('data'.toQueryKey())?.fetch();
-        },
-      );
-    }
-    
-    return DataWidget(state.data!);
-  },
-)
-```
-
-## Next Steps
-
-Now that you understand the core concepts:
-
-- **[Core Package](/docs/core)** - Learn the QueryBuilder widget
-- **[Hooks Adapter](/docs/hooks)** - Use with flutter_hooks
-- **[Bloc Adapter](/docs/bloc)** - Use with flutter_bloc
-- **[Riverpod Adapter](/docs/riverpod)** - Use with flutter_riverpod
-- **[Guides](/docs/guides)** - Advanced patterns and techniques

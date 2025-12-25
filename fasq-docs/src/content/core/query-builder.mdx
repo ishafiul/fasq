@@ -1,396 +1,129 @@
 # QueryBuilder
 
-The `QueryBuilder` widget is the core component for executing queries and building UI based on query state.
+The `QueryBuilder` widget is the heart of fetching data in Fasq. It turns asynchronous data sources into reactive UI states.
 
-## Basic Usage
+## Usage
 
 ```dart
 import 'package:fasq/fasq.dart';
 
-QueryBuilder<List<User>>(
-  queryKey: 'users'.toQueryKey(),
-  queryFn: () => api.fetchUsers(),
+QueryBuilder<List<Todo>>(
+  queryKey: 'todos'.toQueryKey(),
+  queryFn: () => fetchTodos(),
   builder: (context, state) {
+    // 1. Loading State
     if (state.isLoading) {
-      return CircularProgressIndicator();
+      return const CircularProgressIndicator();
     }
-    
+
+    // 2. Error State
     if (state.hasError) {
       return Text('Error: ${state.error}');
     }
-    
-    if (state.hasData) {
-      return ListView.builder(
-        itemCount: state.data!.length,
-        itemBuilder: (context, index) {
-          final user = state.data![index];
-          return ListTile(
-            title: Text(user.name),
-            subtitle: Text(user.email),
-          );
-        },
-      );
-    }
-    
-    return SizedBox();
+
+    // 3. Success State
+    return ListView(
+      children: state.data!.map((todo) => Text(todo.title)).toList(),
+    );
   },
 )
 ```
 
-## Parameters
+## API
 
-### Required Parameters
+### Parameters
 
-- **`queryKey`** - Unique identifier for the query
-- **`queryFn`** - Function that returns a Future with the data
-- **`builder`** - Function that builds UI from query state
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `queryKey` | `QueryKey` | Yes | Unique identifier for caching and sharing the query. Use `'key'.toQueryKey()`. |
+| `queryFn` | `Future<T> Function()` | Yes | The function that fetches the data. Must return a Future. |
+| `builder` | `Widget Function(BuildContext, QueryState<T>)` | Yes | Builds the UI based on the current state. |
+| `options` | `QueryOptions?` | No | Configuration for caching, refetching, and side effects. |
 
-### Optional Parameters
+### QueryState Properties
 
-- **`options`** - QueryOptions for configuration
+The `state` object passed to the builder contains:
 
-## Query State
+| Property | Type | Description |
+|----------|------|-------------|
+| `data` | `T?` | The data returned from the query function. `null` if not loaded or errored. |
+| `error` | `Object?` | The error object if the query failed. |
+| `status` | `QueryStatus` | Current status: `loading`, `success`, or `error`. |
+| `isLoading` | `bool` | True if the query is performing the initial fetch (hard loading). |
+| `isFetching` | `bool` | True if the query is fetching, including background refetches. |
+| `hasData` | `bool` | True if `data` is not null. |
+| `hasError` | `bool` | True if `error` is not null. |
 
-The builder receives a `QueryState<T>` object with these properties:
+## Examples
 
-```dart
-class QueryState<T> {
-  final T? data;           // The fetched data
-  final Object? error;      // The error if any
-  final StackTrace? stackTrace; // Stack trace for errors
-  final QueryStatus status; // Current status: idle, loading, success, or error
-  final bool isLoading;    // True when loading
-  final bool hasData;      // True when data is available
-  final bool hasError;     // True when error occurred
-  final bool isSuccess;    // True when successfully loaded
-  final bool isFetching;   // True when refetching in background
-}
-```
+### Customizing Configuration (Options)
 
-## Status Handling
-
-Handle different query statuses:
+You can pass `QueryOptions` to customize how the query behaves.
 
 ```dart
 QueryBuilder<User>(
-  queryKey: 'user:123'.toQueryKey(),
-  queryFn: () => api.fetchUser('123'),
+  queryKey: 'user:1'.toQueryKey(),
+  queryFn: () => fetchUser(1),
+  options: const QueryOptions(
+    staleTime: Duration(minutes: 5), // Data remains fresh for 5 mins
+    refetchOnResume: true,           // Refetch when app comes to foreground
+  ),
   builder: (context, state) {
-    switch (state.status) {
-      case QueryStatus.idle:
-        return Text('Ready to fetch');
-      case QueryStatus.loading:
-        return CircularProgressIndicator();
-      case QueryStatus.success:
-        return Text('User: ${state.data!.name}');
-      case QueryStatus.error:
-        return Text('Error: ${state.error}');
-    }
+    if (state.hasData) return UserProfile(state.data!);
+    return const LoadingSpinner();
   },
 )
 ```
 
-## Loading States
+### Background Refetching Indicators
 
-Handle both initial loading and background refetching:
+Distinguish between initial loading and background updates.
 
 ```dart
-QueryBuilder<Data>(
-  queryKey: 'data'.toQueryKey(),
-  queryFn: () => fetchData(),
+QueryBuilder<List<Post>>(
+  queryKey: 'feed'.toQueryKey(),
+  queryFn: () => fetchFeed(),
   builder: (context, state) {
+    if (state.isLoading) return const ShimmerList();
+    
     return Column(
       children: [
-        if (state.isLoading)
-          CircularProgressIndicator(), // Initial loading
-        if (state.isFetching && !state.isLoading)
-          LinearProgressIndicator(), // Background refetch
-        if (state.hasData)
-          DataWidget(state.data!),
+        // Show a small loader when refreshing in background
+        if (state.isFetching) const LinearProgressIndicator(),
+        
+        Expanded(
+          child: ListView.builder(
+            itemCount: state.data?.length ?? 0,
+            itemBuilder: (_, i) => PostTile(state.data![i]),
+          ),
+        ),
       ],
     );
   },
 )
 ```
 
-## Error Handling
+### Dependent Queries
 
-Handle errors with retry functionality:
-
-```dart
-QueryBuilder<Data>(
-  queryKey: 'data'.toQueryKey(),
-  queryFn: () => fetchData(),
-  builder: (context, state) {
-    if (state.hasError) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('Error: ${state.error}'),
-          SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // Retry the query
-              QueryClient().getQueryByKey<Data>('data')?.fetch();
-            },
-            child: Text('Retry'),
-          ),
-        ],
-      );
-    }
-    
-    if (state.hasData) {
-      return DataWidget(state.data!);
-    }
-    
-    return CircularProgressIndicator();
-  },
-)
-```
-
-## Configuration Options
-
-Configure query behavior with QueryOptions:
+Queries can depend on variables. FASQ handles key changes automatically.
 
 ```dart
-QueryBuilder<User>(
-  queryKey: 'user:123'.toQueryKey(),
-  queryFn: () => api.fetchUser('123'),
-  options: QueryOptions(
-    staleTime: Duration(minutes: 5),  // Fresh for 5 minutes
-    cacheTime: Duration(minutes: 10), // Keep in cache for 10 minutes
-    enabled: userId != null,          // Only fetch when userId is available
-    onSuccess: (user) {
-      print('User fetched: ${user.name}');
-    },
-    onError: (error) {
-      print('Error fetching user: $error');
-    },
-  ),
-  builder: (context, state) => buildUI(state),
-)
-```
-
-## Conditional Queries
-
-Disable queries based on conditions:
-
-```dart
-QueryBuilder<User>(
-  queryKey: 'user:$userId'.toQueryKey(),
-  queryFn: () => api.fetchUser(userId),
-  options: QueryOptions(
-    enabled: userId != null, // Only fetch when userId is available
-  ),
-  builder: (context, state) {
-    if (userId == null) {
-      return Text('Please select a user');
-    }
-    
-    if (state.isLoading) return CircularProgressIndicator();
-    if (state.hasError) return Text('Error: ${state.error}');
-    if (state.hasData) return UserProfile(state.data!);
-    
-    return SizedBox();
-  },
-)
-```
-
-## Parameterized Queries
-
-Use dynamic query keys for parameterized queries:
-
-```dart
-class UserProfile extends StatelessWidget {
+class UserPosts extends StatelessWidget {
   final String userId;
-  
-  const UserProfile({required this.userId});
-  
+
+  const UserPosts({required this.userId});
+
   @override
   Widget build(BuildContext context) {
-    return QueryBuilder<User>(
-      queryKey: 'user:$userId'.toQueryKey(), // Include parameter in key
-      queryFn: () => api.fetchUser(userId),
+    return QueryBuilder<List<Post>>(
+      // The key includes the userId. If userId changes,
+      // Fasq automatically fetches data for the new user.
+      queryKey: 'posts:$userId'.toQueryKey(),
+      queryFn: () => fetchPostsForUser(userId),
       builder: (context, state) {
-        if (state.isLoading) return CircularProgressIndicator();
-        if (state.hasError) return Text('Error: ${state.error}');
-        if (state.hasData) return UserDetails(state.data!);
-        return SizedBox();
+         // ... build UI
       },
     );
   }
 }
 ```
-
-## Shared Queries
-
-Multiple widgets can share the same query by using the same queryKey:
-
-```dart
-// Widget A
-QueryBuilder<List<User>>(
-  queryKey: 'users'.toQueryKey(),
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) => UserList(users: state.data ?? []),
-)
-
-// Widget B (shares the same query!)
-QueryBuilder<List<User>>(
-  queryKey: 'users'.toQueryKey(),
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) => UserStats(count: state.data?.length ?? 0),
-)
-```
-
-Only ONE network request happens, both widgets receive the same state.
-
-## Manual Refetch
-
-Trigger manual refetches:
-
-```dart
-class UserScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ElevatedButton(
-          onPressed: () {
-            // Manually refetch the query
-            QueryClient().getQueryByKey<List<User>>('users'.toQueryKey())?.fetch();
-          },
-          child: Text('Refresh'),
-        ),
-        QueryBuilder<List<User>>(
-          queryKey: 'users',
-          queryFn: () => api.fetchUsers(),
-          builder: (context, state) => buildUI(state),
-        ),
-      ],
-    );
-  }
-}
-```
-
-## Cache Invalidation
-
-Invalidate queries to force refetch:
-
-```dart
-ElevatedButton(
-  onPressed: () {
-    // Invalidate specific query
-    QueryClient().invalidateQuery('users'.toQueryKey());
-    
-    // Or invalidate multiple queries
-    QueryClient().invalidateQueriesWithPrefix('user:');
-  },
-  child: Text('Invalidate Cache'),
-)
-```
-
-## Type Safety
-
-Full generic type support ensures compile-time safety:
-
-```dart
-QueryBuilder<List<User>>(
-  queryKey: 'users'.toQueryKey(),
-  queryFn: () => api.fetchUsers(), // Returns Future<List<User>>
-  builder: (context, state) {
-    // state.data is List<User>?
-    // state.error is Object?
-    // state.isLoading is bool
-    
-    if (state.hasData) {
-      return ListView.builder(
-        itemCount: state.data!.length,
-        itemBuilder: (context, index) {
-          final user = state.data![index]; // user is User
-          return UserTile(user);
-        },
-      );
-    }
-    
-    return SizedBox();
-  },
-)
-```
-
-## Performance Tips
-
-1. **Use descriptive query keys** - Makes debugging easier
-2. **Include parameters in keys** - Enables proper caching
-3. **Configure staleTime** - Reduces unnecessary refetches
-4. **Handle loading states** - Provide good user experience
-5. **Use error boundaries** - Graceful error handling
-
-## Common Patterns
-
-### Loading Skeleton
-
-```dart
-QueryBuilder<List<User>>(
-  queryKey: 'users'.toQueryKey(),
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) {
-    if (state.isLoading) {
-      return ListView.builder(
-        itemCount: 5,
-        itemBuilder: (context, index) => UserTileSkeleton(),
-      );
-    }
-    
-    if (state.hasData) {
-      return ListView.builder(
-        itemCount: state.data!.length,
-        itemBuilder: (context, index) => UserTile(state.data![index]),
-      );
-    }
-    
-    return SizedBox();
-  },
-)
-```
-
-### Empty State
-
-```dart
-QueryBuilder<List<User>>(
-  queryKey: 'users'.toQueryKey(),
-  queryFn: () => api.fetchUsers(),
-  builder: (context, state) {
-    if (state.isLoading) return CircularProgressIndicator();
-    if (state.hasError) return Text('Error: ${state.error}');
-    
-    if (state.hasData) {
-      if (state.data!.isEmpty) {
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.people, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text('No users found'),
-            ],
-          ),
-        );
-      }
-      
-      return ListView.builder(
-        itemCount: state.data!.length,
-        itemBuilder: (context, index) => UserTile(state.data![index]),
-      );
-    }
-    
-    return SizedBox();
-  },
-)
-```
-
-## Next Steps
-
-- **[MutationBuilder](/docs/core/mutation-builder)** - Learn about mutations
-- **[QueryClient](/docs/core/query-client)** - Cache management
-- **[QueryState](/docs/core/query-state)** - Understanding query state
-- **[QueryOptions](/docs/core/query-options)** - Configuration options

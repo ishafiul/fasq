@@ -1,0 +1,57 @@
+# Network Status
+
+Fasq uses `NetworkStatus` to intelligently pause retries when offline and resume them when online. It also manages the offline mutation queue.
+
+> [!NOTE]
+> The core `fasq` package does not depend on platform-specific plugins like `connectivity_plus` to keep the package lightweight and pure Dart where possible. **You must connect your connectivity logic to Fasq.**
+
+## Usage
+
+### 1. Setup Connectivity
+
+You typically want to listen to network changes at the root of your app (e.g., in `main.dart` or your root widget) and update Fasq.
+
+Using `connectivity_plus` example:
+
+```dart
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:fasq/fasq.dart';
+
+void main() {
+  // 1. Listen to connectivity changes
+  Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    // 2. Determine if online
+    final isOnline = !results.contains(ConnectivityResult.none);
+    
+    // 3. Update Fasq
+    NetworkStatus.instance.setOnline(isOnline);
+  });
+
+  runApp(MyApp());
+}
+```
+
+### 2. What Fasq Does
+
+Once `NetworkStatus` is aware of the state:
+
+- **Offline**:
+  - Queries will stop retrying on failure.
+  - Mutations configured with `queueWhenOffline: true` will be added to the queue.
+  - `QueryState` will remain in its last known state.
+
+- **Online**:
+  - Paused queries will immediately attempt to refetch.
+  - The offline mutation queue will begin processing.
+
+### 3. Manual Override (Testing)
+
+You can manually force the status for testing purposes.
+
+```dart
+// Force offline mode to test UI
+NetworkStatus.instance.setOnline(false);
+
+// Force online mode
+NetworkStatus.instance.setOnline(true);
+```
