@@ -1,4 +1,4 @@
 # melos_managed_dependency_overrides: fasq
 dependency_overrides:
   fasq:
-    path: ../../packages/fasq
+    path: ../fasq

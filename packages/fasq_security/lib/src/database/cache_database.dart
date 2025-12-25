@@ -1,11 +1,12 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-class CacheDatabase {
+class CacheDatabase implements QueryExecutorUser {
   CacheDatabase._(this._db, this._path);
 
   final NativeDatabase _db;
@@ -49,6 +50,19 @@ class CacheDatabase {
     return instance;
   }
 
+  @override
+  int get schemaVersion => 1;
+
+  @override
+  Future<void> beforeOpen(
+      QueryExecutor executor, OpeningDetails details) async {
+    // Schema creation is handled by NativeDatabase setup callback
+  }
+
+  Future<void> _ensureOpen() async {
+    await _db.ensureOpen(this);
+  }
+
   static Future<File> _resolveDatabaseFile(String fileName) async {
     if (_cachedPath != null) {
       final file = File(_cachedPath!);
@@ -77,6 +91,7 @@ class CacheDatabase {
       return {};
     }
 
+    await _ensureOpen();
     final placeholders = List.filled(keys.length, '?').join(', ');
     final rows = await _db.runSelect(
       'SELECT cache_key, encrypted_data, expires_at '
@@ -112,6 +127,7 @@ class CacheDatabase {
     }
 
     final now = DateTime.now();
+    await _ensureOpen();
     await _db.runCustom('BEGIN IMMEDIATE TRANSACTION');
     try {
       for (final entry in entries.entries) {
@@ -145,6 +161,7 @@ class CacheDatabase {
     }
 
     final placeholders = List.filled(keys.length, '?').join(', ');
+    await _ensureOpen();
     await _db.runDelete(
       'DELETE FROM cache_entries WHERE cache_key IN ($placeholders)',
       keys,
@@ -152,6 +169,7 @@ class CacheDatabase {
   }
 
   Future<List<String>> getAllKeys() async {
+    await _ensureOpen();
     final now = DateTime.now().millisecondsSinceEpoch;
     final rows = await _db.runSelect(
       'SELECT cache_key FROM cache_entries '
@@ -165,6 +183,7 @@ class CacheDatabase {
   }
 
   Future<bool> exists(String key) async {
+    await _ensureOpen();
     final now = DateTime.now().millisecondsSinceEpoch;
     final rows = await _db.runSelect(
       'SELECT 1 FROM cache_entries '
@@ -176,10 +195,12 @@ class CacheDatabase {
   }
 
   Future<void> clear() async {
+    await _ensureOpen();
     await _db.runDelete('DELETE FROM cache_entries', const []);
   }
 
   Future<CacheEntryMetadata?> getMetadata(String key) async {
+    await _ensureOpen();
     final rows = await _db.runSelect(
       'SELECT created_at, expires_at FROM cache_entries WHERE cache_key = ?',
       [key],
@@ -206,6 +227,7 @@ class CacheDatabase {
 
   Future<int> cleanupExpired() async {
     final now = DateTime.now().millisecondsSinceEpoch;
+    await _ensureOpen();
     return _db.runDelete(
       'DELETE FROM cache_entries WHERE expires_at IS NOT NULL AND expires_at <= ?',
       [now],

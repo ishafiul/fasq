@@ -19,6 +19,7 @@ import '../security/persistence_provider.dart';
 import '../security/security_plugin.dart';
 import '../security/security_provider.dart';
 import '../core/validation/input_validator.dart';
+import '../core/typed_query_key.dart';
 
 /// Core cache storage and management for queries.
 ///
@@ -35,6 +36,7 @@ class QueryCache {
   Future<void>? _globalPersistenceOperation;
   final Map<String, Future<void>> _persistOperations = {};
   final Map<String, int> _entryVersions = {};
+  final Map<String, Type> _keyTypes = {};
   int _versionCounter = 0;
 
   bool _isInitialized = false;
@@ -165,6 +167,7 @@ class QueryCache {
     _entries[key] = entry;
     final version = _nextEntryVersion();
     _entryVersions[key] = version;
+    _keyTypes[key] = T;
 
     // Remove from hot cache to force re-promotion
     _hotCache.remove(key);
@@ -189,6 +192,7 @@ class QueryCache {
       _hotCache.remove(key);
       _entryVersions.remove(key);
       _persistOperations.remove(key);
+      _keyTypes.remove(key);
       if (_persistenceReady) {
         _removePersistenceAsync(key);
       }
@@ -202,6 +206,7 @@ class QueryCache {
     _metrics.reset();
     _entryVersions.clear();
     _persistOperations.clear();
+    _keyTypes.clear();
     _globalPersistenceOperation = null;
     _versionCounter = 0;
   }
@@ -230,6 +235,7 @@ class QueryCache {
       _hotCache.remove(key);
       _entryVersions.remove(key);
       _persistOperations.remove(key);
+      _keyTypes.remove(key);
     }
   }
 
@@ -397,6 +403,7 @@ class QueryCache {
       _hotCache.remove(key);
       _entryVersions.remove(key);
       _persistOperations.remove(key);
+      _keyTypes.remove(key);
       _metrics.recordEviction();
     }
   }
@@ -535,6 +542,7 @@ class QueryCache {
   Map<String, dynamic>? _buildPersistedEntryPayload(
     String key,
     CacheEntry entry,
+    Type? expectedType,
   ) {
     try {
       final encoded = _codecRegistry.serialize(entry.data);
@@ -546,7 +554,7 @@ class QueryCache {
         return null;
       }
 
-      return {
+      final payload = <String, dynamic>{
         'data': encoded.payload,
         'dataType': encoded.typeKey,
         'createdAt': entry.createdAt.toIso8601String(),
@@ -559,6 +567,12 @@ class QueryCache {
         'expiresAt': entry.expiresAt?.toIso8601String(),
         'hasValue': entry.hasValue,
       };
+
+      if (expectedType != null) {
+        payload['queryKeyType'] = expectedType.toString();
+      }
+
+      return payload;
     } catch (error, stackTrace) {
       _logPersistenceError(
         'Failed to serialize cache entry for key $key',
@@ -576,9 +590,41 @@ class QueryCache {
     try {
       final typeKey = json['dataType'] as String?;
       final rawData = json['data'];
-      final data = _codecRegistry.deserialize(typeKey, rawData);
+      final queryKeyTypeString = json['queryKeyType'] as String?;
+
+      Type? queryKeyType;
+      if (queryKeyTypeString != null) {
+        try {
+          queryKeyType = _parseTypeFromString(queryKeyTypeString);
+        } catch (e) {
+          _logPersistenceError(
+            'Failed to parse queryKeyType $queryKeyTypeString for key $key',
+            e,
+          );
+        }
+      }
+
+      final expectedType = _keyTypes[key] ?? queryKeyType;
+
+      Object? data = _codecRegistry.deserialize(typeKey, rawData);
+
       if (data == null) {
         return null;
+      }
+
+      if (expectedType != null) {
+        if (!_isTypeCompatible(data, expectedType)) {
+          _logPersistenceError(
+            'Type mismatch for key $key: expected $expectedType, got ${data.runtimeType}',
+            ArgumentError('Type mismatch'),
+          );
+        }
+
+        if (!_keyTypes.containsKey(key)) {
+          _keyTypes[key] = expectedType;
+        }
+      } else if (queryKeyType != null && !_keyTypes.containsKey(key)) {
+        _keyTypes[key] = queryKeyType;
       }
 
       final createdAt = DateTime.parse(json['createdAt'] as String);
@@ -636,7 +682,8 @@ class QueryCache {
       return;
     }
 
-    final payload = _buildPersistedEntryPayload(key, entry);
+    final expectedType = _keyTypes[key];
+    final payload = _buildPersistedEntryPayload(key, entry, expectedType);
     if (payload == null) {
       return;
     }
@@ -708,11 +755,15 @@ class QueryCache {
 
   /// Loads persisted entries on initialization.
   Future<void> _loadPersistedEntries() async {
-    if (!_persistenceReady) return;
+    if (!_persistenceReady) {
+      print('QueryCache: Persistence not ready');
+      return;
+    }
 
     try {
       final encryptionKey = await _securityProvider!.getEncryptionKey();
       if (encryptionKey == null) {
+        print('QueryCache: No encryption key found');
         return;
       }
 
@@ -846,12 +897,78 @@ class QueryCache {
     Object error, [
     StackTrace? stackTrace,
   ]) {
+    print('FASQ.QueryCache ERROR: $message, Error: $error');
     developer.log(
       message,
       name: 'FASQ.QueryCache',
       error: error,
       stackTrace: stackTrace,
     );
+  }
+
+  Type? _parseTypeFromString(String typeString) {
+    try {
+      final parts = typeString.split('<');
+      final baseTypeName = parts[0].trim();
+
+      final typeMap = <String, Type>{
+        'String': String,
+        'int': int,
+        'double': double,
+        'bool': bool,
+        'List': List,
+        'Map': Map,
+        'Set': Set,
+      };
+
+      if (typeMap.containsKey(baseTypeName)) {
+        return typeMap[baseTypeName];
+      }
+
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isTypeCompatible(Object data, Type expectedType) {
+    if (expectedType == dynamic || expectedType == Object) {
+      return true;
+    }
+
+    if (data.runtimeType == expectedType) {
+      return true;
+    }
+
+    if (expectedType == num && (data is num)) {
+      return true;
+    }
+
+    if (expectedType == List && (data is List)) {
+      return true;
+    }
+
+    if (expectedType == Map && (data is Map)) {
+      return true;
+    }
+
+    if (expectedType == Set && (data is Set)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Extracts type information from a QueryKey if it's a TypedQueryKey.
+  ///
+  /// Returns the type stored in the TypedQueryKey, or null for non-typed keys.
+  /// This method is available for future enhancements or type validation scenarios.
+  // ignore: unused_element
+  Type? _extractTypeFromQueryKey(dynamic queryKey) {
+    if (queryKey is TypedQueryKey) {
+      return queryKey.type;
+    }
+    return null;
   }
 
   Future<void> _disposePersistenceResources() async {
