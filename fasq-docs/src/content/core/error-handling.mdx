@@ -23,15 +23,16 @@ QueryBuilder<User>(
 
 ### Configuration Options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `retry` | `int` | Number of times to retry failed requests. Default is `3`. |
-| `retryDelay` | `Duration` | Delay between retries. Default is `1s`. |
-| `onError` | `Function(err)`| Callback executed when a query fails (after retries). |
+| Option       | Type            | Description                                               |
+| ------------ | --------------- | --------------------------------------------------------- |
+| `retry`      | `int`           | Number of times to retry failed requests. Default is `3`. |
+| `retryDelay` | `Duration`      | Delay between retries. Default is `1s`.                   |
+| `onError`    | `Function(err)` | Callback executed when a query fails (after retries).     |
 
 ## Examples
 
 ### Retries & Backoff
+
 Retry failed requests automatically to handle flaky networks.
 
 ```dart
@@ -42,7 +43,8 @@ QueryOptions(
 ```
 
 ### Global Error Effects
-Show a snackbar whenever *any* query fails.
+
+Show a snackbar whenever _any_ query fails.
 
 ```dart
 // Using QueryClientObserver
@@ -58,6 +60,7 @@ client.addObserver(GlobalErrorHandler());
 ```
 
 ### Manual Retry Button
+
 Give users a way to try again.
 
 ```dart
@@ -74,3 +77,32 @@ if (state.hasError) {
   );
 }
 ```
+
+## Circuit Breaker Protection
+
+Fasq includes built-in circuit breaker functionality to protect your application from cascading failures. When a service is experiencing issues, the circuit breaker automatically stops sending requests to prevent resource exhaustion.
+
+### Quick Example
+
+```dart
+QueryBuilder<User>(
+  queryKey: 'user'.toQueryKey(),
+  queryFn: () => api.fetchUser(),
+  options: QueryOptions(
+    circuitBreaker: CircuitBreakerOptions(
+      failureThreshold: 5,
+      resetTimeout: Duration(seconds: 60),
+    ),
+  ),
+  builder: (context, state) {
+    if (state.hasError && state.error is CircuitBreakerOpenException) {
+      return Text('Service temporarily unavailable');
+    }
+    // ...
+  },
+)
+```
+
+When the circuit breaker opens, requests are immediately rejected with a `CircuitBreakerOpenException`, allowing you to handle the failure gracefully (e.g., show cached data or a fallback UI).
+
+For complete configuration details, state machine behavior, and best practices, see the [Circuit Breaker documentation](/core/advanced/circuit-breaker).

@@ -1,0 +1,479 @@
+# Circuit Breaker
+
+The Circuit Breaker pattern protects your application from cascading failures by automatically stopping requests to failing services. When a service is experiencing issues, the circuit breaker "opens" and immediately rejects requests, preventing resource exhaustion and allowing the service time to recover.
+
+## Overview
+
+Circuit breakers operate in three states:
+
+- **CLOSED**: Normal operation, allowing all requests through while monitoring for failures
+- **OPEN**: Circuit is open, immediately rejecting requests without attempting execution
+- **HALF_OPEN**: Testing if service has recovered, allowing limited requests to probe recovery
+
+State transitions occur automatically based on failure thresholds and timeouts, helping preserve system resources during backend outages.
+
+## CircuitBreakerOptions Configuration
+
+`CircuitBreakerOptions` controls the thresholds and timeouts that determine when the circuit breaker transitions between states, and which exceptions should be ignored.
+
+| Property           | Type         | Default      | Description                                                                                                                                                                                                                                                      |
+| ------------------ | ------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `failureThreshold` | `int`        | `5`          | Number of consecutive failures required to open the circuit. When the failure count reaches this threshold, the circuit transitions from Closed to Open state.                                                                                                   |
+| `resetTimeout`     | `Duration`   | `60 seconds` | Duration to wait before attempting to reset the circuit (transition to Half-Open). After the circuit opens, it waits for this duration before allowing a test request to check if the service has recovered.                                                     |
+| `successThreshold` | `int`        | `1`          | Number of consecutive successes required in Half-Open state to close the circuit. When the success count reaches this threshold while in Half-Open state, the circuit transitions back to Closed state.                                                          |
+| `ignoreExceptions` | `List<Type>` | `[]`         | List of exception types that should not trip the circuit breaker. When an exception of one of these types (or a subtype) is thrown, it will not be counted as a failure. Useful for client errors like 404 (not found) that shouldn't cause the circuit to open. |
+
+### Configuration Example
+
+```dart
+final options = CircuitBreakerOptions(
+  failureThreshold: 5,              // Open after 5 consecutive failures
+  resetTimeout: Duration(seconds: 60), // Wait 60s before testing recovery
+  successThreshold: 1,               // Close after 1 success in half-open
+  ignoreExceptions: [FormatException], // Don't count format errors as failures
+);
+```
+
+## Integration with QueryClient
+
+Enable circuit breaker protection globally by providing a `CircuitBreakerRegistry` to the `QueryClient` constructor. All queries created through this client will automatically use circuit breaker protection.
+
+```dart
+final registry = CircuitBreakerRegistry();
+final client = QueryClient(
+  circuitBreakerRegistry: registry,
+);
+
+final query = client.getQuery<User>(
+  'user'.toQueryKey(),
+  () => api.fetchUser(),
+);
+```
+
+> [!IMPORTANT]
+> If no `CircuitBreakerRegistry` is provided to `QueryClient`, circuit breaker functionality is disabled for all queries. Individual queries can still enable circuit breakers by providing `circuitBreaker` options in `QueryOptions`.
+
+## Per-Query Configuration
+
+Configure circuit breaker behavior for individual queries using `QueryOptions`. This allows fine-grained control over which queries are protected and how they behave.
+
+### Basic Per-Query Configuration
+
+```dart
+QueryBuilder<User>(
+  queryKey: 'user'.toQueryKey(),
+  queryFn: () => api.fetchUser(),
+  options: QueryOptions(
+    circuitBreaker: CircuitBreakerOptions(
+      failureThreshold: 3,              // More sensitive for this query
+      resetTimeout: Duration(seconds: 30), // Faster recovery
+    ),
+  ),
+  builder: (context, state) {
+    // ...
+  },
+)
+```
+
+### Custom Scope for Multiple Queries
+
+Use `circuitBreakerScope` to group multiple queries under a single circuit breaker. This is useful when multiple queries hit the same service or endpoint.
+
+```dart
+// All queries with this scope share the same circuit breaker
+QueryBuilder<List<User>>(
+  queryKey: 'users'.toQueryKey(),
+  queryFn: () => api.fetchUsers(),
+  options: QueryOptions(
+    circuitBreakerScope: 'api.example.com',
+    circuitBreaker: CircuitBreakerOptions(
+      failureThreshold: 5,
+    ),
+  ),
+  builder: (context, state) {
+    // ...
+  },
+)
+
+// This query also uses the same circuit breaker
+QueryBuilder<User>(
+  queryKey: 'user-123'.toQueryKey(),
+  queryFn: () => api.fetchUser(123),
+  options: QueryOptions(
+    circuitBreakerScope: 'api.example.com', // Same scope = same circuit
+  ),
+  builder: (context, state) {
+    // ...
+  },
+)
+```
+
+> [!NOTE]
+> By default, circuit breakers are scoped to the query key. Use `circuitBreakerScope` to override this behavior and group queries by service, domain, or any other logical grouping.
+
+## CircuitBreakerOpenException
+
+When a circuit breaker is in the `OPEN` state, requests are immediately rejected and a `CircuitBreakerOpenException` is thrown. This exception provides information about which circuit is open and why the request was rejected.
+
+### Exception Properties
+
+| Property       | Type      | Description                                                                                           |
+| -------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `message`      | `String`  | Descriptive message explaining why the exception was thrown                                           |
+| `circuitScope` | `String?` | Optional scope or identifier of the circuit that is currently open. Useful for logging and debugging. |
+
+### Handling CircuitBreakerOpenException
+
+```dart
+QueryBuilder<User>(
+  queryKey: 'user'.toQueryKey(),
+  queryFn: () => api.fetchUser(),
+  builder: (context, state) {
+    if (state.hasError) {
+      if (state.error is CircuitBreakerOpenException) {
+        final exception = state.error as CircuitBreakerOpenException;
+        return Column(
+          children: [
+            Text('Service temporarily unavailable'),
+            Text('Circuit: ${exception.circuitScope ?? "unknown"}'),
+            ElevatedButton(
+              onPressed: () => QueryClient().invalidateQuery('user'.toQueryKey()),
+              child: Text('Retry'),
+            ),
+          ],
+        );
+      }
+      return Text('Error: ${state.error}');
+    }
+
+    if (state.isLoading) return CircularProgressIndicator();
+    return Text('User: ${state.data?.name}');
+  },
+)
+```
+
+### Graceful Fallback
+
+```dart
+Future<User> fetchUserWithFallback() async {
+  try {
+    final query = QueryClient().getQuery<User>(
+      'user'.toQueryKey(),
+      () => api.fetchUser(),
+    );
+    return await query.fetch();
+  } on CircuitBreakerOpenException catch (e) {
+    // Circuit is open, use cached data or default
+    final cached = QueryClient().getQueryData<User>('user'.toQueryKey());
+    if (cached != null) {
+      return cached;
+    }
+    // Return default or throw
+    throw Exception('Service unavailable and no cached data');
+  }
+}
+```
+
+## Circuit State Machine
+
+The circuit breaker automatically transitions between states based on failure counts and timeouts:
+
+```
+CLOSED → OPEN → HALF_OPEN → CLOSED
+  ↑                              ↓
+  └──────────────────────────────┘
+```
+
+### State Transitions
+
+1. **CLOSED → OPEN**: When `failureThreshold` consecutive failures occur, the circuit opens and immediately rejects all requests.
+
+2. **OPEN → HALF_OPEN**: After `resetTimeout` duration has elapsed, the circuit transitions to half-open state, allowing a test request to check if the service has recovered.
+
+3. **HALF_OPEN → CLOSED**: If `successThreshold` consecutive successes occur in half-open state, the circuit closes and normal operation resumes.
+
+4. **HALF_OPEN → OPEN**: If any failure occurs in half-open state, the circuit immediately opens again and the reset timeout restarts.
+
+> [!IMPORTANT]
+> State transitions are automatic and based on the configured thresholds. You cannot manually control circuit states, but you can reset circuits through the `CircuitBreakerRegistry` if needed.
+
+## Code Examples
+
+### Global Configuration
+
+Configure circuit breaker protection for all queries in your application:
+
+```dart
+void main() {
+  final registry = CircuitBreakerRegistry();
+  final client = QueryClient(
+    circuitBreakerRegistry: registry,
+  );
+
+  runApp(
+    QueryClientProvider(
+      client: client,
+      child: MyApp(),
+    ),
+  );
+}
+```
+
+### Per-Query Configuration
+
+Configure circuit breaker behavior for a specific query:
+
+```dart
+QueryBuilder<List<Product>>(
+  queryKey: 'products'.toQueryKey(),
+  queryFn: () => api.fetchProducts(),
+  options: QueryOptions(
+    circuitBreaker: CircuitBreakerOptions(
+      failureThreshold: 3,
+      resetTimeout: Duration(seconds: 30),
+      ignoreExceptions: [FormatException],
+    ),
+  ),
+  builder: (context, state) {
+    if (state.hasError) {
+      if (state.error is CircuitBreakerOpenException) {
+        return Text('Service temporarily unavailable');
+      }
+      return Text('Error: ${state.error}');
+    }
+
+    if (state.isLoading) return CircularProgressIndicator();
+    return ListView.builder(
+      itemCount: state.data?.length ?? 0,
+      itemBuilder: (context, index) => ProductTile(state.data![index]),
+    );
+  },
+)
+```
+
+### Shared Circuit via Scope
+
+Group multiple queries under a single circuit breaker:
+
+```dart
+// All queries to the same API share one circuit breaker
+final apiScope = 'api.example.com';
+
+QueryBuilder<List<User>>(
+  queryKey: 'users'.toQueryKey(),
+  queryFn: () => api.fetchUsers(),
+  options: QueryOptions(
+    circuitBreakerScope: apiScope,
+    circuitBreaker: CircuitBreakerOptions(failureThreshold: 5),
+  ),
+  builder: (context, state) => UserList(state.data),
+)
+
+QueryBuilder<User>(
+  queryKey: 'user-123'.toQueryKey(),
+  queryFn: () => api.fetchUser(123),
+  options: QueryOptions(
+    circuitBreakerScope: apiScope, // Same circuit as above
+  ),
+  builder: (context, state) => UserDetail(state.data),
+)
+```
+
+### Manual Registry Management
+
+For advanced use cases, you can manage circuit breakers manually:
+
+```dart
+final registry = CircuitBreakerRegistry();
+
+// Register callback for circuit open events
+registry.registerCircuitOpenCallback((event) {
+  print('Circuit ${event.circuitId} opened at ${event.openedAt}');
+  // Send to monitoring service, show user notification, etc.
+});
+
+// Get or create a circuit breaker
+final options = CircuitBreakerOptions(failureThreshold: 5);
+final breaker = registry.getOrCreate('api.example.com', options);
+
+// Check circuit state
+if (breaker.allowRequest()) {
+  // Proceed with request
+} else {
+  // Circuit is open, handle accordingly
+}
+
+// Reset a circuit manually (useful for testing or manual recovery)
+registry.reset('api.example.com');
+```
+
+## Best Practices
+
+### Defending Against Third-Party API Failures
+
+When integrating with external services, use circuit breakers to prevent hammering a failing service:
+
+```dart
+QueryBuilder<WeatherData>(
+  queryKey: 'weather'.toQueryKey(),
+  queryFn: () => weatherApi.getCurrentWeather(),
+  options: QueryOptions(
+    circuitBreakerScope: 'weather-api.example.com',
+    circuitBreaker: CircuitBreakerOptions(
+      failureThreshold: 3,              // Fail fast for external services
+      resetTimeout: Duration(minutes: 2), // Give service time to recover
+      successThreshold: 2,              // Require 2 successes to close
+    ),
+  ),
+  builder: (context, state) {
+    if (state.hasError && state.error is CircuitBreakerOpenException) {
+      // Show cached data or a "service unavailable" message
+      return CachedWeatherDisplay();
+    }
+    return WeatherDisplay(state.data);
+  },
+)
+```
+
+### Ignoring Client Errors
+
+Some errors (like 404 Not Found or 401 Unauthorized) are client errors and shouldn't trip the circuit breaker:
+
+```dart
+QueryBuilder<User>(
+  queryKey: 'user'.toQueryKey(),
+  queryFn: () => api.fetchUser(),
+  options: QueryOptions(
+    circuitBreaker: CircuitBreakerOptions(
+      failureThreshold: 5,
+      ignoreExceptions: [
+        FormatException,    // Invalid request format
+        ArgumentError,     // Client-side errors
+        // Add custom exception types as needed
+      ],
+    ),
+  ),
+  builder: (context, state) {
+    // ...
+  },
+)
+```
+
+> [!NOTE]
+> The `ignoreExceptions` list uses type matching. If you add `Exception` to the list, all exceptions will be ignored. Be specific about which exception types should not trip the circuit.
+
+### Shared Circuits via Scope
+
+Group queries by service or domain to share circuit breaker state:
+
+```dart
+// All queries to the payment service share one circuit
+final paymentScope = 'payment-api.example.com';
+
+QueryBuilder<PaymentMethod>(
+  queryKey: 'payment-methods'.toQueryKey(),
+  queryFn: () => paymentApi.getPaymentMethods(),
+  options: QueryOptions(
+    circuitBreakerScope: paymentScope,
+    circuitBreaker: CircuitBreakerOptions(failureThreshold: 3),
+  ),
+  builder: (context, state) => PaymentMethodList(state.data),
+)
+
+QueryBuilder<PaymentResult>(
+  queryKey: 'process-payment'.toQueryKey(),
+  queryFn: () => paymentApi.processPayment(),
+  options: QueryOptions(
+    circuitBreakerScope: paymentScope, // Same circuit
+  ),
+  builder: (context, state) => PaymentResult(state.data),
+)
+```
+
+### Monitoring Circuit States
+
+Register callbacks to monitor when circuits open:
+
+```dart
+final registry = CircuitBreakerRegistry();
+
+registry.registerCircuitOpenCallback((event) {
+  // Log to monitoring service
+  analytics.track('circuit_opened', {
+    'circuit_id': event.circuitId,
+    'opened_at': event.openedAt.toIso8601String(),
+  });
+
+  // Show user notification
+  showNotification('Service temporarily unavailable');
+
+  // Alert operations team
+  alertingService.sendAlert(
+    'Circuit breaker opened for ${event.circuitId}',
+  );
+});
+```
+
+## Troubleshooting
+
+### Circuit Opens Too Frequently
+
+If your circuit breaker opens too often, consider:
+
+- **Increase `failureThreshold`**: Allow more failures before opening
+- **Review `ignoreExceptions`**: Add exception types that shouldn't count as failures
+- **Check for transient errors**: Some errors might be temporary and shouldn't trip the circuit
+
+```dart
+CircuitBreakerOptions(
+  failureThreshold: 10, // More lenient
+  ignoreExceptions: [TimeoutException], // Don't count timeouts
+)
+```
+
+### Circuit Never Recovers
+
+If the circuit stays open, check:
+
+- **`resetTimeout` too long**: Reduce the timeout to test recovery sooner
+- **Service still failing**: The service might still be down; check service health
+- **Success threshold too high**: Reduce `successThreshold` to close faster
+
+```dart
+CircuitBreakerOptions(
+  resetTimeout: Duration(seconds: 30), // Test recovery sooner
+  successThreshold: 1, // Close after first success
+)
+```
+
+### Circuit Opens for Expected Errors
+
+If the circuit opens for errors that shouldn't count as failures:
+
+- **Add to `ignoreExceptions`**: Include exception types that are expected
+- **Review error handling**: Ensure client errors (4xx) are handled separately
+
+```dart
+CircuitBreakerOptions(
+  ignoreExceptions: [
+    FormatException,
+    ArgumentError,
+    // Add your custom exception types
+  ],
+)
+```
+
+### Multiple Queries Not Sharing Circuit
+
+If queries that should share a circuit don't:
+
+- **Check `circuitBreakerScope`**: Ensure all queries use the same scope value
+- **Verify registry**: Make sure all queries use the same `QueryClient` with the same registry
+
+```dart
+// All must use the same scope string
+options: QueryOptions(
+  circuitBreakerScope: 'api.example.com', // Must match exactly
+)
+```
+
