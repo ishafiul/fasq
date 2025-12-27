@@ -2,24 +2,24 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
-import 'async_lock.dart';
-import 'cache_config.dart';
-import 'cache_entry.dart';
-import 'cache_metrics.dart';
-import 'eviction_policy.dart';
-import 'eviction/eviction_strategy.dart';
-import 'eviction/fifo_eviction.dart';
-import 'eviction/lfu_eviction.dart';
-import 'eviction/lru_eviction.dart';
-import 'hot_cache.dart';
+import '../core/typed_query_key.dart';
+import '../core/validation/input_validator.dart';
 import '../persistence/cache_data_codec.dart';
 import '../persistence/persistence_options.dart';
 import '../security/encryption_provider.dart';
 import '../security/persistence_provider.dart';
 import '../security/security_plugin.dart';
 import '../security/security_provider.dart';
-import '../core/validation/input_validator.dart';
-import '../core/typed_query_key.dart';
+import 'async_lock.dart';
+import 'cache_config.dart';
+import 'cache_entry.dart';
+import 'cache_metrics.dart';
+import 'eviction/eviction_strategy.dart';
+import 'eviction/fifo_eviction.dart';
+import 'eviction/lfu_eviction.dart';
+import 'eviction/lru_eviction.dart';
+import 'eviction_policy.dart';
+import 'hot_cache.dart';
 
 /// Core cache storage and management for queries.
 ///
@@ -47,6 +47,10 @@ class QueryCache {
 
   Timer? _gcTimer;
   Timer? _persistenceGcTimer;
+
+  static Duration gcInterval = const Duration(seconds: 30);
+  static Duration? persistenceGcInterval;
+
   final CacheDataCodecRegistry _codecRegistry;
   final AsyncLock _encryptionKeyLock = AsyncLock();
 
@@ -425,7 +429,8 @@ class QueryCache {
   }
 
   void _startGarbageCollection() {
-    _gcTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    if (gcInterval == Duration.zero) return;
+    _gcTimer = Timer.periodic(gcInterval, (_) {
       _runGarbageCollection();
     });
   }
@@ -502,8 +507,12 @@ class QueryCache {
   /// Starts garbage collection for persisted data.
   void _startPersistenceGarbageCollection() {
     if (!_persistenceReady) return;
-    final interval =
-        persistenceOptions?.gcInterval ?? const Duration(minutes: 5);
+    final interval = persistenceGcInterval ??
+        persistenceOptions?.gcInterval ??
+        const Duration(minutes: 5);
+
+    if (interval == Duration.zero) return;
+
     _persistenceGcTimer = Timer.periodic(interval, (_) {
       _runPersistenceGarbageCollection();
     });

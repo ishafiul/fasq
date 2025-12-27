@@ -5,20 +5,21 @@ import 'package:flutter/widgets.dart';
 import '../cache/cache_config.dart';
 import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
+import '../circuit_breaker/circuit_breaker_registry.dart';
 import '../performance/isolate_pool.dart';
 import '../persistence/persistence_options.dart';
 import '../security/security_plugin.dart';
+import 'infinite_query.dart';
+import 'infinite_query_options.dart';
 import 'mutation_meta.dart';
 import 'mutation_snapshot.dart';
+import 'prefetch_config.dart';
 import 'query.dart';
 import 'query_client_observer.dart';
 import 'query_key.dart';
 import 'query_meta.dart';
 import 'query_options.dart';
 import 'query_snapshot.dart';
-import 'infinite_query.dart';
-import 'infinite_query_options.dart';
-import 'prefetch_config.dart';
 import 'validation/input_validator.dart';
 
 /// Global registry for all queries in the application.
@@ -47,6 +48,7 @@ class QueryClient with WidgetsBindingObserver {
     CacheConfig? config,
     PersistenceOptions? persistenceOptions,
     SecurityPlugin? securityPlugin,
+    CircuitBreakerRegistry? circuitBreakerRegistry,
   }) {
     final existing = _instance;
     if (existing != null) {
@@ -55,6 +57,7 @@ class QueryClient with WidgetsBindingObserver {
         config,
         persistenceOptions,
         securityPlugin,
+        circuitBreakerRegistry,
       )) {
         throw StateError(
           'QueryClient already initialized with a different configuration. '
@@ -68,6 +71,7 @@ class QueryClient with WidgetsBindingObserver {
       config: config,
       persistenceOptions: persistenceOptions,
       securityPlugin: securityPlugin,
+      circuitBreakerRegistry: circuitBreakerRegistry,
     );
     return _instance!;
   }
@@ -76,9 +80,11 @@ class QueryClient with WidgetsBindingObserver {
     CacheConfig? config,
     PersistenceOptions? persistenceOptions,
     SecurityPlugin? securityPlugin,
+    CircuitBreakerRegistry? circuitBreakerRegistry,
   })  : _configSnapshot = config ?? const CacheConfig(),
         _persistenceSnapshot = persistenceOptions,
         _securityPluginType = securityPlugin?.runtimeType,
+        _circuitBreakerRegistry = circuitBreakerRegistry,
         _cache = QueryCache(
           config: config ?? const CacheConfig(),
           persistenceOptions: persistenceOptions,
@@ -100,6 +106,7 @@ class QueryClient with WidgetsBindingObserver {
   final CacheConfig _configSnapshot;
   final PersistenceOptions? _persistenceSnapshot;
   final Type? _securityPluginType;
+  final CircuitBreakerRegistry? _circuitBreakerRegistry;
   late final IsolatePool _isolatePool;
   final List<QueryClientObserver> _observers = [];
   WidgetsBinding? _binding;
@@ -242,6 +249,7 @@ class QueryClient with WidgetsBindingObserver {
       options: options,
       cache: _cache,
       client: this,
+      circuitBreakerRegistry: _circuitBreakerRegistry,
       onDispose: () {
         _queries.remove(key);
       },
@@ -362,6 +370,12 @@ class QueryClient with WidgetsBindingObserver {
 
   /// The isolate pool for heavy computation tasks.
   IsolatePool get isolatePool => _isolatePool;
+
+  /// The circuit breaker registry for managing circuit breakers.
+  ///
+  /// Returns the registry instance if one was provided during initialization,
+  /// or `null` if circuit breaker functionality is disabled.
+  CircuitBreakerRegistry? get circuitBreakerRegistry => _circuitBreakerRegistry;
 
   /// Invalidates a single query by key.
   ///
@@ -574,6 +588,9 @@ class QueryClient with WidgetsBindingObserver {
   ///
   /// Only use this in tests to get a fresh instance.
   static Future<void> resetForTesting() async {
+    Query.disposalDelay = Duration.zero;
+    QueryCache.gcInterval = Duration.zero;
+    QueryCache.persistenceGcInterval = Duration.zero;
     final existing = _instance;
     if (existing != null) {
       existing.clearObservers();
@@ -587,6 +604,7 @@ class QueryClient with WidgetsBindingObserver {
     CacheConfig? config,
     PersistenceOptions? persistenceOptions,
     SecurityPlugin? securityPlugin,
+    CircuitBreakerRegistry? circuitBreakerRegistry,
   ) {
     if (config != null &&
         _cacheConfigDiffers(existing._configSnapshot, config)) {
@@ -601,6 +619,11 @@ class QueryClient with WidgetsBindingObserver {
 
     if (securityPlugin != null &&
         existing._securityPluginType != securityPlugin.runtimeType) {
+      return true;
+    }
+
+    if (circuitBreakerRegistry != null &&
+        existing._circuitBreakerRegistry != circuitBreakerRegistry) {
       return true;
     }
 

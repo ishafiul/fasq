@@ -128,8 +128,11 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       }
     });
 
-    if (shouldFetch) {
-      _query.fetch(forceRefetch: forceRefetch);
+    final needsFetch =
+        shouldFetch || (_query.referenceCount == 1 && !_query.state.hasValue);
+
+    if (needsFetch) {
+      _query.fetch(forceRefetch: forceRefetch).catchError((_) => _query.state);
     } else if (mounted) {
       setState(() {});
     }

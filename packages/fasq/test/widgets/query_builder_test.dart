@@ -4,6 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('QueryBuilder', () {
+    setUp(() async {
+      await QueryClient.resetForTesting();
+    });
+
     tearDown(() async {
       await QueryClient.resetForTesting();
     });

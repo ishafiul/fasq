@@ -280,6 +280,7 @@ void main() {
 
     test('schedules disposal after removeListener brings count to zero',
         () async {
+      Query.disposalDelay = const Duration(milliseconds: 100);
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
@@ -291,11 +292,12 @@ void main() {
       query.removeListener();
       expect(query.isDisposed, isFalse);
 
-      await Future.delayed(Duration(seconds: 6));
+      await Future.delayed(Duration(milliseconds: 200));
       expect(query.isDisposed, isTrue);
     });
 
     test('cancels disposal if listener added before timeout', () async {
+      Query.disposalDelay = const Duration(milliseconds: 200);
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
@@ -304,11 +306,11 @@ void main() {
       query.addListener();
       query.removeListener();
 
-      await Future.delayed(Duration(seconds: 2));
+      await Future.delayed(Duration(milliseconds: 100));
       expect(query.isDisposed, isFalse);
 
       query.addListener();
-      await Future.delayed(Duration(seconds: 4));
+      await Future.delayed(Duration(milliseconds: 200));
       expect(query.isDisposed, isFalse);
 
       query.dispose();

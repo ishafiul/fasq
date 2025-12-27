@@ -3,12 +3,17 @@ import 'dart:async';
 import '../cache/cache_entry.dart';
 import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
+import '../circuit_breaker/circuit_breaker.dart';
+import '../circuit_breaker/circuit_breaker_exceptions.dart';
+import '../circuit_breaker/circuit_breaker_options.dart';
+import '../circuit_breaker/circuit_breaker_registry.dart';
 import 'query_client.dart';
 import 'query_key.dart';
 import 'query_options.dart';
 import 'query_snapshot.dart';
 import 'query_state.dart';
 import 'query_status.dart';
+import 'utils/fasq_time.dart';
 
 /// A query represents an async operation with managed state and lifecycle.
 ///
@@ -55,6 +60,14 @@ class Query<T> {
   /// Callback when query is disposed (for cleanup in QueryClient).
   final void Function()? onDispose;
 
+  /// The circuit breaker registry for this query scope
+  final CircuitBreakerRegistry? circuitBreakerRegistry;
+
+  /// Delay before a query is disposed after reaching zero subscribers.
+  ///
+  /// Can be modified for testing to avoid pending timers.
+  static Duration disposalDelay = const Duration(seconds: 5);
+
   QueryState<T> _currentState;
   late final StreamController<QueryState<T>> _controller;
   final List<StreamSubscription<QueryState<T>>> _subscriptions = [];
@@ -73,6 +86,7 @@ class Query<T> {
     this.options,
     this.cache,
     this.client,
+    this.circuitBreakerRegistry,
     this.onDispose,
     CacheEntry<T>? initialEntry,
   })  : key = queryKey.key,
@@ -191,7 +205,9 @@ class Query<T> {
     _cancelDisposal();
 
     if (_referenceCount == 1 && !state.hasValue) {
-      fetch();
+      fetch().catchError((_) {
+        // Error is handled by state update and onError callback
+      });
     }
   }
 
@@ -257,7 +273,7 @@ class Query<T> {
         ));
         _notifySuccess(previous);
 
-        _fetchAndCache(
+        await _fetchAndCache(
           isBackgroundRefetch: true,
         );
         return;
@@ -285,7 +301,7 @@ class Query<T> {
           _notifyLoading(previous);
         }
 
-        _lastFetchStart = DateTime.now();
+        _lastFetchStart = FasqTime.now;
 
         var data = await cache!.deduplicate<T>(
           key,
@@ -294,7 +310,7 @@ class Query<T> {
         data = await _maybeTransformData(data);
 
         if (_lastFetchStart != null) {
-          _lastFetchDuration = DateTime.now().difference(_lastFetchStart!);
+          _lastFetchDuration = FasqTime.now.difference(_lastFetchStart!);
           _fetchHistory.add(_lastFetchDuration!);
 
           if (options?.performance?.enableMetrics != false) {
@@ -308,7 +324,7 @@ class Query<T> {
 
         if (!_isDisposed) {
           final previous = _currentState;
-          final now = DateTime.now();
+          final now = FasqTime.now;
           _updateState(QueryState.success(
             data,
             dataUpdatedAt: now,
@@ -334,20 +350,25 @@ class Query<T> {
             _updateState(QueryState.error(error, stackTrace));
             _notifyError(previous);
           } else {
-            _updateState(_currentState.copyWith(isFetching: false));
+            _updateState(_currentState.copyWith(
+              isFetching: false,
+              error: error,
+              stackTrace: stackTrace,
+            ));
           }
           options?.onError?.call(error);
         }
+        if (error is CircuitBreakerOpenException) rethrow;
       }
     } else {
       try {
-        _lastFetchStart = DateTime.now();
+        _lastFetchStart = FasqTime.now;
 
         var data = await _executeFetch(queryFn);
         data = await _maybeTransformData(data);
 
         if (_lastFetchStart != null) {
-          _lastFetchDuration = DateTime.now().difference(_lastFetchStart!);
+          _lastFetchDuration = FasqTime.now.difference(_lastFetchStart!);
           _fetchHistory.add(_lastFetchDuration!);
 
           if (_fetchHistory.length > 100) {
@@ -359,7 +380,7 @@ class Query<T> {
           final previous = _currentState;
           _updateState(QueryState.success(
             data,
-            dataUpdatedAt: DateTime.now(),
+            dataUpdatedAt: FasqTime.now,
             isStale: false,
             hasValue: true,
           ));
@@ -373,6 +394,7 @@ class Query<T> {
           _notifyError(previous);
           options?.onError?.call(error);
         }
+        if (error is CircuitBreakerOpenException) rethrow;
       }
     }
   }
@@ -424,7 +446,13 @@ class Query<T> {
   }
 
   void _scheduleDisposal() {
-    _disposeTimer = Timer(const Duration(seconds: 5), () {
+    if (disposalDelay == Duration.zero) {
+      if (_referenceCount == 0) {
+        dispose();
+      }
+      return;
+    }
+    _disposeTimer = Timer(disposalDelay, () {
       if (_referenceCount == 0) {
         dispose();
       }
@@ -448,41 +476,75 @@ class Query<T> {
     }
     _subscriptions.clear();
 
-    final entry = cache?.inspectEntry(key);
-    if (entry?.isSecure == true) {
-      cache?.remove(key);
-    }
+    cache?.remove(key);
 
     _controller.close();
     onDispose?.call();
   }
 
   Future<R> _executeFetch<R>(Future<R> Function() fn) async {
-    final performance = options?.performance;
-    final retries = performance?.maxRetries ?? 0;
-    if (retries <= 0) {
-      return _runWithTimeout(fn);
-    }
+    final registry = circuitBreakerRegistry ?? client?.circuitBreakerRegistry;
+    CircuitBreaker? circuitBreaker;
 
-    int attempt = 0;
-    Duration delay =
-        performance?.initialRetryDelay ?? const Duration(seconds: 1);
-    final backoff = performance?.retryBackoffMultiplier ?? 2.0;
+    if (registry != null) {
+      final scopeKey = options?.circuitBreakerScope ?? key;
+      final breakerOptions =
+          options?.circuitBreaker ?? const CircuitBreakerOptions();
+      circuitBreaker = registry.getOrCreate(scopeKey, breakerOptions);
 
-    while (true) {
-      attempt++;
-      try {
-        return await _runWithTimeout(fn);
-      } catch (error) {
-        if (attempt > retries) {
-          rethrow;
-        }
-        await Future.delayed(delay);
-        final nextDelayMicros = (delay.inMicroseconds * backoff).round();
-        delay = Duration(
-          microseconds: nextDelayMicros <= 0 ? 1 : nextDelayMicros,
+      if (!circuitBreaker.allowRequest()) {
+        throw CircuitBreakerOpenException(
+          'Circuit breaker is open for scope: $scopeKey',
+          circuitScope: scopeKey,
         );
       }
+    }
+
+    final performance = options?.performance;
+    final retries = performance?.maxRetries ?? 0;
+
+    try {
+      R result;
+      if (retries <= 0) {
+        result = await _runWithTimeout(fn);
+      } else {
+        int attempt = 0;
+        Duration delay =
+            performance?.initialRetryDelay ?? const Duration(seconds: 1);
+        final backoff = performance?.retryBackoffMultiplier ?? 2.0;
+
+        while (true) {
+          attempt++;
+          try {
+            result = await _runWithTimeout(fn);
+            break;
+          } catch (error) {
+            if (attempt > retries) {
+              rethrow;
+            }
+            await Future.delayed(delay);
+            final nextDelayMicros = (delay.inMicroseconds * backoff).round();
+            delay = Duration(
+              microseconds: nextDelayMicros <= 0 ? 1 : nextDelayMicros,
+            );
+          }
+        }
+      }
+
+      if (circuitBreaker != null) {
+        circuitBreaker.recordSuccess();
+      }
+
+      return result;
+    } catch (error) {
+      if (circuitBreaker != null) {
+        final breakerOptions =
+            options?.circuitBreaker ?? const CircuitBreakerOptions();
+        if (!breakerOptions.isIgnored(error)) {
+          circuitBreaker.recordFailure();
+        }
+      }
+      rethrow;
     }
   }
 
