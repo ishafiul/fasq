@@ -3,6 +3,42 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-12-28
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.3.8`](#fasq---v038)
+ - [`fasq_bloc` - `v0.2.4+3`](#fasq_bloc---v0243)
+ - [`fasq_security` - `v0.1.4+2`](#fasq_security---v0142)
+ - [`fasq_hooks` - `v0.2.4+3`](#fasq_hooks---v0243)
+ - [`fasq_serializer_generator` - `v0.1.1+2`](#fasq_serializer_generator---v0112)
+ - [`fasq_riverpod` - `v0.2.4+3`](#fasq_riverpod---v0243)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `fasq_bloc` - `v0.2.4+3`
+ - `fasq_security` - `v0.1.4+2`
+ - `fasq_hooks` - `v0.2.4+3`
+ - `fasq_serializer_generator` - `v0.1.1+2`
+ - `fasq_riverpod` - `v0.2.4+3`
+
+---
+
+#### `fasq` - `v0.3.8`
+
+ - **FEAT**(circuit-breaker): Implement circuit breaker pattern for query protection (#45).
+
+
 ## 2025-12-26
 
 ### Changes

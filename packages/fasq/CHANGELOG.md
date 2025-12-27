@@ -1,3 +1,7 @@
+## 0.3.8
+
+ - **FEAT**(circuit-breaker): Implement circuit breaker pattern for query protection (#45).
+
 ## 0.3.7+1
 
  - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).

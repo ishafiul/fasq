@@ -1,3 +1,7 @@
+## 0.2.4+3
+
+ - Update a dependency to the latest release.
+
 ## 0.2.4+2
 
  - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
