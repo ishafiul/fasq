@@ -478,8 +478,6 @@ class Query<T> {
 
     cache?.remove(key);
 
-    cache?.remove(key);
-
     _controller.close();
     onDispose?.call();
   }
