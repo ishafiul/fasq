@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+
+import '../circuit_breaker/circuit_breaker_options.dart';
 import 'query_meta.dart';
 import 'validation/input_validator.dart';
 
@@ -173,6 +175,20 @@ class QueryOptions {
   final PerformanceOptions? performance;
   final QueryMeta? meta;
 
+  /// Circuit breaker configuration for this query.
+  ///
+  /// If provided, this query will be protected by a circuit breaker using these options.
+  /// If null, the query will not use a circuit breaker unless one is already
+  /// active for its scope.
+  final CircuitBreakerOptions? circuitBreaker;
+
+  /// Custom scope for the circuit breaker.
+  ///
+  /// By default, circuit breakers are scoped to the query key.
+  /// Use this to group multiple queries under a single circuit breaker
+  /// (e.g., 'api.example.com').
+  final String? circuitBreakerScope;
+
   QueryOptions({
     this.enabled = true,
     this.staleTime,
@@ -184,6 +200,8 @@ class QueryOptions {
     this.maxAge,
     this.performance,
     this.meta,
+    this.circuitBreaker,
+    this.circuitBreakerScope,
   }) {
     // Validate durations
     InputValidator.validateDuration(staleTime, 'staleTime');
@@ -210,6 +228,8 @@ class QueryOptions {
     Duration? maxAge,
     PerformanceOptions? performance,
     QueryMeta? meta,
+    CircuitBreakerOptions? circuitBreaker,
+    String? circuitBreakerScope,
   }) {
     return QueryOptions(
       enabled: enabled ?? this.enabled,
@@ -222,6 +242,8 @@ class QueryOptions {
       maxAge: maxAge ?? this.maxAge,
       performance: performance ?? this.performance,
       meta: meta ?? this.meta,
+      circuitBreaker: circuitBreaker ?? this.circuitBreaker,
+      circuitBreakerScope: circuitBreakerScope ?? this.circuitBreakerScope,
     );
   }
 }
