@@ -9,6 +9,20 @@ import { DEFAULT_DESCRIPTION, SITE_URL, defaultImage, defaultKeywords, organizat
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  verification: {
+    google: 'h7MgEHQ_gxAuhF2zy-ZYpfdaZ3erRDe-4hVLesv9-s8',
+  },
   title: {
     default: 'Fasq Documentation',
     template: '%s · Fasq'
@@ -88,7 +102,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           docsRepositoryBase="https://github.com/ishafiul/fasq/tree/main/fasq-docs/src/content"
           sidebar={{ defaultMenuCollapseLevel: 1 }}
           pageMap={pageMap}
-  
+
         >
           {children}
         </Layout>
