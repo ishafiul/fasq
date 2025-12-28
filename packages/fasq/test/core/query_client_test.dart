@@ -18,7 +18,7 @@ void main() {
       final client = QueryClient();
       final query = client.getQuery<String>(
         'test-key'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
       );
 
       expect(query, isNotNull);
@@ -31,11 +31,11 @@ void main() {
       final queryKey = 'test-key'.toQueryKey();
       final query1 = client.getQuery<String>(
         queryKey,
-        () async => 'data',
+        queryFn: () async => 'data',
       );
       final query2 = client.getQuery<String>(
         queryKey,
-        () async => 'other data',
+        queryFn: () async => 'other data',
       );
 
       expect(query1, same(query2));
@@ -46,11 +46,11 @@ void main() {
       final client = QueryClient();
       final query1 = client.getQuery<String>(
         'key1'.toQueryKey(),
-        () async => 'data1',
+        queryFn: () async => 'data1',
       );
       final query2 = client.getQuery<String>(
         'key2'.toQueryKey(),
-        () async => 'data2',
+        queryFn: () async => 'data2',
       );
 
       expect(query1, isNot(same(query2)));
@@ -62,7 +62,7 @@ void main() {
       final queryKey = 'test-key'.toQueryKey();
       client.getQuery<String>(
         queryKey,
-        () async => 'data',
+        queryFn: () async => 'data',
       );
 
       final query = client.getQueryByKey<String>(queryKey);
@@ -83,7 +83,7 @@ void main() {
       final queryKey = 'test-key'.toQueryKey();
       final query = client.getQuery<String>(
         queryKey,
-        () async => 'data',
+        queryFn: () async => 'data',
       );
 
       expect(client.queryCount, 1);
@@ -106,11 +106,11 @@ void main() {
       final client = QueryClient();
       final query1 = client.getQuery<String>(
         'key1'.toQueryKey(),
-        () async => 'data1',
+        queryFn: () async => 'data1',
       );
       final query2 = client.getQuery<String>(
         'key2'.toQueryKey(),
-        () async => 'data2',
+        queryFn: () async => 'data2',
       );
 
       expect(client.queryCount, 2);
@@ -125,7 +125,7 @@ void main() {
     test('hasQuery returns true for existing query', () {
       final client = QueryClient();
       final queryKey = 'test-key'.toQueryKey();
-      client.getQuery<String>(queryKey, () async => 'data');
+      client.getQuery<String>(queryKey, queryFn: () async => 'data');
 
       expect(client.hasQuery(queryKey), isTrue);
     });
@@ -142,7 +142,7 @@ void main() {
 
       final query = client.getQuery<String>(
         'test-key'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
         options: options,
       );
 
@@ -153,15 +153,15 @@ void main() {
       final client = QueryClient();
       final stringQuery = client.getQuery<String>(
         'string-key'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
       );
       final intQuery = client.getQuery<int>(
         'int-key'.toQueryKey(),
-        () async => 42,
+        queryFn: () async => 42,
       );
       final listQuery = client.getQuery<List<String>>(
         'list-key'.toQueryKey(),
-        () async => ['a', 'b'],
+        queryFn: () async => ['a', 'b'],
       );
 
       expect(stringQuery, isA<Query<String>>());
@@ -175,7 +175,7 @@ void main() {
       final typedKey = TypedQueryKey<String>('typed-key', String);
       final query = client.getQuery<String>(
         typedKey,
-        () async => 'data',
+        queryFn: () async => 'data',
       );
 
       expect(query, isNotNull);

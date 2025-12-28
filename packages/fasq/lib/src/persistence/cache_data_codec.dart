@@ -167,7 +167,7 @@ extension JsonSerializableRegistry on CacheDataCodecRegistry {
     );
   }
 
-  /// Registers a serializer for List<T> where T has fromJson factory.
+  /// Registers a serializer for `List<T>` where `T` has `fromJson` factory.
   ///
   /// Automatically handles encoding/decoding of lists of JSON-serializable objects.
   CacheDataCodecRegistry registerJsonSerializableList<T>({

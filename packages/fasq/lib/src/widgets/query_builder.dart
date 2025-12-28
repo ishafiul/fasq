@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../core/cancellation_token.dart';
 import '../core/query.dart';
 import '../core/query_client.dart';
 import '../core/query_key.dart';
@@ -42,7 +43,16 @@ class QueryBuilder<T> extends StatefulWidget {
   ///
   /// Can be any Future-returning function: API calls, database queries,
   /// file operations, computations, etc.
-  final Future<T> Function() queryFn;
+  ///
+  /// // TODO(fasq): Deprecate in favor of queryFnWithToken in next major version
+  final Future<T> Function()? queryFn;
+
+  /// The async function to execute with cancellation support.
+  ///
+  /// Use this instead of [queryFn] to enable cooperative cancellation.
+  /// The [CancellationToken] can be checked during long operations or passed
+  /// to HTTP clients that support cancellation.
+  final Future<T> Function(CancellationToken token)? queryFnWithToken;
 
   /// Builds the widget tree based on the current query state.
   ///
@@ -52,13 +62,24 @@ class QueryBuilder<T> extends StatefulWidget {
   /// Optional configuration for the query.
   final QueryOptions? options;
 
+  /// The parent query key that this query depends on.
+  ///
+  /// If [dependsOn] is provided, this query will be automatically cancelled
+  /// when the parent query (identified by [dependsOn]) is disposed.
+  final QueryKey? dependsOn;
+
   const QueryBuilder({
     required this.queryKey,
-    required this.queryFn,
+    this.queryFn,
+    this.queryFnWithToken,
     required this.builder,
     this.options,
+    this.dependsOn,
     super.key,
-  });
+  }) : assert(
+          queryFn != null || queryFnWithToken != null,
+          'Either queryFn or queryFnWithToken must be provided',
+        );
 
   @override
   State<QueryBuilder<T>> createState() => _QueryBuilderState<T>();
@@ -96,8 +117,10 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
 
     final query = client.getQuery<T>(
       widget.queryKey,
-      widget.queryFn,
+      queryFn: widget.queryFn,
+      queryFnWithToken: widget.queryFnWithToken,
       options: widget.options,
+      dependsOn: widget.dependsOn,
     );
     final forceRefetch = widget.options?.refetchOnMount ?? false;
     _attachQuery(
@@ -183,8 +206,10 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
 
     final newQuery = client.getQuery<T>(
       widget.queryKey,
-      widget.queryFn,
+      queryFn: widget.queryFn,
+      queryFnWithToken: widget.queryFnWithToken,
       options: widget.options,
+      dependsOn: widget.dependsOn,
     );
 
     final shouldFetch = keyChanged || fnChanged || optionsChanged;

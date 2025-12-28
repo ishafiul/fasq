@@ -511,7 +511,7 @@ class _UsersPageState extends State<_UsersPage> {
 
     _usersQuery = queryClient.getQuery<List<User>>(
       QueryKeys.prefetchUsers,
-      () => ApiService.fetchUsers(),
+      queryFn: () => ApiService.fetchUsers(),
     );
 
     _state = _usersQuery!.state;
@@ -665,7 +665,7 @@ class _PostsPageState extends State<_PostsPage> {
 
     _postsQuery = queryClient.getQuery<List<Post>>(
       QueryKeys.prefetchPosts,
-      () => ApiService.fetchPosts(),
+      queryFn: () => ApiService.fetchPosts(),
     );
 
     _state = _postsQuery!.state;
@@ -821,7 +821,7 @@ class _TodosPageState extends State<_TodosPage> {
 
     _todosQuery = queryClient.getQuery<List<Todo>>(
       QueryKeys.prefetchTodos,
-      () => ApiService.fetchTodos(),
+      queryFn: () => ApiService.fetchTodos(),
     );
 
     _state = _todosQuery!.state;

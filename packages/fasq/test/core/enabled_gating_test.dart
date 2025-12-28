@@ -11,7 +11,7 @@ void main() {
     int calls = 0;
     final query = client.getQuery<String>(
       'enabled:false'.toQueryKey(),
-      () async {
+      queryFn: () async {
         calls++;
         return 'data';
       },
@@ -32,7 +32,7 @@ void main() {
     final queryKey = 'toggle'.toQueryKey();
     final q = client.getQuery<String>(
       queryKey,
-      () async {
+      queryFn: () async {
         calls++;
         return 'ok';
       },
@@ -46,7 +46,7 @@ void main() {
     enabled = true;
     final q2 = client.getQuery<String>(
       queryKey,
-      () async {
+      queryFn: () async {
         calls++;
         return 'ok';
       },

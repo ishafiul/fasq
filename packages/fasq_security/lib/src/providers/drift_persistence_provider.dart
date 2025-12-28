@@ -27,24 +27,17 @@ class DriftPersistenceProvider implements PersistenceProvider {
 
   @override
   Future<void> initialize() async {
-    print(
-        'DriftPersistenceProvider($hashCode): initialize() called. _initialized=$_initialized');
     if (_initialized) return;
 
     await _initLock.synchronized(() async {
       if (_initialized) return;
 
       try {
-        print('DriftPersistenceProvider($hashCode): Initializing database...');
         _database = await CacheDatabase.open();
-        print(
-            'DriftPersistenceProvider($hashCode): Database path: ${_database.path}');
+
         _initialized = true;
         _isDisposed = false;
-        print('DriftPersistenceProvider($hashCode): Database initialized.');
       } catch (e) {
-        print(
-            'DriftPersistenceProvider($hashCode): Failed to initialize database: $e');
         throw PersistenceException('Failed to initialize database: $e');
       }
     });
@@ -62,16 +55,12 @@ class DriftPersistenceProvider implements PersistenceProvider {
     }
 
     try {
-      print(
-          'DriftPersistenceProvider: Persisting key=$key, dataLength=${encryptedData.length}');
       await _database.insertCacheEntries(
         {key: encryptedData},
         createdAt: createdAt != null ? {key: createdAt} : null,
         expiresAt: {key: expiresAt},
       );
-      print('DriftPersistenceProvider: Persisted key=$key successfully');
     } catch (e) {
-      print('DriftPersistenceProvider: Failed to persist key=$key: $e');
       throw PersistenceException('Failed to persist data for key $key: $e');
     }
   }
@@ -83,19 +72,16 @@ class DriftPersistenceProvider implements PersistenceProvider {
     }
 
     try {
-      print('DriftPersistenceProvider: Retrieving key=$key');
       final entries = await _database.getCacheEntries([key]);
 
       if (entries.containsKey(key)) {
         final data = entries[key];
-        print(
-            'DriftPersistenceProvider: Retrieved key=$key, dataLength=${data?.length}');
+
         return data;
       }
-      print('DriftPersistenceProvider: Key=$key not found');
+
       return null;
     } catch (e) {
-      print('DriftPersistenceProvider: Failed to retrieve key=$key: $e');
       throw PersistenceException('Failed to retrieve data for key $key: $e');
     }
   }

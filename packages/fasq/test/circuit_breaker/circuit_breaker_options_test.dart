@@ -42,7 +42,7 @@ void main() {
     test('copyWith preserves unchanged values', () {
       const original = CircuitBreakerOptions(
         failureThreshold: 5,
-        resetTimeout: const Duration(seconds: 60),
+        resetTimeout: Duration(seconds: 60),
         successThreshold: 1,
       );
 
@@ -167,7 +167,7 @@ void main() {
     test('copyWith with null values preserves originals', () {
       const original = CircuitBreakerOptions(
         failureThreshold: 5,
-        resetTimeout: const Duration(seconds: 60),
+        resetTimeout: Duration(seconds: 60),
         successThreshold: 1,
         ignoreExceptions: [ArgumentError],
       );

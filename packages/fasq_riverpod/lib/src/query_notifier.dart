@@ -26,7 +26,8 @@ class QueryNotifier<T> extends StateNotifier<QueryState<T>> {
 
   void _initialize() {
     final queryClient = client ?? QueryClient();
-    _query = queryClient.getQuery<T>(queryKey, queryFn, options: options);
+    _query =
+        queryClient.getQuery<T>(queryKey, queryFn: queryFn, options: options);
 
     _subscription = _query.stream.listen((newState) {
       if (mounted) {

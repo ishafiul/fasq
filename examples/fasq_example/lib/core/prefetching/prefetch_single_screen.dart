@@ -411,7 +411,7 @@ class _UsersPageState extends State<_UsersPage> {
 
     _usersQuery = queryClient.getQuery<List<User>>(
       QueryKeys.prefetchUsers,
-      () => ApiService.fetchUsers(),
+      queryFn: () => ApiService.fetchUsers(),
     );
 
     _state = _usersQuery!.state;

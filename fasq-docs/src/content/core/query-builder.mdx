@@ -33,26 +33,28 @@ QueryBuilder<List<Todo>>(
 
 ### Parameters
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `queryKey` | `QueryKey` | Yes | Unique identifier for caching and sharing the query. Use `'key'.toQueryKey()`. |
-| `queryFn` | `Future<T> Function()` | Yes | The function that fetches the data. Must return a Future. |
-| `builder` | `Widget Function(BuildContext, QueryState<T>)` | Yes | Builds the UI based on the current state. |
-| `options` | `QueryOptions?` | No | Configuration for caching, refetching, and side effects. |
+| Name               | Type                                           | Required | Description                                                                                  |
+| ------------------ | ---------------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `queryKey`         | `QueryKey`                                     | Yes      | Unique identifier for caching and sharing the query. Use `'key'.toQueryKey()`.               |
+| `queryFn`          | `Future<T> Function()`                         | No       | The function that fetches the data. Required if `queryFnWithToken` is not provided.          |
+| `queryFnWithToken` | `Future<T> Function(CancellationToken)`        | No       | Function that fetches data with a cancellation token. Required if `queryFn` is not provided. |
+| `builder`          | `Widget Function(BuildContext, QueryState<T>)` | Yes      | Builds the UI based on the current state.                                                    |
+| `options`          | `QueryOptions?`                                | No       | Configuration for caching, refetching, and side effects.                                     |
+| `dependsOn`        | `QueryKey?`                                    | No       | Key of a parent query. If the parent is disposed, this query is cancelled.                   |
 
 ### QueryState Properties
 
 The `state` object passed to the builder contains:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `data` | `T?` | The data returned from the query function. `null` if not loaded or errored. |
-| `error` | `Object?` | The error object if the query failed. |
-| `status` | `QueryStatus` | Current status: `loading`, `success`, or `error`. |
-| `isLoading` | `bool` | True if the query is performing the initial fetch (hard loading). |
-| `isFetching` | `bool` | True if the query is fetching, including background refetches. |
-| `hasData` | `bool` | True if `data` is not null. |
-| `hasError` | `bool` | True if `error` is not null. |
+| Property     | Type          | Description                                                                 |
+| ------------ | ------------- | --------------------------------------------------------------------------- |
+| `data`       | `T?`          | The data returned from the query function. `null` if not loaded or errored. |
+| `error`      | `Object?`     | The error object if the query failed.                                       |
+| `status`     | `QueryStatus` | Current status: `loading`, `success`, or `error`.                           |
+| `isLoading`  | `bool`        | True if the query is performing the initial fetch (hard loading).           |
+| `isFetching` | `bool`        | True if the query is fetching, including background refetches.              |
+| `hasData`    | `bool`        | True if `data` is not null.                                                 |
+| `hasError`   | `bool`        | True if `error` is not null.                                                |
 
 ## Examples
 
@@ -85,12 +87,12 @@ QueryBuilder<List<Post>>(
   queryFn: () => fetchFeed(),
   builder: (context, state) {
     if (state.isLoading) return const ShimmerList();
-    
+
     return Column(
       children: [
         // Show a small loader when refreshing in background
         if (state.isFetching) const LinearProgressIndicator(),
-        
+
         Expanded(
           child: ListView.builder(
             itemCount: state.data?.length ?? 0,
@@ -126,4 +128,61 @@ class UserPosts extends StatelessWidget {
     );
   }
 }
+```
+
+### Request Cancellation
+
+Fasq supports cancelling in-flight requests when a query is disposed or re-fetched. use `queryFnWithToken` to access the cancellation token.
+
+```dart
+/// Example using Dio
+QueryBuilder<List<Todo>>(
+  queryKey: 'todos'.toQueryKey(),
+  // Use queryFnWithToken instead of queryFn
+  queryFnWithToken: (token) async {
+    final cancelToken = CancelToken();
+
+    // Register cancellation callback
+    token.onCancel(() => cancelToken.cancel());
+
+    try {
+      final response = await dio.get(
+        '/todos',
+        cancelToken: cancelToken,
+      );
+      return (response.data as List).map((e) => Todo.fromJson(e)).toList();
+    } on DioException catch (e) {
+      // Fasq handles cancellations silently if they throw exceptions
+      // matching your client's cancellation error type.
+      // If you rethrow properly, Fasq will recognize it.
+      rethrow;
+    }
+  },
+  builder: (context, state) {
+    if (state.isLoading) return const CircularProgressIndicator();
+    return TodoList(state.data!);
+  },
+)
+
+/// Example using http package
+QueryBuilder<String>(
+  queryKey: 'data'.toQueryKey(),
+  queryFnWithToken: (token) async {
+    final client = http.Client();
+
+    // Close client on cancellation
+    token.onCancel(() => client.close());
+
+    try {
+      final response = await client.get(Uri.parse('https://example.com'));
+      return response.body;
+    } finally {
+      // Clean up if not cancelled via token
+      if (!token.isCancelled) {
+        client.close();
+      }
+    }
+  },
+  builder: (context, state) => Text(state.data ?? 'Loading...'),
+)
 ```

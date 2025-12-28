@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:fasq/fasq.dart';
 import 'dart:async';
-import '../../widgets/example_scaffold.dart';
+
+import 'package:fasq/fasq.dart';
+import 'package:flutter/material.dart';
+
 import '../../services/api_service.dart';
 import '../../services/models.dart';
+import '../../widgets/example_scaffold.dart';
 import '../query_keys.dart';
 
 class SharedQueriesScreen extends StatefulWidget {
@@ -252,7 +254,7 @@ QueryBuilder<User>(
   Widget _buildSharedQueryWidget(int index) {
     final query = _queryClient.getQuery<User>(
       QueryKeys.user(1),
-      () async {
+      queryFn: () async {
         _fetchCount++;
         _addLog('🌐 Widget #${index + 1} - Network request #$_fetchCount');
         await Future.delayed(const Duration(milliseconds: 1500));

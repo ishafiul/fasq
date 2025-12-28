@@ -7,7 +7,9 @@ import '../circuit_breaker/circuit_breaker.dart';
 import '../circuit_breaker/circuit_breaker_exceptions.dart';
 import '../circuit_breaker/circuit_breaker_options.dart';
 import '../circuit_breaker/circuit_breaker_registry.dart';
+import 'cancellation_token.dart';
 import 'query_client.dart';
+import 'query_dependency_manager.dart';
 import 'query_key.dart';
 import 'query_options.dart';
 import 'query_snapshot.dart';
@@ -46,7 +48,16 @@ class Query<T> {
   final String key;
 
   /// The async function that fetches the data.
-  final Future<T> Function() queryFn;
+  ///
+  /// // TODO(fasq): Deprecate in favor of queryFnWithToken in next major version
+  final Future<T> Function()? queryFn;
+
+  /// The async function that fetches data with cancellation support.
+  ///
+  /// Use this instead of [queryFn] to enable cooperative cancellation.
+  /// The [CancellationToken] can be checked during long operations or passed
+  /// to HTTP clients that support cancellation.
+  final Future<T> Function(CancellationToken token)? queryFnWithToken;
 
   /// Optional configuration for this query.
   final QueryOptions? options;
@@ -63,6 +74,9 @@ class Query<T> {
   /// The circuit breaker registry for this query scope
   final CircuitBreakerRegistry? circuitBreakerRegistry;
 
+  /// The dependency manager for parent-child query relationships
+  final QueryDependencyManager? dependencyManager;
+
   /// Delay before a query is disposed after reaching zero subscribers.
   ///
   /// Can be modified for testing to avoid pending timers.
@@ -75,6 +89,9 @@ class Query<T> {
   Timer? _disposeTimer;
   bool _isDisposed = false;
 
+  // Cancellation tracking
+  CancellationToken? _currentFetchToken;
+
   // Performance tracking fields
   DateTime? _lastFetchStart;
   Duration? _lastFetchDuration;
@@ -82,14 +99,20 @@ class Query<T> {
 
   Query({
     required this.queryKey,
-    required this.queryFn,
+    this.queryFn,
+    this.queryFnWithToken,
     this.options,
     this.cache,
     this.client,
     this.circuitBreakerRegistry,
+    this.dependencyManager,
     this.onDispose,
     CacheEntry<T>? initialEntry,
-  })  : key = queryKey.key,
+  })  : assert(
+          queryFn != null || queryFnWithToken != null,
+          'Either queryFn or queryFnWithToken must be provided',
+        ),
+        key = queryKey.key,
         _currentState = QueryState<T>.idle() {
     _controller = StreamController<QueryState<T>>.broadcast();
 
@@ -148,6 +171,19 @@ class Query<T> {
         lastFetchDuration: _lastFetchDuration,
         referenceCount: _referenceCount,
       );
+
+  /// Creates a query function that can be used with _executeFetch.
+  ///
+  /// Prefers queryFnWithToken if available, passing the token.
+  /// Falls back to queryFn (without token) for backward compatibility.
+  Future<T> Function() _createQueryFn(CancellationToken token) {
+    final tokenFn = queryFnWithToken;
+    if (tokenFn != null) {
+      return () => tokenFn(token);
+    }
+    // Fallback to legacy queryFn without token
+    return queryFn!;
+  }
 
   Future<T> _maybeTransformData(T data) async {
     final performance = options?.performance;
@@ -244,54 +280,72 @@ class Query<T> {
   Future<void> fetch({bool forceRefetch = false}) async {
     if (_isDisposed || options?.enabled == false) return;
 
-    if (cache != null) {
-      final cachedEntry = cache!.get<T>(key);
+    // Cancel any existing in-flight fetch
+    _currentFetchToken?.cancel();
+    final token = CancellationToken();
+    _currentFetchToken = token;
 
-      if (cachedEntry != null && cachedEntry.isFresh && !forceRefetch) {
-        final previous = _currentState;
-        _updateState(QueryState.success(
-          cachedEntry.data,
-          dataUpdatedAt: cachedEntry.createdAt,
-          isStale: false,
-          hasValue: cachedEntry.hasValue,
-        ));
-        _notifySuccess(previous);
-        return;
+    try {
+      if (cache != null) {
+        final cachedEntry = cache!.get<T>(key);
+
+        if (cachedEntry != null && cachedEntry.isFresh && !forceRefetch) {
+          final previous = _currentState;
+          _updateState(QueryState.success(
+            cachedEntry.data,
+            dataUpdatedAt: cachedEntry.createdAt,
+            isStale: false,
+            hasValue: cachedEntry.hasValue,
+          ));
+          _notifySuccess(previous);
+          return;
+        }
+
+        final shouldBackgroundRefetch =
+            cachedEntry != null && (cachedEntry.isStale || forceRefetch);
+
+        if (shouldBackgroundRefetch) {
+          final previous = _currentState;
+          _updateState(QueryState.success(
+            cachedEntry.data,
+            dataUpdatedAt: cachedEntry.createdAt,
+            isFetching: true,
+            isStale: !forceRefetch,
+            hasValue: cachedEntry.hasValue,
+          ));
+          _notifySuccess(previous);
+
+          await _fetchAndCache(
+            isBackgroundRefetch: true,
+            token: token,
+          );
+          return;
+        }
       }
 
-      final shouldBackgroundRefetch =
-          cachedEntry != null && (cachedEntry.isStale || forceRefetch);
+      final previous = _currentState;
+      _updateState(_currentState.copyWith(
+        status: QueryStatus.loading,
+        isFetching: true,
+      ));
+      _notifyLoading(previous);
 
-      if (shouldBackgroundRefetch) {
-        final previous = _currentState;
-        _updateState(QueryState.success(
-          cachedEntry.data,
-          dataUpdatedAt: cachedEntry.createdAt,
-          isFetching: true,
-          isStale: !forceRefetch,
-          hasValue: cachedEntry.hasValue,
-        ));
-        _notifySuccess(previous);
-
-        await _fetchAndCache(
-          isBackgroundRefetch: true,
-        );
-        return;
+      await _fetchAndCache(isBackgroundRefetch: false, token: token);
+    } on CancelledException {
+      // Silently ignore cancellation - this is intentional
+    } finally {
+      // Only clear if this is still the current token
+      if (_currentFetchToken == token) {
+        _currentFetchToken = null;
       }
     }
-
-    final previous = _currentState;
-    _updateState(_currentState.copyWith(
-      status: QueryStatus.loading,
-      isFetching: true,
-    ));
-    _notifyLoading(previous);
-
-    await _fetchAndCache(isBackgroundRefetch: false);
   }
 
-  Future<void> _fetchAndCache({required bool isBackgroundRefetch}) async {
-    if (_isDisposed) return;
+  Future<void> _fetchAndCache({
+    required bool isBackgroundRefetch,
+    required CancellationToken token,
+  }) async {
+    if (_isDisposed || token.isCancelled) return;
 
     if (cache != null) {
       try {
@@ -305,7 +359,7 @@ class Query<T> {
 
         var data = await cache!.deduplicate<T>(
           key,
-          () => _executeFetch(queryFn),
+          () => _executeFetch(_createQueryFn(token)),
         );
         data = await _maybeTransformData(data);
 
@@ -344,6 +398,10 @@ class Query<T> {
           _notifySuccess(previous);
         }
       } catch (error, stackTrace) {
+        // Check for cancellation
+        if (error is CancelledException || token.isCancelled) {
+          rethrow;
+        }
         if (!_isDisposed) {
           final previous = _currentState;
           if (!isBackgroundRefetch) {
@@ -364,7 +422,7 @@ class Query<T> {
       try {
         _lastFetchStart = FasqTime.now;
 
-        var data = await _executeFetch(queryFn);
+        var data = await _executeFetch(_createQueryFn(token));
         data = await _maybeTransformData(data);
 
         if (_lastFetchStart != null) {
@@ -388,6 +446,10 @@ class Query<T> {
           _notifySuccess(previous);
         }
       } catch (error, stackTrace) {
+        // Check for cancellation
+        if (error is CancelledException || token.isCancelled) {
+          rethrow;
+        }
         if (!_isDisposed) {
           final previous = _currentState;
           _updateState(QueryState.error(error, stackTrace));
@@ -464,12 +526,35 @@ class Query<T> {
     _disposeTimer = null;
   }
 
+  /// Cancels any in-flight fetch operation.
+  ///
+  /// This signals the query function to abort via [CancellationToken].
+  /// The actual cancellation is cooperative - the query function must
+  /// check [CancellationToken.isCancelled] or use [CancellationToken.onCancel]
+  /// to respond to cancellation requests.
+  ///
+  /// Example:
+  /// ```dart
+  /// final query = QueryClient().getQueryByKey<User>('user');
+  /// query?.cancel(); // Cancel in-flight fetch
+  /// ```
+  void cancel() {
+    _currentFetchToken?.cancel();
+    _currentFetchToken = null;
+  }
+
   void dispose() {
     if (_isDisposed) return;
 
     _isDisposed = true;
     _disposeTimer?.cancel();
     _disposeTimer = null;
+
+    // Cancel any in-flight fetch
+    cancel();
+
+    // Cancel all child queries (cascading cancellation)
+    _cancelChildQueries();
 
     for (final sub in _subscriptions) {
       sub.cancel();
@@ -480,6 +565,22 @@ class Query<T> {
 
     _controller.close();
     onDispose?.call();
+  }
+
+  /// Cancels in-flight fetches of all child queries.
+  ///
+  /// Called during disposal to prevent dependent queries from continuing
+  /// to fetch data after this parent query is no longer needed.
+  void _cancelChildQueries() {
+    final manager = dependencyManager;
+    final queryClient = client;
+    if (manager == null || queryClient == null) return;
+
+    manager.notifyParentDisposed(key, (childKey) {
+      final childQuery =
+          queryClient.getQueryByKey<Object>(StringQueryKey(childKey));
+      childQuery?.cancel();
+    });
   }
 
   Future<R> _executeFetch<R>(Future<R> Function() fn) async {
@@ -554,7 +655,17 @@ class Query<T> {
     if (timeoutMs == null) {
       return future;
     }
-    return future.timeout(Duration(milliseconds: timeoutMs));
+    return future.timeout(
+      Duration(milliseconds: timeoutMs),
+      onTimeout: () {
+        // Cancel the in-flight fetch on timeout
+        _currentFetchToken?.cancel();
+        throw TimeoutException(
+          'Query fetch timed out after $timeoutMs ms',
+          Duration(milliseconds: timeoutMs),
+        );
+      },
+    );
   }
 
   int _estimateDataFootprint(dynamic value) {

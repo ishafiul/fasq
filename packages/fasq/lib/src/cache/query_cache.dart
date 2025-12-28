@@ -765,14 +765,12 @@ class QueryCache {
   /// Loads persisted entries on initialization.
   Future<void> _loadPersistedEntries() async {
     if (!_persistenceReady) {
-      print('QueryCache: Persistence not ready');
       return;
     }
 
     try {
       final encryptionKey = await _securityProvider!.getEncryptionKey();
       if (encryptionKey == null) {
-        print('QueryCache: No encryption key found');
         return;
       }
 
@@ -906,7 +904,6 @@ class QueryCache {
     Object error, [
     StackTrace? stackTrace,
   ]) {
-    print('FASQ.QueryCache ERROR: $message, Error: $error');
     developer.log(
       message,
       name: 'FASQ.QueryCache',

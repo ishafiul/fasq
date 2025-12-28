@@ -122,7 +122,7 @@ void main() {
       final queryKey = 'test-key'.toQueryKey();
       await client.prefetchQuery(queryKey, fetchData);
 
-      final query = client.getQuery<String>(queryKey, fetchData);
+      final query = client.getQuery<String>(queryKey, queryFn: fetchData);
       query.addListener();
 
       await Future.delayed(const Duration(milliseconds: 10));
