@@ -135,22 +135,54 @@ class UserPosts extends StatelessWidget {
 Fasq supports cancelling in-flight requests when a query is disposed or re-fetched. use `queryFnWithToken` to access the cancellation token.
 
 ```dart
+/// Example using Dio
 QueryBuilder<List<Todo>>(
   queryKey: 'todos'.toQueryKey(),
   // Use queryFnWithToken instead of queryFn
   queryFnWithToken: (token) async {
-    // Pass the token to your HTTP client (e.g., Dio)
-    // You might need an extension to convert CancellationToken to your client's format,
-    // or check token.isCancelled manually.
-    final response = await dio.get(
-      '/todos',
-      cancelToken: token.asDioCancelToken(), // Hypothetical extension
-    );
-    return (response.data as List).map((e) => Todo.fromJson(e)).toList();
+    final cancelToken = CancelToken();
+
+    // Register cancellation callback
+    token.onCancel(() => cancelToken.cancel());
+
+    try {
+      final response = await dio.get(
+        '/todos',
+        cancelToken: cancelToken,
+      );
+      return (response.data as List).map((e) => Todo.fromJson(e)).toList();
+    } on DioException catch (e) {
+      // Fasq handles cancellations silently if they throw exceptions
+      // matching your client's cancellation error type.
+      // If you rethrow properly, Fasq will recognize it.
+      rethrow;
+    }
   },
   builder: (context, state) {
     if (state.isLoading) return const CircularProgressIndicator();
     return TodoList(state.data!);
   },
+)
+
+/// Example using http package
+QueryBuilder<String>(
+  queryKey: 'data'.toQueryKey(),
+  queryFnWithToken: (token) async {
+    final client = http.Client();
+
+    // Close client on cancellation
+    token.onCancel(() => client.close());
+
+    try {
+      final response = await client.get(Uri.parse('https://example.com'));
+      return response.body;
+    } finally {
+      // Clean up if not cancelled via token
+      if (!token.isCancelled) {
+        client.close();
+      }
+    }
+  },
+  builder: (context, state) => Text(state.data ?? 'Loading...'),
 )
 ```
