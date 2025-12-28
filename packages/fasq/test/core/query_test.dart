@@ -389,7 +389,7 @@ void main() {
       // Create a query and fetch data
       final query1 = client.getQuery<String>(
         'test-cache-clear'.toQueryKey(),
-        () async => 'cached-data',
+        queryFn: () async => 'cached-data',
       );
 
       query1.addListener();
@@ -420,7 +420,7 @@ void main() {
       final queryKey = 'test-fresh-fetch'.toQueryKey();
       final query1 = client.getQuery<String>(
         queryKey,
-        () async {
+        queryFn: () async {
           fetchCount++;
           return 'data-$fetchCount';
         },
@@ -439,7 +439,7 @@ void main() {
       // Create new query with same key
       final query2 = client.getQuery<String>(
         queryKey,
-        () async {
+        queryFn: () async {
           fetchCount++;
           return 'data-$fetchCount';
         },

@@ -146,7 +146,7 @@ void main() {
     testWidgets('disposes subscription on widget disposal', (tester) async {
       final query = QueryClient().getQuery<String>(
         'test'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
       );
 
       await tester.pumpWidget(

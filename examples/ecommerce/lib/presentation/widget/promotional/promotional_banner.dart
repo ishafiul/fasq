@@ -24,7 +24,7 @@ class PromotionalBanner extends StatelessWidget {
 
     return QueryBuilder<List<PromotionalContentResponse>>(
       queryKey: QueryKeys.currentOffers,
-      queryFn: () => locator.get<PromotionalService>().getCurrentOffers(),
+      queryFnWithToken: (token) => locator.get<PromotionalService>().getCurrentOffers(),
       builder: (context, state) {
         if (state.hasError) {
           debugPrint('PromotionalBanner: Error - ${state.error}');

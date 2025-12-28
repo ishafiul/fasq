@@ -9,6 +9,7 @@ import '../circuit_breaker/circuit_breaker_registry.dart';
 import '../performance/isolate_pool.dart';
 import '../persistence/persistence_options.dart';
 import '../security/security_plugin.dart';
+import 'cancellation_token.dart';
 import 'infinite_query.dart';
 import 'infinite_query_options.dart';
 import 'mutation_meta.dart';
@@ -16,6 +17,7 @@ import 'mutation_snapshot.dart';
 import 'prefetch_config.dart';
 import 'query.dart';
 import 'query_client_observer.dart';
+import 'query_dependency_manager.dart';
 import 'query_key.dart';
 import 'query_meta.dart';
 import 'query_options.dart';
@@ -107,6 +109,7 @@ class QueryClient with WidgetsBindingObserver {
   final PersistenceOptions? _persistenceSnapshot;
   final Type? _securityPluginType;
   final CircuitBreakerRegistry? _circuitBreakerRegistry;
+  final QueryDependencyManager _dependencyManager = QueryDependencyManager();
   late final IsolatePool _isolatePool;
   final List<QueryClientObserver> _observers = [];
   WidgetsBinding? _binding;
@@ -214,19 +217,36 @@ class QueryClient with WidgetsBindingObserver {
   /// Multiple calls with the same [key] return the same [Query] instance,
   /// enabling query sharing across widgets.
   ///
+  /// [dependsOn] establishes a parent-child relationship. When the parent
+  /// query is disposed, this query's in-flight fetch will be cancelled.
+  ///
   /// Example:
   /// ```dart
-  /// final query = client.getQuery<List<User>>(
-  ///   'users',
-  ///   () => api.fetchUsers(),
-  ///   options: QueryOptions(enabled: true),
+  /// // Parent query
+  /// final userQuery = client.getQuery<User>(
+  ///   QueryKeys.user(123),
+  ///   queryFn: () => api.fetchUser(123),
+  /// );
+  ///
+  /// // Child query that depends on parent
+  /// final postsQuery = client.getQuery<List<Post>>(
+  ///   QueryKeys.userPosts(123),
+  ///   queryFn: () => api.fetchPosts(123),
+  ///   dependsOn: QueryKeys.user(123), // Cancelled when parent is disposed
   /// );
   /// ```
   Query<T> getQuery<T>(
-    QueryKey queryKey,
-    Future<T> Function() queryFn, {
+    QueryKey queryKey, {
+    Future<T> Function()? queryFn,
+    Future<T> Function(CancellationToken token)? queryFnWithToken,
     QueryOptions? options,
+    QueryKey? dependsOn,
   }) {
+    assert(
+      queryFn != null || queryFnWithToken != null,
+      'Either queryFn or queryFnWithToken must be provided',
+    );
+
     final key = _extractKey(queryKey);
     InputValidator.validateQueryKey(key);
     if (options != null) {
@@ -241,17 +261,26 @@ class QueryClient with WidgetsBindingObserver {
       _queries.remove(key);
     }
 
+    // Register dependency relationship
+    if (dependsOn != null) {
+      final parentKey = _extractKey(dependsOn);
+      _dependencyManager.registerDependency(key, parentKey);
+    }
+
     final cachedEntry = _cache.get<T>(key);
 
     final query = Query<T>(
       queryKey: queryKey,
       queryFn: queryFn,
+      queryFnWithToken: queryFnWithToken,
       options: options,
       cache: _cache,
       client: this,
       circuitBreakerRegistry: _circuitBreakerRegistry,
+      dependencyManager: _dependencyManager,
       onDispose: () {
         _queries.remove(key);
+        _dependencyManager.unregister(key);
       },
       initialEntry: cachedEntry,
     );

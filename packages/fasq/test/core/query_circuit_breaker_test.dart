@@ -12,7 +12,7 @@ void main() {
       final client = QueryClient();
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
       );
 
       await query.fetch();
@@ -28,7 +28,7 @@ void main() {
       final client = QueryClient(circuitBreakerRegistry: registry);
       final query = client.getQuery<String>(
         'test-key'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
       );
 
       await query.fetch();
@@ -47,7 +47,7 @@ void main() {
       final client = QueryClient(circuitBreakerRegistry: registry);
       final query = client.getQuery<String>(
         'test-key'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
         options: QueryOptions(
           circuitBreakerScope: 'api.example.com',
         ),
@@ -78,7 +78,7 @@ void main() {
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
         options: QueryOptions(
           circuitBreakerScope: 'test-scope',
           circuitBreaker: breakerOptions,
@@ -101,7 +101,7 @@ void main() {
       final client = QueryClient(circuitBreakerRegistry: registry);
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
       );
 
       await query.fetch();
@@ -120,7 +120,7 @@ void main() {
       final client = QueryClient(circuitBreakerRegistry: registry);
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async {
+        queryFn: () async {
           throw StateError('Network error');
         },
       );
@@ -147,7 +147,7 @@ void main() {
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async {
+        queryFn: () async {
           throw ArgumentError('Client error');
         },
         options: QueryOptions(
@@ -178,7 +178,7 @@ void main() {
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
         options: QueryOptions(
           circuitBreaker: customOptions,
         ),
@@ -202,7 +202,7 @@ void main() {
 
       final query1 = client.getQuery<String>(
         'query1'.toQueryKey(),
-        () async => 'data1',
+        queryFn: () async => 'data1',
         options: QueryOptions(
           circuitBreakerScope: sharedScope,
         ),
@@ -210,7 +210,7 @@ void main() {
 
       final query2 = client.getQuery<String>(
         'query2'.toQueryKey(),
-        () async => 'data2',
+        queryFn: () async => 'data2',
         options: QueryOptions(
           circuitBreakerScope: sharedScope,
         ),
@@ -239,7 +239,7 @@ void main() {
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async {
+        queryFn: () async {
           throw StateError('Network error');
         },
         options: QueryOptions(
@@ -278,7 +278,7 @@ void main() {
       bool shouldFail = true;
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async {
+        queryFn: () async {
           if (shouldFail) throw StateError('Network error');
           return 'success';
         },
@@ -323,7 +323,7 @@ void main() {
       bool shouldFail = true;
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async {
+        queryFn: () async {
           if (shouldFail) throw StateError('Network error');
           return 'success';
         },
@@ -370,7 +370,7 @@ void main() {
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async {
+        queryFn: () async {
           attemptCount++;
           if (attemptCount < 2) {
             throw StateError('Temporary error');
@@ -403,7 +403,7 @@ void main() {
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async {
+        queryFn: () async {
           throw StateError('Persistent error');
         },
         options: QueryOptions(
@@ -437,7 +437,7 @@ void main() {
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
-        () async => 'data',
+        queryFn: () async => 'data',
         options: QueryOptions(
           circuitBreakerScope: 'custom-scope',
           circuitBreaker: breakerOptions,

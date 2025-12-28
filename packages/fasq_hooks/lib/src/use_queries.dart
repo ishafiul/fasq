@@ -40,8 +40,8 @@ List<QueryState<dynamic>> useQueries(List<QueryConfig> configs,
 
   useEffect(() {
     final queries = configs
-        .map((config) => queryClient.getQuery(config.queryKey, config.queryFn,
-            options: config.options))
+        .map((config) => queryClient.getQuery(config.queryKey,
+            queryFn: config.queryFn, options: config.options))
         .toList();
 
     // Add listeners to all queries
@@ -122,8 +122,8 @@ Map<String, QueryState<dynamic>> useNamedQueries(
   useEffect(() {
     final queries = <String, Query>{};
     for (final config in configs) {
-      queries[config.name] = client.getQuery(config.queryKey, config.queryFn,
-          options: config.options);
+      queries[config.name] = client.getQuery(config.queryKey,
+          queryFn: config.queryFn, options: config.options);
       queries[config.name]!.addListener();
     }
 

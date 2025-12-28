@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:fasq_bloc/fasq_bloc.dart';
 import 'package:fasq/fasq.dart';
+import 'package:fasq_bloc/fasq_bloc.dart';
+import 'package:flutter/material.dart';
 
 /// Configuration for a single query in a MultiQueryBuilder.
 class MultiQueryConfig {
@@ -136,7 +136,7 @@ class _MultiQueryBuilderState extends State<MultiQueryBuilder> {
     for (final config in widget.configs) {
       final query = client.getQuery(
         config.queryKey,
-        config.queryFn,
+        queryFn: config.queryFn,
         options: config.options,
       );
       _queries.add(query);
@@ -323,7 +323,7 @@ class _NamedMultiQueryBuilderState extends State<NamedMultiQueryBuilder> {
     for (final config in widget.configs) {
       final query = client.getQuery(
         config.queryKey,
-        config.queryFn,
+        queryFn: config.queryFn,
         options: config.options,
       );
       _queries[config.name] = query;

@@ -31,9 +31,9 @@ void main() {
       final client = QueryClient();
 
       // Create multiple queries simultaneously
-      final query1 = client.getQuery('query1'.toQueryKey(), fetchData1);
-      final query2 = client.getQuery('query2'.toQueryKey(), fetchData2);
-      final query3 = client.getQuery('query3'.toQueryKey(), fetchData3);
+      final query1 = client.getQuery('query1'.toQueryKey(), queryFn: fetchData1);
+      final query2 = client.getQuery('query2'.toQueryKey(), queryFn: fetchData2);
+      final query3 = client.getQuery('query3'.toQueryKey(), queryFn: fetchData3);
 
       // Add listeners to trigger execution
       query1.addListener();
@@ -72,9 +72,9 @@ void main() {
 
       // Create multiple queries with the same key
       final queryKey = 'shared'.toQueryKey();
-      final query1 = client.getQuery(queryKey, fetchData);
-      final query2 = client.getQuery(queryKey, fetchData);
-      final query3 = client.getQuery(queryKey, fetchData);
+      final query1 = client.getQuery(queryKey, queryFn: fetchData);
+      final query2 = client.getQuery(queryKey, queryFn: fetchData);
+      final query3 = client.getQuery(queryKey, queryFn: fetchData);
 
       // Add listeners to trigger execution
       query1.addListener();
@@ -122,9 +122,9 @@ void main() {
       final client = QueryClient();
 
       // Create queries with mixed success/error
-      final query1 = client.getQuery('success1'.toQueryKey(), fetchSuccess);
-      final query2 = client.getQuery('error'.toQueryKey(), fetchError);
-      final query3 = client.getQuery('success2'.toQueryKey(), fetchSuccess2);
+      final query1 = client.getQuery('success1'.toQueryKey(), queryFn: fetchSuccess);
+      final query2 = client.getQuery('error'.toQueryKey(), queryFn: fetchError);
+      final query3 = client.getQuery('success2'.toQueryKey(), queryFn: fetchSuccess2);
 
       // Add listeners to trigger execution
       query1.addListener();
@@ -179,9 +179,9 @@ void main() {
       final client = QueryClient();
 
       // Create queries with different timing
-      final query1 = client.getQuery('fast'.toQueryKey(), fetchFast);
-      final query2 = client.getQuery('slow'.toQueryKey(), fetchSlow);
-      final query3 = client.getQuery('error'.toQueryKey(), fetchError);
+      final query1 = client.getQuery('fast'.toQueryKey(), queryFn: fetchFast);
+      final query2 = client.getQuery('slow'.toQueryKey(), queryFn: fetchSlow);
+      final query3 = client.getQuery('error'.toQueryKey(), queryFn: fetchError);
 
       // Track state changes
       query1.stream.listen((state) {
@@ -244,11 +244,11 @@ void main() {
 
       // Create queries
       final query1 =
-          client.getQuery('query1'.toQueryKey(), () => fetchData('1'));
+          client.getQuery('query1'.toQueryKey(), queryFn: () => fetchData('1'));
       final query2 =
-          client.getQuery('query2'.toQueryKey(), () => fetchData('2'));
+          client.getQuery('query2'.toQueryKey(), queryFn: () => fetchData('2'));
       final query3 =
-          client.getQuery('query3'.toQueryKey(), () => fetchData('3'));
+          client.getQuery('query3'.toQueryKey(), queryFn: () => fetchData('3'));
 
       // Add listeners to some queries
       query1.addListener();
@@ -303,8 +303,8 @@ void main() {
 
       // Create multiple queries with same key
       final queryKey = 'shared'.toQueryKey();
-      final query1 = client.getQuery(queryKey, fetchData);
-      final query2 = client.getQuery(queryKey, fetchData);
+      final query1 = client.getQuery(queryKey, queryFn: fetchData);
+      final query2 = client.getQuery(queryKey, queryFn: fetchData);
 
       // Add listeners
       query1.addListener();

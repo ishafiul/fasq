@@ -22,7 +22,7 @@ class _BasicQueryClassScreenState extends State<BasicQueryClassScreen> {
     final client = context.queryClient ?? QueryClient();
     _query = client.getQuery<List<User>>(
       QueryKeys.users,
-      () => ApiService.fetchUsers(),
+      queryFn: () => ApiService.fetchUsers(),
       options: QueryOptions(
         staleTime: const Duration(seconds: 5),
         cacheTime: const Duration(seconds: 10),

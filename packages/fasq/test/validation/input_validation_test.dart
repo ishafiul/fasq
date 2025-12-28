@@ -213,15 +213,15 @@ void main() {
       test('QueryClient validates inputs', () {
         // Valid query
         expect(
-          () => client.getQuery<String>(
-              'valid-key'.toQueryKey(), () => Future.value('data')),
+          () => client.getQuery<String>('valid-key'.toQueryKey(),
+              queryFn: () => Future.value('data')),
           returnsNormally,
         );
 
         // Invalid key
         expect(
-          () => client.getQuery<String>(
-              'invalid@key'.toQueryKey(), () => Future.value('data')),
+          () => client.getQuery<String>('invalid@key'.toQueryKey(),
+              queryFn: () => Future.value('data')),
           throwsA(isA<ArgumentError>()),
         );
 
@@ -229,7 +229,7 @@ void main() {
         expect(
           () => client.getQuery<String>(
             'valid-key'.toQueryKey(),
-            () => Future.value('data'),
+            queryFn: () => Future.value('data'),
             options: QueryOptions(staleTime: Duration(seconds: -1)),
           ),
           throwsA(isA<ArgumentError>()),

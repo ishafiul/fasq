@@ -24,7 +24,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'test-env'.toQueryKey(),
-          () async {
+          queryFn: () async {
             if (shouldFail) {
               throw StateError('Simulated network error');
             }
@@ -47,7 +47,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'mock-backend'.toQueryKey(),
-          () async {
+          queryFn: () async {
             callCount++;
             if (shouldFail) {
               throw StateError('Network error');
@@ -86,7 +86,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'success-test'.toQueryKey(),
-          () async => 'data',
+          queryFn: () async => 'data',
         );
 
         await query.fetch();
@@ -108,7 +108,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'multi-success'.toQueryKey(),
-          () async => 'data',
+          queryFn: () async => 'data',
         );
 
         for (int i = 0; i < 5; i++) {
@@ -130,7 +130,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'no-exception'.toQueryKey(),
-          () async => 'data',
+          queryFn: () async => 'data',
         );
 
         await query.fetch();
@@ -159,7 +159,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'failure-threshold'.toQueryKey(),
-          () async {
+          queryFn: () async {
             throw StateError('Network error');
           },
           options: QueryOptions(
@@ -197,7 +197,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'immediate-fail'.toQueryKey(),
-          () async => 'data',
+          queryFn: () async => 'data',
           options: QueryOptions(
             circuitBreaker: breakerOptions,
           ),
@@ -230,7 +230,7 @@ void main() {
         int backendCallCount = 0;
         final query = client.getQuery<String>(
           'no-backend-call'.toQueryKey(),
-          () async {
+          queryFn: () async {
             backendCallCount++;
             throw StateError('Network error');
           },
@@ -274,7 +274,7 @@ void main() {
         bool shouldFail = true;
         final query = client.getQuery<String>(
           'half-open-test'.toQueryKey(),
-          () async {
+          queryFn: () async {
             if (shouldFail) throw StateError('Network error');
             return 'success';
           },
@@ -321,7 +321,7 @@ void main() {
         bool shouldFail = true;
         final query = client.getQuery<String>(
           'close-test'.toQueryKey(),
-          () async {
+          queryFn: () async {
             if (shouldFail) throw StateError('Network error');
             return 'success';
           },
@@ -366,7 +366,7 @@ void main() {
         bool shouldFail = true;
         final query = client.getQuery<String>(
           'reopen-test'.toQueryKey(),
-          () async {
+          queryFn: () async {
             if (shouldFail) throw StateError('Network error');
             return 'success';
           },
@@ -415,7 +415,7 @@ void main() {
         bool shouldFail = true;
         final query = client.getQuery<String>(
           'counter-test'.toQueryKey(),
-          () async {
+          queryFn: () async {
             if (shouldFail) throw StateError('Network error');
             return 'success';
           },
@@ -465,7 +465,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'exception-test'.toQueryKey(),
-          () async => 'data',
+          queryFn: () async => 'data',
           options: QueryOptions(
             circuitBreakerScope: 'exception-test',
             circuitBreaker: breakerOptions,
@@ -501,7 +501,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'catch-test'.toQueryKey(),
-          () async => 'data',
+          queryFn: () async => 'data',
           options: QueryOptions(
             circuitBreakerScope: 'catch-test',
             circuitBreaker: breakerOptions,
@@ -539,7 +539,7 @@ void main() {
 
         final query = client.getQuery<String>(
           'scope-test'.toQueryKey(),
-          () async => 'data',
+          queryFn: () async => 'data',
           options: QueryOptions(
             circuitBreakerScope: customScope,
             circuitBreaker: breakerOptions,
@@ -574,7 +574,7 @@ void main() {
 
         final query1 = client.getQuery<String>(
           'query1'.toQueryKey(),
-          () async {
+          queryFn: () async {
             if (shouldFail) throw StateError('Network error');
             return 'data1';
           },
@@ -586,7 +586,7 @@ void main() {
 
         final query2 = client.getQuery<String>(
           'query2'.toQueryKey(),
-          () async {
+          queryFn: () async {
             if (shouldFail) throw StateError('Network error');
             return 'data2';
           },
@@ -630,7 +630,7 @@ void main() {
 
         final query1 = client.getQuery<String>(
           'query1'.toQueryKey(),
-          () async => 'data1',
+          queryFn: () async => 'data1',
           options: QueryOptions(
             circuitBreakerScope: 'api1.example.com',
             circuitBreaker: breakerOptions,
@@ -639,7 +639,7 @@ void main() {
 
         final query2 = client.getQuery<String>(
           'query2'.toQueryKey(),
-          () async => 'data2',
+          queryFn: () async => 'data2',
           options: QueryOptions(
             circuitBreakerScope: 'api2.example.com',
             circuitBreaker: breakerOptions,
@@ -731,7 +731,7 @@ void main() {
         bool shouldFail = true;
         final query = client.getQuery<String>(
           'recovery-test'.toQueryKey(),
-          () async {
+          queryFn: () async {
             if (shouldFail) throw StateError('Network error');
             return 'recovered data';
           },
