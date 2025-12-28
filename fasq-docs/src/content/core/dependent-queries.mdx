@@ -9,8 +9,8 @@ Use the `enabled` option in `QueryOptions` to delay execution until a condition 
 ```dart
 // 1. Fetch the User first
 final userQuery = QueryBuilder<User>(
-  queryKey: 'user'.toQueryKey(), 
-  /* ... */ 
+  queryKey: 'user'.toQueryKey(),
+  /* ... */
 );
 
 // 2. Fetch Posts *only* when User ID is available
@@ -18,7 +18,7 @@ QueryBuilder<List<Post>>(
   // Key depends on user ID
   queryKey: 'posts:${userQuery.state.data?.id}'.toQueryKey(),
   queryFn: () => api.fetchPosts(userQuery.state.data!.id),
-  
+
   // Disable until we have the ID
   options: QueryOptions(
     enabled: userQuery.state.hasData, // <--- The magic switch
@@ -32,13 +32,14 @@ QueryBuilder<List<Post>>(
 
 ## API
 
-| Option | Type | Description |
-|--------|------|-------------|
+| Option    | Type   | Description                                                                          |
+| --------- | ------ | ------------------------------------------------------------------------------------ |
 | `enabled` | `bool` | Set to `false` to prevent the query from fetching automatically. Defaults to `true`. |
 
 ## Examples
 
 ### Serial Fetching
+
 Sometimes you need to chain requests A -> B -> C.
 
 ```dart
@@ -65,6 +66,7 @@ QueryBuilder<User>(
 ```
 
 ### Waiting for User Input
+
 Don't search until the user types something.
 
 ```dart
@@ -77,3 +79,35 @@ QueryBuilder(
   /* ... */
 )
 ```
+
+## Lifecycle Dependencies (Cascading Cancellation)
+
+While `enabled` controls _when a query starts_, the `dependsOn` parameter controls _when a query stops_.
+
+Use `dependsOn` to link a child query to a parent query. If the parent query is disposed (removed from memory), the child query is automatically cancelled. This prevents orphan requests from consuming resources when their conceptual "owner" is gone.
+
+```dart
+// Parent Query (e.g., User Profile)
+final userKey = 'user:123'.toQueryKey();
+final userQuery = client.getQuery(userKey, /* ... */);
+
+// Child Query (e.g., User Posts)
+client.getQuery(
+  'user:123:posts'.toQueryKey(),
+  queryFn: () => api.fetchUserPosts(123),
+  // 🔗 Link to parent
+  dependsOn: userKey,
+);
+```
+
+### When to use `dependsOn`?
+
+- **Detail Views**: A "User Details" query should depend on the "Users List" query if logically nested.
+- **Drill-downs**: `Order Items` should depend on `Order`.
+- **Resource ownership**: If `Query B` makes no sense without `Query A` existing, link them.
+
+### Cancellation Behavior
+
+1. **Parent Disposed**: When the parent query hits 0 subscribers and its garbage collection timer expires.
+2. **Cascade**: The `QueryClient` detects the disposal and immediately runs `.cancel()` on all registered children.
+3. **Effect**: Any in-flight network requests for the children are aborted. The children are _not_ removed from cache immediately (they follow their own GC logic), but their _fetching_ is stopped.

@@ -61,7 +61,7 @@ class UsersScreen extends StatelessWidget {
         builder: (context, state) {
           if (state.isLoading) return CircularProgressIndicator();
           if (state.hasError) return Text('Error: ${state.error}');
-          
+
           return ListView.builder(
             itemCount: state.data!.length,
             itemBuilder: (context, index) => Text(state.data![index].name),

@@ -62,12 +62,19 @@ class QueryBuilder<T> extends StatefulWidget {
   /// Optional configuration for the query.
   final QueryOptions? options;
 
+  /// The parent query key that this query depends on.
+  ///
+  /// If [dependsOn] is provided, this query will be automatically cancelled
+  /// when the parent query (identified by [dependsOn]) is disposed.
+  final QueryKey? dependsOn;
+
   const QueryBuilder({
     required this.queryKey,
     this.queryFn,
     this.queryFnWithToken,
     required this.builder,
     this.options,
+    this.dependsOn,
     super.key,
   }) : assert(
           queryFn != null || queryFnWithToken != null,
@@ -113,6 +120,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       queryFn: widget.queryFn,
       queryFnWithToken: widget.queryFnWithToken,
       options: widget.options,
+      dependsOn: widget.dependsOn,
     );
     final forceRefetch = widget.options?.refetchOnMount ?? false;
     _attachQuery(
@@ -201,6 +209,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       queryFn: widget.queryFn,
       queryFnWithToken: widget.queryFnWithToken,
       options: widget.options,
+      dependsOn: widget.dependsOn,
     );
 
     final shouldFetch = keyChanged || fnChanged || optionsChanged;
