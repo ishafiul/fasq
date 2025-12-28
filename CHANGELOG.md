@@ -3,6 +3,53 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-12-29
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`fasq` - `v0.4.0`](#fasq---v040)
+ - [`fasq_bloc` - `v0.3.0`](#fasq_bloc---v030)
+ - [`fasq_hooks` - `v0.3.0`](#fasq_hooks---v030)
+ - [`fasq_riverpod` - `v0.3.0`](#fasq_riverpod---v030)
+ - [`fasq_security` - `v0.2.0`](#fasq_security---v020)
+
+Packages with other changes:
+
+ - [`fasq_serializer_generator` - `v0.1.1+4`](#fasq_serializer_generator---v0114)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `fasq_serializer_generator` - `v0.1.1+4`
+
+---
+
+#### `fasq` - `v0.4.0`
+
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+
+#### `fasq_bloc` - `v0.3.0`
+
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+
+#### `fasq_hooks` - `v0.3.0`
+
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+
+#### `fasq_riverpod` - `v0.3.0`
+
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+
+#### `fasq_security` - `v0.2.0`
+
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+
+
 ## 2025-12-28
 
 ### Changes

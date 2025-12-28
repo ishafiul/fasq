@@ -1,3 +1,9 @@
+## 0.4.0
+
+> Note: This release has breaking changes.
+
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+
 ## 0.3.8
 
  - **FEAT**(circuit-breaker): Implement circuit breaker pattern for query protection (#45).
