@@ -20,14 +20,11 @@ void main() {
       test('test environment is correctly configured', () async {
         final registry = CircuitBreakerRegistry();
         final client = QueryClient(circuitBreakerRegistry: registry);
-        bool shouldFail = false;
 
         final query = client.getQuery<String>(
           'test-env'.toQueryKey(),
           queryFn: () async {
-            if (shouldFail) {
-              throw StateError('Simulated network error');
-            }
+            // Removed dead code: if (shouldFail) throw ...
             return 'success';
           },
         );
@@ -570,13 +567,11 @@ void main() {
         );
 
         final sharedScope = 'api.example.com';
-        bool shouldFail = true;
 
         final query1 = client.getQuery<String>(
           'query1'.toQueryKey(),
           queryFn: () async {
-            if (shouldFail) throw StateError('Network error');
-            return 'data1';
+            throw StateError('Network error');
           },
           options: QueryOptions(
             circuitBreakerScope: sharedScope,
@@ -587,8 +582,7 @@ void main() {
         final query2 = client.getQuery<String>(
           'query2'.toQueryKey(),
           queryFn: () async {
-            if (shouldFail) throw StateError('Network error');
-            return 'data2';
+            throw StateError('Network error');
           },
           options: QueryOptions(
             circuitBreakerScope: sharedScope,

@@ -20,7 +20,7 @@ class CircuitBreaker {
   CircuitState _state;
 
   /// Statistics tracked for state transition decisions.
-  CircuitStats _stats;
+  final CircuitStats _stats;
 
   /// Timestamp when the circuit can transition from Open to Half-Open.
   ///
