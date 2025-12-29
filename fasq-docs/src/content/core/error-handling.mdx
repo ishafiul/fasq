@@ -48,16 +48,33 @@ Show a snackbar whenever _any_ query fails.
 
 ```dart
 // Using QueryClientObserver
-class GlobalErrorHandler extends QueryClientObserver {
+class GlobalErrorHandler implements QueryClientObserver {
   @override
-  void onQueryError(Query query, Object error) {
-    showToast('Something went wrong: $error');
+  void onQueryError(QuerySnapshot snapshot, QueryMeta? meta, BuildContext? context) {
+    showToast('Something went wrong: ${snapshot.currentState.error}');
   }
+
+  // Implement other required methods...
 }
 
 // Register it
 client.addObserver(GlobalErrorHandler());
 ```
+
+### Built-in Logging
+
+For development debugging, use `FasqLogger` which automatically logs all errors:
+
+```dart
+client.addObserver(FasqLogger(
+  enabled: true,
+  showData: false,
+));
+```
+
+This will log errors in the format: `❌ [Error] query-key: Error details`
+
+For complete logging documentation, see [Logging](/docs/core/logging).
 
 ### Manual Retry Button
 
