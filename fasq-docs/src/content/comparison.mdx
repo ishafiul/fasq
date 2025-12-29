@@ -1,57 +1,167 @@
-# Comparison
+---
+title: Comparison & Ecosystem Roles
+description: How Fasq compares to other state management and data fetching libraries in the Flutter ecosystem.
+---
 
-How does Fasq compare to other state management solutions?
+## Fasq in the Ecosystem
 
-## vs Vanilla Flutter (setState)
+Unlike general-purpose state managers (Riverpod, Bloc, Provider) which aim to solve **all** state needs, Fasq is a **specialized server-state manager**.
 
-**Vanilla:**
-- Manual boolean flags for `isLoading`, `hasError`.
-- No caching (refetches on every build/init).
-- Difficult to share state between widgets.
-- Boilerplate heavy (`FutureBuilder` or custom `initState` logic).
+### Role: Complementary vs. Competitive
 
-**Fasq:**
-- Automatic states (`isLoading`, `isFetching`, `hasData`).
-- Intelligent caching & background refetching.
-- Shared state via `queryKey`.
-- Declarative API.
+- **Vs. General State Managers**: Fasq is **complementary**. It is designed to handle the "messy" parts of async data (caching, invalidation, deduplication) so your global state managers can focus on business logic.
+- **Vs. Manual API Handling**: Fasq is **competitive**. It replaces the boilerplate of manually fetching, loading, and storing API responses in custom classes.
 
-## vs Provider / Riverpod / Bloc
+---
 
-Fasq is **not** a replacement for these global state managers. It is a specialized tool for **Server State**.
+## The State Spectrum
 
-### Client State vs. Server State
+To understand where Fasq fits, it's helpful to categorize different types of state:
 
-- **Client State**: UI state, form inputs, settings, theme. (Use Provider/Bloc/Riverpod)
-- **Server State**: API responses, database queries. (Use Fasq)
+| State Type                | Description                                                                   | Preferred Tool               |
+| ------------------------- | ----------------------------------------------------------------------------- | ---------------------------- |
+| **Local / UI State**      | Logic that stays within a single widget (e.g., current tab, form focus)       | `StatefulWidget`, `setState` |
+| **Global / Client State** | Logic shared across the app (e.g., user session, theme, navigation)           | Bloc, Riverpod, Provider     |
+| **Server / Remote State** | Data that lives on a server (e.g., product lists, API responses, cached data) | **Fasq**                     |
 
-**Without Fasq:**
-You manually store API data in your Bloc/Provider. You have to write logic for "if cached, don't fetch", "pull to refresh", "retry on error", etc.
+## Technical Comparison (Vs. General State Managers)
 
-**With Fasq:**
-You delegate server state to Fasq, and use your preferred state manager for the rest of the app.
+### Paradigm Differences
 
-### Integration
+| Aspect              | General State (Riverpod/Bloc)   | Fasq                              |
+| ------------------- | ------------------------------- | --------------------------------- |
+| **Source of Truth** | Memory / Local Store            | Server / Cache                    |
+| **Data Ownership**  | Explicitly managed by developer | Managed by Cache Keys             |
+| **Life Cycle**      | Up to the developer             | Reference-counted (automatic)     |
+| **Caching Logic**   | Requires manual implementation  | Built-in (Stale-while-revalidate) |
 
-Fasq works alongside your existing stack.
+### Feature Comparison
 
-- **Fasq + Provider**: Keep `UserProvider` for user session, use Fasq for fetching the user profile API.
-- **Fasq + Bloc**: Use Bloc for complex business flows (e.g. checkout state machine), use Fasq for fetching the product list.
+| Feature               | Standard Manager                | Fasq                       |
+| --------------------- | ------------------------------- | -------------------------- |
+| **Async Loading**     | via `FutureProvider` or `Cubit` | First-class `QueryBuilder` |
+| **Automatic Retries** | Manual                          | Built-in                   |
+| **Request Dedup**     | Manual / Partial                | Automatic                  |
+| **Persistence**       | Manual / Custom                 | Integrated via Plugins     |
+| **Circuit Breaker**   | Manual                          | Built-in                   |
+| **Pagination**        | Manual                          | Built-in Infinite Queries  |
 
-## vs React Query (TanStack Query)
+---
 
-Fasq is heavily inspired by React Query. If you come from the React world, you'll feel right at home.
+## When to Use Which?
 
-- **Similarities**: `QueryKey`, `staleTime`, `cacheTime`, `invalidate`, Deduplication.
-- **Differences**: Built for Dart/Flutter. Uses `Stream`-based architecture internally. Provides first-class Widgets (`QueryBuilder`) instead of just hooks.
+### Use a General State Manager (Riverpod/Bloc) when:
+
+- You are managing complex UI flows or state machines.
+- You have highly reactive, client-side derived state.
+- You need a single centralized store for the entire app's logic.
+- You require 100% stable, community-vetted tools with extensive DevTools support.
+
+### Use Fasq when:
+
+- Your app is heavily data-driven from multiple API endpoints.
+- You want to eliminate the "loading-success-error" boilerplate for every fetch.
+- You need sophisticated caching, background refetching, and request deduplication.
+- You want to separate "Server Data" from "App Business Logic".
+- **You need enterprise-grade resilience features (Circuit Breakers, Security).**
+
+### Use Both (Recommended) when:
+
+- You use Fasq for the data-fetching layer and Bloc/Riverpod for cross-cutting app logic (auth, navigation) and complex feature flows.
+
+---
+
+## Architectural Comparison: Fetching User Data
+
+### Theoretical comparison of implementation costs
+
+| Complexity                    | Manual (Bloc/Cubit)          | Fasq      |
+| ----------------------------- | ---------------------------- | --------- |
+| **Initial Fetch**             | Low (boilerplate)            | Low       |
+| **Loading/Error Handling**    | Medium (boilerplate)         | Automatic |
+| **Basic Caching**             | High (manual store + checks) | Automatic |
+| **Background Refetching**     | Very High                    | Automatic |
+| **Offline Queue for Updates** | Very High                    | Automatic |
+
+---
+
+## Ecosystem Maturity
+
+Fasq is a younger package compared to industry giants.
+
+| Feature                | Bloc / Riverpod | Fasq                  |
+| ---------------------- | --------------- | --------------------- |
+| **Community Size**     | ⭐⭐⭐⭐⭐      | ⭐⭐                  |
+| **Stable Release**     | ✅ 1.0+         | ⚠️ 0.4.0 (Beta)       |
+| **Tooling / DevTools** | ✅ Extensive    | ❌ Experimental       |
+| **Education / Docs**   | ✅ Vast         | ⚠️ Developing         |
+| **Adapters**           | N/A             | ⚠️ WIP (Experimental) |
+
+> [!NOTE]
+> The FASQ adapter packages (`fasq_bloc`, `fasq_riverpod`, etc.) are currently in an **experimental state**. They are intended to help bridge the gap for teams who want the caching power of Fasq while staying within their chosen state management architecture.
+
+---
+
+# Comparison & Ecosystem Roles
+
+Fasq occupies a specific niche in the Flutter state management landscape. This page helps you understand the architectural role of Fasq compared to other popular solutions.
+
+## At a Glance
+
+| Feature                 | **Fasq**                                       | **TanStack Query (Flutter)** | **fquery / fl_query**    | **Riverpod / Bloc**     |
+| :---------------------- | :--------------------------------------------- | :--------------------------- | :----------------------- | :---------------------- |
+| **Primary Focus**       | Async State & Caching                          | Async State & Caching        | Async State & Caching    | Global State Management |
+| **Architectural Fit**   | **Agnostic** (Works with Bloc, Riverpod, etc.) | Standalone                   | Hook-centric             | Centralized / Monolith  |
+| **Caching Strategy**    | `Stale-While-Revalidate`                       | `Stale-While-Revalidate`     | `Stale-While-Revalidate` | Manual / Custom         |
+| **Performance**         | **High** (Isolates, Hot Cache)                 | Standard                     | Standard                 | Varies                  |
+| **Enterprise Features** | ✅ **Security, Circuit Breaker**               | ❌                           | ❌                       | ❌                      |
+
+---
+
+## Comparison: Fasq vs Other Query Packages
+
+Packages like `flutter_tanstack_query`, `fquery`, and `fl_query` are excellent libraries that brought the "Query" paradigm to Flutter. Here's how Fasq distinguishes itself:
+
+### 1. Enterprise-Grade Features 🛡️
+
+Fasq is built with complex, large-scale applications in mind.
+
+- **Circuit Breakers**: Built-in support to prevent cascading failures when APIs are down. Service unavailability is handled gracefully without custom logic.
+- **Security Plugin**: `fasq_security` offers encrypted storage and automatic clearing of sensitive data on app backgrounding—critical for fintech and healthcare apps.
+- **Performance Tuning**: Explicit controls for `Isolate` usage and `hotCache` to ensure heavy data transformations don't block the UI thread.
+
+### 2. Architecture Agnostic 🤝
+
+While some packages are heavily tied to `flutter_hooks` or their own widget ecosystem, Fasq provides first-party adapters:
+
+- `fasq_bloc`: Integrate queries directly into your Blocs.
+- `fasq_riverpod`: Use queries as Providers.
+- `fasq_hooks`: Use `useQuery` if you love hooks.
+- **Pure Dart**: Run queries in pure Dart code (CLI, background services) without Flutter dependencies.
+
+### 3. Developer Experience 🛠️
+
+- **Type Safety**: Strict typing avoids `dynamic` guessing games.
+- **Global Observers**: Powerful `QueryClientObserver` pattern for centralized logging, analytics, and error reporting, rather than just simple callbacks.
+
+---
 
 ## Feature Matrix
 
-| Feature | Vanilla | Standard State Managers | Fasq |
-|---------|---------|-------------------------|------|
-| **Boilerplate** | High | Medium | **Low** |
-| **Caching** | Manual | Manual | **Automatic** |
-| **Refetch on Focus** | Manual | Manual | **Automatic** |
-| **Deduplication** | Manual | Manual | **Automatic** |
-| **Architecture** | Ad-hoc | Global Stores | **Key-based Cache** |
-| **Pagination** | Manual | Manual | **Built-in** |
+| Feature                | Fasq                        | Other Query Libs |
+| :--------------------- | :-------------------------- | :--------------- |
+| **Query Cancellation** | ✅ (via `CancelToken`)      | ✅               |
+| **Infinite Scrolling** | ✅ (Bi-directional)         | ✅               |
+| **Offline Mutations**  | ✅ (Queue & Retry)          | ✅               |
+| **Optimistic Updates** | ✅                          | ✅               |
+| **Dependent Queries**  | ✅ (`enabled`, `dependsOn`) | ✅               |
+| **Prefetching**        | ✅ (Parallel support)       | ✅               |
+| **Persisters**         | ✅ (Extensible)             | ✅ (Hive/etc)    |
+| **Garbage Collection** | ✅ (Configurable)           | ✅               |
+| **Circuit Breaker**    | ✅ **Native Support**       | ❌ Manual Setup  |
+| **Encrypted Cache**    | ✅ **Native Support**       | ❌ Manual Setup  |
+| **Isolate Offloading** | ✅ **Native Support**       | ❌ Manual Setup  |
+
+## Future Roadmap & Community
+
+We are actively evolving Fasq. Our goal is to identify what's missing in current solutions and bridge those gaps. We are constantly researching, iterating, and looking for feedback to make Fasq the most robust server-state manager for Flutter. If you find a feature missing or have a specific use case, please open an issue!
