@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq/fasq.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('QueryClient Prefetch', () {
@@ -8,7 +8,9 @@ void main() {
     });
 
     test('prefetchQuery populates cache correctly', () async {
-      final client = QueryClient();
+      final client = QueryClient(
+        config: CacheConfig(defaultStaleTime: const Duration(minutes: 5)),
+      );
 
       Future<String> fetchData() async {
         await Future.delayed(const Duration(milliseconds: 50));
@@ -26,7 +28,9 @@ void main() {
     });
 
     test('prefetchQuery skips if cache is fresh', () async {
-      final client = QueryClient();
+      final client = QueryClient(
+        config: CacheConfig(defaultStaleTime: const Duration(minutes: 5)),
+      );
       int fetchCount = 0;
 
       Future<String> fetchData() async {
@@ -263,7 +267,9 @@ void main() {
     });
 
     test('prefetchQueries skips fresh entries', () async {
-      final client = QueryClient();
+      final client = QueryClient(
+        config: CacheConfig(defaultStaleTime: const Duration(minutes: 5)),
+      );
       int fetchCount = 0;
 
       Future<String> fetchData() async {
