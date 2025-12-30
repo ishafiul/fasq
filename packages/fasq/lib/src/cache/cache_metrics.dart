@@ -1,3 +1,5 @@
+import '../performance/throughput_metrics.dart';
+
 /// Metrics for monitoring cache performance.
 ///
 /// Tracks cache hits, misses, timing, memory usage, and other statistics
@@ -20,6 +22,9 @@ class CacheMetrics {
   // Active subscriptions
   int _activeSubscriptions = 0;
   int _peakSubscriptions = 0;
+
+  // Throughput tracking - store timestamps per query key
+  final Map<String, List<DateTime>> _queryExecutionTimestamps = {};
 
   /// Total number of cache hits (data found in cache).
   int get hits => _hits;
@@ -132,6 +137,65 @@ class CacheMetrics {
     }
   }
 
+  /// Records a query execution for throughput tracking.
+  ///
+  /// Adds the current timestamp to the list of executions for the given
+  /// [queryKey]. This is used to calculate requests per minute and requests
+  /// per second.
+  void recordQueryExecution(String queryKey) {
+    final now = DateTime.now();
+    _queryExecutionTimestamps.putIfAbsent(queryKey, () => []).add(now);
+
+    // Prune old timestamps (older than 15 minutes) to prevent unbounded growth
+    final cutoff = now.subtract(const Duration(minutes: 15));
+    _queryExecutionTimestamps[queryKey]!
+        .removeWhere((ts) => ts.isBefore(cutoff));
+  }
+
+  /// Calculates throughput metrics for a given query key within a rolling window.
+  ///
+  /// Returns a [ThroughputMetrics] instance with requests per minute (RPM),
+  /// requests per second (RPS), total requests in the window, and window
+  /// boundaries. If no executions are found for the query key, returns null.
+  ///
+  /// [queryKey] The query key to calculate throughput for.
+  /// [window] The rolling window duration. Defaults to 1 minute.
+  ThroughputMetrics? calculateThroughput(
+    String queryKey, {
+    Duration window = const Duration(minutes: 1),
+  }) {
+    final timestamps = _queryExecutionTimestamps[queryKey];
+    if (timestamps == null || timestamps.isEmpty) {
+      return null;
+    }
+
+    final now = DateTime.now();
+    final windowStart = now.subtract(window);
+
+    // Filter timestamps within the window
+    final timestampsInWindow =
+        timestamps.where((ts) => !ts.isBefore(windowStart)).toList();
+
+    if (timestampsInWindow.isEmpty) {
+      return null;
+    }
+
+    final requestsInWindow = timestampsInWindow.length;
+    final windowMinutes = window.inMinutes > 0 ? window.inMinutes : 1;
+    final windowSeconds = window.inSeconds > 0 ? window.inSeconds : 1;
+
+    final requestsPerMinute = requestsInWindow / windowMinutes;
+    final requestsPerSecond = requestsInWindow / windowSeconds;
+
+    return ThroughputMetrics(
+      requestsPerMinute: requestsPerMinute,
+      requestsPerSecond: requestsPerSecond,
+      totalRequests: requestsInWindow,
+      windowStart: windowStart,
+      windowEnd: now,
+    );
+  }
+
   /// Resets all metrics to zero.
   void reset() {
     _hits = 0;
@@ -145,6 +209,7 @@ class CacheMetrics {
     _currentMemoryBytes = 0;
     _activeSubscriptions = 0;
     _peakSubscriptions = 0;
+    _queryExecutionTimestamps.clear();
   }
 
   /// Get detailed performance report
@@ -217,7 +282,10 @@ class PerformanceReport {
         ')';
   }
 
-  /// Convert to JSON map
+  /// Converts this instance to a JSON-serializable map.
+  ///
+  /// Returns a map containing all performance report metrics with durations
+  /// converted to milliseconds/microseconds for serialization.
   Map<String, dynamic> toJson() {
     return {
       'hitRate': hitRate,
@@ -231,6 +299,29 @@ class PerformanceReport {
       'totalFetches': totalFetches,
       'totalLookups': totalLookups,
     };
+  }
+
+  /// Creates a [PerformanceReport] instance from a JSON map.
+  ///
+  /// [json] A map containing serialized performance report data.
+  ///
+  /// Returns a new [PerformanceReport] instance with data from [json].
+  ///
+  /// Throws [FormatException] if the JSON structure is invalid or required
+  /// fields are missing.
+  factory PerformanceReport.fromJson(Map<String, dynamic> json) {
+    return PerformanceReport(
+      hitRate: (json['hitRate'] as num).toDouble(),
+      avgFetchTime: Duration(milliseconds: json['avgFetchTimeMs'] as int),
+      p95FetchTime: Duration(milliseconds: json['p95FetchTimeMs'] as int),
+      avgLookupTime: Duration(microseconds: json['avgLookupTimeMicros'] as int),
+      peakMemoryBytes: json['peakMemoryBytes'] as int,
+      currentMemoryBytes: json['currentMemoryBytes'] as int,
+      activeSubscriptions: json['activeSubscriptions'] as int,
+      totalQueries: json['totalQueries'] as int,
+      totalFetches: json['totalFetches'] as int,
+      totalLookups: json['totalLookups'] as int,
+    );
   }
 
   @override
@@ -266,7 +357,11 @@ class PerformanceSnapshot {
   /// Get query-specific metrics
   QueryMetrics? getQueryMetrics(String key) => queryMetrics[key];
 
-  /// Convert to JSON map
+  /// Converts this instance to a JSON-serializable map.
+  ///
+  /// Returns a map containing the snapshot timestamp, cache metrics report,
+  /// query metrics map, and overall statistics. All nested objects are
+  /// recursively serialized to JSON.
   Map<String, dynamic> toJson() {
     return {
       'timestamp': timestamp.toIso8601String(),
@@ -277,6 +372,35 @@ class PerformanceSnapshot {
       'activeQueries': activeQueries,
       'memoryUsageBytes': memoryUsageBytes,
     };
+  }
+
+  /// Creates a [PerformanceSnapshot] instance from a JSON map.
+  ///
+  /// [json] A map containing serialized performance snapshot data.
+  ///
+  /// Returns a new [PerformanceSnapshot] instance with data from [json].
+  /// The cache metrics are reconstructed from the cache report data.
+  ///
+  /// Throws [FormatException] if the JSON structure is invalid or required
+  /// fields are missing.
+  factory PerformanceSnapshot.fromJson(Map<String, dynamic> json) {
+    final cacheReport = PerformanceReport.fromJson(
+        json['cacheMetrics'] as Map<String, dynamic>);
+    final queryMetricsMap = (json['queryMetrics'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(
+            key, QueryMetrics.fromJson(value as Map<String, dynamic>)));
+
+    final cacheMetrics = CacheMetrics();
+    cacheMetrics.recordMemoryUsage(cacheReport.currentMemoryBytes);
+
+    return PerformanceSnapshot(
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      cacheMetrics: cacheMetrics,
+      queryMetrics: queryMetricsMap,
+      totalQueries: json['totalQueries'] as int,
+      activeQueries: json['activeQueries'] as int,
+      memoryUsageBytes: json['memoryUsageBytes'] as int,
+    );
   }
 
   @override
@@ -293,11 +417,13 @@ class QueryMetrics {
   final List<Duration> fetchHistory;
   final Duration? lastFetchDuration;
   final int referenceCount;
+  final ThroughputMetrics? throughputMetrics;
 
   const QueryMetrics({
     required this.fetchHistory,
     this.lastFetchDuration,
     required this.referenceCount,
+    this.throughputMetrics,
   });
 
   /// Average fetch time for this query
@@ -317,7 +443,11 @@ class QueryMetrics {
   /// Number of times this query has been fetched
   int get fetchCount => fetchHistory.length;
 
-  /// Convert to JSON map
+  /// Converts this instance to a JSON-serializable map.
+  ///
+  /// Returns a map containing fetch history, timing metrics, reference count,
+  /// and optional throughput metrics. Durations are converted to milliseconds
+  /// for serialization.
   Map<String, dynamic> toJson() {
     return {
       'fetchHistory': fetchHistory.map((d) => d.inMilliseconds).toList(),
@@ -326,7 +456,40 @@ class QueryMetrics {
       'averageFetchTimeMs': averageFetchTime?.inMilliseconds,
       'maxFetchTimeMs': maxFetchTime?.inMilliseconds,
       'fetchCount': fetchCount,
+      if (throughputMetrics != null)
+        'throughputMetrics': throughputMetrics!.toJson(),
     };
+  }
+
+  /// Creates a [QueryMetrics] instance from a JSON map.
+  ///
+  /// [json] A map containing serialized query metrics data.
+  ///
+  /// Returns a new [QueryMetrics] instance with data from [json].
+  /// Fetch history durations are reconstructed from millisecond values.
+  /// Throughput metrics are included if present in the JSON.
+  ///
+  /// Throws [FormatException] if the JSON structure is invalid or required
+  /// fields are missing.
+  factory QueryMetrics.fromJson(Map<String, dynamic> json) {
+    final fetchHistory = (json['fetchHistory'] as List<dynamic>?)
+            ?.map((d) => Duration(milliseconds: d as int))
+            .toList() ??
+        [];
+    final lastFetchDuration = json['lastFetchDurationMs'] != null
+        ? Duration(milliseconds: json['lastFetchDurationMs'] as int)
+        : null;
+    final throughputMetrics = json['throughputMetrics'] != null
+        ? ThroughputMetrics.fromJson(
+            json['throughputMetrics'] as Map<String, dynamic>)
+        : null;
+
+    return QueryMetrics(
+      fetchHistory: fetchHistory,
+      lastFetchDuration: lastFetchDuration,
+      referenceCount: json['referenceCount'] as int,
+      throughputMetrics: throughputMetrics,
+    );
   }
 
   @override

@@ -173,6 +173,9 @@ class QueryCache {
     _entryVersions[key] = version;
     _keyTypes[key] = T;
 
+    // Update memory metrics
+    _updateMemoryMetrics();
+
     // Remove from hot cache to force re-promotion
     _hotCache.remove(key);
 
@@ -197,6 +200,7 @@ class QueryCache {
       _entryVersions.remove(key);
       _persistOperations.remove(key);
       _keyTypes.remove(key);
+      _updateMemoryMetrics();
       if (_persistenceReady) {
         _removePersistenceAsync(key);
       }
@@ -315,32 +319,34 @@ class QueryCache {
   ) async {
     InputValidator.validateQueryKey(key);
 
-    if (_inFlightRequests.containsKey(key)) {
-      return _inFlightRequests[key] as Future<T>;
+    final existing = _inFlightRequests[key];
+    if (existing != null) {
+      return existing as Future<T>;
     }
 
     // Get or create lock for this key to prevent race conditions
     final lock = _locks.putIfAbsent(key, () => AsyncLock());
 
-    return await lock.synchronized(() async {
+    await lock.acquire();
+    try {
       // Double-check after acquiring lock
-      if (_inFlightRequests.containsKey(key)) {
-        return _inFlightRequests[key] as Future<T>;
+      final existingUnderLock = _inFlightRequests[key];
+      if (existingUnderLock != null) {
+        return existingUnderLock as Future<T>;
       }
 
-      final future = fn();
-      _inFlightRequests[key] = future;
-
-      try {
-        final result = await future;
-        return result;
-      } finally {
+      final future = fn().whenComplete(() {
         // Always clean up the in-flight request
         _inFlightRequests.remove(key);
         // Clean up lock if no longer needed
         _locks.remove(key);
-      }
-    });
+      });
+
+      _inFlightRequests[key] = future;
+      return future;
+    } finally {
+      lock.release();
+    }
   }
 
   /// Executes a function with a lock on the given key.
@@ -365,6 +371,14 @@ class QueryCache {
 
   /// Cache metrics for monitoring.
   CacheMetrics get metrics => _metrics;
+
+  /// Records a query execution for throughput tracking.
+  ///
+  /// This should be called when a query successfully executes to track
+  /// requests per minute and requests per second.
+  void recordQueryExecution(String queryKey) {
+    _metrics.recordQueryExecution(queryKey);
+  }
 
   /// Gets a snapshot of cache state.
   CacheInfo getCacheInfo() {
@@ -426,6 +440,11 @@ class QueryCache {
   int _nextEntryVersion() {
     _versionCounter += 1;
     return _versionCounter;
+  }
+
+  /// Updates memory metrics based on current cache size.
+  void _updateMemoryMetrics() {
+    _metrics.recordMemoryUsage(currentSize);
   }
 
   void _startGarbageCollection() {

@@ -349,9 +349,14 @@ class Query<T> {
 
     if (cache != null) {
       try {
-        if (isBackgroundRefetch) {
-          final previous = _currentState;
-          _updateState(_currentState.copyWith(isFetching: true));
+        final previous = _currentState;
+        _updateState(_currentState.copyWith(
+          isFetching: true,
+          status: _currentState.status == QueryStatus.idle
+              ? QueryStatus.loading
+              : _currentState.status,
+        ));
+        if (isBackgroundRefetch || previous.status == QueryStatus.idle) {
           _notifyLoading(previous);
         }
 
@@ -394,6 +399,12 @@ class Query<T> {
             isSecure: options?.isSecure ?? false,
             maxAge: options?.maxAge,
           );
+
+          // Record query execution for throughput tracking
+          if (options?.performance?.enableMetrics != false) {
+            cache!.recordQueryExecution(key);
+          }
+
           options?.onSuccess?.call();
           _notifySuccess(previous);
         }
@@ -420,6 +431,17 @@ class Query<T> {
       }
     } else {
       try {
+        final previous = _currentState;
+        _updateState(_currentState.copyWith(
+          isFetching: true,
+          status: _currentState.status == QueryStatus.idle
+              ? QueryStatus.loading
+              : _currentState.status,
+        ));
+        if (previous.status == QueryStatus.idle) {
+          _notifyLoading(previous);
+        }
+
         _lastFetchStart = FasqTime.now;
 
         var data = await _executeFetch(_createQueryFn(token));
@@ -456,7 +478,6 @@ class Query<T> {
           _notifyError(previous);
           options?.onError?.call(error);
         }
-        if (error is CircuitBreakerOpenException) rethrow;
       }
     }
   }
@@ -561,7 +582,10 @@ class Query<T> {
     }
     _subscriptions.clear();
 
-    cache?.remove(key);
+    // NOTE: We intentionally do NOT remove the cache entry here.
+    // Cache entries should persist based on their cacheTime and be cleaned up
+    // by the QueryCache garbage collector. This allows the cached data to be
+    // reused when a new Query is created with the same key.
 
     _controller.close();
     onDispose?.call();
