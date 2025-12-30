@@ -9,6 +9,7 @@ import 'package:injectable/injectable.dart';
 /// - [SecureStorageProvider]: Secure key storage using flutter_secure_storage
 /// - [CryptoEncryptionProvider]: Encryption using Dart crypto package
 /// - [DriftPersistenceProvider]: SQLite persistence using Drift
+/// - Performance monitoring and metrics export
 @singleton
 class QueryClientService {
   late final QueryClient _client;
@@ -41,6 +42,10 @@ class QueryClientService {
         defaultStaleTime: Duration(minutes: 5),
         defaultCacheTime: Duration(minutes: 30),
         maxCacheSize: 100 * 1024 * 1024, // 100MB
+        maxEntries: 5000,
+        performance: GlobalPerformanceConfig(
+          enableTracking: true,
+        ),
       ),
       persistenceOptions: PersistenceOptions(
         enabled: true,
