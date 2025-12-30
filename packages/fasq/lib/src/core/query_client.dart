@@ -7,6 +7,8 @@ import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
 import '../circuit_breaker/circuit_breaker_registry.dart';
 import '../performance/isolate_pool.dart';
+import '../performance/metrics_config.dart';
+import '../performance/performance_monitor.dart';
 import '../persistence/persistence_options.dart';
 import '../security/security_plugin.dart';
 import 'cancellation_token.dart';
@@ -100,6 +102,10 @@ class QueryClient with WidgetsBindingObserver {
     }
     _isolatePool =
         IsolatePool(poolSize: config?.performance.isolatePoolSize ?? 2);
+    _performanceMonitor = PerformanceMonitor(
+      cache: _cache,
+      queries: _queries,
+    );
   }
 
   final Map<String, Query> _queries = {};
@@ -111,6 +117,9 @@ class QueryClient with WidgetsBindingObserver {
   final CircuitBreakerRegistry? _circuitBreakerRegistry;
   final QueryDependencyManager _dependencyManager = QueryDependencyManager();
   late final IsolatePool _isolatePool;
+  late final PerformanceMonitor _performanceMonitor;
+  MetricsConfig _metricsConfig = MetricsConfig();
+  Timer? _exportTimer;
   final List<QueryClientObserver> _observers = [];
   WidgetsBinding? _binding;
 
@@ -575,9 +584,124 @@ class QueryClient with WidgetsBindingObserver {
     return _cache.getCacheInfo();
   }
 
+  /// Returns a snapshot of global performance metrics.
+  ///
+  /// Provides comprehensive performance data including cache metrics,
+  /// query metrics, memory usage, and throughput information for all
+  /// active queries.
+  ///
+  /// Example:
+  /// ```dart
+  /// final client = QueryClient();
+  /// final snapshot = client.getMetrics();
+  /// print('Cache hit rate: ${snapshot.cacheMetrics.hitRate}');
+  /// print('Active queries: ${snapshot.activeQueries}');
+  /// ```
+  PerformanceSnapshot getMetrics(
+      {Duration throughputWindow = const Duration(minutes: 1)}) {
+    return _performanceMonitor.getSnapshot(throughputWindow: throughputWindow);
+  }
+
+  /// Returns performance metrics for a specific query key.
+  ///
+  /// Returns `null` if the query key doesn't exist or has no metrics.
+  ///
+  /// Example:
+  /// ```dart
+  /// final client = QueryClient();
+  /// final metrics = client.getQueryMetrics('user');
+  /// if (metrics != null) {
+  ///   print('Fetch count: ${metrics.fetchCount}');
+  ///   print('Avg fetch time: ${metrics.averageFetchTime?.inMilliseconds}ms');
+  /// }
+  /// ```
+  QueryMetrics? getQueryMetrics(QueryKey queryKey,
+      {Duration throughputWindow = const Duration(minutes: 1)}) {
+    final key = _extractKey(queryKey);
+    final snapshot =
+        _performanceMonitor.getSnapshot(throughputWindow: throughputWindow);
+    return snapshot.queryMetrics[key];
+  }
+
   /// Gets all cache keys.
   List<String> getCacheKeys() {
     return _cache.getCacheKeys();
+  }
+
+  /// Configures the metrics exporters and enables/disables auto-export.
+  ///
+  /// This method allows you to configure one or more [MetricsExporter] instances
+  /// and optionally enable automatic periodic export of performance metrics.
+  ///
+  /// Example:
+  /// ```dart
+  /// final client = QueryClient();
+  /// final consoleExporter = ConsoleExporter();
+  /// final jsonExporter = JsonExporter();
+  ///
+  /// client.configureMetricsExporters(
+  ///   MetricsConfig(
+  ///     exporters: [consoleExporter, jsonExporter],
+  ///     exportInterval: Duration(minutes: 1),
+  ///     enableAutoExport: true,
+  ///   ),
+  /// );
+  /// ```
+  ///
+  /// If [enableAutoExport] is true, metrics will be automatically exported
+  /// at the specified [exportInterval]. Any previously configured auto-export
+  /// timer will be cancelled.
+  void configureMetricsExporters(MetricsConfig config) {
+    _metricsConfig = config;
+    _exportTimer?.cancel();
+    _exportTimer = null;
+
+    // Apply global configuration to all exporters
+    _metricsConfig.applyConfigurationToExporters({});
+
+    if (_metricsConfig.enableAutoExport &&
+        _metricsConfig.exporters.isNotEmpty) {
+      _exportTimer =
+          Timer.periodic(_metricsConfig.exportInterval, (timer) async {
+        final snapshot = _performanceMonitor.getSnapshot();
+        for (final exporter in _metricsConfig.exporters) {
+          try {
+            await exporter.export(snapshot);
+          } catch (e) {
+            // Error logging is handled by individual exporters
+            // This catch prevents one exporter failure from stopping others
+          }
+        }
+      });
+    }
+  }
+
+  /// Manually triggers an immediate export of current performance metrics.
+  ///
+  /// This method exports the current performance snapshot to all configured
+  /// exporters, regardless of the auto-export setting. Useful for on-demand
+  /// metric export or testing.
+  ///
+  /// Example:
+  /// ```dart
+  /// final client = QueryClient();
+  /// // ... configure exporters ...
+  /// await client.exportMetricsManually();
+  /// ```
+  ///
+  /// Returns a [Future] that completes when all exporters have finished
+  /// exporting (or failed). Errors from individual exporters are caught
+  /// and do not prevent other exporters from running.
+  Future<void> exportMetricsManually() async {
+    final snapshot = _performanceMonitor.getSnapshot();
+    for (final exporter in _metricsConfig.exporters) {
+      try {
+        await exporter.export(snapshot);
+      } catch (e) {
+        // Error logging is handled by individual exporters
+        // This catch prevents one exporter failure from stopping others
+      }
+    }
   }
 
   /// Clears all secure cache entries.
@@ -606,6 +730,8 @@ class QueryClient with WidgetsBindingObserver {
 
   /// Disposes the query client and cache.
   Future<void> dispose() async {
+    _exportTimer?.cancel();
+    _exportTimer = null;
     _binding?.removeObserver(this);
     _binding = null;
     clear();
