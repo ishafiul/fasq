@@ -12,6 +12,7 @@ Parsing large JSON responses on the main thread can cause UI jank. Fasq provides
 ### Usage
 
 Global configuration:
+
 ```dart
 // Configure the pool size (defaults to number of processor cores)
 // This is automatically initialized by QueryClient
@@ -19,10 +20,11 @@ IsolatePool.concurrency = 4; // Optional manual config
 ```
 
 Offloading a task:
+
 ```dart
 Future<List<User>> fetchAndParseUsers() async {
   final response = await http.get(...);
-  
+
   // Use IsolatePool to parse JSON in a background thread
   return IsolatePool().compute(
     (jsonString) {
@@ -36,26 +38,84 @@ Future<List<User>> fetchAndParseUsers() async {
 
 This ensures your UI animation stays at 60/120fps while parsing megabytes of data.
 
-## Performance Monitor
+## Performance Monitoring
 
-Fasq tracks the performance of your queries internally.
+Fasq provides comprehensive performance monitoring to help you understand query behavior, cache efficiency, and system health.
+
+### Getting Performance Snapshots
+
+The `QueryClient` exposes methods to retrieve detailed performance metrics:
 
 ```dart
-final monitor = PerformanceMonitor();
+final client = QueryClient();
 
-// Log query usage stats
-print(monitor.getMetrics());
+// Get global performance snapshot
+final snapshot = client.getMetrics();
+
+print('Cache hit rate: ${(snapshot.cacheMetrics.hitRate * 100).toStringAsFixed(1)}%');
+print('Total queries: ${snapshot.totalQueries}');
+print('Active queries: ${snapshot.activeQueries}');
+print('Memory usage: ${(snapshot.memoryUsageBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+```
+
+### Query-Specific Metrics
+
+Get detailed metrics for individual queries:
+
+```dart
+final metrics = client.getQueryMetrics('todos'.toQueryKey());
+
+if (metrics != null) {
+  print('Fetch count: ${metrics.fetchCount}');
+  print('Average fetch time: ${metrics.averageFetchTime?.inMilliseconds}ms');
+  print('Max fetch time: ${metrics.maxFetchTime?.inMilliseconds}ms');
+  print('Reference count: ${metrics.referenceCount}');
+
+  // Throughput metrics (if available)
+  if (metrics.throughputMetrics != null) {
+    print('Requests per minute: ${metrics.throughputMetrics!.requestsPerMinute.toStringAsFixed(2)}');
+    print('Requests per second: ${metrics.throughputMetrics!.requestsPerSecond.toStringAsFixed(2)}');
+  }
+}
+```
+
+### Performance Snapshot Structure
+
+A `PerformanceSnapshot` contains:
+
+- **Cache Metrics**: Hit rate, misses, evictions, fetch times
+- **Query Metrics**: Per-query performance data including fetch history and throughput
+- **Memory Usage**: Current and peak memory consumption
+- **Query Statistics**: Total and active query counts
+
+### Throughput Tracking
+
+Fasq automatically tracks query execution throughput (requests per minute/second) using rolling time windows:
+
+```dart
+// Get metrics with custom throughput window (default: 1 minute)
+final snapshot = client.getMetrics(
+  throughputWindow: Duration(minutes: 5),
+);
+
+// Query-specific throughput
+final metrics = client.getQueryMetrics(
+  'todos'.toQueryKey(),
+  throughputWindow: Duration(minutes: 5),
+);
 ```
 
 ## Cache Metrics
 
-You can inspect the cache health to optimize your configurations.
+You can inspect the cache health to optimize your configurations:
 
 ```dart
-final cache = client.queryCache;
+final cacheInfo = client.getCacheInfo();
 
-print('Total Queries: ${cache.length}');
-// Useful for debugging memory usage
+print('Cache entries: ${cacheInfo.entryCount}');
+print('Cache size: ${(cacheInfo.sizeBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+print('Cache usage: ${(cacheInfo.usagePercentage * 100).toStringAsFixed(1)}%');
+print('Hit rate: ${(cacheInfo.metrics.hitRate * 100).toStringAsFixed(1)}%');
 ```
 
 ## Hot Cache
