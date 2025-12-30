@@ -74,6 +74,17 @@ class ProfileScreen extends StatelessWidget {
               },
             ),
             SizedBox(height: spacing.lg),
+            // Performance Metrics Link
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.analytics),
+                title: const Text('Performance Metrics'),
+                subtitle: const Text('View FASQ performance metrics'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.router.push(const MetricsRoute()),
+              ),
+            ),
+            SizedBox(height: spacing.md),
             Container(
               width: 350,
               color: Colors.red,

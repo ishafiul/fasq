@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:ecommerce/core/get_it.dart';
+import 'package:ecommerce/core/services/fasq_query_observer.dart';
+import 'package:ecommerce/core/services/metrics_exporter_service.dart';
 import 'package:ecommerce/core/services/query_client_service.dart';
 import 'package:ecommerce/core/services/snackbar_manager.dart';
 import 'package:ecommerce/core/utils/logger.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stack_trace/stack_trace.dart';
@@ -40,6 +43,19 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
 
       final snackbarManager = locator<SnackbarManager>();
       queryClientService.client.addObserver(snackbarManager);
+
+      // Add FASQ logger observer
+      final fasqObserver = locator<FasqQueryObserver>();
+      queryClientService.client.addObserver(fasqObserver);
+
+      // Initialize metrics exporters
+      final metricsExporterService = locator<MetricsExporterService>();
+      metricsExporterService.initializeMetricsExporters(
+        // Configure OpenTelemetry endpoint if needed
+        // openTelemetryEndpoint: 'https://your-otel-collector.com/v1/metrics',
+        enableAutoExport: kDebugMode, // Auto-export in debug mode only
+        exportInterval: const Duration(minutes: 1),
+      );
 
       FlutterError.onError = (FlutterErrorDetails details) {
         final stack = details.stack;
