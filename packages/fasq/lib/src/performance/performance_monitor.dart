@@ -21,13 +21,30 @@ class PerformanceMonitor {
   });
 
   /// Get global performance snapshot
-  PerformanceSnapshot getSnapshot() {
+  PerformanceSnapshot getSnapshot(
+      {Duration throughputWindow = const Duration(minutes: 1)}) {
     final queryMetrics = <String, QueryMetrics>{};
 
     // Collect metrics from all queries
     for (final entry in queries.entries) {
       final query = entry.value;
-      queryMetrics[entry.key] = query.metrics;
+      final baseMetrics = query.metrics;
+
+      // Calculate throughput metrics for this query
+      final throughputMetrics = cache.metrics.calculateThroughput(
+        entry.key,
+        window: throughputWindow,
+      );
+
+      // Create QueryMetrics with throughput data
+      final metricsWithThroughput = QueryMetrics(
+        fetchHistory: baseMetrics.fetchHistory,
+        lastFetchDuration: baseMetrics.lastFetchDuration,
+        referenceCount: baseMetrics.referenceCount,
+        throughputMetrics: throughputMetrics,
+      );
+
+      queryMetrics[entry.key] = metricsWithThroughput;
     }
 
     return PerformanceSnapshot(

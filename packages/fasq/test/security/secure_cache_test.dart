@@ -41,7 +41,12 @@ void main() {
 
     test('secure entries are cleared on app background', () {
       // Set both secure and non-secure entries
-      cache.set<String>('secure-token', 'sensitive-data', isSecure: true);
+      cache.set<String>(
+        'secure-token',
+        'sensitive-data',
+        isSecure: true,
+        maxAge: Duration(minutes: 5),
+      );
       cache.set<String>('public-data', 'non-sensitive-data', isSecure: false);
 
       // Verify both exist
@@ -58,7 +63,12 @@ void main() {
 
     test('secure entries are cleared on app termination', () {
       // Set both secure and non-secure entries
-      cache.set<String>('secure-token', 'sensitive-data', isSecure: true);
+      cache.set<String>(
+        'secure-token',
+        'sensitive-data',
+        isSecure: true,
+        maxAge: Duration(minutes: 5),
+      );
       cache.set<String>('public-data', 'non-sensitive-data', isSecure: false);
 
       // Verify both exist
@@ -108,7 +118,12 @@ void main() {
 
     test('clearSecureCache removes only secure data', () {
       // Set both secure and non-secure entries
-      cache.set<String>('secure-token', 'sensitive-data', isSecure: true);
+      cache.set<String>(
+        'secure-token',
+        'sensitive-data',
+        isSecure: true,
+        maxAge: Duration(minutes: 5),
+      );
       cache.set<String>('public-data', 'non-sensitive-data', isSecure: false);
 
       // Verify both exist
@@ -147,19 +162,17 @@ void main() {
       expect(difference.inSeconds, lessThan(1)); // Allow 1 second tolerance
     });
 
-    test('secure entries without maxAge do not have expiresAt set', () {
-      cache.set<String>(
-        'secure-token',
-        'sensitive-data',
-        isSecure: true,
-        // No maxAge provided
+    test('secure entries require maxAge for TTL enforcement', () {
+      // Secure entries now require maxAge for TTL enforcement
+      expect(
+        () => cache.set<String>(
+          'secure-token',
+          'sensitive-data',
+          isSecure: true,
+          // No maxAge provided should throw
+        ),
+        throwsArgumentError,
       );
-
-      final entry = cache.get<String>('secure-token');
-      expect(entry, isNotNull);
-      expect(entry!.isSecure, isTrue);
-      expect(entry.expiresAt, isNull);
-      expect(entry.isExpired, isFalse);
     });
 
     test('QueryOptions with isSecure flag works correctly', () {

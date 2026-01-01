@@ -88,14 +88,14 @@ class _IsolateWorker {
       responsePort.close();
     });
 
-    final taskMessage = _TaskMessage(
-      callback: task.callback,
-      argument: task.message,
-      replyPort: responsePort.sendPort,
-    );
+    final taskData = [
+      task.callback,
+      task.message,
+      responsePort.sendPort,
+    ];
 
     try {
-      _sendPort!.send(taskMessage);
+      _sendPort!.send(taskData);
     } catch (error, stackTrace) {
       _currentSubscription?.cancel();
       responsePort.close();
@@ -120,20 +120,22 @@ class _IsolateWorker {
       return;
     }
 
-    if (message is _TaskSuccess) {
-      task.complete(message.result);
-      return;
-    }
-
-    if (message is _TaskError) {
-      final stack = message.stackTrace != null
-          ? StackTrace.fromString(message.stackTrace!)
-          : null;
-      task.completeError(
-        IsolateExecutionException('Task execution failed', message.error),
-        stack,
-      );
-      return;
+    if (message is List) {
+      final status = message[0] as String;
+      if (status == 'success') {
+        task.complete(message[1]);
+        return;
+      } else if (status == 'error') {
+        final error = message[1] as Object;
+        final stack = message[2] != null
+            ? StackTrace.fromString(message[2] as String)
+            : null;
+        task.completeError(
+          IsolateExecutionException('Task execution failed', error),
+          stack,
+        );
+        return;
+      }
     }
 
     task.completeError(
@@ -182,20 +184,24 @@ void _isolateEntryPoint(SendPort sendPort) {
   final receivePort = ReceivePort();
   sendPort.send(receivePort.sendPort);
 
-  receivePort.listen((message) {
+  receivePort.listen((dynamic message) async {
     if (message == null) {
       // Shutdown signal
       receivePort.close();
       return;
     }
 
-    if (message is _TaskMessage) {
-      Future.sync(() => Function.apply(message.callback, [message.argument]))
-          .then((value) {
-        message.replyPort.send(_TaskSuccess(value));
-      }).catchError((error, stackTrace) {
-        message.replyPort.send(_TaskError(error, stackTrace?.toString()));
-      });
+    if (message is List && message.length == 3) {
+      final Function callback = message[0] as Function;
+      final dynamic argument = message[1];
+      final SendPort replyPort = message[2] as SendPort;
+
+      try {
+        final dynamic result = await Function.apply(callback, [argument]);
+        replyPort.send(['success', result]);
+      } catch (error, stackTrace) {
+        replyPort.send(['error', error, stackTrace.toString()]);
+      }
     }
   });
 }
@@ -240,8 +246,10 @@ class IsolatePool {
       throw IsolateExecutionException('Isolate pool is disposed');
     }
 
+    await _initialization;
+
     if (_workers.isEmpty) {
-      throw IsolateExecutionException('No worker isolates available');
+      throw const IsolateExecutionException('No worker isolates available');
     }
 
     final task = IsolateTask<T, R>(
@@ -253,12 +261,6 @@ class IsolatePool {
     // Find the least busy worker
     _IsolateWorker? selectedWorker;
     int? minQueueSize;
-
-    await _initialization;
-
-    if (_workers.isEmpty) {
-      throw const IsolateExecutionException('No worker isolates available');
-    }
 
     for (final worker in _workers) {
       if (!worker.isBusy) {
@@ -386,32 +388,4 @@ class IsolatePoolStatus {
         'queued: $totalQueuedTasks, '
         'utilization: ${utilizationPercentage.toStringAsFixed(1)}%)';
   }
-}
-
-/// Message sent to worker isolate to execute work.
-class _TaskMessage {
-  final Function callback;
-  final dynamic argument;
-  final SendPort replyPort;
-
-  const _TaskMessage({
-    required this.callback,
-    required this.argument,
-    required this.replyPort,
-  });
-}
-
-/// Successful result returned from worker isolate.
-class _TaskSuccess {
-  final dynamic result;
-
-  const _TaskSuccess(this.result);
-}
-
-/// Error result returned from worker isolate.
-class _TaskError {
-  final Object error;
-  final String? stackTrace;
-
-  const _TaskError(this.error, this.stackTrace);
 }

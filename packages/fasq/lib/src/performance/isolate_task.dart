@@ -6,7 +6,8 @@ import 'dart:async';
 /// for executing work in an isolate.
 class IsolateTask<T, R> {
   /// The callback function to execute in the isolate
-  final FutureOr<R> Function(T message) callback;
+  /// The callback function to execute in the isolate
+  final Function callback;
 
   /// The input data to pass to the callback
   final T message;
@@ -21,10 +22,11 @@ class IsolateTask<T, R> {
   bool _isCancelled = false;
 
   IsolateTask({
-    required this.callback,
+    required FutureOr<R> Function(T message) callback,
     required this.message,
     required this.completer,
-  }) : createdAt = DateTime.now();
+  })  : callback = callback,
+        createdAt = DateTime.now();
 
   /// Whether this task has been completed
   bool get isCompleted => completer.isCompleted;

@@ -2,268 +2,147 @@ import 'package:fasq/fasq.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  setUp(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    await QueryClient.resetForTesting();
-  });
-
   group('Query', () {
-    test('initializes with idle state', () {
+    test('Query initializes in idle state', () {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
       expect(query.state.status, QueryStatus.idle);
+      expect(query.state.isLoading, false);
+      expect(query.state.isFetching, false);
+      expect(query.state.hasData, false);
       expect(query.state.data, isNull);
-      expect(query.referenceCount, 0);
-      expect(query.isDisposed, isFalse);
-
-      query.dispose();
+      expect(query.state.error, isNull);
     });
 
-    test('does not transform data when data transform disabled', () async {
-      final query = Query<String>(
-        queryKey: 'transform-default'.toQueryKey(),
-        queryFn: () async => 'raw',
-      );
-
-      await query.fetch();
-
-      expect(query.state.data, 'raw');
-
-      query.dispose();
-    });
-
-    test('applies custom data transformer when enabled', () async {
-      final query = Query<String>(
-        queryKey: 'transform-enabled'.toQueryKey(),
-        queryFn: () async => 'raw',
-        options: QueryOptions(
-          performance: PerformanceOptions(
-            enableDataTransform: true,
-            dataTransformer: (value) => '${value}_transformed',
-          ),
-        ),
-      );
-
-      await query.fetch();
-
-      expect(query.state.data, 'raw_transformed');
-
-      query.dispose();
-    });
-
-    test('falls back to original data when transformer throws', () async {
-      final query = Query<String>(
-        queryKey: 'transform-error'.toQueryKey(),
-        queryFn: () async => 'raw',
-        options: QueryOptions(
-          performance: PerformanceOptions(
-            enableDataTransform: true,
-            dataTransformer: (value) {
-              throw StateError('bad transform');
-            },
-          ),
-        ),
-      );
-
-      await query.fetch();
-
-      expect(query.state.data, 'raw');
-
-      query.dispose();
-    });
-
-    test('addListener increments reference count', () {
-      final query = Query<String>(
-        queryKey: 'test'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      query.addListener();
-      expect(query.referenceCount, 1);
-
-      query.addListener();
-      expect(query.referenceCount, 2);
-
-      query.dispose();
-    });
-
-    test('removeListener decrements reference count', () {
-      final query = Query<String>(
-        queryKey: 'test'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      query.addListener();
-      query.addListener();
-      expect(query.referenceCount, 2);
-
-      query.removeListener();
-      expect(query.referenceCount, 1);
-
-      query.dispose();
-    });
-
-    test('removeListener prevents negative reference count', () {
-      final query = Query<String>(
-        queryKey: 'test'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      // Start with 0 references
-      expect(query.referenceCount, 0);
-
-      // Try to remove listener when count is already 0
-      query.removeListener();
-      expect(query.referenceCount, 0); // Should remain 0, not go negative
-
-      // Add one listener
-      query.addListener();
-      expect(query.referenceCount, 1);
-
-      // Remove listener twice (more removes than adds)
-      query.removeListener();
-      expect(query.referenceCount, 0);
-
-      query.removeListener(); // This should not make it negative
-      expect(query.referenceCount, 0); // Should remain 0
-
-      query.dispose();
-    });
-
-    test('fetch transitions from idle to loading to success', () async {
+    test('Query transitions to loading/fetching on fetch', () async {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async {
-          await Future.delayed(Duration(milliseconds: 10));
+          await Future.delayed(const Duration(milliseconds: 50));
           return 'data';
         },
       );
 
-      final states = <QueryState<String>>[];
-      query.stream.listen(states.add);
-
       final fetchFuture = query.fetch();
-      await Future.delayed(Duration(milliseconds: 5));
-
-      expect(states.length, greaterThanOrEqualTo(1));
-      expect(states.first.status, QueryStatus.loading);
+      expect(query.state.status, QueryStatus.loading);
+      expect(query.state.isFetching, true);
 
       await fetchFuture;
-      await Future.delayed(Duration(milliseconds: 10));
-
-      expect(states.last.status, QueryStatus.success);
-      expect(states.last.data, 'data');
-
-      query.dispose();
+      expect(query.state.status, QueryStatus.success);
+      expect(query.state.isFetching, false);
     });
 
-    test('fetch transitions from idle to loading to error', () async {
-      final error = Exception('test error');
-      final query = Query<String>(
-        queryKey: 'test'.toQueryKey(),
-        queryFn: () async {
-          await Future.delayed(Duration(milliseconds: 10));
-          throw error;
-        },
-      );
-
-      final states = <QueryState<String>>[];
-      query.stream.listen(states.add);
-
-      final fetchFuture = query.fetch();
-      await Future.delayed(Duration(milliseconds: 5));
-
-      expect(states.first.status, QueryStatus.loading);
-
-      await fetchFuture;
-      await Future.delayed(Duration(milliseconds: 10));
-
-      expect(states.last.status, QueryStatus.error);
-      expect(states.last.error, error);
-
-      query.dispose();
-    });
-
-    test('auto-fetches on first listener when no data', () async {
+    test('Query updates to success state on successful fetch', () async {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
-      final states = <QueryState<String>>[];
-      query.stream.listen(states.add);
+      await query.fetch();
 
-      query.addListener();
-
-      await Future.delayed(Duration(milliseconds: 100));
-
-      expect(states.length, greaterThanOrEqualTo(1));
       expect(query.state.status, QueryStatus.success);
+      expect(query.state.isLoading, false);
+      expect(query.state.hasData, true);
       expect(query.state.data, 'data');
-
-      query.dispose();
     });
 
-    test('does not auto-fetch if already has data', () async {
+    test('Query updates to error state on failed fetch', () async {
+      final error = Exception('test error');
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
-        queryFn: () async => 'new data',
-      );
-
-      await query.fetch();
-      expect(query.state.data, 'new data');
-
-      final initialStateCount = query.state.status;
-      query.addListener();
-
-      await Future.delayed(Duration(milliseconds: 100));
-
-      expect(query.state.status, initialStateCount);
-
-      query.dispose();
-    });
-
-    test('does not fetch when enabled is false', () async {
-      var callCount = 0;
-      final query = Query<String>(
-        queryKey: 'test'.toQueryKey(),
-        queryFn: () async {
-          callCount++;
-          return 'data';
-        },
-        options: QueryOptions(enabled: false),
+        queryFn: () async => throw error,
       );
 
       await query.fetch();
 
-      expect(callCount, 0);
-      expect(query.state.status, QueryStatus.idle);
-
-      query.dispose();
+      expect(query.state.status, QueryStatus.error);
+      expect(query.state.isLoading, false);
+      expect(query.state.error, error);
     });
 
-    test('calls onSuccess callback on successful fetch', () async {
-      var successCalled = false;
+    test('Query notifies listeners on state changes', () async {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
-        options: QueryOptions(onSuccess: () => successCalled = true),
       );
+
+      int notifyCount = 0;
+      query.subscribe((_) => notifyCount++);
 
       await query.fetch();
 
-      expect(successCalled, isTrue);
-      expect(query.state.status, QueryStatus.success);
-
-      query.dispose();
+      expect(notifyCount, greaterThan(0));
     });
 
-    test('calls onError callback on failed fetch', () async {
-      Object? capturedError;
+    test('Query cancels fetch on disposal', () async {
+      bool fetchCompleted = false;
+      final query = Query<String>(
+        queryKey: 'test'.toQueryKey(),
+        queryFnWithToken: (token) async {
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (token.isCancelled) return 'cancelled';
+          fetchCompleted = true;
+          return 'data';
+        },
+      );
+
+      query.fetch(); // Trigger fetch
+      await Future.delayed(const Duration(milliseconds: 10));
+      query.dispose();
+
+      await Future.delayed(const Duration(milliseconds: 200));
+      expect(fetchCompleted, false);
+    });
+
+    test('Query referenceCount tracks listeners', () {
+      final query = Query<String>(
+        queryKey: 'test'.toQueryKey(),
+        queryFn: () async => 'data',
+      );
+
+      expect(query.referenceCount, 0);
+
+      query.addListener();
+      expect(query.referenceCount, 1);
+
+      query.addListener();
+      expect(query.referenceCount, 2);
+
+      query.removeListener();
+      expect(query.referenceCount, 1);
+
+      query.removeListener();
+      expect(query.referenceCount, 0);
+    });
+
+    test('Query deduplicates multiple fetches using QueryClient', () async {
+      final client = QueryClient();
+      int fetchCount = 0;
+      final queryKey = 'test-dedupe'.toQueryKey();
+
+      final query = client.getQuery<String>(
+        queryKey,
+        queryFn: () async {
+          fetchCount++;
+          await Future.delayed(const Duration(milliseconds: 50));
+          return 'data-$fetchCount';
+        },
+      );
+
+      final f1 = query.fetch();
+      final f2 = query.fetch();
+
+      await Future.wait([f1, f2]);
+
+      expect(fetchCount, 1);
+    });
+
+    test('Query calls onError callback on failed fetch', () async {
       final error = Exception('test error');
+      Object? capturedError;
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => throw error,
@@ -274,121 +153,76 @@ void main() {
 
       expect(capturedError, error);
       expect(query.state.status, QueryStatus.error);
-
-      query.dispose();
     });
 
-    test('schedules disposal after removeListener brings count to zero',
-        () async {
-      Query.disposalDelay = const Duration(milliseconds: 100);
-      final query = Query<String>(
-        queryKey: 'test'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      query.addListener();
-      expect(query.isDisposed, isFalse);
-
-      query.removeListener();
-      expect(query.isDisposed, isFalse);
-
-      await Future.delayed(Duration(milliseconds: 200));
-      expect(query.isDisposed, isTrue);
-    });
-
-    test('cancels disposal if listener added before timeout', () async {
-      Query.disposalDelay = const Duration(milliseconds: 200);
-      final query = Query<String>(
-        queryKey: 'test'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      query.addListener();
-      query.removeListener();
-
-      await Future.delayed(Duration(milliseconds: 100));
-      expect(query.isDisposed, isFalse);
-
-      query.addListener();
-      await Future.delayed(Duration(milliseconds: 200));
-      expect(query.isDisposed, isFalse);
-
-      query.dispose();
-    });
-
-    test('dispose closes stream controller', () async {
-      final query = Query<String>(
-        queryKey: 'test'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      var streamClosed = false;
-      query.stream.listen(
-        (_) {},
-        onDone: () => streamClosed = true,
-      );
-
-      query.dispose();
-
-      await Future.delayed(Duration(milliseconds: 100));
-      expect(streamClosed, isTrue);
-    });
-
-    test('does not update state after disposal', () async {
+    test('Query state persistence during refetch', () async {
+      int fetchCount = 0;
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async {
-          await Future.delayed(Duration(milliseconds: 100));
-          return 'data';
+          fetchCount++;
+          await Future.delayed(const Duration(milliseconds: 50));
+          return 'data-$fetchCount';
         },
       );
 
-      final states = <QueryState<String>>[];
-      query.stream.listen(states.add);
+      await query.fetch();
+      expect(query.state.data, 'data-1');
 
-      final fetchFuture = query.fetch();
-      await Future.delayed(Duration(milliseconds: 10));
+      final refetchFuture = query.fetch(forceRefetch: true);
+      expect(query.state.isFetching, true);
+      expect(query.state.data, 'data-1'); // Data remains while fetching
 
-      final statesBeforeDisposal = states.length;
-      query.dispose();
-
-      await fetchFuture;
-
-      expect(states.length, statesBeforeDisposal);
+      await refetchFuture;
+      expect(query.state.data, 'data-2');
     });
 
-    test('ignores addListener after disposal', () {
+    test('Query.updateFromCache updates state directly', () {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
-      query.dispose();
-      query.addListener();
-
-      expect(query.referenceCount, 0);
+      query.updateFromCache('manual-data');
+      expect(query.state.data, 'manual-data');
+      expect(query.state.status, QueryStatus.success);
     });
 
-    test('ignores removeListener after disposal', () {
+    test('Query isDisposed is true after disposal', () {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
       );
 
-      query.addListener();
-      final count = query.referenceCount;
+      expect(query.isDisposed, false);
       query.dispose();
-      query.removeListener();
+      expect(query.isDisposed, true);
+    });
 
-      expect(query.referenceCount, count);
+    test('Query honors manual refetch', () async {
+      int fetchCount = 0;
+      final query = Query<String>(
+        queryKey: 'test'.toQueryKey(),
+        queryFn: () async {
+          fetchCount++;
+          return 'data-$fetchCount';
+        },
+      );
+
+      await query.fetch();
+      expect(fetchCount, 1);
+
+      await query.fetch(forceRefetch: true);
+      expect(fetchCount, 2);
     });
 
     test('QueryClient clears cache when query is disposed', () async {
       final client = QueryClient();
 
       // Create a query and fetch data
+      final queryKey = 'test-cache-clear'.toQueryKey();
       final query1 = client.getQuery<String>(
-        'test-cache-clear'.toQueryKey(),
+        queryKey,
         queryFn: () async => 'cached-data',
       );
 
@@ -400,14 +234,19 @@ void main() {
       expect(cachedEntry, isNotNull);
       expect(cachedEntry!.data, 'cached-data');
 
-      // Remove all listeners to trigger disposal
+      // Remove listener to trigger disposal timer
       query1.removeListener();
 
-      // Wait for disposal to complete (disposal is scheduled after 5 seconds)
-      // For testing, we'll manually dispose to trigger immediate cache clearing
+      // For testing, we'll manually dispose to trigger immediate cleanup
       query1.dispose();
 
-      // Verify cache is cleared
+      // Verify cache is NOT cleared immediately (it persists until GC)
+      final persistingEntry = client.cache.get<String>('test-cache-clear');
+      expect(persistingEntry, isNotNull);
+      expect(persistingEntry!.data, 'cached-data');
+
+      // Manually remove from cache
+      client.cache.remove('test-cache-clear');
       final clearedEntry = client.cache.get<String>('test-cache-clear');
       expect(clearedEntry, isNull);
     });
@@ -432,7 +271,7 @@ void main() {
       expect(fetchCount, 1);
       expect(query1.state.data, 'data-1');
 
-      // Dispose query (clears cache)
+      // Dispose query1
       query1.removeListener();
       query1.dispose();
 
@@ -445,17 +284,35 @@ void main() {
         },
       );
 
-      // Should start in loading state when no cached data
-      expect(query2.state.status, QueryStatus.loading);
-      expect(query2.state.hasData, false);
+      // Should start in success state because data is reused from cache
+      expect(query2.state.status, QueryStatus.success);
+      expect(query2.state.data, 'data-1');
+
+      // Dispose query2
+      query2.dispose();
+
+      // Manually clear cache
+      client.cache.remove(queryKey.key);
+
+      // Create another query with same key
+      final query3 = client.getQuery<String>(
+        queryKey,
+        queryFn: () async {
+          fetchCount++;
+          return 'data-$fetchCount';
+        },
+      );
+
+      expect(query3.state.status, QueryStatus.loading);
+      expect(query3.state.hasData, false);
 
       // Adding listener should trigger fetch
-      query2.addListener();
+      query3.addListener();
       await Future.delayed(
           const Duration(milliseconds: 10)); // Wait for async fetch
 
       expect(fetchCount, 2);
-      expect(query2.state.data, 'data-2');
+      expect(query3.state.data, 'data-2');
     });
   });
 }

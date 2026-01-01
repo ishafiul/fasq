@@ -1,0 +1,218 @@
+# Metrics Exporters
+
+Fasq provides a flexible metrics export system that allows you to send performance data to external monitoring systems, log files, or analytics platforms.
+
+## Overview
+
+Metrics exporters enable you to:
+
+- Export performance data to console for debugging
+- Send metrics to JSON files for analysis
+- Integrate with OpenTelemetry-compatible observability platforms
+- Create custom exporters for your specific needs
+
+## Available Exporters
+
+### ConsoleExporter
+
+Outputs metrics to the console in a human-readable format. Perfect for development and debugging.
+
+```dart
+import 'package:fasq/fasq.dart';
+
+final client = QueryClient();
+
+client.configureMetricsExporters(
+  MetricsConfig(
+    exporters: [ConsoleExporter()],
+    enableAutoExport: true,
+    exportInterval: Duration(minutes: 1),
+  ),
+);
+```
+
+### JsonExporter
+
+Exports metrics as JSON strings. Useful for logging systems or file-based analysis.
+
+```dart
+final client = QueryClient();
+
+client.configureMetricsExporters(
+  MetricsConfig(
+    exporters: [
+      JsonExporter(
+        onExport: (jsonString) {
+          // Write to file, send to API, etc.
+          print(jsonString);
+        },
+      ),
+    ],
+    enableAutoExport: true,
+    exportInterval: Duration(minutes: 1),
+  ),
+);
+```
+
+### OpenTelemetryExporter
+
+Sends metrics to OpenTelemetry-compatible backends using the OTLP protocol. Integrates with observability platforms like Prometheus, Grafana, or custom OTLP collectors.
+
+```dart
+final client = QueryClient();
+
+client.configureMetricsExporters(
+  MetricsConfig(
+    exporters: [
+      OpenTelemetryExporter(
+        endpoint: 'https://your-otlp-collector.com/v1/metrics',
+        headers: {
+          'Authorization': 'Bearer your-token',
+        },
+      ),
+    ],
+    enableAutoExport: true,
+    exportInterval: Duration(minutes: 1),
+  ),
+);
+```
+
+## Configuration
+
+### MetricsConfig
+
+The `MetricsConfig` class controls how and when metrics are exported:
+
+```dart
+final config = MetricsConfig(
+  // List of exporters to use
+  exporters: [ConsoleExporter(), JsonExporter()],
+
+  // Enable automatic periodic export
+  enableAutoExport: true,
+
+  // How often to export (when auto-export is enabled)
+  exportInterval: Duration(minutes: 1),
+);
+```
+
+### Auto-Export vs Manual Export
+
+**Auto-Export**: Metrics are automatically exported at the specified interval.
+
+```dart
+client.configureMetricsExporters(
+  MetricsConfig(
+    exporters: [ConsoleExporter()],
+    enableAutoExport: true,
+    exportInterval: Duration(minutes: 1),
+  ),
+);
+```
+
+**Manual Export**: Trigger exports on-demand.
+
+```dart
+// Configure exporters (auto-export can be false)
+client.configureMetricsExporters(
+  MetricsConfig(
+    exporters: [ConsoleExporter()],
+    enableAutoExport: false,
+  ),
+);
+
+// Export manually when needed
+await client.exportMetricsManually();
+```
+
+## Custom Exporters
+
+You can create custom exporters by implementing the `MetricsExporter` interface:
+
+```dart
+class CustomExporter implements MetricsExporter {
+  @override
+  Future<void> export(PerformanceSnapshot snapshot) async {
+    // Your custom export logic
+    final data = snapshot.toJson();
+
+    // Send to your monitoring system
+    await sendToMonitoringSystem(data);
+  }
+}
+
+// Use your custom exporter
+client.configureMetricsExporters(
+  MetricsConfig(
+    exporters: [CustomExporter()],
+    enableAutoExport: true,
+  ),
+);
+```
+
+## Error Handling
+
+Exporters are designed to be fault-tolerant. If one exporter fails, others continue to work:
+
+```dart
+client.configureMetricsExporters(
+  MetricsConfig(
+    exporters: [
+      ConsoleExporter(),      // If this fails...
+      JsonExporter(),         // ...this still works
+      OpenTelemetryExporter(), // ...and this too
+    ],
+    enableAutoExport: true,
+  ),
+);
+```
+
+Errors in individual exporters are caught and logged, preventing one failure from stopping the entire export process.
+
+## Best Practices
+
+1. **Development**: Use `ConsoleExporter` for quick debugging
+2. **Production**: Use `OpenTelemetryExporter` or `JsonExporter` for structured logging
+3. **Testing**: Use manual export (`exportMetricsManually()`) to verify exporter behavior
+4. **Performance**: Adjust `exportInterval` based on your needs (more frequent = more overhead)
+
+## Example: Complete Setup
+
+```dart
+import 'package:fasq/fasq.dart';
+
+void main() {
+  final client = QueryClient(
+    config: const CacheConfig(
+      defaultStaleTime: Duration(minutes: 5),
+    ),
+  );
+
+  // Configure metrics export
+  client.configureMetricsExporters(
+    MetricsConfig(
+      exporters: [
+        // Development: console output
+        ConsoleExporter(),
+
+        // Production: JSON logging
+        JsonExporter(
+          onExport: (json) {
+            // Send to your logging service
+            logToService(json);
+          },
+        ),
+
+        // Observability: OpenTelemetry
+        OpenTelemetryExporter(
+          endpoint: 'https://otel-collector.example.com/v1/metrics',
+        ),
+      ],
+      enableAutoExport: true,
+      exportInterval: Duration(minutes: 1),
+    ),
+  );
+
+  runApp(MyApp());
+}
+```

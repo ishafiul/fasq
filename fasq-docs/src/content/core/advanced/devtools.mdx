@@ -1,0 +1,231 @@
+# DevTools Integration
+
+Fasq provides built-in support for Flutter DevTools integration, allowing you to visualize performance metrics in real-time during development.
+
+## Overview
+
+The DevTools integration consists of two main components:
+
+1. **MetricsStream**: A stream that emits performance snapshots periodically
+2. **FasqMetricsExtension**: A Flutter widget that displays metrics in a user-friendly UI
+
+## MetricsStream
+
+`MetricsStream` provides a broadcast stream of `PerformanceSnapshot` objects that can be consumed by DevTools or other monitoring tools.
+
+### Basic Usage
+
+For most use cases, you can get metrics directly from `QueryClient`:
+
+```dart
+import 'package:fasq/fasq.dart';
+
+final client = QueryClient();
+
+// Get current metrics snapshot
+final snapshot = client.getMetrics();
+
+print('Cache hit rate: ${snapshot.cacheMetrics.hitRate}');
+print('Active queries: ${snapshot.activeQueries}');
+```
+
+For real-time streaming (advanced use), you would need to create a `MetricsStream` with a `PerformanceMonitor`. However, since `PerformanceMonitor` is internal to `QueryClient`, the recommended approach is to use `getMetrics()` periodically or integrate metrics export (see [Metrics Exporters](/docs/core/advanced/metrics-exporters)).
+
+### Using MetricsStream (Advanced)
+
+If you have access to a `PerformanceMonitor` instance (typically in custom integrations), you can create a `MetricsStream`:
+
+```dart
+final monitor = PerformanceMonitor(cache: cache, queries: queries);
+final metricsStream = MetricsStream(
+  monitor,
+  updateInterval: Duration(seconds: 5), // Default: 5 seconds
+);
+
+// Listen to the stream
+metricsStream.stream.listen((snapshot) {
+  print('Cache hit rate: ${snapshot.cacheMetrics.hitRate}');
+});
+
+// Don't forget to dispose
+metricsStream.dispose();
+```
+
+The stream only generates snapshots when there are active listeners, optimizing resource usage.
+
+## FasqMetricsExtension Widget
+
+The `FasqMetricsExtension` widget provides a complete UI for visualizing FASQ performance metrics. It can be used standalone or integrated with Flutter DevTools.
+
+### Standalone Usage
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:flutter/material.dart';
+
+class MetricsScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final client = QueryClient();
+
+    // For standalone usage, you can get snapshots directly
+    // or use MetricsStream with the internal monitor
+    final initialSnapshot = client.getMetrics();
+
+    return Scaffold(
+      appBar: AppBar(title: Text('FASQ Metrics')),
+      body: FasqMetricsExtension(
+        initialSnapshot: initialSnapshot,
+        // Optionally provide a stream for real-time updates
+        // metricsStream: metricsStream,
+      ),
+    );
+  }
+}
+```
+
+### With Initial Snapshot
+
+You can also provide an initial snapshot to display immediately:
+
+```dart
+final client = QueryClient();
+final initialSnapshot = client.getMetrics();
+
+FasqMetricsExtension(
+  metricsStream: metricsStream,
+  initialSnapshot: initialSnapshot,
+)
+```
+
+## Displayed Metrics
+
+The `FasqMetricsExtension` widget displays:
+
+### Cache Metrics
+
+- Cache hit rate
+- Cache hits, misses, and evictions
+- Total requests
+
+### Memory Usage
+
+- Current memory consumption
+- Peak memory usage
+
+### Query Statistics
+
+- Total queries
+- Active queries
+
+### Performance Timing
+
+- Average fetch time
+- 95th percentile fetch time
+- Average lookup time
+
+### Per-Query Details
+
+Expandable cards showing:
+
+- Fetch count
+- Reference count
+- Average and max fetch times
+- Last fetch duration
+- Throughput metrics (RPM, RPS)
+
+## Integration with Flutter DevTools
+
+To integrate with Flutter DevTools, you'll need to:
+
+1. Create a DevTools extension package
+2. Use `MetricsStream` to receive real-time updates
+3. Display metrics using `FasqMetricsExtension` or a custom UI
+
+### Example Integration
+
+```dart
+// In your DevTools extension
+class FasqDevToolsExtension extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    // Get MetricsStream from your app
+    final metricsStream = getMetricsStreamFromApp();
+
+    return FasqMetricsExtension(
+      metricsStream: metricsStream,
+    );
+  }
+}
+```
+
+## Serialization
+
+Performance snapshots can be serialized to JSON for transmission between your app and DevTools:
+
+```dart
+final snapshot = client.getMetrics();
+
+// Serialize
+final json = snapshot.toJson();
+final jsonString = jsonEncode(json);
+
+// Deserialize
+final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
+final restoredSnapshot = PerformanceSnapshot.fromJson(jsonMap);
+```
+
+This enables communication between your running app and DevTools extension.
+
+## Best Practices
+
+1. **Development Only**: Use DevTools integration primarily during development
+2. **Update Interval**: Adjust `updateInterval` based on your needs (more frequent = more overhead)
+3. **Dispose Resources**: Always call `dispose()` on `MetricsStream` when done
+4. **Error Handling**: Handle stream errors gracefully in your listeners
+
+## Example: Complete DevTools Setup
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:flutter/material.dart';
+
+class DevToolsMetricsPage extends StatefulWidget {
+  @override
+  _DevToolsMetricsPageState createState() => _DevToolsMetricsPageState();
+}
+
+class _DevToolsMetricsPageState extends State<DevToolsMetricsPage> {
+  MetricsStream? _metricsStream;
+  final _client = QueryClient();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Get initial snapshot
+    final initialSnapshot = _client.getMetrics();
+
+    // For real-time updates, you would need access to the internal
+    // PerformanceMonitor. In practice, you can use getMetrics() periodically
+    // or integrate with a stream-based approach in your app architecture.
+  }
+
+  @override
+  void dispose() {
+    _metricsStream?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Get current snapshot
+    final snapshot = _client.getMetrics();
+
+    return FasqMetricsExtension(
+      initialSnapshot: snapshot,
+      metricsStream: _metricsStream,
+    );
+  }
+}
+```
