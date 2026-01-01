@@ -5,6 +5,7 @@
 ## Why Fasq?
 
 Managing server state in Flutter can be challenging. You often need to:
+
 - Show loading spinners while fetching data
 - Handle errors gracefully
 - Cache data to save bandwidth and improve performance
@@ -38,7 +39,7 @@ class TodoList extends StatelessWidget {
   Widget build(BuildContext context) {
     return QueryBuilder<List<Todo>>(
       // specialized extension to convert string to QueryKey
-      queryKey: 'todos'.toQueryKey(), 
+      queryKey: 'todos'.toQueryKey(),
       // check out generic type support
       queryFn: () => api.fetchTodos(),
       builder: (context, state) {
@@ -119,6 +120,7 @@ Fasq comes packed with features to make your life easier:
 - **Window Focus Refetching**: Automatically refetch data when the app comes back to the foreground.
 - **Optimisitc Updates**: Update your UI immediately when performing mutations, then sync with the server.
 - **Infinite Queries**: Built-in support for infinite scrolling lists.
+- **Built-in Logging**: Development-friendly logging with `FasqLogger` to debug query and mutation lifecycle events.
 
 ## Next Steps
 
@@ -128,3 +130,4 @@ Now that you have the basics, dive deeper into the core concepts:
 - **[MutationBuilder](/docs/core/mutation-builder)**: Handling data updates (POST/PUT/DELETE).
 - **[QueryClient](/docs/core/query-client)**: Managing the cache and global configuration.
 - **[QueryOptions](/docs/core/query-options)**: Fine-tuning query behavior.
+- **[Logging](/docs/core/logging)**: Debug and monitor queries with built-in logging.

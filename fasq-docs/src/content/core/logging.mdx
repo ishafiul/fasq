@@ -1,0 +1,262 @@
+# Logging
+
+Fasq provides built-in logging capabilities through `FasqLogger` to help you debug and monitor query and mutation lifecycle events in your application.
+
+## Overview
+
+`FasqLogger` implements the `QueryClientObserver` interface and automatically logs all query and mutation events with emoji-coded messages for easy visual scanning. It's designed with privacy-first principles, ensuring sensitive data is not logged by default.
+
+## Quick Start
+
+Add `FasqLogger` to your `QueryClient` to start logging:
+
+```dart
+import 'package:fasq/fasq.dart';
+
+void main() {
+  final client = QueryClient();
+
+  // Add logger to observe all query and mutation events
+  client.addObserver(FasqLogger());
+
+  runApp(MyApp());
+}
+```
+
+## Configuration
+
+`FasqLogger` provides three configuration options:
+
+| Option           | Type   | Default | Description                                                       |
+| ---------------- | ------ | ------- | ----------------------------------------------------------------- |
+| `enabled`        | `bool` | `true`  | Enable or disable logging entirely                                |
+| `showData`       | `bool` | `false` | Include data in success logs (privacy-first: disabled by default) |
+| `truncateLength` | `int`  | `100`   | Maximum length of data strings before truncation                  |
+
+### Privacy-First Design
+
+By default, `showData` is set to `false` to protect sensitive information. Only enable it in development or when you're certain the data is safe to log.
+
+```dart
+// Development: Show data for debugging
+final devLogger = FasqLogger(
+  enabled: true,
+  showData: true,
+  truncateLength: 200,
+);
+
+// Production: Hide data for privacy
+final prodLogger = FasqLogger(
+  enabled: true,
+  showData: false, // Default - data is hidden
+);
+```
+
+## Log Format
+
+### Query Events
+
+**Loading:**
+
+```
+⏳ [Fetch] user:123
+```
+
+**Success:**
+
+```
+✅ [Success] user:123 (150ms) {"id": 123, "name": "John"}
+```
+
+**Error:**
+
+```
+❌ [Error] user:123: NetworkException: Connection timeout
+```
+
+### Mutation Events
+
+**Loading:**
+
+```
+🚀 [Mutation] {"userId": 123, "action": "update"}
+```
+
+**Success:**
+
+```
+✅ [Mutation Success] {"userId": 123} (120ms) {"success": true}
+```
+
+**Error:**
+
+```
+❌ [Mutation Error] {"userId": 123}: ValidationError: Invalid input
+```
+
+## Examples
+
+### Basic Usage
+
+```dart
+final client = QueryClient();
+client.addObserver(FasqLogger());
+```
+
+### Development Logging
+
+Enable data logging with truncation for development:
+
+```dart
+final logger = FasqLogger(
+  enabled: true,
+  showData: true,
+  truncateLength: 50, // Truncate long data strings
+);
+
+client.addObserver(logger);
+```
+
+### Conditional Logging
+
+Disable logging in production:
+
+```dart
+final logger = FasqLogger(
+  enabled: !kReleaseMode, // Only log in debug mode
+  showData: false,
+);
+
+client.addObserver(logger);
+```
+
+### Multiple Observers
+
+You can add multiple observers to the same client:
+
+```dart
+final client = QueryClient();
+
+// Logger for console output
+client.addObserver(FasqLogger());
+
+// Custom observer for analytics
+client.addObserver(AnalyticsObserver());
+
+// Custom observer for error tracking
+client.addObserver(ErrorTrackingObserver());
+```
+
+## Log Output Examples
+
+### Query Lifecycle
+
+When a query is fetched, you'll see:
+
+```
+⏳ [Fetch] todos
+✅ [Success] todos (234ms)
+```
+
+With data enabled:
+
+```
+⏳ [Fetch] todos
+✅ [Success] todos (234ms) [{"id": 1, "title": "Buy milk"}, {"id": 2, "title": "Walk dog"}]
+```
+
+### Mutation Lifecycle
+
+When a mutation is executed:
+
+```
+🚀 [Mutation] {"todoId": 1, "completed": true}
+✅ [Mutation Success] {"todoId": 1, "completed": true} (89ms)
+```
+
+### Error Logging
+
+Errors include the query key and error details:
+
+```
+⏳ [Fetch] user:123
+❌ [Error] user:123: HttpException: 404 Not Found
+```
+
+### Data Truncation
+
+Long data strings are automatically truncated:
+
+```dart
+final logger = FasqLogger(
+  showData: true,
+  truncateLength: 20,
+);
+```
+
+Output:
+
+```
+✅ [Success] large-data (150ms) {"very": "long data str...
+```
+
+## Best Practices
+
+1. **Development Only**: Consider disabling logging in production builds:
+
+   ```dart
+   FasqLogger(enabled: !kReleaseMode)
+   ```
+
+2. **Privacy First**: Keep `showData: false` in production to avoid logging sensitive user data.
+
+3. **Performance**: Logging has minimal overhead, but you can disable it entirely if needed.
+
+4. **Multiple Loggers**: Use different logger configurations for different environments (dev, staging, prod).
+
+## API Reference
+
+### FasqLogger
+
+| Constructor Parameter | Type   | Default | Description                              |
+| --------------------- | ------ | ------- | ---------------------------------------- |
+| `enabled`             | `bool` | `true`  | Enable/disable all logging               |
+| `showData`            | `bool` | `false` | Include data in success logs             |
+| `truncateLength`      | `int`  | `100`   | Max data string length before truncation |
+
+### Methods
+
+`FasqLogger` implements all methods from `QueryClientObserver`:
+
+- `onQueryLoading` - Logs when a query starts fetching
+- `onQuerySuccess` - Logs successful query completion with duration
+- `onQueryError` - Logs query errors with error details
+- `onQuerySettled` - Cleans up internal tracking (no log output)
+- `onMutationLoading` - Logs when a mutation starts
+- `onMutationSuccess` - Logs successful mutation completion with duration
+- `onMutationError` - Logs mutation errors with error details
+- `onMutationSettled` - Cleans up internal tracking (no log output)
+
+## Integration with QueryClient
+
+`FasqLogger` works seamlessly with `QueryClient` through the observer pattern:
+
+```dart
+final client = QueryClient();
+final logger = FasqLogger();
+
+// Add observer
+client.addObserver(logger);
+
+// Remove observer if needed
+client.removeObserver(logger);
+
+// Clear all observers
+client.clearObservers();
+```
+
+## See Also
+
+- [QueryClient](/docs/core/query-client) - Learn about the QueryClient API
+- [Error Handling](/docs/core/error-handling) - Error handling strategies
+- [QueryClientObserver](/docs/core/query-client) - Create custom observers
