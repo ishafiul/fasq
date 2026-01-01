@@ -38,6 +38,7 @@ class QueryCache {
   final Map<String, int> _entryVersions = {};
   final Map<String, Type> _keyTypes = {};
   int _versionCounter = 0;
+  bool _isGcPaused = false;
 
   bool _isInitialized = false;
   SecurityProvider? _securityProvider;
@@ -450,7 +451,9 @@ class QueryCache {
   void _startGarbageCollection() {
     if (gcInterval == Duration.zero) return;
     _gcTimer = Timer.periodic(gcInterval, (_) {
-      _runGarbageCollection();
+      if (!_isGcPaused) {
+        _runGarbageCollection();
+      }
     });
   }
 
@@ -467,6 +470,18 @@ class QueryCache {
     for (final key in keysToRemove) {
       _entries.remove(key);
     }
+  }
+
+  /// Pauses garbage collection.
+  ///
+  /// Useful when the app is in the background or performing critical tasks.
+  void pauseGarbageCollection() {
+    _isGcPaused = true;
+  }
+
+  /// Resumes garbage collection.
+  void resumeGarbageCollection() {
+    _isGcPaused = false;
   }
 
   /// Disposes the cache and cleans up all resources.
@@ -533,7 +548,9 @@ class QueryCache {
     if (interval == Duration.zero) return;
 
     _persistenceGcTimer = Timer.periodic(interval, (_) {
-      _runPersistenceGarbageCollection();
+      if (!_isGcPaused) {
+        _runPersistenceGarbageCollection();
+      }
     });
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'isolate_exceptions.dart';
 import 'isolate_task.dart';
 
 /// A worker isolate that can execute tasks.
@@ -101,13 +102,22 @@ class _IsolateWorker {
       responsePort.close();
       _currentSubscription = null;
       _currentTask = null;
-      task.completeError(
-        IsolateExecutionException(
-          'Failed to send task to isolate',
-          error,
-        ),
-        stackTrace,
-      );
+
+      // Check if error is likely due to closure capture
+      final isCaptureError = error.toString().contains('Invalid argument') ||
+          error.toString().contains('closure');
+
+      final exception = isCaptureError
+          ? IsolateCallbackCaptureException(
+              'Failed to send task to isolate. Ensure callback is a static or top-level function.',
+              error,
+            )
+          : IsolateExecutionException(
+              'Failed to send task to isolate',
+              error,
+            );
+
+      task.completeError(exception, stackTrace);
       _processNextTask();
     }
   }
@@ -215,25 +225,30 @@ class IsolatePool {
   final List<_IsolateWorker> _workers = [];
   int _currentWorkerIndex = 0;
   bool _isDisposed = false;
-  late final Future<void> _initialization;
+  Future<void>? _initialization;
 
   /// Create an isolate pool with the specified number of workers
   IsolatePool({this.poolSize = 2}) {
     assert(poolSize > 0, 'Pool size must be greater than 0');
-    _initialization = _initializeWorkers();
   }
 
-  /// Initialize all worker isolates
+  /// Initialize all worker isolates lazily
   Future<void> _initializeWorkers() async {
-    for (int i = 0; i < poolSize; i++) {
-      final worker = _IsolateWorker();
-      try {
-        await worker.initialize();
-        _workers.add(worker);
-      } catch (e) {
-        continue;
-      }
-    }
+    if (_initialization != null) return _initialization;
+
+    _initialization = Future.wait(
+      List.generate(poolSize, (_) async {
+        final worker = _IsolateWorker();
+        try {
+          await worker.initialize();
+          _workers.add(worker);
+        } catch (e) {
+          // Worker initialization failed
+        }
+      }),
+    );
+
+    await _initialization;
   }
 
   /// Execute a callback function in an isolate
@@ -246,7 +261,7 @@ class IsolatePool {
       throw IsolateExecutionException('Isolate pool is disposed');
     }
 
-    await _initialization;
+    await _initializeWorkers();
 
     if (_workers.isEmpty) {
       throw const IsolateExecutionException('No worker isolates available');
@@ -296,15 +311,15 @@ class IsolatePool {
   Future<R> executeIfNeeded<T, R>(
     R Function(T message) callback,
     T message, {
-    int threshold = 100 * 1024, // 100KB default
+    int threshold = 30 * 1024, // 30KB default
   }) async {
     // Estimate message size (rough approximation)
     final messageSize = _estimateSize(message);
 
-    if (messageSize > threshold) {
+    if (messageSize > 0 && messageSize > threshold) {
       return execute(callback, message);
     } else {
-      // Execute on main thread for small messages
+      // Execute on main thread for small messages or unknown sizes
       return callback(message);
     }
   }
@@ -320,12 +335,14 @@ class IsolatePool {
     } else if (message is Uint8List) {
       return message.length;
     } else if (message is Map) {
-      return message.toString().length * 2;
+      // Rough estimate for maps without full serialization
+      return message.length * 16;
     } else if (message is List) {
-      return message.toString().length * 2;
+      // Rough estimate for lists
+      return message.length * 8;
     } else {
-      // Fallback: serialize to string and estimate
-      return message.toString().length * 2;
+      // Default to 0 to avoid expensive serialization
+      return 0;
     }
   }
 

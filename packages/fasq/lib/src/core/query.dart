@@ -131,7 +131,7 @@ class Query<T> {
       );
     }
 
-    if (cache != null) {
+    if (cache != null && options?.enabled != false) {
       return QueryState<T>.loading();
     }
 
