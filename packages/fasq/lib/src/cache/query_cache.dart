@@ -550,8 +550,12 @@ class QueryCache {
   }
 
   void _onMemoryPressure(bool critical) {
-    // If system warns us, we should assume it's important.
-    // We pass the critical flag along.
+    // Handle memory pressure based on severity level:
+    // - critical: true -> Level 2 (Critical): Remove all inactive entries
+    // - critical: false -> Level 1 (Warning/Low): Remove only stale inactive entries
+    // System signals are always treated as critical since Flutter doesn't
+    // distinguish pressure levels. Developers can use simulateMemoryPressure()
+    // to test different levels.
     trim(critical: critical);
   }
 
