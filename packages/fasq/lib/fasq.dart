@@ -45,6 +45,7 @@ export 'src/core/query_state.dart';
 export 'src/core/query_status.dart';
 export 'src/core/typed_query_key.dart';
 export 'src/logger/fasq_logger.dart';
+export 'src/memory/memory_pressure_handler.dart';
 export 'src/pagination/cursor_pagination.dart';
 export 'src/pagination/page_number_pagination.dart';
 export 'src/performance/exporters/console_exporter.dart';

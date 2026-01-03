@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 /// Handles system memory pressure warnings.
@@ -39,19 +40,42 @@ class MemoryPressureHandler extends WidgetsBindingObserver {
     if (_debounceTimer?.isActive ?? false) return;
 
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      _notifyListeners();
+      // On iOS/Android, didHaveMemoryPressure usually means "low memory".
+      // We treat this as a potentially critical situation.
+      // The PRD suggests Adaptive Eviction with different levels, but since
+      // Flutter's API doesn't distinguish levels, we default to critical.
+      _notifyListeners(critical: true);
     });
   }
 
-  void _notifyListeners() {
-    // On iOS/Android, didHaveMemoryPressure usually means "low memory".
-    // We treat this as a potentially critical situation.
-    // However, for now, we can perhaps default critical to false or true based on policy.
-    // The PRD suggests Adaptive Eviction.
-    // Let's pass 'critical: true' because if the OS warns us, we should be aggressive.
+  /// Simulates a memory pressure event for testing purposes.
+  ///
+  /// This method allows developers to manually trigger memory pressure
+  /// events to test cache trimming behavior without waiting for system signals.
+  ///
+  /// [critical] - If true (default), triggers critical memory pressure
+  /// which removes all inactive entries. If false, triggers low/warning
+  /// pressure which removes only stale inactive entries.
+  ///
+  /// Example:
+  /// ```dart
+  /// final handler = MemoryPressureHandler();
+  /// handler.simulateMemoryPressure(critical: false); // Low pressure
+  /// handler.simulateMemoryPressure(critical: true);  // Critical pressure
+  /// ```
+  void simulateMemoryPressure({bool critical = true}) {
+    // Debounce rapid signals to prevent thrashing
+    if (_debounceTimer?.isActive ?? false) return;
+
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _notifyListeners(critical: critical);
+    });
+  }
+
+  void _notifyListeners({required bool critical}) {
     for (final listener in List.from(_listeners)) {
       // Copy to avoid concurrent mod
-      listener(true);
+      listener(critical);
     }
   }
 
