@@ -1,0 +1,425 @@
+# Error Tracking
+
+FASQ provides a comprehensive error tracking system that captures rich context when queries fail, making it easy to diagnose production issues and integrate with external error reporting services like Sentry or Crashlytics.
+
+## Overview
+
+When a query fails, FASQ automatically captures detailed context about the failure, including:
+
+- **Query Key**: Which query failed
+- **Retry Count**: How many retries were attempted
+- **Network Status**: Whether the device was online
+- **Stale Time**: Cache configuration at time of failure
+- **Sanitized Options**: Safe query configuration (PII removed)
+- **Error & Stack Trace**: The actual error that occurred
+
+This context is then delivered to registered error reporters, allowing you to send detailed error reports to external services.
+
+## Quick Start
+
+### 1. Implement an Error Reporter
+
+Create a reporter that implements `FasqErrorReporter`:
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+class SentryErrorReporter implements FasqErrorReporter {
+  @override
+  void report(FasqErrorContext context) {
+    Sentry.captureException(
+      context.error,
+      stackTrace: context.stackTrace,
+      hint: Hint.withMap({
+        'queryKey': context.queryKey.join('/'),
+        'retryCount': context.retryCount,
+        'networkStatus': context.networkStatus ? 'online' : 'offline',
+        'staleTimeMs': context.staleTime.inMilliseconds,
+        'sanitizedOptions': context.sanitizedQueryOptions,
+      }),
+    );
+  }
+}
+```
+
+### 2. Register the Reporter
+
+Register your reporter with the `QueryClient`:
+
+```dart
+final client = QueryClient();
+client.addErrorReporter(SentryErrorReporter());
+```
+
+That's it! All query failures will now be automatically reported to Sentry with full context.
+
+## Error Context
+
+The `FasqErrorContext` class contains all information about a query failure:
+
+### Fields
+
+| Field                   | Type                   | Description                                                 |
+| ----------------------- | ---------------------- | ----------------------------------------------------------- |
+| `queryKey`              | `List<Object>`         | The query key that failed (as a list for hierarchical keys) |
+| `retryCount`            | `int`                  | Number of retry attempts made before failure                |
+| `staleTime`             | `Duration`             | How long data is considered fresh                           |
+| `networkStatus`         | `bool`                 | `true` if online, `false` if offline                        |
+| `error`                 | `Object`               | The error that occurred                                     |
+| `stackTrace`            | `StackTrace`           | Stack trace associated with the error                       |
+| `sanitizedQueryOptions` | `Map<String, dynamic>` | Safe query options (PII removed)                            |
+
+### Creating Error Context
+
+Error context is automatically created when queries fail. You typically don't need to create it manually, but if you do:
+
+```dart
+final context = FasqErrorContext.fromQueryFailure(
+  query,
+  options,
+  error,
+  stackTrace,
+);
+```
+
+## PII Sanitization
+
+FASQ automatically sanitizes query options to prevent sensitive data from leaking into error reports. The sanitization follows a **strict allowlist** approach:
+
+### Included (Safe Fields)
+
+- `enabled`, `refetchOnMount`, `isSecure` - boolean flags
+- `staleTime`, `cacheTime`, `maxAge` - duration values (in milliseconds)
+- `performance` - sanitized performance options (excluding callbacks)
+
+### Excluded (Sensitive Fields)
+
+- `meta` - may contain user-specific messages
+- `onSuccess`/`onError` - callbacks may contain closures with sensitive data
+- `circuitBreaker`/`circuitBreakerScope` - internal implementation details
+- `performance.dataTransformer` - callback may contain sensitive logic
+
+### Example
+
+```dart
+// Original QueryOptions
+final options = QueryOptions(
+  staleTime: Duration(minutes: 5),
+  meta: QueryMeta(
+    successMessage: 'User John Doe logged in', // User-specific
+  ),
+  onError: (error) {
+    // Callback with potential sensitive logic
+    logToSecureSystem(error);
+  },
+);
+
+// In error context, sanitizedOptions will contain:
+// {
+//   'staleTime': 300000,
+//   'enabled': true,
+//   'refetchOnMount': false,
+//   'isSecure': false
+//   // meta and onError are excluded
+// }
+```
+
+## Error Reporter Interface
+
+### Implementing a Reporter
+
+Implement the `FasqErrorReporter` interface:
+
+```dart
+abstract class FasqErrorReporter {
+  void report(FasqErrorContext context);
+}
+```
+
+### Example: Crashlytics Integration
+
+```dart
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+
+class CrashlyticsErrorReporter implements FasqErrorReporter {
+  @override
+  void report(FasqErrorContext context) {
+    FirebaseCrashlytics.instance.recordError(
+      context.error,
+      context.stackTrace,
+      reason: 'FASQ Query Error',
+      information: [
+        'Query Key: ${context.queryKey.join("/")}',
+        'Retry Count: ${context.retryCount}',
+        'Network Status: ${context.networkStatus ? "online" : "offline"}',
+        'Stale Time: ${context.staleTime.inMilliseconds}ms',
+      ],
+    );
+  }
+}
+```
+
+### Example: Custom Logging
+
+```dart
+class CustomErrorReporter implements FasqErrorReporter {
+  final void Function(FasqErrorContext) onError;
+
+  CustomErrorReporter(this.onError);
+
+  @override
+  void report(FasqErrorContext context) {
+    onError(context);
+  }
+}
+
+// Usage
+client.addErrorReporter(CustomErrorReporter((context) {
+  // Send to your custom analytics service
+  analytics.track('query_error', {
+    'query_key': context.queryKey.join('/'),
+    'error_type': context.error.runtimeType.toString(),
+    'retry_count': context.retryCount,
+  });
+}));
+```
+
+## Managing Reporters
+
+### Adding Reporters
+
+```dart
+final client = QueryClient();
+client.addErrorReporter(SentryErrorReporter());
+client.addErrorReporter(CrashlyticsErrorReporter());
+```
+
+You can register multiple reporters - all will receive error notifications.
+
+### Removing Reporters
+
+```dart
+final reporter = SentryErrorReporter();
+client.addErrorReporter(reporter);
+
+// Later, remove it
+client.removeErrorReporter(reporter);
+```
+
+### Reporter Failure Handling
+
+If a reporter throws an exception, it's automatically caught and logged (via `FasqLogger` if available) to prevent:
+
+- Breaking the application
+- Preventing other reporters from executing
+
+This ensures that one faulty reporter doesn't break your entire error reporting pipeline.
+
+## Enhanced Logging
+
+The `FasqLogger` has been enhanced to support structured error logging with context:
+
+```dart
+final logger = FasqLogger();
+client.addObserver(logger);
+
+// When errors occur, logger.logError is called with context
+logger.logError(
+  error,
+  stackTrace,
+  errorContext, // Optional FasqErrorContext
+);
+```
+
+When context is provided, the logger outputs structured data:
+
+```
+Fasq Query Error:
+  message: Fasq Query Error
+  errorType: SocketException
+  errorMessage: Failed host lookup
+  queryKey: [user-profile]
+  retryCount: 2
+  staleTimeMs: 300000
+  networkStatus: offline
+  sanitizedQueryOptions: {enabled: true, staleTime: 300000, ...}
+```
+
+## Best Practices
+
+### 1. Register Reporters Early
+
+Register error reporters as early as possible in your app lifecycle:
+
+```dart
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final client = QueryClient();
+  client.addErrorReporter(SentryErrorReporter());
+
+  runApp(MyApp());
+}
+```
+
+### 2. Handle Reporter Errors Gracefully
+
+Your reporter implementation should handle errors gracefully:
+
+```dart
+class RobustErrorReporter implements FasqErrorReporter {
+  @override
+  void report(FasqErrorContext context) {
+    try {
+      // Your reporting logic
+      sendToService(context);
+    } catch (e) {
+      // Log but don't throw - the pipeline handles this
+      print('Error reporter failed: $e');
+    }
+  }
+}
+```
+
+### 3. Use Sanitized Options
+
+Always use `context.sanitizedQueryOptions` instead of accessing raw `QueryOptions` to ensure PII is not leaked:
+
+```dart
+@override
+void report(FasqErrorContext context) {
+  // ✅ Good - uses sanitized options
+  final options = context.sanitizedQueryOptions;
+
+  // ❌ Bad - may contain sensitive data
+  // final options = query.options;
+}
+```
+
+### 4. Filter by Query Key
+
+You can filter which errors to report based on query keys:
+
+```dart
+class FilteredErrorReporter implements FasqErrorReporter {
+  final Set<String> _ignoredKeys;
+
+  FilteredErrorReporter(this._ignoredKeys);
+
+  @override
+  void report(FasqErrorContext context) {
+    final key = context.queryKey.join('/');
+    if (_ignoredKeys.contains(key)) {
+      return; // Skip reporting
+    }
+
+    // Report to service
+    sendToService(context);
+  }
+}
+```
+
+## Integration Examples
+
+### Sentry Integration
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+class SentryErrorReporter implements FasqErrorReporter {
+  @override
+  void report(FasqErrorContext context) {
+    Sentry.captureException(
+      context.error,
+      stackTrace: context.stackTrace,
+      hint: Hint.withMap({
+        'queryKey': context.queryKey.join('/'),
+        'retryCount': context.retryCount,
+        'networkStatus': context.networkStatus ? 'online' : 'offline',
+        'staleTimeMs': context.staleTime.inMilliseconds,
+        'sanitizedOptions': context.sanitizedQueryOptions,
+      }),
+    );
+  }
+}
+
+// In main.dart
+void main() async {
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = 'YOUR_SENTRY_DSN';
+    },
+    appRunner: () {
+      final client = QueryClient();
+      client.addErrorReporter(SentryErrorReporter());
+
+      runApp(MyApp());
+    },
+  );
+}
+```
+
+### Multiple Reporters
+
+You can register multiple reporters for different purposes:
+
+```dart
+final client = QueryClient();
+
+// Production error tracking
+client.addErrorReporter(SentryErrorReporter());
+
+// Analytics
+client.addErrorReporter(AnalyticsErrorReporter());
+
+// Custom logging
+client.addErrorReporter(CustomLoggingReporter());
+```
+
+## API Reference
+
+### FasqErrorContext
+
+```dart
+class FasqErrorContext {
+  final List<Object> queryKey;
+  final int retryCount;
+  final Duration staleTime;
+  final bool networkStatus;
+  final Object error;
+  final StackTrace stackTrace;
+  final Map<String, dynamic> sanitizedQueryOptions;
+
+  factory FasqErrorContext.fromQueryFailure(
+    Query query,
+    QueryOptions? options,
+    Object error,
+    StackTrace stackTrace,
+  );
+}
+```
+
+### FasqErrorReporter
+
+```dart
+abstract class FasqErrorReporter {
+  void report(FasqErrorContext context);
+}
+```
+
+### QueryClient Methods
+
+```dart
+class QueryClient {
+  void addErrorReporter(FasqErrorReporter reporter);
+  void removeErrorReporter(FasqErrorReporter reporter);
+}
+```
+
+## Related Documentation
+
+- [Error Handling](/docs/core/error-handling) - Basic error handling patterns
+- [Logging](/docs/core/logging) - Enhanced logging with error context
+- [Security Features](/docs/core/security) - PII protection and secure queries

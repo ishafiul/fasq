@@ -183,6 +183,38 @@ Errors include the query key and error details:
 ❌ [Error] user:123: HttpException: 404 Not Found
 ```
 
+### Structured Error Logging with Context
+
+`FasqLogger` supports structured error logging with rich context when used with the error tracking system:
+
+```dart
+final logger = FasqLogger();
+client.addObserver(logger);
+
+// When errors occur with error context, structured logging is used
+logger.logError(
+  error,
+  stackTrace,
+  errorContext, // Optional FasqErrorContext
+);
+```
+
+When error context is provided, the logger outputs structured data:
+
+```
+Fasq Query Error:
+  message: Fasq Query Error
+  errorType: SocketException
+  errorMessage: Failed host lookup
+  queryKey: [user-profile]
+  retryCount: 2
+  staleTimeMs: 300000
+  networkStatus: offline
+  sanitizedQueryOptions: {enabled: true, staleTime: 300000, ...}
+```
+
+This structured format makes it easier to parse and analyze errors in production. For more details on error tracking and context, see [Error Tracking](/docs/core/advanced/error-tracking).
+
 ### Data Truncation
 
 Long data strings are automatically truncated:
@@ -237,6 +269,10 @@ Output:
 - `onMutationError` - Logs mutation errors with error details
 - `onMutationSettled` - Cleans up internal tracking (no log output)
 
+Additionally, `FasqLogger` provides:
+
+- `logError(Object error, [StackTrace? stackTrace, FasqErrorContext? context])` - Logs errors with optional structured context. When context is provided, outputs structured data including query key, retry count, network status, and sanitized query options.
+
 ## Integration with QueryClient
 
 `FasqLogger` works seamlessly with `QueryClient` through the observer pattern:
@@ -259,4 +295,5 @@ client.clearObservers();
 
 - [QueryClient](/docs/core/query-client) - Learn about the QueryClient API
 - [Error Handling](/docs/core/error-handling) - Error handling strategies
+- [Error Tracking](/docs/core/advanced/error-tracking) - Error tracking and reporting with rich context
 - [QueryClientObserver](/docs/core/query-client) - Create custom observers

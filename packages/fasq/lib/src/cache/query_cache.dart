@@ -464,7 +464,7 @@ class QueryCache {
     if (gcInterval == Duration.zero) return;
     _gcTimer = Timer.periodic(gcInterval, (_) {
       if (!_isGcPaused) {
-        _runGarbageCollection();
+      _runGarbageCollection();
       }
     });
   }

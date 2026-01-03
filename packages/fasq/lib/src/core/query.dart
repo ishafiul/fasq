@@ -9,6 +9,7 @@ import '../circuit_breaker/circuit_breaker.dart';
 import '../circuit_breaker/circuit_breaker_exceptions.dart';
 import '../circuit_breaker/circuit_breaker_options.dart';
 import '../circuit_breaker/circuit_breaker_registry.dart';
+import '../error/error_context.dart';
 import 'cancellation_token.dart';
 import 'query_client.dart';
 import 'query_dependency_manager.dart';
@@ -486,7 +487,7 @@ class Query<T> {
 
     if (cache != null) {
       try {
-        final previous = _currentState;
+          final previous = _currentState;
         _updateState(_currentState.copyWith(
           isFetching: true,
           status: _currentState.status == QueryStatus.idle
@@ -563,6 +564,15 @@ class Query<T> {
             ));
           }
           options?.onError?.call(error);
+
+          // Create error context and dispatch to reporters
+          final errorContext = FasqErrorContext.fromQueryFailure(
+            this,
+            options,
+            error,
+            stackTrace,
+          );
+          client?.dispatchError(errorContext);
         }
         if (error is CircuitBreakerOpenException) rethrow;
       }
@@ -614,6 +624,15 @@ class Query<T> {
           _updateState(QueryState.error(error, stackTrace));
           _notifyError(previous);
           options?.onError?.call(error);
+
+          // Create error context and dispatch to reporters
+          final errorContext = FasqErrorContext.fromQueryFailure(
+            this,
+            options,
+            error,
+            stackTrace,
+          );
+          client?.dispatchError(errorContext);
         }
       }
     }
