@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 
 import '../core/typed_query_key.dart';
 import '../core/validation/input_validator.dart';
+import '../memory/index.dart'; // Add import
 import '../persistence/cache_data_codec.dart';
 import '../persistence/persistence_options.dart';
 import '../security/encryption_provider.dart';
@@ -38,6 +39,8 @@ class QueryCache {
   final Map<String, int> _entryVersions = {};
   final Map<String, Type> _keyTypes = {};
   int _versionCounter = 0;
+  bool _isGcPaused = false;
+  final bool _enableMemoryPressure;
 
   bool _isInitialized = false;
   SecurityProvider? _securityProvider;
@@ -67,13 +70,23 @@ class QueryCache {
     CacheConfig? config,
     this.persistenceOptions,
     this.securityPlugin,
+    bool enableMemoryPressure = true,
   })  : config = config ?? const CacheConfig(),
+        _enableMemoryPressure = enableMemoryPressure,
         _codecRegistry = (persistenceOptions?.codecRegistry ??
             const CacheDataCodecRegistry()) {
     _hotCache =
         HotCache<CacheEntry>(maxSize: this.config.performance.hotCacheSize);
     _startGarbageCollection();
     _persistenceInitFuture = _initializePersistence();
+
+    if (_enableMemoryPressure) {
+      try {
+        MemoryPressureHandler().addListener(_onMemoryPressure);
+      } catch (_) {
+        // Ignore errors if running in non-flutter environment
+      }
+    }
   }
 
   /// Gets a cache entry if it exists.
@@ -450,8 +463,22 @@ class QueryCache {
   void _startGarbageCollection() {
     if (gcInterval == Duration.zero) return;
     _gcTimer = Timer.periodic(gcInterval, (_) {
-      _runGarbageCollection();
+      if (!_isGcPaused) {
+        _runGarbageCollection();
+      }
     });
+  }
+
+  /// Pauses garbage collection.
+  ///
+  /// Useful when the app is in the background or performing critical tasks.
+  void pauseGarbageCollection() {
+    _isGcPaused = true;
+  }
+
+  /// Resumes garbage collection.
+  void resumeGarbageCollection() {
+    _isGcPaused = false;
   }
 
   void _runGarbageCollection() {
@@ -469,8 +496,47 @@ class QueryCache {
     }
   }
 
+  /// Trims the cache to release memory.
+  ///
+  /// [critical] - If true, performs a more aggressive cleanup by removing all
+  /// inactive entries (referenceCount == 0), regardless of freshness.
+  /// If false (default), removes only inactive entries that are stale.
+  ///
+  /// Active entries (referenceCount > 0) are never removed to prevent UI issues.
+  void trim({bool critical = false}) {
+    final now = DateTime.now();
+    final keysToRemove = <String>[];
+
+    for (final entry in _entries.entries) {
+      // Never remove active entries
+      if (entry.value.referenceCount > 0) continue;
+
+      if (critical) {
+        // Critical: Remove all inactive entries
+        keysToRemove.add(entry.key);
+      } else {
+        // Normal: Remove only stale inactive entries
+        if (entry.value.staleTime != Duration.zero &&
+            now.difference(entry.value.createdAt) > entry.value.staleTime) {
+          keysToRemove.add(entry.key);
+        }
+      }
+    }
+
+    if (keysToRemove.isNotEmpty) {
+      invalidateMultiple(keysToRemove);
+    }
+  }
+
   /// Disposes the cache and cleans up all resources.
   Future<void> dispose() async {
+    if (_enableMemoryPressure) {
+      try {
+        MemoryPressureHandler().removeListener(_onMemoryPressure);
+      } catch (_) {
+        // Ignore
+      }
+    }
     _gcTimer?.cancel();
     _gcTimer = null;
     _persistenceGcTimer?.cancel();
@@ -481,6 +547,12 @@ class QueryCache {
 
     _clearInMemory();
     await _disposePersistenceResources();
+  }
+
+  void _onMemoryPressure(bool critical) {
+    // If system warns us, we should assume it's important.
+    // We pass the critical flag along.
+    trim(critical: critical);
   }
 
   /// Initializes persistence if enabled.
