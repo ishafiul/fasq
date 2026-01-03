@@ -1,5 +1,4 @@
 import 'package:fasq/fasq.dart';
-import 'package:fasq/src/memory/memory_pressure_handler.dart'; // Import internals for testing
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_async/fake_async.dart';
 
@@ -57,8 +56,8 @@ void main() {
 
         expect(cache.get('fresh'), isNotNull);
 
-        // 2. Simulate Memory Pressure
-        handler.didHaveMemoryPressure();
+        // 2. Simulate Memory Pressure (critical)
+        handler.simulateMemoryPressure(critical: true);
 
         // 3. Fast Forward time (Debounce is 500ms)
         async.elapse(const Duration(milliseconds: 600));
@@ -76,11 +75,11 @@ void main() {
             staleTime: const Duration(hours: 1));
 
         // Trigger multiple times
-        handler.didHaveMemoryPressure();
+        handler.simulateMemoryPressure(critical: true);
         async.elapse(const Duration(milliseconds: 100));
-        handler.didHaveMemoryPressure();
+        handler.simulateMemoryPressure(critical: true);
         async.elapse(const Duration(milliseconds: 100));
-        handler.didHaveMemoryPressure();
+        handler.simulateMemoryPressure(critical: true);
 
         // Total time elapsed: 200ms. Debounce is 500ms from FIRST call?
         // Logic: if (_debounceTimer?.isActive ?? false) return;
@@ -95,6 +94,47 @@ void main() {
 
         // Pass threshold
         async.elapse(const Duration(milliseconds: 200)); // Total 600ms
+        expect(cache.get('fresh'), isNull);
+      });
+    });
+
+    test('Low pressure removes only stale inactive entries', () {
+      fakeAsync((async) {
+        // Setup stale entry (should be removed)
+        cache.set<String>('stale', 'stale-data',
+            staleTime: const Duration(milliseconds: 1));
+        async.elapse(const Duration(milliseconds: 10)); // Ensure it's stale
+
+        // Setup fresh entry (should be kept)
+        cache.set<String>('fresh', 'fresh-data',
+            staleTime: const Duration(hours: 1));
+
+        expect(cache.get('stale'), isNotNull);
+        expect(cache.get('fresh'), isNotNull);
+
+        // Simulate low memory pressure
+        handler.simulateMemoryPressure(critical: false);
+        async.elapse(const Duration(milliseconds: 600));
+
+        // Stale should be removed, fresh should remain
+        expect(cache.get('stale'), isNull);
+        expect(cache.get('fresh'), isNotNull);
+      });
+    });
+
+    test('Critical pressure removes all inactive entries', () {
+      fakeAsync((async) {
+        // Setup fresh entry (would normally stay with low pressure)
+        cache.set<String>('fresh', 'fresh-data',
+            staleTime: const Duration(hours: 1));
+
+        expect(cache.get('fresh'), isNotNull);
+
+        // Simulate critical memory pressure
+        handler.simulateMemoryPressure(critical: true);
+        async.elapse(const Duration(milliseconds: 600));
+
+        // Even fresh inactive entries should be removed
         expect(cache.get('fresh'), isNull);
       });
     });
