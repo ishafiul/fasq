@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/widgets.dart';
 
 import '../core/mutation_meta.dart';
@@ -5,6 +7,7 @@ import '../core/mutation_snapshot.dart';
 import '../core/query_client_observer.dart';
 import '../core/query_meta.dart';
 import '../core/query_snapshot.dart';
+import '../error/error_context.dart';
 
 class FasqLogger implements QueryClientObserver {
   final bool enabled;
@@ -166,5 +169,72 @@ class FasqLogger implements QueryClientObserver {
 
     final mutationKey = snapshot.variables?.toString() ?? 'mutation';
     _mutationStartTimes.remove(mutationKey);
+  }
+
+  /// Logs an error with optional structured context.
+  ///
+  /// If [context] is provided, logs structured data including query key,
+  /// retry count, network status, and sanitized query options. If [context]
+  /// is null, logs a simple error message for backward compatibility.
+  ///
+  /// [error] - The error that occurred.
+  /// [stackTrace] - Optional stack trace associated with the error.
+  /// [context] - Optional error context with structured query metadata.
+  ///
+  /// Example:
+  /// ```dart
+  /// logger.logError(exception, stackTrace);
+  /// // or with context:
+  /// logger.logError(exception, stackTrace, errorContext);
+  /// ```
+  void logError(
+    Object error, [
+    StackTrace? stackTrace,
+    FasqErrorContext? context,
+  ]) {
+    if (!enabled) return;
+
+    if (context != null) {
+      // Structured logging with context
+      final Map<String, dynamic> structuredLog = {
+        'message': 'Fasq Query Error',
+        'errorType': error.runtimeType.toString(),
+        'errorMessage': error.toString(),
+        'queryKey': context.queryKey.map((e) => e.toString()).toList(),
+        'retryCount': context.retryCount,
+        'staleTimeMs': context.staleTime.inMilliseconds,
+        'networkStatus': context.networkStatus ? 'online' : 'offline',
+        'sanitizedQueryOptions': context.sanitizedQueryOptions,
+      };
+
+      // Use developer.log for structured output in Dart VM
+      // Convert map to a readable string format
+      final logString = _formatStructuredLog(structuredLog);
+      developer.log(
+        logString,
+        name: 'Fasq',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } else {
+      // Backward compatible simple logging
+      developer.log(
+        'Fasq Error: $error',
+        name: 'Fasq',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Formats a structured log map into a readable string.
+  ///
+  /// Converts the map to a key-value format that's easy to read in logs.
+  String _formatStructuredLog(Map<String, dynamic> log) {
+    final buffer = StringBuffer('Fasq Query Error:\n');
+    for (final entry in log.entries) {
+      buffer.writeln('  ${entry.key}: ${entry.value}');
+    }
+    return buffer.toString();
   }
 }

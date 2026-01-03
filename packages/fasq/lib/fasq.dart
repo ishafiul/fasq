@@ -21,6 +21,8 @@ export 'src/circuit_breaker/circuit_state.dart';
 export 'src/circuit_breaker/circuit_stats.dart';
 export 'src/core/cancellation_token.dart';
 export 'src/core/dependent.dart';
+export 'src/error/error_context.dart';
+export 'src/error/error_reporter.dart';
 export 'src/core/infinite_query.dart';
 export 'src/core/infinite_query_options.dart';
 export 'src/core/infinite_query_state.dart';

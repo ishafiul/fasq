@@ -2,11 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
 
 import '../cache/cache_config.dart';
 import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
 import '../circuit_breaker/circuit_breaker_registry.dart';
+import '../error/error_context.dart';
+import '../error/error_reporter.dart';
+import '../logger/fasq_logger.dart';
 import '../performance/isolate_pool.dart';
 import '../performance/metrics_config.dart';
 import '../performance/performance_monitor.dart';
@@ -122,6 +126,7 @@ class QueryClient with WidgetsBindingObserver {
   MetricsConfig _metricsConfig = MetricsConfig();
   Timer? _exportTimer;
   final List<QueryClientObserver> _observers = [];
+  final List<FasqErrorReporter> _errorReporters = [];
   WidgetsBinding? _binding;
 
   String _extractKey(QueryKey queryKey) => queryKey.key;
@@ -137,6 +142,80 @@ class QueryClient with WidgetsBindingObserver {
 
   void clearObservers() {
     _observers.clear();
+  }
+
+  /// Registers an error reporter to receive query error notifications.
+  ///
+  /// The reporter will be called whenever a query fails, providing detailed
+  /// context about the failure. The same reporter instance will not be added
+  /// multiple times.
+  ///
+  /// Example:
+  /// ```dart
+  /// final client = QueryClient();
+  /// client.addErrorReporter(SentryErrorReporter());
+  /// ```
+  ///
+  /// [reporter] - The error reporter to register.
+  void addErrorReporter(FasqErrorReporter reporter) {
+    if (!_errorReporters.contains(reporter)) {
+      _errorReporters.add(reporter);
+    }
+  }
+
+  /// Unregisters an error reporter.
+  ///
+  /// The reporter will no longer receive error notifications. If the reporter
+  /// is not registered, this method does nothing.
+  ///
+  /// [reporter] - The error reporter to unregister.
+  void removeErrorReporter(FasqErrorReporter reporter) {
+    _errorReporters.remove(reporter);
+  }
+
+  /// Dispatches an error context to all registered error reporters.
+  ///
+  /// This method is called internally when a query fails. Each reporter's
+  /// [report] method is called with the error context. If a reporter throws
+  /// an exception, it is caught and logged to prevent breaking the application
+  /// or preventing other reporters from being notified.
+  ///
+  /// [context] - The error context to report.
+  ///
+  /// This method is called from Query class when errors occur.
+  /// Internal use only - not part of the public API.
+  @internal
+  void dispatchError(FasqErrorContext context) {
+    for (final reporter in _errorReporters) {
+      try {
+        reporter.report(context);
+      } catch (e, st) {
+        // Log errors from the reporter itself to avoid breaking the application
+        // and to diagnose reporter issues. Try to use FasqLogger if available,
+        // otherwise fall back to print.
+        _logReporterError(
+          Exception('FasqErrorReporter failed: ${reporter.runtimeType}'),
+          st,
+        );
+      }
+    }
+  }
+
+  /// Logs an error from an error reporter.
+  ///
+  /// Attempts to use FasqLogger if it's registered as an observer,
+  /// otherwise falls back to print.
+  void _logReporterError(Object error, StackTrace stackTrace) {
+    // Try to find FasqLogger in observers
+    for (final observer in _observers) {
+      if (observer is FasqLogger) {
+        observer.logError(error, stackTrace);
+        return;
+      }
+    }
+
+    // Fallback to print if no FasqLogger is available
+    print('Error in FasqErrorReporter: $error\n$stackTrace');
   }
 
   void notifyMutationLoading(
