@@ -122,7 +122,7 @@ void main() {
         expect(() => detector.expectNoLeakedQueries(client), returnsNormally);
       });
 
-      test('throws TestFailure when queries are leaked', () {
+      test('throws Exception when queries are leaked', () {
         final detector = LeakDetector();
         final client = QueryClient();
         final query = client.getQuery<String>(
@@ -134,7 +134,7 @@ void main() {
 
         expect(
           () => detector.expectNoLeakedQueries(client),
-          throwsA(isA<TestFailure>()),
+          throwsA(isA<Exception>()),
         );
       });
 
@@ -150,9 +150,9 @@ void main() {
 
         try {
           detector.expectNoLeakedQueries(client);
-          fail('Expected TestFailure to be thrown');
-        } on TestFailure catch (e) {
-          final message = e.message ?? '';
+          fail('Expected Exception to be thrown');
+        } on Exception catch (e) {
+          final message = e.toString();
           expect(message, contains('leaked-query'));
           expect(message, contains('Created at:'));
         }
@@ -197,7 +197,7 @@ void main() {
             client,
             allowedLeakKeys: {'allowed-query'},
           ),
-          throwsA(isA<TestFailure>()),
+          throwsA(isA<Exception>()),
         );
       });
 
@@ -214,9 +214,9 @@ void main() {
 
         try {
           detector.expectNoLeakedQueries(client);
-          fail('Expected TestFailure to be thrown');
-        } on TestFailure catch (e) {
-          final message = e.message ?? '';
+          fail('Expected Exception to be thrown');
+        } on Exception catch (e) {
+          final message = e.toString();
           expect(message, contains('Held by'));
           expect(message, contains(ownerId));
         }

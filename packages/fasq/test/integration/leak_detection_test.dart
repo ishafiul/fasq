@@ -32,7 +32,7 @@ void main() {
 
       expect(
         () => detector.expectNoLeakedQueries(client),
-        throwsA(isA<TestFailure>()),
+        throwsA(isA<Exception>()),
       );
     });
 
@@ -94,9 +94,9 @@ void main() {
 
       try {
         detector.expectNoLeakedQueries(client);
-        fail('Expected TestFailure to be thrown');
-      } on TestFailure catch (e) {
-        final message = e.message ?? '';
+        fail('Expected Exception to be thrown');
+      } on Exception catch (e) {
+        final message = e.toString();
         expect(message, contains('test-leak-key'));
       }
     });
@@ -111,9 +111,9 @@ void main() {
 
       try {
         detector.expectNoLeakedQueries(client);
-        fail('Expected TestFailure to be thrown');
-      } on TestFailure catch (e) {
-        final message = e.message ?? '';
+        fail('Expected Exception to be thrown');
+      } on Exception catch (e) {
+        final message = e.toString();
         expect(message, contains('Created at:'));
         expect(message, contains('leak_detection_test.dart'));
       }
@@ -130,9 +130,9 @@ void main() {
 
       try {
         detector.expectNoLeakedQueries(client);
-        fail('Expected TestFailure to be thrown');
-      } on TestFailure catch (e) {
-        final message = e.message ?? '';
+        fail('Expected Exception to be thrown');
+      } on Exception catch (e) {
+        final message = e.toString();
         expect(message, contains('Held by'));
         expect(message, contains(ownerId));
       }
@@ -170,9 +170,9 @@ void main() {
 
       try {
         detector.expectNoLeakedQueries(client);
-        fail('Expected TestFailure to be thrown');
-      } on TestFailure catch (e) {
-        final message = e.message ?? '';
+        fail('Expected Exception to be thrown');
+      } on Exception catch (e) {
+        final message = e.toString();
         expect(message, contains('Found 2 leaked query(ies)'));
         expect(message, contains('leak-1'));
         expect(message, contains('leak-2'));
@@ -230,7 +230,7 @@ void main() {
       // Don't remove listener or dispose - this should be detected as a leak
       expect(
         () => detector.expectNoLeakedQueries(client),
-        throwsA(isA<TestFailure>()),
+        throwsA(isA<Exception>()),
       );
     });
   });

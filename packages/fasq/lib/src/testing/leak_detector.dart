@@ -1,5 +1,3 @@
-import 'package:flutter_test/flutter_test.dart';
-
 import '../core/query.dart';
 import '../core/query_client.dart';
 
@@ -167,14 +165,14 @@ class LeakDetector {
 
   /// Asserts that no queries are leaked in the given [QueryClient].
   ///
-  /// Checks all active queries in the [QueryClient] and throws a [TestFailure]
+  /// Checks all active queries in the [QueryClient] and throws an [Exception]
   /// if any queries are found that are not in the [allowedLeakKeys] set.
   ///
   /// [client] - The QueryClient to check for leaked queries.
   /// [allowedLeakKeys] - Optional set of query keys that are allowed to remain
   /// active. Useful for queries that are intentionally kept alive across tests.
   ///
-  /// Throws a [TestFailure] with detailed information about leaked queries,
+  /// Throws an [Exception] with detailed information about leaked queries,
   /// including:
   /// - The query key
   /// - The creation stack trace (where the query was created)
@@ -271,6 +269,6 @@ class LeakDetector {
       buffer.writeln();
     }
 
-    throw TestFailure(buffer.toString());
+    throw Exception(buffer.toString());
   }
 }
