@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import '../cache/cache_entry.dart';
 import '../cache/cache_metrics.dart';
 import '../cache/query_cache.dart';
@@ -16,6 +18,44 @@ import 'query_snapshot.dart';
 import 'query_state.dart';
 import 'query_status.dart';
 import 'utils/fasq_time.dart';
+
+/// Debug information for a Query instance (debug mode only).
+///
+/// Contains stack traces and reference holder information to aid in
+/// identifying memory leaks and debugging query lifecycle issues.
+///
+/// This class is only available in debug builds. All fields are nullable
+/// to handle cases where debug information is not available.
+class QueryDebugInfo {
+  /// Stack trace captured when the Query was created.
+  ///
+  /// Null if the Query was created in a release build or if stack trace
+  /// capture failed.
+  final StackTrace? creationStack;
+
+  /// Map of reference holders and their subscription stack traces.
+  ///
+  /// Keys are owner identifiers (provided via ownerId or auto-generated).
+  /// Values are stack traces captured when listeners were added.
+  /// Empty map if no listeners are currently active.
+  final Map<Object, StackTrace> referenceHolders;
+
+  /// Creates a new [QueryDebugInfo] instance.
+  ///
+  /// [creationStack] - Stack trace from Query creation (may be null).
+  /// [referenceHolders] - Map of active reference holders (may be empty).
+  const QueryDebugInfo({
+    this.creationStack,
+    required this.referenceHolders,
+  });
+
+  @override
+  String toString() {
+    return 'QueryDebugInfo('
+        'creationStack: ${creationStack != null ? "captured" : "null"}, '
+        'referenceHolders: ${referenceHolders.length})';
+  }
+}
 
 /// A query represents an async operation with managed state and lifecycle.
 ///
@@ -88,6 +128,7 @@ class Query<T> {
   int _referenceCount = 0;
   Timer? _disposeTimer;
   bool _isDisposed = false;
+  int _holderIdCounter = 0;
 
   // Cancellation tracking
   CancellationToken? _currentFetchToken;
@@ -96,6 +137,28 @@ class Query<T> {
   DateTime? _lastFetchStart;
   Duration? _lastFetchDuration;
   final List<Duration> _fetchHistory = [];
+
+  // Debug instrumentation for leak detection
+  /// Stack trace captured when this Query was created (debug mode only).
+  ///
+  /// This field is only populated in debug builds to help identify where
+  /// leaked queries were instantiated. It is always null in release builds
+  /// to avoid performance overhead.
+  final StackTrace? _debugCreationStack;
+
+  /// Map tracking reference holders and their subscription stack traces (debug mode only).
+  ///
+  /// Keys are owner identifiers (provided via ownerId or auto-generated).
+  /// Values are stack traces captured when the listener was added.
+  /// This field is only populated in debug builds to help identify which
+  /// listeners are keeping a Query alive. It is always null in release builds.
+  final Map<Object, StackTrace>? _debugHolders;
+
+  /// List of owner IDs in the order they were added (for proper removal tracking).
+  ///
+  /// Used to determine which holder to remove when removeListener is called
+  /// without a specific ownerId. Only populated in debug mode.
+  final List<Object>? _debugHolderOrder;
 
   Query({
     required this.queryKey,
@@ -113,7 +176,10 @@ class Query<T> {
           'Either queryFn or queryFnWithToken must be provided',
         ),
         key = queryKey.key,
-        _currentState = QueryState<T>.idle() {
+        _currentState = QueryState<T>.idle(),
+        _debugCreationStack = kDebugMode ? StackTrace.current : null,
+        _debugHolders = kDebugMode ? <Object, StackTrace>{} : null,
+        _debugHolderOrder = kDebugMode ? <Object>[] : null {
     _controller = StreamController<QueryState<T>>.broadcast();
 
     // Set initial state based on cache snapshot and staleness
@@ -164,6 +230,39 @@ class Query<T> {
 
   /// Whether this query has been disposed.
   bool get isDisposed => _isDisposed;
+
+  /// Stack trace captured when this Query was created (debug mode only).
+  ///
+  /// Returns null in release builds. Used for leak detection and debugging.
+  StackTrace? get debugCreationStack => _debugCreationStack;
+
+  /// Map of reference holders and their subscription stack traces (debug mode only).
+  ///
+  /// Returns null in release builds. Keys are owner identifiers, values are
+  /// stack traces captured when listeners were added. Used for leak detection.
+  Map<Object, StackTrace>? get debugReferenceHolders =>
+      kDebugMode ? Map.unmodifiable(_debugHolders ?? {}) : null;
+
+  /// Debug information for this Query (debug mode only).
+  ///
+  /// Returns a [QueryDebugInfo] object containing the creation stack trace
+  /// and reference holders map. Returns null in release builds.
+  ///
+  /// Use this getter to inspect debug information for leak detection:
+  /// ```dart
+  /// final debugInfo = query.debugInfo;
+  /// if (debugInfo != null) {
+  ///   print('Created at: ${debugInfo.creationStack}');
+  ///   print('Held by: ${debugInfo.referenceHolders.keys}');
+  /// }
+  /// ```
+  QueryDebugInfo? get debugInfo {
+    if (!kDebugMode) return null;
+    return QueryDebugInfo(
+      creationStack: _debugCreationStack,
+      referenceHolders: Map.unmodifiable(_debugHolders ?? {}),
+    );
+  }
 
   /// Get performance metrics for this query
   QueryMetrics get metrics => QueryMetrics(
@@ -233,12 +332,23 @@ class Query<T> {
   /// Increments the reference count and triggers auto-fetch if this is
   /// the first subscriber and the query has no data yet.
   ///
+  /// [ownerId] - Optional identifier for the object holding this reference.
+  /// If not provided, a unique identifier will be generated. Used in debug
+  /// mode to track which listeners are keeping the query alive.
+  ///
   /// Called automatically by [QueryBuilder] widgets.
-  void addListener() {
+  void addListener([Object? ownerId]) {
     if (_isDisposed) return;
 
     _referenceCount++;
     _cancelDisposal();
+
+    // Track reference holder in debug mode
+    if (kDebugMode && _debugHolders != null && _debugHolderOrder != null) {
+      final holderId = ownerId ?? _generateHolderId();
+      _debugHolders![holderId] = StackTrace.current;
+      _debugHolderOrder!.add(holderId);
+    }
 
     if (_referenceCount == 1 && !state.hasValue) {
       fetch().catchError((_) {
@@ -251,17 +361,44 @@ class Query<T> {
   ///
   /// Decrements the reference count and schedules disposal if count reaches zero.
   ///
+  /// [ownerId] - Optional identifier for the specific listener to remove.
+  /// If not provided, removes the most recently added listener. Used in debug
+  /// mode to track which listeners are being removed.
+  ///
   /// Called automatically by [QueryBuilder] widgets on disposal.
-  void removeListener() {
+  void removeListener([Object? ownerId]) {
     if (_isDisposed) return;
 
     // Prevent negative reference count
     if (_referenceCount > 0) {
       _referenceCount--;
+
+      // Remove reference holder tracking in debug mode
+      if (kDebugMode && _debugHolders != null && _debugHolderOrder != null) {
+        if (_debugHolderOrder!.isNotEmpty) {
+          final holderIdToRemove = ownerId ?? _debugHolderOrder!.last;
+          _debugHolders!.remove(holderIdToRemove);
+          // Remove from order list (removes first occurrence if ownerId provided,
+          // or last if not provided)
+          if (ownerId != null) {
+            _debugHolderOrder!.remove(holderIdToRemove);
+          } else {
+            _debugHolderOrder!.removeLast();
+          }
+        }
+      }
+
       if (_referenceCount == 0) {
         _scheduleDisposal();
       }
     }
+  }
+
+  /// Generates a unique identifier for a listener when ownerId is not provided.
+  ///
+  /// Used in debug mode to track listeners that don't provide an ownerId.
+  Object _generateHolderId() {
+    return 'holder_${_holderIdCounter++}';
   }
 
   /// Executes the async operation and updates the query state.

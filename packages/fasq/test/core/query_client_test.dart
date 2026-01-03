@@ -190,5 +190,88 @@ void main() {
       expect(queryKey, isA<QueryKey>());
       expect(queryKey.key, 'test-key');
     });
+
+    group('activeQueryDebugInfo', () {
+      test('returns empty iterable when no queries exist', () {
+        final client = QueryClient();
+        final debugInfos = client.activeQueryDebugInfo;
+
+        expect(debugInfos, isEmpty);
+      });
+
+      test('returns debug info for active queries', () {
+        final client = QueryClient();
+        client.getQuery<String>(
+          'key1'.toQueryKey(),
+          queryFn: () async => 'data1',
+        );
+        client.getQuery<String>(
+          'key2'.toQueryKey(),
+          queryFn: () async => 'data2',
+        );
+
+        final debugInfos = client.activeQueryDebugInfo.toList();
+
+        expect(debugInfos.length, 2);
+        expect(debugInfos.every((info) => info.creationStack != null), isTrue);
+        expect(
+            debugInfos.every((info) =>
+                info.referenceHolders.isNotEmpty ||
+                info.referenceHolders.isEmpty),
+            isTrue);
+      });
+
+      test('does not include disposed queries', () {
+        final client = QueryClient();
+        final queryKey1 = 'key1'.toQueryKey();
+        final queryKey2 = 'key2'.toQueryKey();
+
+        client.getQuery<String>(
+          queryKey1,
+          queryFn: () async => 'data1',
+        );
+        client.getQuery<String>(
+          queryKey2,
+          queryFn: () async => 'data2',
+        );
+
+        expect(client.activeQueryDebugInfo.length, 2);
+
+        client.removeQuery(queryKey1);
+
+        final debugInfos = client.activeQueryDebugInfo.toList();
+        expect(debugInfos.length, 1);
+      });
+
+      test('includes reference holders in debug info', () {
+        final client = QueryClient();
+        final query = client.getQuery<String>(
+          'test-key'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        const ownerId = 'test-widget';
+        query.addListener(ownerId);
+
+        final debugInfos = client.activeQueryDebugInfo.toList();
+        expect(debugInfos.length, 1);
+
+        final debugInfo = debugInfos.first;
+        expect(debugInfo.referenceHolders.containsKey(ownerId), isTrue);
+        expect(debugInfo.referenceHolders[ownerId], isA<StackTrace>());
+      });
+
+      test('filters out queries with null debugInfo', () {
+        final client = QueryClient();
+        client.getQuery<String>(
+          'test-key'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        final debugInfos = client.activeQueryDebugInfo.toList();
+        expect(debugInfos.length, 1);
+        expect(debugInfos.first.creationStack, isNotNull);
+      });
+    });
   });
 }

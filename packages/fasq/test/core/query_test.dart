@@ -314,5 +314,224 @@ void main() {
       expect(fetchCount, 2);
       expect(query3.state.data, 'data-2');
     });
+
+    group('Debug Instrumentation', () {
+      test('debugCreationStack is captured in debug mode', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        // In debug mode, stack trace should be captured
+        expect(query.debugCreationStack, isNotNull);
+        expect(query.debugCreationStack, isA<StackTrace>());
+      });
+
+      test('debugCreationStack contains creation location', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        final stackTrace = query.debugCreationStack;
+        expect(stackTrace, isNotNull);
+
+        // Verify stack trace contains relevant information
+        final stackString = stackTrace.toString();
+        expect(stackString, isNotEmpty);
+        // Stack trace should contain test file reference
+        expect(stackString, contains('query_test.dart'));
+      });
+
+      test('debugReferenceHolders tracks listeners with ownerId', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        expect(query.debugReferenceHolders, isNotNull);
+        expect(query.debugReferenceHolders!.isEmpty, isTrue);
+
+        // Add listener with ownerId
+        const ownerId = 'test-widget';
+        query.addListener(ownerId);
+
+        expect(query.referenceCount, 1);
+        expect(query.debugReferenceHolders!.length, 1);
+        expect(query.debugReferenceHolders!.containsKey(ownerId), isTrue);
+        expect(query.debugReferenceHolders![ownerId], isNotNull);
+        expect(query.debugReferenceHolders![ownerId], isA<StackTrace>());
+      });
+
+      test('debugReferenceHolders tracks listeners without ownerId', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        // Add listener without ownerId (generates unique ID)
+        query.addListener();
+
+        expect(query.referenceCount, 1);
+        expect(query.debugReferenceHolders!.length, 1);
+        expect(query.debugReferenceHolders!.keys.any((k) => k.toString().startsWith('holder_')), isTrue);
+      });
+
+      test('debugReferenceHolders removes listener on removeListener', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        const ownerId = 'test-widget';
+        query.addListener(ownerId);
+
+        expect(query.debugReferenceHolders!.length, 1);
+        expect(query.referenceCount, 1);
+
+        query.removeListener(ownerId);
+
+        expect(query.debugReferenceHolders!.isEmpty, isTrue);
+        expect(query.referenceCount, 0);
+      });
+
+      test('debugReferenceHolders removes most recent listener when ownerId not specified', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        const ownerId1 = 'widget-1';
+        const ownerId2 = 'widget-2';
+
+        query.addListener(ownerId1);
+        query.addListener(ownerId2);
+
+        expect(query.referenceCount, 2);
+        expect(query.debugReferenceHolders!.length, 2);
+
+        // Remove without specifying ownerId (should remove most recent)
+        query.removeListener();
+
+        expect(query.referenceCount, 1);
+        expect(query.debugReferenceHolders!.length, 1);
+        expect(query.debugReferenceHolders!.containsKey(ownerId1), isTrue);
+        expect(query.debugReferenceHolders!.containsKey(ownerId2), isFalse);
+      });
+
+      test('debugReferenceHolders tracks multiple listeners correctly', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        query.addListener('widget-1');
+        query.addListener('widget-2');
+        query.addListener('widget-3');
+
+        expect(query.referenceCount, 3);
+        expect(query.debugReferenceHolders!.length, 3);
+        expect(query.debugReferenceHolders!.keys, containsAll(['widget-1', 'widget-2', 'widget-3']));
+
+        // Verify each has a stack trace
+        for (final ownerId in ['widget-1', 'widget-2', 'widget-3']) {
+          expect(query.debugReferenceHolders![ownerId], isNotNull);
+          expect(query.debugReferenceHolders![ownerId], isA<StackTrace>());
+        }
+      });
+
+      test('debugReferenceHolders referenceCount matches map size', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        query.addListener('widget-1');
+        query.addListener('widget-2');
+
+        expect(query.referenceCount, equals(query.debugReferenceHolders!.length));
+
+        query.removeListener('widget-1');
+
+        expect(query.referenceCount, equals(query.debugReferenceHolders!.length));
+      });
+
+      test('debugInfo returns QueryDebugInfo in debug mode', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        final debugInfo = query.debugInfo;
+        expect(debugInfo, isNotNull);
+        expect(debugInfo, isA<QueryDebugInfo>());
+      });
+
+      test('debugInfo contains creation stack trace', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        final debugInfo = query.debugInfo;
+        expect(debugInfo, isNotNull);
+        expect(debugInfo!.creationStack, isNotNull);
+        expect(debugInfo.creationStack, isA<StackTrace>());
+      });
+
+      test('debugInfo contains reference holders map', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        query.addListener('widget-1');
+        query.addListener('widget-2');
+
+        final debugInfo = query.debugInfo;
+        expect(debugInfo, isNotNull);
+        expect(debugInfo!.referenceHolders, isA<Map<Object, StackTrace>>());
+        expect(debugInfo.referenceHolders.length, 2);
+        expect(debugInfo.referenceHolders.containsKey('widget-1'), isTrue);
+        expect(debugInfo.referenceHolders.containsKey('widget-2'), isTrue);
+      });
+
+      test('debugInfo referenceHolders map is unmodifiable', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        query.addListener('widget-1');
+
+        final debugInfo = query.debugInfo;
+        expect(debugInfo, isNotNull);
+
+        // Attempting to modify should throw
+        expect(
+          () => debugInfo!.referenceHolders['new'] = StackTrace.current,
+          throwsA(isA<UnsupportedError>()),
+        );
+      });
+
+      test('debugInfo updates when listeners are added and removed', () {
+        final query = Query<String>(
+          queryKey: 'test'.toQueryKey(),
+          queryFn: () async => 'data',
+        );
+
+        expect(query.debugInfo!.referenceHolders.isEmpty, isTrue);
+
+        query.addListener('widget-1');
+        expect(query.debugInfo!.referenceHolders.length, 1);
+
+        query.addListener('widget-2');
+        expect(query.debugInfo!.referenceHolders.length, 2);
+
+        query.removeListener('widget-1');
+        expect(query.debugInfo!.referenceHolders.length, 1);
+        expect(query.debugInfo!.referenceHolders.containsKey('widget-2'), isTrue);
+      });
+    });
   });
 }
