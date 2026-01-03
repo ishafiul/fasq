@@ -1,6 +1,6 @@
 name: fasq_riverpod
 description: Riverpod adapter for FASQ (Flutter Async State Query) - async state management with Riverpod
-version: 0.3.0
+version: 0.3.0+1
 repository: https://github.com/ishafiul/fasq
 homepage: https://fasq.shafi.dev
 
@@ -12,7 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.4.0
-  fasq: ^0.4.0
+  fasq: ^0.4.1
 
 dev_dependencies:
   flutter_test:
