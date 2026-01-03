@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../cache/cache_config.dart';
@@ -414,6 +415,56 @@ class QueryClient with WidgetsBindingObserver {
   /// Returns the registry instance if one was provided during initialization,
   /// or `null` if circuit breaker functionality is disabled.
   CircuitBreakerRegistry? get circuitBreakerRegistry => _circuitBreakerRegistry;
+
+  /// Returns debug information for all active queries (debug mode only).
+  ///
+  /// Iterates through the QueryClient's internal registry of active queries
+  /// and returns an iterable of their [QueryDebugInfo] objects. This is used
+  /// by leak detection tools to identify queries that are still alive but
+  /// should have been disposed.
+  ///
+  /// Returns an empty iterable in release builds.
+  ///
+  /// Example:
+  /// ```dart
+  /// final debugInfos = client.activeQueryDebugInfo;
+  /// for (final info in debugInfos) {
+  ///   print('Query created at: ${info.creationStack}');
+  ///   print('Held by: ${info.referenceHolders.keys}');
+  /// }
+  /// ```
+  Iterable<QueryDebugInfo> get activeQueryDebugInfo {
+    if (!kDebugMode) return const <QueryDebugInfo>[];
+    return _queries.values
+        .map((query) => query.debugInfo)
+        .whereType<QueryDebugInfo>();
+  }
+
+  /// Returns a map of query keys to their debug information (debug mode only).
+  ///
+  /// This is useful for leak detection tools that need to know which query
+  /// keys are associated with each debug info object.
+  ///
+  /// Returns an empty map in release builds.
+  ///
+  /// Example:
+  /// ```dart
+  /// final debugInfoMap = client.activeQueryDebugInfoMap;
+  /// for (final entry in debugInfoMap.entries) {
+  ///   print('Query ${entry.key} created at: ${entry.value.creationStack}');
+  /// }
+  /// ```
+  Map<String, QueryDebugInfo> get activeQueryDebugInfoMap {
+    if (!kDebugMode) return const <String, QueryDebugInfo>{};
+    final map = <String, QueryDebugInfo>{};
+    for (final entry in _queries.entries) {
+      final debugInfo = entry.value.debugInfo;
+      if (debugInfo != null) {
+        map[entry.key] = debugInfo;
+      }
+    }
+    return map;
+  }
 
   /// Invalidates a single query by key.
   ///

@@ -1,0 +1,349 @@
+# Leak Detection & Prevention
+
+FASQ includes built-in leak detection tools to help identify and prevent memory leaks in your Flutter applications. These features are **only available in debug mode** (`kDebugMode`) to avoid performance overhead in production builds.
+
+## Overview
+
+Memory leaks can occur when `Query` objects are not properly disposed after use. This can happen when:
+
+- Widgets don't properly clean up queries on disposal
+- Listeners are added but never removed
+- Queries are kept alive by circular references
+
+FASQ's leak detection system provides:
+
+- **Debug Instrumentation**: Automatic tracking of query creation and reference holders
+- **Leak Detection Tools**: Utilities to identify leaked queries in tests
+- **Detailed Error Messages**: Stack traces showing where leaks originate
+
+## Debug Instrumentation
+
+### QueryDebugInfo
+
+Every `Query` instance in debug mode automatically captures:
+
+- **Creation Stack Trace**: Where the query was created
+- **Reference Holders**: What objects are keeping the query alive (listeners)
+
+This information is exposed through the `debugInfo` getter:
+
+```dart
+final query = client.getQuery<String>('user', () async => fetchUser());
+final debugInfo = query.debugInfo;
+
+if (debugInfo != null) {
+  print('Created at: ${debugInfo.creationStack}');
+  print('Held by: ${debugInfo.referenceHolders.keys}');
+}
+```
+
+### QueryClient.activeQueryDebugInfo
+
+The `QueryClient` provides access to debug information for all active queries:
+
+```dart
+final client = QueryClient();
+final debugInfos = client.activeQueryDebugInfo;
+
+for (final info in debugInfos) {
+  print('Query created at: ${info.creationStack}');
+  print('Held by: ${info.referenceHolders.keys}');
+}
+```
+
+Or get a map of query keys to debug info:
+
+```dart
+final debugInfoMap = client.activeQueryDebugInfoMap;
+
+for (final entry in debugInfoMap.entries) {
+  print('Query ${entry.key}:');
+  print('  Created at: ${entry.value.creationStack}');
+  print('  Held by: ${entry.value.referenceHolders.keys}');
+}
+```
+
+## LeakDetector
+
+The `LeakDetector` class provides utilities for detecting memory leaks in tests.
+
+### Basic Usage
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:fasq/src/testing/leak_detector.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('My Tests', () {
+    late QueryClient client;
+    late LeakDetector detector;
+
+    setUp(() {
+      client = QueryClient();
+      detector = LeakDetector();
+    });
+
+    tearDown(() async {
+      // Check for leaks after each test
+      detector.expectNoLeakedQueries(client);
+      await QueryClient.resetForTesting();
+    });
+
+    test('my test', () {
+      final query = client.getQuery<String>('test', () async => 'data');
+      query.addListener();
+
+      // ... test code ...
+
+      query.removeListener(); // Important: clean up!
+    });
+  });
+}
+```
+
+### expectNoLeakedQueries
+
+The primary method for leak detection. It throws a `TestFailure` if any queries are still active:
+
+```dart
+final detector = LeakDetector();
+final client = QueryClient();
+
+// Create and use a query
+final query = client.getQuery<String>('user', () async => fetchUser());
+query.addListener();
+
+// ... use the query ...
+
+// Clean up
+query.removeListener();
+
+// Verify no leaks
+detector.expectNoLeakedQueries(client); // ✅ Passes
+```
+
+If a leak is detected, you'll get a detailed error message:
+
+```
+Found 1 leaked query(ies):
+
+Query: user
+──────────────────────────────────────────────────
+Created at:
+#0      Query.new (package:fasq/src/core/query.dart:123:45)
+#1      QueryClient.getQuery (package:fasq/src/core/query_client.dart:282:15)
+#2      main.<anonymous closure> (test/my_test.dart:15:20)
+
+Held by 1 reference holder(s):
+  - test-widget
+    Stack trace:
+    #0      Query.addListener (package:fasq/src/core/query.dart:340:12)
+    #1      main.<anonymous closure> (test/my_test.dart:16:20)
+    ... (5 more lines)
+```
+
+### Allowing Specific Queries
+
+Sometimes you intentionally want to keep queries alive across tests. Use `allowedLeakKeys`:
+
+```dart
+final persistentQuery = client.getQuery<String>(
+  'persistent-data',
+  () async => fetchPersistentData(),
+);
+
+detector.expectNoLeakedQueries(
+  client,
+  allowedLeakKeys: {'persistent-data'}, // This query is allowed
+);
+```
+
+### Tracking Objects for Garbage Collection
+
+For advanced use cases, you can track arbitrary objects to verify they're garbage collected:
+
+```dart
+final detector = LeakDetector();
+final query = client.getQuery<String>('test', () async => 'data');
+
+// Track the query for GC
+detector.trackForGc(query, debugLabel: 'test-query');
+
+// Use and dispose the query
+query.addListener();
+query.removeListener();
+query.dispose();
+
+// Make query unreachable
+query = null;
+
+// Wait for GC and verify
+final allGc = await detector.verifyAllTrackedObjectsGc();
+expect(allGc, isTrue);
+```
+
+### Integration with Widget Tests
+
+For widget tests, ensure queries are properly disposed after widget teardown:
+
+```dart
+testWidgets('widget test with leak detection', (tester) async {
+  final detector = LeakDetector();
+  final client = QueryClient();
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: QueryBuilder<String>(
+        queryKey: 'test'.toQueryKey(),
+        queryFn: () async => 'data',
+        builder: (context, state) => Text(state.data ?? 'loading'),
+      ),
+    ),
+  );
+
+  await tester.pumpAndSettle();
+
+  // Remove the widget
+  await tester.pumpWidget(Container());
+
+  // Verify no leaks
+  detector.expectNoLeakedQueries(client);
+});
+```
+
+## Best Practices
+
+### 1. Always Clean Up in Tests
+
+```dart
+test('my test', () {
+  final query = client.getQuery<String>('test', () async => 'data');
+  query.addListener();
+
+  // ... test code ...
+
+  // Always clean up!
+  query.removeListener();
+  query.dispose(); // Or let QueryClient handle it
+});
+```
+
+### 2. Use tearDown for Automatic Checking
+
+```dart
+tearDown(() {
+  detector.expectNoLeakedQueries(client);
+});
+```
+
+### 3. Check After Widget Teardown
+
+```dart
+testWidgets('widget test', (tester) async {
+  // ... test code ...
+
+  await tester.pumpWidget(Container()); // Remove widget
+
+  detector.expectNoLeakedQueries(client); // Check after teardown
+});
+```
+
+### 4. Use Allowed Leaks Sparingly
+
+Only use `allowedLeakKeys` when you have a legitimate reason to keep queries alive:
+
+```dart
+// Good: Persistent cache that should survive tests
+detector.expectNoLeakedQueries(
+  client,
+  allowedLeakKeys: {'persistent-cache'},
+);
+
+// Bad: Using allowedLeakKeys to hide actual leaks
+detector.expectNoLeakedQueries(
+  client,
+  allowedLeakKeys: {'leaked-query'}, // Fix the leak instead!
+);
+```
+
+## Debug Mode Only
+
+All leak detection features are **only available in debug mode**. In release builds:
+
+- `Query.debugInfo` returns `null`
+- `QueryClient.activeQueryDebugInfo` returns an empty iterable
+- `LeakDetector` methods still work but won't have debug information
+
+This ensures zero performance overhead in production.
+
+## Troubleshooting
+
+### "Found X leaked query(ies)" Error
+
+If you see this error:
+
+1. **Check the creation stack trace**: This shows where the query was created
+2. **Check the reference holders**: This shows what's keeping the query alive
+3. **Ensure proper cleanup**: Make sure you're calling `removeListener()` and/or `dispose()`
+
+### Queries Not Being Disposed
+
+If queries aren't being disposed even after removing listeners:
+
+1. **Check disposal delay**: Queries are disposed after a delay (default: 5 seconds) when reference count reaches zero
+2. **Use `query.dispose()`**: For immediate disposal in tests
+3. **Use `client.removeQuery()`**: To force removal from the registry
+
+### False Positives
+
+If you're getting false positives:
+
+1. **Wait for disposal delay**: Queries aren't disposed immediately
+2. **Check for active listeners**: Make sure all listeners are removed
+3. **Use `allowedLeakKeys`**: For queries that should remain active
+
+## API Reference
+
+### QueryDebugInfo
+
+```dart
+class QueryDebugInfo {
+  final StackTrace? creationStack;
+  final Map<Object, StackTrace> referenceHolders;
+}
+```
+
+### LeakDetector
+
+```dart
+class LeakDetector {
+  // Track an object for garbage collection
+  void trackForGc(Object object, {String? debugLabel});
+
+  // Verify all tracked objects are GC'd
+  Future<bool> verifyAllTrackedObjectsGc({Duration timeout});
+
+  // Get list of leaked objects
+  List<String> getLeakedObjects();
+
+  // Clear tracking information
+  void clearTracking();
+
+  // Assert no queries are leaked
+  void expectNoLeakedQueries(
+    QueryClient client, {
+    Set<String>? allowedLeakKeys,
+  });
+}
+```
+
+### QueryClient
+
+```dart
+// Get debug info for all active queries
+Iterable<QueryDebugInfo> get activeQueryDebugInfo;
+
+// Get map of query keys to debug info
+Map<String, QueryDebugInfo> get activeQueryDebugInfoMap;
+```
