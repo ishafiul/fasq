@@ -283,5 +283,49 @@ void main() {
 
       await smallCache.dispose();
     });
+    test('trim with critical=false removes only stale inactive entries', () {
+      // Active entry (should keep)
+      cache.set<String>('active', 'data');
+      // Verify initial state
+      expect(cache.get<String>('active'), isNotNull);
+
+      // 1. Fresh inactive (should keep)
+      cache.set<String>('fresh', 'data', staleTime: const Duration(hours: 1));
+
+      // 2. Stale inactive (should remove)
+      cache.set<String>('stale', 'data',
+          staleTime: const Duration(milliseconds: 1) // Instant stale
+          );
+    });
+
+    test('trim removes old stale entries', () async {
+      // Setup stale entry
+      cache.set<String>('stale', 'data',
+          staleTime: const Duration(milliseconds: 1));
+      await Future.delayed(
+          const Duration(milliseconds: 10)); // Ensure it's stale
+
+      // Setup fresh entry
+      cache.set<String>('fresh', 'data', staleTime: const Duration(hours: 1));
+
+      expect(cache.get<String>('stale'), isNotNull);
+      expect(cache.get<String>('fresh'), isNotNull);
+
+      cache.trim(critical: false);
+
+      expect(cache.get<String>('stale'), isNull); // Removed
+      expect(cache.get<String>('fresh'), isNotNull); // Kept
+    });
+
+    test('trim(critical: true) removes all inactive entries', () async {
+      // Setup fresh entry (would normally stay)
+      cache.set<String>('fresh', 'data', staleTime: const Duration(hours: 1));
+
+      expect(cache.get<String>('fresh'), isNotNull);
+
+      cache.trim(critical: true);
+
+      expect(cache.get<String>('fresh'), isNull); // Removed due to critical
+    });
   });
 }
