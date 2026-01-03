@@ -123,3 +123,48 @@ QueryBuilder<User>(
 When the circuit breaker opens, requests are immediately rejected with a `CircuitBreakerOpenException`, allowing you to handle the failure gracefully (e.g., show cached data or a fallback UI).
 
 For complete configuration details, state machine behavior, and best practices, see the [Circuit Breaker documentation](/core/advanced/circuit-breaker).
+
+## Error Tracking & Reporting
+
+FASQ includes a comprehensive error tracking system that captures rich context when queries fail, making it easy to diagnose production issues and integrate with external error reporting services.
+
+### Quick Integration
+
+Integrate with Sentry, Crashlytics, or any error tracking service in just a few lines:
+
+```dart
+class SentryErrorReporter implements FasqErrorReporter {
+  @override
+  void report(FasqErrorContext context) {
+    Sentry.captureException(
+      context.error,
+      stackTrace: context.stackTrace,
+      hint: Hint.withMap({
+        'queryKey': context.queryKey.join('/'),
+        'retryCount': context.retryCount,
+        'networkStatus': context.networkStatus ? 'online' : 'offline',
+      }),
+    );
+  }
+}
+
+// Register it
+final client = QueryClient();
+client.addErrorReporter(SentryErrorReporter());
+```
+
+### What Gets Reported
+
+When a query fails, FASQ automatically captures:
+
+- **Query Key**: Which query failed
+- **Retry Count**: How many retries were attempted
+- **Network Status**: Whether the device was online
+- **Error & Stack Trace**: The actual error that occurred
+- **Sanitized Options**: Safe query configuration (PII automatically removed)
+
+### PII Protection
+
+FASQ automatically sanitizes query options to prevent sensitive data leaks. Sensitive fields like callbacks, user-specific metadata, and authentication tokens are excluded from error reports by default.
+
+For complete documentation on error tracking, including PII sanitization details, integration examples, and best practices, see [Error Tracking](/docs/core/advanced/error-tracking).

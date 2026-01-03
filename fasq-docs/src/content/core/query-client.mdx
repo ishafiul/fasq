@@ -135,6 +135,66 @@ client.removeObserver(myObserver);
 client.clearObservers();
 ```
 
+## Error Reporters
+
+`QueryClient` supports error reporters that receive detailed context when queries fail. This is useful for integrating with external error tracking services like Sentry or Crashlytics.
+
+### Adding Error Reporters
+
+```dart
+final client = QueryClient();
+
+// Add error reporter
+client.addErrorReporter(SentryErrorReporter());
+
+// You can add multiple reporters
+client.addErrorReporter(CrashlyticsErrorReporter());
+client.addErrorReporter(CustomErrorReporter());
+```
+
+### Error Reporter Interface
+
+Implement the `FasqErrorReporter` interface to create custom reporters:
+
+```dart
+class SentryErrorReporter implements FasqErrorReporter {
+  @override
+  void report(FasqErrorContext context) {
+    Sentry.captureException(
+      context.error,
+      stackTrace: context.stackTrace,
+      hint: Hint.withMap({
+        'queryKey': context.queryKey.join('/'),
+        'retryCount': context.retryCount,
+        'networkStatus': context.networkStatus ? 'online' : 'offline',
+      }),
+    );
+  }
+}
+```
+
+### Error Context
+
+When a query fails, reporters receive a `FasqErrorContext` containing:
+
+- Query key that failed
+- Retry count
+- Network status
+- Error and stack trace
+- Sanitized query options (PII automatically removed)
+
+### Managing Reporters
+
+```dart
+// Add reporter
+client.addErrorReporter(myReporter);
+
+// Remove reporter
+client.removeErrorReporter(myReporter);
+```
+
+For complete documentation on error tracking, including PII sanitization, integration examples, and best practices, see [Error Tracking](/docs/core/advanced/error-tracking).
+
 ## Performance Metrics
 
 Fasq provides built-in performance monitoring to help you understand your app's query behavior and optimize performance.
@@ -189,19 +249,21 @@ For more details, see the [Performance Monitoring](/docs/core/advanced/performan
 
 ## API Reference
 
-| Method | Description |
-|--------|-------------|
-| `fetchQuery` | Fetches a query and returns the result (throws on error). |
-| `prefetchQuery` | Fetches a query and stores it in cache (no return, safe). |
-| `getQueryData` | Synchronously returns the current data in cache. |
-| `setQueryData` | Synchronously updates the data in cache. |
-| `invalidateQuery` | Marks queries as stale and potentially refetches them. |
-| `cancelQuery` | Cancels any outgoing fetches for a query. |
-| `resetQuery` | Resets a query to its initial state. |
-| `addObserver`     | Adds a `QueryClientObserver` to monitor query/mutation events. |
-| `removeObserver`  | Removes an observer from the client.                           |
-| `clearObservers`  | Removes all observers from the client.                         |
-| `getMetrics`                | Returns a snapshot of global performance metrics.         |
-| `getQueryMetrics`           | Returns performance metrics for a specific query.         |
-| `configureMetricsExporters` | Configures metrics exporters and auto-export.             |
-| `exportMetricsManually`     | Manually triggers an immediate metrics export.            |
+| Method                      | Description                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `fetchQuery`                | Fetches a query and returns the result (throws on error).      |
+| `prefetchQuery`             | Fetches a query and stores it in cache (no return, safe).      |
+| `getQueryData`              | Synchronously returns the current data in cache.               |
+| `setQueryData`              | Synchronously updates the data in cache.                       |
+| `invalidateQuery`           | Marks queries as stale and potentially refetches them.         |
+| `cancelQuery`               | Cancels any outgoing fetches for a query.                      |
+| `resetQuery`                | Resets a query to its initial state.                           |
+| `addObserver`               | Adds a `QueryClientObserver` to monitor query/mutation events. |
+| `removeObserver`            | Removes an observer from the client.                           |
+| `clearObservers`            | Removes all observers from the client.                         |
+| `addErrorReporter`          | Adds an error reporter to receive query failure notifications. |
+| `removeErrorReporter`       | Removes an error reporter from the client.                     |
+| `getMetrics`                | Returns a snapshot of global performance metrics.              |
+| `getQueryMetrics`           | Returns performance metrics for a specific query.              |
+| `configureMetricsExporters` | Configures metrics exporters and auto-export.                  |
+| `exportMetricsManually`     | Manually triggers an immediate metrics export.                 |
