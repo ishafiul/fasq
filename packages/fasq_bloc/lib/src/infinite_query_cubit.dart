@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:fasq_bloc/fasq_bloc.dart';
 
 /// Base cubit that manages a paginated FASQ [InfiniteQuery].
@@ -7,9 +5,9 @@ import 'package:fasq_bloc/fasq_bloc.dart';
 /// Subclasses declare pagination parameters and can call helper methods like
 /// [fetchNextPage] to drive loading from the UI.
 abstract class InfiniteQueryCubit<TData, TParam>
-    extends Cubit<InfiniteQueryState<TData, TParam>> {
+    extends Cubit<InfiniteQueryState<TData, TParam>>
+    with FasqSubscriptionMixin<InfiniteQueryState<TData, TParam>> {
   late final InfiniteQuery<TData, TParam> _query;
-  StreamSubscription<InfiniteQueryState<TData, TParam>>? _subscription;
 
   InfiniteQueryCubit() : super(InfiniteQueryState<TData, TParam>.idle()) {
     _initialize();
@@ -26,13 +24,16 @@ abstract class InfiniteQueryCubit<TData, TParam>
     _query = client.getInfiniteQuery<TData, TParam>(queryKey, queryFn,
         options: options);
 
-    _subscription = _query.stream.listen((newState) {
-      if (!isClosed) {
-        emit(newState);
-      }
-    });
-
     emit(_query.state);
+
+    subscribeToInfiniteQuery<TData, TParam>(
+      _query,
+      (newState) {
+        if (!isClosed) {
+          emit(newState);
+        }
+      },
+    );
   }
 
   Future<void> fetchNextPage([TParam? param]) => _query.fetchNextPage(param);
@@ -45,7 +46,6 @@ abstract class InfiniteQueryCubit<TData, TParam>
 
   @override
   Future<void> close() {
-    _subscription?.cancel();
     _query.removeListener();
     return super.close();
   }
