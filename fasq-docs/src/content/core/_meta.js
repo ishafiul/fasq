@@ -1,4 +1,4 @@
-export default {
+const meta = {
   index: 'Overview',
   'query-builder': 'QueryBuilder',
   'mutation-builder': 'MutationBuilder',
@@ -19,3 +19,5 @@ export default {
   'type-safety': 'Type Safety',
   examples: 'Examples',
 }
+
+export default meta

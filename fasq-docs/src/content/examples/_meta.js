@@ -1,4 +1,4 @@
-export default {
+const meta = {
   index: 'Overview',
   'rest-api': 'REST API',
   graphql: 'GraphQL',
@@ -8,3 +8,5 @@ export default {
   'file-operations': 'File Operations',
   'database-queries': 'Database Queries',
 }
+
+export default meta

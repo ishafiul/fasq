@@ -1,4 +1,4 @@
-export default {
+const meta = {
     metadata: 'Metadata & Side Effects',
     performance: 'Performance & Isolates',
     'metrics-exporters': 'Metrics Exporters',
@@ -8,3 +8,5 @@ export default {
     'network-status': 'Network Status',
     'circuit-breaker': 'Circuit Breaker',
 }
+
+export default meta
