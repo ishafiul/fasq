@@ -1,0 +1,89 @@
+# Setup & Provider
+
+The `FasqBlocProvider` is the entry point for using Fasq with Bloc. It injects the `QueryClient` into your widget tree, making it accessible to all your Cubits and Widgets.
+
+## 1. Wrap your App
+
+Wrap your root widget (usually `MaterialApp`) with `FasqBlocProvider`. This automatically creates and manages a `QueryClient` for you.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:fasq_bloc/fasq_bloc.dart';
+
+void main() {
+  runApp(
+    FasqBlocProvider(
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: HomePage(),
+    );
+  }
+}
+```
+
+## 2. Custom Configuration
+
+If you need to configure the `QueryClient` (e.g., to set global cache times or base URLs), you can create it yourself and pass it to the provider.
+
+```dart
+void main() {
+  // 1. Create a custom client
+  final queryClient = QueryClient(
+    defaultOptions: DefaultOptions(
+      queries: QueryOptions(
+        staleTime: Duration(minutes: 5), // Cache data for 5 minutes
+      ),
+    ),
+  );
+
+  runApp(
+    FasqBlocProvider(
+      // 2. Inject your custom client
+      client: queryClient,
+      child: const MyApp(),
+    ),
+  );
+}
+```
+
+## 3. Accessing the Client
+
+You can access the `QueryClient` anywhere in your widget tree using `context.read` or the static `of` method.
+
+### In Widgets
+
+```dart
+class SettingsPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () {
+        // Access via extension (Requires provider/flutter_bloc)
+        final client = context.read<QueryClient>();
+        client.invalidateQueries();
+      },
+      child: Text('Clear Cache'),
+    );
+  }
+}
+```
+
+### In Cubits/Blocs
+
+When using `QueryCubit` or `MutationCubit`, the client is automatically injected for you if you don't provide one.
+
+```dart
+// The client is automatically resolved from context when this Cubit is created
+class UserCubit extends QueryCubit<User> {
+  // ...
+}
+```
