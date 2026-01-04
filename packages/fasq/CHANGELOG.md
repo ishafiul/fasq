@@ -1,3 +1,8 @@
+## 0.4.2
+
+ - **REFACTOR**: Update LeakDetector to throw Exception instead of TestFailure.
+ - **FEAT**: Error Tracking System for Production Diagnostics (#52).
+
 ## 0.4.1
 
  - **FEAT**: Leak Detection (#51).

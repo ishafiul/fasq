@@ -3,6 +3,46 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2026-01-04
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.4.2`](#fasq---v042)
+ - [`fasq_bloc` - `v0.3.1`](#fasq_bloc---v031)
+ - [`fasq_security` - `v0.2.0+2`](#fasq_security---v0202)
+ - [`fasq_hooks` - `v0.3.0+2`](#fasq_hooks---v0302)
+ - [`fasq_serializer_generator` - `v0.1.1+6`](#fasq_serializer_generator---v0116)
+ - [`fasq_riverpod` - `v0.3.0+2`](#fasq_riverpod---v0302)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `fasq_security` - `v0.2.0+2`
+ - `fasq_hooks` - `v0.3.0+2`
+ - `fasq_serializer_generator` - `v0.1.1+6`
+ - `fasq_riverpod` - `v0.3.0+2`
+
+---
+
+#### `fasq` - `v0.4.2`
+
+ - **REFACTOR**: Update LeakDetector to throw Exception instead of TestFailure.
+ - **FEAT**: Error Tracking System for Production Diagnostics (#52).
+
+#### `fasq_bloc` - `v0.3.1`
+
+ - **FEAT**(fasq_bloc): Major Refactor - Composition, Lifecycle Hooks, and Feature Parity (#53).
+
+
 ## 2026-01-03
 
 ### Changes
