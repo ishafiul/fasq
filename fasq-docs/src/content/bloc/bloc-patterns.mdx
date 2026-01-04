@@ -32,19 +32,19 @@ class UserQueryCubit extends QueryCubit<User> {
 
 class CreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
   @override
-  Future<User> Function(Map<String, String> variables) get mutationFn => 
+  Future<User> Function(Map<String, String> variables) get mutationFn =>
     (data) => api.createUser(data);
 }
 
 class UpdateUserMutationCubit extends MutationCubit<User, User> {
   @override
-  Future<User> Function(User variables) get mutationFn => 
+  Future<User> Function(User variables) get mutationFn =>
     (user) => api.updateUser(user);
 }
 
 class DeleteUserMutationCubit extends MutationCubit<void, String> {
   @override
-  Future<void> Function(String variables) get mutationFn => 
+  Future<void> Function(String variables) get mutationFn =>
     (userId) => api.deleteUser(userId);
 }
 ```
@@ -87,62 +87,34 @@ class UserPostsQueryCubit extends QueryCubit<List<Post>> {
 
 ### Combining Multiple Cubits
 
-Combine data from multiple cubits:
+For complex screens requiring data from multiple sources, you have two main options:
+
+#### 1. Composition with Mixin (Recommended)
+
+Use `FasqSubscriptionMixin` to subscribe to multiple queries within a single Bloc and emit a unified state. This keeps your business logic testable and your UI clean.
+
+See the **[Composition Guide](/docs/bloc/composition)** for details.
 
 ```dart
-class DashboardScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (context) => UsersQueryCubit()),
-        BlocProvider(create: (context) => PostsQueryCubit()),
-      ],
-      child: BlocBuilder<UsersQueryCubit, QueryState<List<User>>>(
-        builder: (context, usersState) {
-          return BlocBuilder<PostsQueryCubit, QueryState<List<Post>>>(
-            builder: (context, postsState) {
-              return DashboardView(
-                users: usersState.data ?? [],
-                posts: postsState.data ?? [],
-                isLoading: usersState.isLoading || postsState.isLoading,
-                hasError: usersState.hasError || postsState.hasError,
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
+class DashboardCubit extends Cubit<DashboardState> with FasqSubscriptionMixin {
+  DashboardCubit() : super(DashboardState.initial()) {
+    final userQuery = client.getQuery<User>('user'.toQueryKey(), ...);
+    final postsQuery = client.getQuery<List<Post>>('posts'.toQueryKey(), ...);
 
-class DashboardView extends StatelessWidget {
-  final List<User> users;
-  final List<Post> posts;
-  final bool isLoading;
-  final bool hasError;
-  
-  const DashboardView({
-    required this.users,
-    required this.posts,
-    required this.isLoading,
-    required this.hasError,
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) return CircularProgressIndicator();
-    if (hasError) return Text('Error loading data');
-    
-    return Column(
-      children: [
-        Text('Users: ${users.length}'),
-        Text('Posts: ${posts.length}'),
-      ],
-    );
+    subscribeToQuery(userQuery, (state) {
+      emit(state.copyWith(user: state.data));
+    });
+
+    subscribeToQuery(postsQuery, (state) {
+      emit(state.copyWith(posts: state.data));
+    });
   }
 }
 ```
+
+#### 2. Widget Composition (Simple)
+
+For simple layouts where independent widgets need independent data, use nested `BlocBuilder`s or `MultiBlocProvider`:
 
 ### Derived State
 
@@ -151,7 +123,7 @@ Create computed state from other cubits:
 ```dart
 class UsersStatsCubit extends Cubit<UsersStats> {
   UsersStatsCubit() : super(UsersStats.empty());
-  
+
   void updateStats(List<User> users) {
     emit(UsersStats(
       totalUsers: users.length,
@@ -165,13 +137,13 @@ class UsersStats {
   final int totalUsers;
   final int activeUsers;
   final int inactiveUsers;
-  
+
   UsersStats({
     required this.totalUsers,
     required this.activeUsers,
     required this.inactiveUsers,
   });
-  
+
   factory UsersStats.empty() => UsersStats(
     totalUsers: 0,
     activeUsers: 0,
@@ -221,7 +193,7 @@ class GlobalErrorHandler {
   static void handleError(BuildContext context, Object error) {
     // Log error
     print('Global error: $error');
-    
+
     // Show error snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -277,7 +249,7 @@ Preload data for better performance:
 ```dart
 class CacheWarmerCubit extends Cubit<void> {
   CacheWarmerCubit() : super(null);
-  
+
   void warmCache() {
     // Warm cache on app start
     QueryClient().prefetchQuery('users', () => api.fetchUsers());
@@ -307,10 +279,10 @@ class CacheInvalidationService {
   static void invalidateUserCache(String userId) {
     // Invalidate specific user
     QueryClient().invalidateQuery('user:$userId');
-    
+
     // Invalidate user list if it might be affected
     QueryClient().invalidateQuery('users');
-    
+
     // Invalidate user posts
     QueryClient().invalidateQuery('posts:user:$userId');
   }
@@ -337,7 +309,7 @@ Manage form state with Bloc:
 ```dart
 class CreateUserFormCubit extends Cubit<CreateUserFormState> {
   CreateUserFormCubit() : super(CreateUserFormState.initial());
-  
+
   void updateName(String name) {
     emit(state.copyWith(
       name: name,
@@ -345,7 +317,7 @@ class CreateUserFormCubit extends Cubit<CreateUserFormState> {
       nameError: name.isEmpty ? 'Name is required' : null,
     ));
   }
-  
+
   void updateEmail(String email) {
     emit(state.copyWith(
       email: email,
@@ -353,7 +325,7 @@ class CreateUserFormCubit extends Cubit<CreateUserFormState> {
       emailError: email.isEmpty ? 'Email is required' : null,
     ));
   }
-  
+
   void reset() {
     emit(CreateUserFormState.initial());
   }
@@ -365,7 +337,7 @@ class CreateUserFormState {
   final bool isValid;
   final String? nameError;
   final String? emailError;
-  
+
   CreateUserFormState({
     required this.name,
     required this.email,
@@ -373,13 +345,13 @@ class CreateUserFormState {
     this.nameError,
     this.emailError,
   });
-  
+
   factory CreateUserFormState.initial() => CreateUserFormState(
     name: '',
     email: '',
     isValid: false,
   );
-  
+
   CreateUserFormState copyWith({
     String? name,
     String? email,
@@ -465,9 +437,9 @@ Load data based on route parameters:
 ```dart
 class UserDetailScreen extends StatelessWidget {
   final String userId;
-  
+
   const UserDetailScreen({required this.userId});
-  
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -496,11 +468,11 @@ Handle deep links with proper data loading:
 class DeepLinkHandler {
   static void handleDeepLink(BuildContext context, String path) {
     final segments = path.split('/');
-    
+
     if (segments.length >= 2) {
       final resource = segments[1];
       final id = segments.length >= 3 ? segments[2] : null;
-      
+
       switch (resource) {
         case 'users':
           if (id != null) {
@@ -543,7 +515,7 @@ class MockUsersQueryCubit extends QueryCubit<List<User>> {
 
 class MockCreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
   @override
-  Future<User> Function(Map<String, String> variables) get mutationFn => 
+  Future<User> Function(Map<String, String> variables) get mutationFn =>
     (data) => Future.value(User(
       id: '3',
       name: data['name']!,
@@ -564,9 +536,9 @@ void main() {
         child: MaterialApp(home: UsersScreen()),
       ),
     );
-    
+
     await tester.pumpAndSettle();
-    
+
     expect(find.text('Test User 1'), findsOneWidget);
     expect(find.text('Test User 2'), findsOneWidget);
   });
@@ -591,7 +563,7 @@ class CubitTestHelper {
       ),
     );
   }
-  
+
   static Future<void> waitForCubitState<T extends Cubit<S>, S>(
     WidgetTester tester,
     T cubit,
@@ -608,7 +580,7 @@ class CubitTestHelper {
 void main() {
   testWidgets('should create user successfully', (tester) async {
     final createUserCubit = MockCreateUserMutationCubit();
-    
+
     await CubitTestHelper.pumpWidgetWithCubits(
       tester,
       CreateUserForm(),
@@ -618,12 +590,12 @@ void main() {
         ),
       ],
     );
-    
+
     await tester.enterText(find.byType(TextFormField).first, 'Test User');
     await tester.enterText(find.byType(TextFormField).last, 'test@example.com');
     await tester.tap(find.byType(ElevatedButton));
     await tester.pumpAndSettle();
-    
+
     expect(createUserCubit.state.isSuccess, isTrue);
     expect(createUserCubit.state.data?.name, equals('Test User'));
   });
@@ -639,24 +611,24 @@ Implement lazy loading for large datasets:
 ```dart
 class PaginatedUsersCubit extends Cubit<List<User>> {
   PaginatedUsersCubit() : super([]);
-  
+
   Future<void> loadPage(int page) async {
     final users = await api.fetchUsersPage(page: page, limit: 20);
     emit([...state, ...users]);
   }
-  
+
   Future<void> loadAllPages() async {
     int currentPage = 1;
     List<User> allUsers = [];
-    
+
     while (true) {
       final users = await api.fetchUsersPage(page: currentPage, limit: 20);
       allUsers.addAll(users);
-      
+
       if (users.length < 20) break; // Last page
       currentPage++;
     }
-    
+
     emit(allUsers);
   }
 }
@@ -669,16 +641,16 @@ Implement debounced search to avoid excessive API calls:
 ```dart
 class SearchQueryCubit extends Cubit<String> {
   Timer? _debounceTimer;
-  
+
   SearchQueryCubit() : super('');
-  
+
   void updateQuery(String query) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(Duration(milliseconds: 500), () {
       emit(query);
     });
   }
-  
+
   @override
   Future<void> close() {
     _debounceTimer?.cancel();

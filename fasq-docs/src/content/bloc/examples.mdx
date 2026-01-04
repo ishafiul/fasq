@@ -2,6 +2,22 @@
 
 Complete working examples using the Fasq Bloc adapter.
 
+## Global Setup
+
+All examples assume your app is wrapped in `FasqBlocProvider`:
+
+```dart
+void main() {
+  runApp(
+    FasqBlocProvider(
+      child: MaterialApp(
+        home: UserManagementScreen(),
+      ),
+    ),
+  );
+}
+```
+
 ## Basic User Management
 
 A complete example showing user listing, creation, and deletion:
@@ -15,9 +31,9 @@ class User {
   final String id;
   final String name;
   final String email;
-  
+
   User({required this.id, required this.name, required this.email});
-  
+
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'],
@@ -35,7 +51,7 @@ class ApiService {
       User(id: '2', name: 'Bob', email: 'bob@example.com'),
     ];
   }
-  
+
   Future<User> createUser(Map<String, String> data) async {
     await Future.delayed(Duration(seconds: 1));
     return User(
@@ -44,7 +60,7 @@ class ApiService {
       email: data['email']!,
     );
   }
-  
+
   Future<void> deleteUser(String id) async {
     await Future.delayed(Duration(seconds: 1));
   }
@@ -62,7 +78,7 @@ class UsersQueryCubit extends QueryCubit<List<User>> {
 
 class CreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
   @override
-  Future<User> Function(Map<String, String> variables) get mutationFn => 
+  Future<User> Function(Map<String, String> variables) get mutationFn =>
     (data) => api.createUser(data);
 
   @override
@@ -75,7 +91,7 @@ class CreateUserMutationCubit extends MutationCubit<User, Map<String, String>> {
 
 class DeleteUserMutationCubit extends MutationCubit<void, String> {
   @override
-  Future<void> Function(String variables) get mutationFn => 
+  Future<void> Function(String variables) get mutationFn =>
     (id) => api.deleteUser(id);
 
   @override
@@ -112,7 +128,7 @@ class UserManagementScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   void _showCreateUserDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -129,7 +145,7 @@ class UsersList extends StatelessWidget {
         if (state.isLoading) {
           return Center(child: CircularProgressIndicator());
         }
-        
+
         if (state.hasError) {
           return Center(
             child: Column(
@@ -144,7 +160,7 @@ class UsersList extends StatelessWidget {
             ),
           );
         }
-        
+
         if (state.hasData) {
           return ListView.builder(
             itemCount: state.data!.length,
@@ -154,7 +170,7 @@ class UsersList extends StatelessWidget {
             },
           );
         }
-        
+
         return Center(child: Text('No users found'));
       },
     );
@@ -163,9 +179,9 @@ class UsersList extends StatelessWidget {
 
 class UserTile extends StatelessWidget {
   final User user;
-  
+
   const UserTile({required this.user});
-  
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<DeleteUserMutationCubit, MutationState<void>>(
@@ -193,7 +209,7 @@ class CreateUserDialog extends StatefulWidget {
 class _CreateUserDialogState extends State<CreateUserDialog> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -251,7 +267,7 @@ class PostsInfiniteQueryCubit extends InfiniteQueryCubit<List<Post>, int> {
   String get key => 'posts';
 
   @override
-  Future<List<Post>> Function(int param) get queryFn => 
+  Future<List<Post>> Function(int param) get queryFn =>
     (page) => api.fetchPosts(page: page);
 
   @override
@@ -270,7 +286,7 @@ class PostsInfiniteScreen extends StatelessWidget {
         child: BlocBuilder<PostsInfiniteQueryCubit, InfiniteQueryState<List<Post>, int>>(
           builder: (context, state) {
             final allPosts = state.pages.expand((p) => p.data ?? []).toList();
-            
+
             return Column(
               children: [
                 Expanded(
@@ -373,7 +389,7 @@ Implementing optimistic updates for instant feedback:
 ```dart
 class UpdateUserMutationCubit extends MutationCubit<User, User> {
   @override
-  Future<User> Function(User variables) get mutationFn => 
+  Future<User> Function(User variables) get mutationFn =>
     (user) => api.updateUser(user);
 
   @override
@@ -381,10 +397,10 @@ class UpdateUserMutationCubit extends MutationCubit<User, User> {
     onMutate: (updatedUser) {
       final users = QueryClient().getQueryData<List<User>>('users');
       if (users != null) {
-        final optimistic = users.map((u) => 
+        final optimistic = users.map((u) =>
           u.id == updatedUser.id ? updatedUser : u
         ).toList();
-        
+
         QueryClient().setQueryData('users', optimistic);
       }
     },
@@ -429,9 +445,9 @@ class OptimisticUserScreen extends StatelessWidget {
 
 class UserTileWithUpdate extends StatelessWidget {
   final User user;
-  
+
   const UserTileWithUpdate({required this.user});
-  
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<UpdateUserMutationCubit, MutationState<User>>(
@@ -471,7 +487,7 @@ class SearchResultsQueryCubit extends QueryCubit<List<User>> {
   String get key => 'search:$query';
 
   @override
-  Future<List<User>> Function() get queryFn => 
+  Future<List<User>> Function() get queryFn =>
     () => api.searchUsers(query);
 
   @override
@@ -551,7 +567,7 @@ Complete form handling with validation:
 ```dart
 class CreateUserFormMutationCubit extends MutationCubit<User, Map<String, String>> {
   @override
-  Future<User> Function(Map<String, String> variables) get mutationFn => 
+  Future<User> Function(Map<String, String> variables) get mutationFn =>
     (data) => api.createUser(data);
 
   @override
@@ -571,7 +587,7 @@ class _CreateUserFormState extends State<CreateUserForm> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -11,8 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  bloc: ^8.1.0
-  flutter_bloc: ^8.1.0
+  bloc: ^8.1.1
+  flutter_bloc: ^8.1.2
   fasq: ^0.4.1
 
 dev_dependencies:

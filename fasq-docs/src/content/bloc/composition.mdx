@@ -1,0 +1,85 @@
+# Composition & Mixins
+
+One of the most powerful features of `fasq_bloc` 0.3.0+ is the ability to compose multiple queries into a single Bloc using the `FasqSubscriptionMixin`.
+
+## The Problem
+
+In complex apps, a single screen often depends on multiple data sources (e.g., a "Dashboard" needs User Profile, Recent Orders, and Notifications). Creating a separate `QueryCubit` for each one can lead to "Bloc Hell" in your UI:
+
+```dart
+// The "Bloc Hell" Anti-Pattern
+BlocBuilder<UserCubit, ...>(
+  builder: (context, userState) {
+    return BlocBuilder<OrdersCubit, ...>(
+      builder: (context, ordersState) {
+         // ... nesting continues ...
+      }
+    )
+  }
+)
+```
+
+## The Solution: FasqSubscriptionMixin
+
+`FasqSubscriptionMixin` allows any standard `Cubit` or `Bloc` to subscribe to any number of `fasq` queries. It handles the lifecycle (subscribing, unsubscribing, closing streams) automatically.
+
+### Usage
+
+1. Add `with FasqSubscriptionMixin` to your Cubit.
+2. Use `subscribeToQuery` to listen to updates.
+
+```dart
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fasq_bloc/fasq_bloc.dart';
+
+class DashboardState {
+  final User? user;
+  final List<Order>? orders;
+  final bool isLoading;
+
+  // ... constructor & copyWith ...
+}
+
+class DashboardCubit extends Cubit<DashboardState> with FasqSubscriptionMixin {
+  DashboardCubit() : super(DashboardState.initial()) {
+    _loadData();
+  }
+
+  void _loadData() {
+    // 1. Get the client (auto-injected via FasqBlocProvider if not passed)
+    // Note: You can also use `client` getter from the mixin if initialized manually,
+    // or access the global one.
+    final client = QueryClient();
+
+    // 2. Define Queries
+    final userQuery = client.getQuery<User>('user'.toQueryKey(), queryFn: fetchUser);
+    final ordersQuery = client.getQuery<List<Order>>('orders'.toQueryKey(), queryFn: fetchOrders);
+
+    // 3. Subscribe
+    subscribeToQuery<User>(userQuery, (state) {
+        emit(state.checkLoading(state).copyWith(user: state.data));
+    });
+
+    subscribeToQuery<List<Order>>(ordersQuery, (state) {
+        emit(state.checkLoading(state).copyWith(orders: state.data));
+    });
+  }
+}
+```
+
+### Automatic Cleanup
+
+When your `DashboardCubit` is closed (e.g., widget unmounted), the mixin automatically cancels all subscriptions to the underlying queries. The queries themselves remain in the cache (shared state), but this Cubit stops listening.
+
+## vs MultiQueryBuilder
+
+`MultiQueryBuilder` is a widget-based approach for the same problem.
+
+- **Use `FasqSubscriptionMixin`** when:
+  - You have complex business logic combining data.
+  - You want to test the logic independent of UI.
+  - You need to emit a unified, domain-specific state.
+
+- **Use `MultiQueryBuilder`** when:
+  - You just need to display data from 2-3 sources without extra logic.
+  - You want a quick, widget-only solution.

@@ -21,6 +21,13 @@ abstract class MutationCubit<TData, TVariables>
 
   QueryClient? get client => null;
 
+  /// Gets the QueryClient instance for cache operations.
+  ///
+  /// Returns the client from [client] if provided, otherwise returns
+  /// the singleton QueryClient instance. This method is useful for
+  /// optimistic updates in lifecycle hooks.
+  QueryClient get queryClient => client ?? QueryClient();
+
   void _initialize() {
     _mutation = Mutation<TData, TVariables>(
       mutationFn: mutationFn,
@@ -34,8 +41,45 @@ abstract class MutationCubit<TData, TVariables>
     });
   }
 
-  Future<void> mutate(TVariables variables) async {
-    await _mutation.mutate(variables);
+  Future<void> mutate(
+    TVariables variables, {
+    FutureOr<dynamic> Function()? onMutate,
+    FutureOr<void> Function(TData result)? onSuccess,
+    FutureOr<void> Function(Object error, dynamic context)? onError,
+    FutureOr<void> Function()? onSettled,
+  }) async {
+    if (isClosed) return;
+    dynamic context;
+
+    try {
+      if (onMutate != null) {
+        context = await onMutate();
+      }
+
+      await _mutation.mutate(variables);
+
+      if (!isClosed) {
+        if (_mutation.state.isSuccess && _mutation.state.data != null) {
+          if (onSuccess != null) {
+            await onSuccess(_mutation.state.data as TData);
+          }
+        } else if (_mutation.state.isError && _mutation.state.error != null) {
+          if (onError != null) {
+            await onError(_mutation.state.error!, context);
+          }
+        }
+      }
+    } catch (error) {
+      if (!isClosed) {
+        if (onError != null) {
+          await onError(error, context);
+        }
+      }
+    } finally {
+      if (!isClosed && onSettled != null) {
+        await onSettled();
+      }
+    }
   }
 
   void reset() {
