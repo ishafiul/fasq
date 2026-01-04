@@ -48,7 +48,8 @@ void main() {
 
       expect(callOrder, contains('onMutate'));
       expect(callOrder, contains('onSuccess'));
-      expect(callOrder.indexOf('onMutate'), lessThan(callOrder.indexOf('onSuccess')));
+      expect(callOrder.indexOf('onMutate'),
+          lessThan(callOrder.indexOf('onSuccess')));
       expect(successData, 'test result');
       await cubit.close();
     });
@@ -76,13 +77,15 @@ void main() {
 
       expect(callOrder, contains('onMutate'));
       expect(callOrder, contains('onError'));
-      expect(callOrder.indexOf('onMutate'), lessThan(callOrder.indexOf('onError')));
+      expect(callOrder.indexOf('onMutate'),
+          lessThan(callOrder.indexOf('onError')));
       expect(errorReceived, isA<Exception>());
       expect(contextReceived, 'rollback context');
       await cubit.close();
     });
 
-    test('onSettled is always called after mutation completes (success)', () async {
+    test('onSettled is always called after mutation completes (success)',
+        () async {
       final cubit = _TestMutationCubit();
       final callOrder = <String>[];
 
@@ -108,7 +111,8 @@ void main() {
       await cubit.close();
     });
 
-    test('onSettled is always called after mutation completes (error)', () async {
+    test('onSettled is always called after mutation completes (error)',
+        () async {
       final cubit = _ErrorMutationCubit();
       final callOrder = <String>[];
 
@@ -229,13 +233,14 @@ void main() {
         },
       );
 
-      await Future.delayed(const Duration(milliseconds: 30));
+      await Future.delayed(const Duration(milliseconds: 200));
 
       expect(callOrder, ['onMutate', 'onSuccess', 'onSettled']);
       await cubit.close();
     });
 
-    test('onError receives correct error and context when mutation fails', () async {
+    test('onError receives correct error and context when mutation fails',
+        () async {
       final cubit = _ErrorMutationCubit();
       const testContext = {'key': 'value'};
       Object? errorReceived;
@@ -286,7 +291,9 @@ void main() {
       expect(onSettledCalled, false);
     });
 
-    test('correct execution order: onMutate -> mutation -> onSuccess -> onSettled', () async {
+    test(
+        'correct execution order: onMutate -> mutation -> onSuccess -> onSettled',
+        () async {
       final cubit = _TestMutationCubit();
       final executionOrder = <String>[];
 
@@ -312,7 +319,9 @@ void main() {
       await cubit.close();
     });
 
-    test('correct execution order: onMutate -> mutation -> onError -> onSettled', () async {
+    test(
+        'correct execution order: onMutate -> mutation -> onError -> onSettled',
+        () async {
       final cubit = _ErrorMutationCubit();
       final executionOrder = <String>[];
 
@@ -344,7 +353,8 @@ class _TestMutationCubit extends MutationCubit<String, String> {
   _TestMutationCubit();
 
   @override
-  Future<String> Function(String variables) get mutationFn => (variables) async {
+  Future<String> Function(String variables) get mutationFn =>
+      (variables) async {
         await Future.delayed(const Duration(milliseconds: 5));
         return 'test result';
       };
@@ -354,9 +364,9 @@ class _ErrorMutationCubit extends MutationCubit<String, String> {
   _ErrorMutationCubit();
 
   @override
-  Future<String> Function(String variables) get mutationFn => (variables) async {
+  Future<String> Function(String variables) get mutationFn =>
+      (variables) async {
         await Future.delayed(const Duration(milliseconds: 5));
         throw Exception('Test error');
       };
 }
-

@@ -56,12 +56,12 @@ mixin FasqSubscriptionMixin<State> on Cubit<State> {
   ///   },
   /// );
   /// ```
-  void subscribeToQuery<T>(
+  StreamSubscription<QueryState<T>>? subscribeToQuery<T>(
     Query<T>? query,
     void Function(QueryState<T>) onState,
   ) {
     if (query == null) {
-      return;
+      return null;
     }
 
     final subscription = query.stream.listen(
@@ -73,6 +73,7 @@ mixin FasqSubscriptionMixin<State> on Cubit<State> {
     );
 
     _subscriptions.add(subscription);
+    return subscription;
   }
 
   /// Subscribes to a fasq infinite query's stream and manages the subscription lifecycle.
@@ -118,6 +119,14 @@ mixin FasqSubscriptionMixin<State> on Cubit<State> {
   ///
   /// This method is automatically called when the cubit is closed.
   /// Overrides [Cubit.close] to ensure proper resource cleanup.
+  /// Cancels and removes a specific subscription.
+  void unsubscribe(StreamSubscription? subscription) {
+    if (subscription != null) {
+      subscription.cancel();
+      _subscriptions.remove(subscription);
+    }
+  }
+
   @override
   Future<void> close() {
     for (final subscription in _subscriptions) {

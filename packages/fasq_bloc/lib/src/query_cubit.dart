@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fasq_bloc/fasq_bloc.dart';
 
 /// Base cubit that mirrors a FASQ [Query] lifecycle.
@@ -7,9 +9,10 @@ import 'package:fasq_bloc/fasq_bloc.dart';
 /// the latest [QueryState].
 abstract class QueryCubit<T> extends Cubit<QueryState<T>>
     with FasqSubscriptionMixin<QueryState<T>> {
-  late final Query<T> _query;
+  late Query<T> _query;
   late QueryKey _currentQueryKey;
   QueryOptions? _currentOptions;
+  StreamSubscription<QueryState<T>>? _querySubscription;
 
   QueryCubit() : super(QueryState<T>.idle()) {
     _currentQueryKey = queryKey;
@@ -36,7 +39,7 @@ abstract class QueryCubit<T> extends Cubit<QueryState<T>>
       emit(_query.state);
     }
 
-    subscribeToQuery<T>(
+    _querySubscription = subscribeToQuery<T>(
       _query,
       (newState) {
         if (!isClosed) {
@@ -123,7 +126,9 @@ abstract class QueryCubit<T> extends Cubit<QueryState<T>>
       emit(_query.state);
     }
 
-    subscribeToQuery<T>(
+    unsubscribe(_querySubscription);
+
+    _querySubscription = subscribeToQuery<T>(
       _query,
       (newState) {
         if (!isClosed) {

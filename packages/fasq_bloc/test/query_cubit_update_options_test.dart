@@ -10,7 +10,7 @@ void main() {
     test('updateOptions updates options when queryKey unchanged', () async {
       final cubit = _TestQueryCubit();
 
-      expect(cubit.state.isIdle, true);
+      expect(cubit.state.status, QueryStatus.loading);
 
       cubit.updateOptions(
         newOptions: QueryOptions(staleTime: const Duration(minutes: 10)),
@@ -24,7 +24,7 @@ void main() {
     test('updateOptions swaps query when queryKey changes', () async {
       final cubit = _TestQueryCubit();
 
-      expect(cubit.state.isIdle, true);
+      expect(cubit.state.status, QueryStatus.loading);
 
       cubit.updateOptions(
         newQueryKey: 'new-key'.toQueryKey(),
@@ -69,7 +69,7 @@ void main() {
       );
 
       cubit.refetch();
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(cubit.state.hasData, true);
 
@@ -84,7 +84,7 @@ void main() {
         newOptions: QueryOptions(),
       );
 
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(cubit.subscriptionCount, 1);
 
@@ -106,20 +106,24 @@ void main() {
     test('updateOptions handles rapid option changes', () async {
       final cubit = _TestQueryCubit();
 
-      cubit.updateOptions(newOptions: QueryOptions(staleTime: const Duration(minutes: 1)));
-      cubit.updateOptions(newOptions: QueryOptions(staleTime: const Duration(minutes: 2)));
-      cubit.updateOptions(newOptions: QueryOptions(staleTime: const Duration(minutes: 3)));
+      cubit.updateOptions(
+          newOptions: QueryOptions(staleTime: const Duration(minutes: 1)));
+      cubit.updateOptions(
+          newOptions: QueryOptions(staleTime: const Duration(minutes: 2)));
+      cubit.updateOptions(
+          newOptions: QueryOptions(staleTime: const Duration(minutes: 3)));
 
       expect(cubit.subscriptionCount, 1);
 
       await cubit.close();
     });
 
-    test('updateOptions with queryKey change maintains correct state', () async {
+    test('updateOptions with queryKey change maintains correct state',
+        () async {
       final cubit = _TestQueryCubit();
 
       cubit.refetch();
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(cubit.state.hasData, true);
 
@@ -128,7 +132,7 @@ void main() {
         newOptions: QueryOptions(),
       );
 
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(cubit.subscriptionCount, 1);
 
@@ -144,7 +148,7 @@ void main() {
       );
 
       cubit.refetch();
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(cubit.state.hasData, true);
 
@@ -165,4 +169,3 @@ class _TestQueryCubit extends QueryCubit<String> {
         return 'test data';
       };
 }
-

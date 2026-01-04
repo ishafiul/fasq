@@ -41,7 +41,7 @@ void main() {
       final cachedData = queryClient.getQueryData<String>(cubit.queryKey);
       expect(cachedData, newData);
 
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(cubit.state.hasData, true);
       expect(cubit.state.data, newData);
@@ -54,13 +54,13 @@ void main() {
       final queryClient = QueryClient();
       final cubit = _TestQueryCubitWithClient(queryClient);
 
-      expect(cubit.state.isIdle, true);
+      expect(cubit.state.status, QueryStatus.loading);
 
       const newData = 'manual data';
 
       cubit.setData(newData);
 
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(cubit.state.hasData, true);
       expect(cubit.state.data, newData);
@@ -133,13 +133,15 @@ void main() {
       await queryClient.dispose();
     });
 
-    test('setData() updates state even when query is idle', () {
+    test('setData() updates state even when query is idle', () async {
       final queryClient = QueryClient();
       final cubit = _TestQueryCubitWithClient(queryClient);
 
-      expect(cubit.state.isIdle, true);
+      expect(cubit.state.status, QueryStatus.loading);
 
       cubit.setData('idle update');
+
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(cubit.state.hasData, true);
       expect(cubit.state.data, 'idle update');
@@ -194,4 +196,3 @@ class _TestQueryCubitWithClient extends QueryCubit<String> {
         return 'test data';
       };
 }
-

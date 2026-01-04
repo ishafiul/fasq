@@ -12,6 +12,7 @@ void main() {
     expect(cubit.state.pages, isEmpty);
     await cubit.fetchNextPage(1);
     await cubit.fetchNextPage();
+    await Future.delayed(Duration.zero);
     final pages = cubit.state.pages.where((p) => p.data != null).toList();
     expect(pages.length, 2);
 

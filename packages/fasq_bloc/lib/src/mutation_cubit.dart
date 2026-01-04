@@ -48,6 +48,7 @@ abstract class MutationCubit<TData, TVariables>
     FutureOr<void> Function(Object error, dynamic context)? onError,
     FutureOr<void> Function()? onSettled,
   }) async {
+    if (isClosed) return;
     dynamic context;
 
     try {
