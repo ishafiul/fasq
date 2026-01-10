@@ -1,0 +1,103 @@
+# Fasq Security
+
+**Fasq Security** is an enterprise-grade extension for the FASQ core that provides robust encryption, secure storage, and encrypted persistence for your application's state.
+
+It is designed to protect sensitive user data, tokens, and PII (Personally Identifiable Information) both in memory and on disk.
+
+## Features
+
+- **🔒 Advanced Encryption**: Industry-standard AES-GCM encryption with 256-bit keys.
+- **🛡️ Secure Key Storage**: Platform-specific secure storage for encryption keys (Keychain for iOS/macOS, Keystore for Android).
+- **💾 Encrypted Persistence**: SQL-based persistence using Drift with at-rest encryption.
+- **⚡ Isolate Processing**: Offloads heavy encryption/decryption tasks to background isolates to keep the UI thread smooth.
+- **🧹 Automatic Sanitization**: Configurable hooks to wipe sensitive data from memory when the app enters the background.
+
+## Installation
+
+Add the security package to your project:
+
+```bash
+flutter pub add fasq_security
+```
+
+> [!TIP]
+> This package integrates seamlessly with the [Fasq core](/docs/core) and all its [adapters](/docs/installation#state-management-adapters).
+
+## Setup
+
+To use security features, you must initialize your `QueryClient` with a `SecurityPlugin`. The `DefaultSecurityPlugin` provides a battery-included implementation.
+
+### 1. Basic Initialization
+
+Initialize the plugin during app startup to ensure encryption keys are ready before any queries are made.
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:fasq_security/fasq_security.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. Create the security plugin
+  final securityPlugin = DefaultSecurityPlugin();
+
+  // 2. Initialize it (retrieves/generates keys)
+  await securityPlugin.initialize();
+
+  // 3. Provide it to the QueryClient
+  final client = QueryClient(
+    securityPlugin: securityPlugin,
+  );
+
+  runApp(QueryClientProvider(
+    client: client,
+    child: MyApp(),
+  ));
+}
+```
+
+### 2. Riverpod Integration
+
+If you are using the Riverpod adapter, you can override the default security plugin provider:
+
+```dart
+ProviderScope(
+  overrides: [
+    fasqSecurityPluginProvider.overrideWithValue(
+      DefaultSecurityPlugin(),
+    ),
+  ],
+  child: MyApp(),
+)
+```
+
+## Using Secure Queries
+
+Once the security plugin is configured, you can mark any query as secure using the `isSecure` option.
+
+```dart
+QueryBuilder<SecretData>(
+  queryKey: 'user-secrets'.toQueryKey(),
+  queryFn: () => api.fetchSecrets(),
+  options: QueryOptions(
+    isSecure: true, // Data is now handled by the security plugin
+  ),
+  builder: (context, state) {
+    // Data is automatically decrypted when accessed here
+    return Text(state.data?.secretValue ?? '');
+  },
+)
+```
+
+### What happens when `isSecure` is true?
+
+1. **In-Memory Encryption**: If the plugin supports it, data can be encrypted even while sitting in the cache.
+2. **Secure Persistence**: If persistence is enabled, data is encrypted before being written to disk.
+3. **Privacy Sanitization**: Detailed data is automatically omitted from standard logs (via `FasqLogger`).
+4. **Lifecycle Protection**: By default, secure data is wiped from memory if the app stays in the background for more than 5 minutes (configurable).
+
+## Next Steps
+
+- **[Encryption & Keys](/docs/security/encryption)** - How data is protected in transit and at rest.
+- **[Encrypted Persistence](/docs/security/persistence)** - Setting up the secure SQL database.
+- **[Core Security Concepts](/docs/core/advanced/security)** - General security architecture.

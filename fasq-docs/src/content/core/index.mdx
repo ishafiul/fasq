@@ -16,12 +16,14 @@ Managing server state in Flutter can be challenging. You often need to:
 
 ## Installation
 
-Add `fasq` to your `pubspec.yaml`:
+Add the core package to your project:
 
-```yaml
-dependencies:
-  fasq: ^0.3.7
+```bash
+flutter pub add fasq
 ```
+
+> [!NOTE]
+> If you are using a state management library like **Riverpod**, **Bloc**, or **Hooks**, check out our optimized [adapters](/docs/installation#state-management-adapters) for a better developer experience.
 
 ## Quick Start
 
@@ -126,8 +128,8 @@ Fasq comes packed with features to make your life easier:
 
 Now that you have the basics, dive deeper into the core concepts:
 
-- **[QueryBuilder](/docs/core/query-builder)**: The main widget for fetching data.
-- **[MutationBuilder](/docs/core/mutation-builder)**: Handling data updates (POST/PUT/DELETE).
-- **[QueryClient](/docs/core/query-client)**: Managing the cache and global configuration.
-- **[QueryOptions](/docs/core/query-options)**: Fine-tuning query behavior.
-- **[Logging](/docs/core/logging)**: Debug and monitor queries with built-in logging.
+- **[QueryBuilder](/docs/core/essentials/query-builder)**: The main widget for fetching data.
+- **[MutationBuilder](/docs/core/essentials/mutation-builder)**: Handling data updates (POST/PUT/DELETE).
+- **[QueryClient](/docs/core/essentials/query-client)**: Managing the cache and global configuration.
+- **[QueryOptions](/docs/core/essentials/query-options)**: Fine-tuning query behavior.
+- **[Logging](/docs/core/diagnostics/logging)**: Debug and monitor queries with built-in logging.

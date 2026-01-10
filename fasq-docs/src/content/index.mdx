@@ -5,6 +5,7 @@
 ## Why Fasq?
 
 Managing server state in Flutter can be challenging. You often need to:
+
 - Show loading spinners while fetching data
 - Handle errors gracefully
 - Cache data to save bandwidth and improve performance
@@ -25,12 +26,14 @@ Managing server state in Flutter can be challenging. You often need to:
 
 ## Installation
 
-Add `fasq` to your `pubspec.yaml`:
+Install the core package using the Flutter CLI:
 
-```yaml
-dependencies:
-  fasq: ^0.3.7
+```bash
+flutter pub add fasq
 ```
+
+> [!TIP]
+> Using a state management library? Check out our optimized **[Adapters](/docs/installation#state-management-adapters)**.
 
 ## Quick Example
 
@@ -44,7 +47,7 @@ class TodoList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return QueryBuilder<List<Todo>>(
-      queryKey: 'todos'.toQueryKey(), 
+      queryKey: 'todos'.toQueryKey(),
       queryFn: () => api.fetchTodos(),
       builder: (context, state) {
         if (state.isLoading) {
@@ -76,9 +79,10 @@ class TodoList extends StatelessWidget {
 
 Fasq works great on its own, but also integrates with your favorite state management solutions via adapters:
 
-- **[fasq_hooks](https://pub.dev/packages/fasq_hooks)**: For `flutter_hooks` users.
-- **[fasq_bloc](https://pub.dev/packages/fasq_bloc)**: For `flutter_bloc` users.
-- **[fasq_riverpod](https://pub.dev/packages/fasq_riverpod)**: For `flutter_riverpod` users.
+- **[fasq_hooks](/docs/hooks)**: Optimized for `flutter_hooks`.
+- **[fasq_bloc](/docs/bloc)**: Integration for `flutter_bloc`.
+- **[fasq_riverpod](/docs/riverpod)**: Native support for `flutter_riverpod`.
+- **[fasq_security](/docs/security)**: Layered security and persistence.
 
 ## Next Steps
 

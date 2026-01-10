@@ -1,0 +1,9 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Stylized Q Circle with Refresh Arrow -->
+  <path d="M400 256C400 335.529 335.529 400 256 400C176.471 400 112 335.529 112 256C112 176.471 176.471 112 256 112C320.354 112 374.838 154.382 393.364 212" stroke="black" stroke-width="40" stroke-linecap="round"/>
+  <path d="M400 140V212H328" stroke="black" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Q Tail -->
+  <path d="M360 360L440 440" stroke="black" stroke-width="40" stroke-linecap="round"/>
+  <!-- Centered Lightning Bolt -->
+  <path d="M256 160L196 280H256L226 380L316 230H256L286 160H256Z" fill="black"/>
+</svg>

@@ -9,7 +9,7 @@ const withNextra = nextra({
 });
 
 const nextConfig: NextConfig = withNextra({
-  // ... Add regular Next.js options here
+  poweredByHeader: false,
 });
 
 export default nextConfig;

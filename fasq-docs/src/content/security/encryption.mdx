@@ -1,0 +1,65 @@
+# Encryption & Keys
+
+Fasq Security uses industry-standard cryptographic primitives to ensure your data remains confidential and tamper-proof.
+
+## AES-GCM Encryption
+
+The core encryption engine uses **AES-GCM (Advanced Encryption Standard with Galois/Counter Mode)** with **256-bit keys**.
+
+### Why AES-GCM?
+
+- **Authenticated Encryption**: It provides both confidentiality (encryption) and integrity (ensures the data hasn't been modified).
+- **Performance**: It is highly efficient and often hardware-accelerated on modern mobile CPUs.
+- **Security**: It is currently recommended by NIST and major security bodies for general-purpose encryption.
+
+## The Encryption Lifecycle
+
+When a query is marked with `isSecure: true`, its data passes through the following lifecycle:
+
+1. **Serialization**: The data is converted to a binary format.
+2. **Encryption**: The `CryptoEncryptionProvider` generates a unique 96-bit Initialization Vector (IV) and encrypts the binary data.
+3. **Storage**: The IV is stored alongside the ciphertext (encrypted data) and the 128-bit authentication tag.
+4. **Decryption**: When the UI requests the data, the process is reversed. The authentication tag is verified before any data is decrypted.
+
+## Key Management
+
+Security is only as strong as the protection of its keys. Fasq Security delegates key storage to the most secure area of the underlying platform.
+
+### Platform Backends
+
+- **iOS/macOS**: keys are stored in the **Secure Enclave** via the System Keychain.
+- **Android**: keys are stored in the **Hardware-backed Keystore** (TEE/StrongBox).
+
+### Master Keys & Data Keys
+
+Fasq uses an envelope encryption-like pattern:
+
+1. A **Master Key** is generated and stored securely on the device hardware.
+2. The plugin uses this master key to derive or wrap specific **Data Keys** used for individual cache entries or the database.
+
+## Isolate-Based Processing
+
+Encryption and decryption of large data sets can be computationally expensive and may cause "jank" (stuttering) in the UI if performed on the main thread.
+
+To prevent this, Fasq Security automatically offloads these operations to background **Isolates**.
+
+```dart
+// This happens automatically behind the scenes
+// UI Thread remains free for animations and interactions
+final secureData = await client.fetchQuery(
+  'large-secure-data',
+  queryFn: () => getHugeJson(),
+  options: const QueryOptions(isSecure: true),
+);
+```
+
+## Security Best Practices
+
+1. **Never Log Sensitive Keys**: The `FasqLogger` is designed to never print secure data or keys.
+2. **Rotate Keys**: For highly sensitive apps, consider manual key rotation by re-initializing the plugin periodically.
+3. **Use Short TTLs**: Even with encryption, keeping sensitive data in memory for long periods increases the attack surface. Use `staleTime` and `maxAge` aggressively for secure queries.
+
+## Next Steps
+
+- **[Encrypted Persistence](/docs/security/persistence)** - Using security with disk storage.
+- **[Security Overview](/docs/security/)** - Back to basics.

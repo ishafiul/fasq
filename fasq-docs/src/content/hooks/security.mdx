@@ -1,4 +1,4 @@
-# Security Features with fasq_hooks 
+# Security Features with fasq_hooks
 
 fasq_hooks supports all FASQ security features through QueryClient configuration, enabling secure data handling in your hooks-based applications.
 
@@ -20,7 +20,7 @@ class SecureDataWidget extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final client = context.queryClient;
-    
+
     final secureQuery = useQuery<String>(
       'auth-token',
       () => api.getAuthToken(),
@@ -31,10 +31,10 @@ class SecureDataWidget extends HookWidget {
       ),
       client: client,                      // Use configured client
     );
-    
+
     if (secureQuery.isLoading) return CircularProgressIndicator();
     if (secureQuery.hasError) return Text('Error: ${secureQuery.error}');
-    
+
     // Secure data never persisted, cleared on app background
     return Text('Token: ${secureQuery.data}');
   }
@@ -57,7 +57,7 @@ class SecureMutationWidget extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final client = context.queryClient;
-    
+
     final mutation = useMutation<String, String>(
       mutationFn: (data) => api.secureMutation(data),
       options: MutationOptions(
@@ -66,7 +66,7 @@ class SecureMutationWidget extends HookWidget {
       ),
       client: client,                      // Use configured client
     );
-    
+
     return ElevatedButton(
       onPressed: mutation.isLoading
           ? null
@@ -109,7 +109,7 @@ class MyWidget extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final client = context.queryClient;
-    
+
     // Use configured client in hooks
     final secureQuery = useQuery<String>(
       'secure-data',
@@ -120,12 +120,12 @@ class MyWidget extends HookWidget {
       ),
       client: client,
     );
-    
+
     final mutation = useMutation<String, String>(
       mutationFn: (data) => secureMutation(data),
       client: client,
     );
-    
+
     return Column(
       children: [
         Text('Data: ${secureQuery.data}'),
@@ -168,7 +168,7 @@ class SecureHomeScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final client = context.queryClient;
-    
+
     // Secure authentication token
     final authToken = useQuery<String>(
       'auth-token',
@@ -180,7 +180,7 @@ class SecureHomeScreen extends HookWidget {
       ),
       client: client,
     );
-    
+
     // Secure user profile
     final userProfile = useQuery<User>(
       'user-profile',
@@ -192,7 +192,7 @@ class SecureHomeScreen extends HookWidget {
       ),
       client: client,
     );
-    
+
     // Secure mutation for updating profile
     final updateProfile = useMutation<User, User>(
       mutationFn: (user) => api.updateUserProfile(user),
@@ -206,7 +206,7 @@ class SecureHomeScreen extends HookWidget {
       ),
       client: client,
     );
-    
+
     return Scaffold(
       appBar: AppBar(title: Text('Secure App')),
       body: Column(
@@ -218,9 +218,9 @@ class SecureHomeScreen extends HookWidget {
             Text('Error: ${authToken.error}')
           else
             Text('Token: ${authToken.data}'),
-          
+
           SizedBox(height: 20),
-          
+
           // Display user profile
           if (userProfile.isLoading)
             CircularProgressIndicator()
@@ -228,9 +228,9 @@ class SecureHomeScreen extends HookWidget {
             Text('Error: ${userProfile.error}')
           else
             Text('User: ${userProfile.data?.name}'),
-          
+
           SizedBox(height: 20),
-          
+
           // Update profile button
           ElevatedButton(
             onPressed: updateProfile.isLoading
@@ -257,7 +257,7 @@ Create custom hooks for common security patterns:
 // Custom hook for secure authentication
 QueryState<String> useSecureAuth() {
   final client = useQueryClient();
-  
+
   return useQuery<String>(
     'auth-token',
     () => api.getAuthToken(),
@@ -273,7 +273,7 @@ QueryState<String> useSecureAuth() {
 // Custom hook for secure user profile
 QueryState<User> useSecureUserProfile() {
   final client = useQueryClient();
-  
+
   return useQuery<User>(
     'user-profile',
     () => api.getUserProfile(),
@@ -289,7 +289,7 @@ QueryState<User> useSecureUserProfile() {
 // Custom hook for secure profile update
 MutationState<User> useSecureProfileUpdate() {
   final client = useQueryClient();
-  
+
   return useMutation<User, User>(
     mutationFn: (user) => api.updateUserProfile(user),
     options: MutationOptions(
@@ -310,7 +310,7 @@ class MyWidget extends HookWidget {
     final auth = useSecureAuth();
     final profile = useSecureUserProfile();
     final updateProfile = useSecureProfileUpdate();
-    
+
     return Column(
       children: [
         Text('Token: ${auth.data}'),
@@ -384,13 +384,13 @@ class SecureWidget extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final client = useQueryClient();
-    
+
     final query = useQuery<String>(
       'secure-data',
       () => fetchData(),
       client: client,
     );
-    
+
     // Handle security-related errors
     useEffect(() {
       if (query.hasError) {
@@ -402,7 +402,7 @@ class SecureWidget extends HookWidget {
       }
       return null;
     }, [query.hasError]);
-    
+
     return Text('${query.data}');
   }
 }
@@ -412,14 +412,14 @@ class SecureWidget extends HookWidget {
 
 ### Enabling Security in Existing Apps
 
-1. **Add security dependencies** to your `pubspec.yaml`:
+1. **Add the security package** using the Flutter CLI:
 
-```yaml
-dependencies:
-  fasq_hooks: ^0.2.0
-  encrypt: ^5.0.3
-  flutter_secure_storage: ^9.0.0
+```bash
+flutter pub add fasq_security
 ```
+
+> [!TIP]
+> This package integrates with the [Fasq core](/docs/core) and the [hooks adapter](/docs/hooks).
 
 2. **Wrap your app** with `QueryClientProvider`:
 
@@ -482,24 +482,27 @@ final mutation = useMutation<String, String>(
 ### Common Issues
 
 **Client not found:**
+
 - Ensure `QueryClientProvider` wraps your app
 - Use `useQueryClient()` hook to access the configured client
 
 **Security validation errors:**
+
 - Check query key format (alphanumeric, colon, hyphen, underscore only)
 - Ensure durations are non-negative
 - Verify cache data doesn't contain functions
 
 **Performance issues:**
+
 - Large data (>50KB) is automatically encrypted in isolates
 - Consider reducing cache size for better performance
 - Use appropriate TTL values to prevent memory bloat
 
 ### Error Messages
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "Query key must contain only alphanumeric, colon, hyphen, underscore" | Invalid query key format | Use valid characters only |
-| "Secure queries must specify maxAge for TTL enforcement" | Missing maxAge for secure query | Add maxAge to QueryOptions |
-| "staleTime must be non-negative" | Negative duration | Use positive or zero duration |
-| "Cache data cannot be a function or closure" | Function in cache data | Remove functions from cached data |
+| Error                                                                 | Cause                           | Solution                          |
+| --------------------------------------------------------------------- | ------------------------------- | --------------------------------- |
+| "Query key must contain only alphanumeric, colon, hyphen, underscore" | Invalid query key format        | Use valid characters only         |
+| "Secure queries must specify maxAge for TTL enforcement"              | Missing maxAge for secure query | Add maxAge to QueryOptions        |
+| "staleTime must be non-negative"                                      | Negative duration               | Use positive or zero duration     |
+| "Cache data cannot be a function or closure"                          | Function in cache data          | Remove functions from cached data |
