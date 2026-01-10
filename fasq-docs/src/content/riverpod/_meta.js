@@ -10,7 +10,15 @@ const meta = {
   'family-providers': 'Family Providers',
   'riverpod-patterns': 'Riverpod Patterns',
   security: 'Security Features',
-  examples: 'Examples',
+  configuration: 'Configuration',
+  metadata: 'Metadata',
+  'circuit-breaker': 'Circuit Breaker',
+  'devtools': 'DevTools',
+  "error-tracking": "Error Tracking",
+  "leak-detection": "Leak Detection",
+  "metrics-exporters": "Metrics Exporters",
+  "logging": "Logging",
+  "examples": "Examples",
 }
 
 export default meta

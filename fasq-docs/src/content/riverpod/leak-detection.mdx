@@ -1,0 +1,99 @@
+# Leak Detection & Prevention
+
+Memory management is a critical aspect of mobile development. Fasq Riverpod is designed to be "leak-proof" by default, leveraging Riverpod's built-in disposal mechanisms.
+
+## Automatic Disposal
+
+The standard `queryProvider` uses Riverpod's `AutoDisposeAsyncNotifier`. This means that as soon as the last widget unmounts (or the last listener is removed), the provider is marked for disposal.
+
+### How it Works
+
+When a provider is disposed:
+
+1.  Riverpod calls the notifier's `_cleanup` method.
+2.  `fasq_riverpod` cancels all internal stream subscriptions.
+3.  `fasq_riverpod` calls `query.removeListener()`.
+4.  If no other providers are using that query, the core `Query` enters a "stale" state and is eventually removed from memory after its `cacheTime` expires.
+
+## Manual Disposal in Custom Providers
+
+If you are creating custom providers that interact with the `QueryClient` directly (via `fasqClientProvider`), it is your responsibility to ensure resources are cleaned up.
+
+Always use `ref.onDispose` to remove listeners:
+
+```dart
+final customProvider = Provider((ref) {
+  final client = ref.watch(fasqClientProvider);
+  final query = client.getQuery(...);
+
+  query.addListener();
+
+  // CRITICAL: Ensure the listener is removed when the provider is disposed
+  ref.onDispose(() {
+    query.removeListener();
+  });
+
+  return query;
+});
+```
+
+## Testing for Leaks
+
+Fasq includes a `LeakDetector` utility specifically for identifying memory leaks in your unit and widget tests.
+
+### Integration with Riverpod Tests
+
+When testing providers, you should verify that no queries are left active after the `ProviderContainer` is disposed.
+
+```dart
+import 'package:fasq/testing.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  late LeakDetector detector;
+
+  setUp(() {
+    detector = LeakDetector();
+  });
+
+  test('provider should not leak queries', () async {
+    final container = ProviderContainer();
+    final client = container.read(fasqClientProvider);
+
+    // Use a query provider
+    final result = await container.read(myQueryProvider.future);
+
+    // Dispose the container (this should trigger provider disposal)
+    container.dispose();
+
+    // Verify no queries are leaked
+    detector.expectNoLeakedQueries(client);
+  });
+}
+```
+
+## Debug Instrumentation
+
+In **debug mode only**, you can inspect the reference holders of any query to see exactly what is keeping it alive. This is useful for identifying "zombie" providers or widgets.
+
+```dart
+final client = ref.read(fasqClientProvider);
+final debugInfo = client.activeQueryDebugInfoMap;
+
+for (final entry in debugInfo.entries) {
+  print('Query ${entry.key} is held by: ${entry.value.referenceHolders.keys}');
+}
+```
+
+## Best Practices
+
+- **Use AutoDispose**: Always prefer `AutoDispose` providers unless you have a specific reason to keep data in memory indefinitely.
+- **Check Tests**: Run your tests with `LeakDetector` to catch leaks early in the development cycle.
+- **Avoid Global Clients**: Avoid creating `QueryClient` instances outside of `fasqClientProvider`, as they won't benefit from Riverpod's lifecycle management.
+
+## See Also
+
+- [Error Tracking](/docs/riverpod/error-tracking)
+- [DevTools Integration](/docs/riverpod/devtools)
+- [Client Configuration](/docs/riverpod/configuration)

@@ -1,449 +1,141 @@
-# mutationProvider
+# `mutationProvider`
 
-The `mutationProvider` is a Riverpod provider factory that creates and manages Fasq mutations. It provides a compile-safe way to handle server-side operations like creating, updating, or deleting data.
+The `mutationProvider` manages server-side operations like creating, updating, or deleting data. Unlike queries, mutations are triggered imperatively and their state is exposed for UI feedback.
 
 ## Basic Usage
 
+To use a mutation, you define the provider and then use the **notifier** to trigger the transition.
+
 ```dart
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fasq_riverpod/fasq_riverpod.dart';
 
-// Define your mutation provider
-final createUserProvider = mutationProvider<User, Map<String, String>>(
-  (data) => api.createUser(data),
+// 1. Define the mutation provider <Data, Variables>
+final createUserProvider = mutationProvider<User, String>(
+  (name) => api.createUser(name),
 );
 
 class CreateUserScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final createUser = ref.watch(createUserProvider);
-    
+    // 2. Watch the state for UI feedback
+    final mutation = ref.watch(createUserProvider);
+
     return Column(
       children: [
         ElevatedButton(
-          onPressed: createUser.isLoading 
-            ? null 
-            : () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
-          child: createUser.isLoading
+          onPressed: mutation.isLoading
+            ? null
+            : () {
+                // 3. Trigger the mutation via the NOTIFIER
+                ref.read(createUserProvider.notifier).mutate('John Doe');
+              },
+          child: mutation.isLoading
             ? CircularProgressIndicator()
             : Text('Create User'),
         ),
-        if (createUser.hasError)
-          Text('Error: ${createUser.error}'),
-        if (createUser.hasData)
-          Text('Created: ${createUser.data!.name}'),
+
+        if (mutation.hasError)
+          Text('Error: ${mutation.error}'),
+
+        if (mutation.isSuccess)
+          Text('Created: ${mutation.data!.name}'),
       ],
     );
   }
 }
 ```
 
-## Provider Configuration
+> [!IMPORTANT]
+> Always call `.mutate()` on the notifier (`ref.read(provider.notifier).mutate(...)`) rather than attempting to call it on the state object.
 
-Configure mutation behavior with MutationOptions:
+## `MutationState` Properties
 
-```dart
-final createUserProvider = mutationProvider<User, Map<String, String>>(
-  (data) => api.createUser(data),
-  options: MutationOptions(
-    onSuccess: (user) {
-      print('User created: ${user.name}');
-      // Invalidate users query to refetch
-      ref.invalidate(usersProvider);
-    },
-    onError: (error) {
-      print('Error creating user: $error');
-    },
-    onMutate: (data) {
-      print('About to create user: ${data['name']}');
-    },
-  ),
-);
-```
+The `mutationProvider` returns a `MutationState<T>` object, which provides the following properties:
 
-## Status Handling
+- **`status`**: The current `MutationStatus` (idle, loading, success, error).
+- **`data`**: The result of the mutation if successful.
+- **`error`**: The error object if the mutation failed.
+- **`isLoading`**, **`isSuccess`**, **`isError`**, **`isIdle`**: Helper getters for status.
+- **`hasData`**, **`hasError`**: Helper getters for presence of data/error.
 
-Handle different mutation statuses:
+## Side Effects (Success/Error)
 
-```dart
-class CreateUserScreen extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final createUser = ref.watch(createUserProvider);
-    
-    switch (createUser.status) {
-      case MutationStatus.idle:
-        return ElevatedButton(
-          onPressed: () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
-          child: Text('Create User'),
-        );
-      case MutationStatus.loading:
-        return CircularProgressIndicator();
-      case MutationStatus.success:
-        return Text('Created: ${createUser.data!.name}');
-      case MutationStatus.error:
-        return Text('Error: ${createUser.error}');
-    }
-  }
-}
-```
-
-## Form Submission
-
-Handle form submissions with mutations:
-
-```dart
-final createUserProvider = mutationProvider<User, Map<String, String>>(
-  (data) => api.createUser(data),
-  options: MutationOptions(
-    onSuccess: (user) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('User created: ${user.name}')),
-      );
-    },
-    onError: (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $error')),
-      );
-    },
-  ),
-);
-
-class CreateUserForm extends ConsumerStatefulWidget {
-  @override
-  ConsumerState<CreateUserForm> createState() => _CreateUserFormState();
-}
-
-class _CreateUserFormState extends ConsumerState<CreateUserForm> {
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  
-  @override
-  Widget build(BuildContext context) {
-    final createUser = ref.watch(createUserProvider);
-    
-    return Column(
-      children: [
-        TextField(
-          controller: _nameController,
-          decoration: InputDecoration(labelText: 'Name'),
-        ),
-        TextField(
-          controller: _emailController,
-          decoration: InputDecoration(labelText: 'Email'),
-        ),
-        ElevatedButton(
-          onPressed: createUser.isLoading
-              ? null
-              : () {
-                  createUser.mutate({
-                    'name': _nameController.text,
-                    'email': _emailController.text,
-                  });
-                  _nameController.clear();
-                  _emailController.clear();
-                },
-          child: createUser.isLoading
-              ? CircularProgressIndicator()
-              : Text('Create User'),
-        ),
-      ],
-    );
-  }
-}
-```
-
-## Cache Invalidation After Mutation
-
-After a mutation succeeds, invalidate related queries:
+Handle side effects like navigation, showing snackbars, or invalidating queries using `MutationOptions`:
 
 ```dart
 final deleteUserProvider = mutationProvider<void, String>(
   (userId) => api.deleteUser(userId),
   options: MutationOptions(
-    onSuccess: (_, userId) {
-      // Invalidate users query to refetch
-      ref.invalidate(usersProvider);
-      ref.invalidate(userProvider(userId));
+    onSuccess: (data, variables) {
+      // Invalidate related queries to refresh data
+      ref.read(fasqClientProvider).invalidateQuery('users'.toQueryKey());
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User deleted')),
+      );
+    },
+    onError: (error, variables) {
+      print('Failed to delete: $error');
     },
   ),
 );
-
-class DeleteUserButton extends ConsumerWidget {
-  final String userId;
-  
-  const DeleteUserButton({required this.userId});
-  
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final deleteUser = ref.watch(deleteUserProvider);
-    
-    return IconButton(
-      icon: Icon(Icons.delete),
-      onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(userId),
-    );
-  }
-}
 ```
 
 ## Optimistic Updates
 
-Update the cache immediately for instant UX, then rollback on error:
+Implement optimistic updates to make your UI feel instant:
 
 ```dart
-final updateUserProvider = mutationProvider<User, User>(
-  (updatedUser) => api.updateUser(updatedUser),
+final updatePostProvider = mutationProvider<Post, Post>(
+  (post) => api.updatePost(post),
   options: MutationOptions(
-    onMutate: (updatedUser) {
-      // Optimistically update cache
-      final users = ref.read(usersProvider).data;
-      if (users != null) {
-        final optimistic = users.map((u) => 
-          u.id == updatedUser.id ? updatedUser : u
-        ).toList();
-        
-        ref.read(usersProvider.notifier).setData(optimistic);
+    onMutate: (post) {
+      // 1. Cancel outgoing refetches
+      ref.read(fasqClientProvider).cancelQuery(QueryKeys.post(post.id));
+
+      // 2. Snapshot the current value
+      final previousPost = ref.read(fasqClientProvider).getQueryData<Post>(
+        QueryKeys.post(post.id)
+      );
+
+      // 3. Optimistically update to the new value
+      ref.read(fasqClientProvider).setQueryData(QueryKeys.post(post.id), post);
+
+      return previousPost; // Return for rollback
+    },
+    onError: (error, post, previousPost) {
+      // 4. Rollback on error
+      if (previousPost != null) {
+        ref.read(fasqClientProvider).setQueryData(
+          QueryKeys.post(post.id),
+          previousPost
+        );
       }
     },
-    onSuccess: (user) {
-      // Invalidate to get fresh data
-      ref.invalidate(usersProvider);
-    },
-    onError: (error) {
-      // Rollback on error
-      ref.invalidate(usersProvider);
+    onSettled: (data, error, post) {
+      // 5. Always refetch after error or success to synchronize
+      ref.read(fasqClientProvider).invalidateQuery(QueryKeys.post(post.id));
     },
   ),
 );
-
-class UpdateUserButton extends ConsumerWidget {
-  final User user;
-  
-  const UpdateUserButton({required this.user});
-  
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final updateUser = ref.watch(updateUserProvider);
-    
-    return ElevatedButton(
-      onPressed: () => updateUser.mutate(user),
-      child: Text('Update'),
-    );
-  }
-}
 ```
 
-## Multiple Mutations
+## Offline Queueing
 
-Handle multiple mutations in one screen:
-
-```dart
-final updateUserProvider = mutationProvider<User, User>(
-  (updatedUser) => api.updateUser(updatedUser),
-);
-
-final deleteUserProvider = mutationProvider<void, String>(
-  (userId) => api.deleteUser(userId),
-);
-
-class UserActions extends ConsumerWidget {
-  final User user;
-  
-  const UserActions({required this.user});
-  
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final updateUser = ref.watch(updateUserProvider);
-    final deleteUser = ref.watch(deleteUserProvider);
-    
-    return Row(
-      children: [
-        IconButton(
-          icon: Icon(Icons.edit),
-          onPressed: updateUser.isLoading ? null : () => updateUser.mutate(user),
-        ),
-        IconButton(
-          icon: Icon(Icons.delete),
-          onPressed: deleteUser.isLoading ? null : () => deleteUser.mutate(user.id),
-        ),
-      ],
-    );
-  }
-}
-```
-
-## Error Handling
-
-Handle errors with retry functionality:
+Fasq supports queueing mutations when the device is offline:
 
 ```dart
-class CreateUserScreen extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final createUser = ref.watch(createUserProvider);
-    
-    if (createUser.hasError) {
-      return Column(
-        children: [
-          Text('Error: ${createUser.error}'),
-          ElevatedButton(
-            onPressed: () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
-            child: Text('Retry'),
-          ),
-        ],
-      );
-    }
-    
-    return ElevatedButton(
-      onPressed: createUser.isLoading ? null : () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
-      child: createUser.isLoading 
-        ? CircularProgressIndicator()
-        : Text('Create User'),
-    );
-  }
-}
-```
-
-## Type Safety
-
-Full generic type support ensures compile-time safety:
-
-```dart
-// Type-safe provider definition
-final createUserProvider = mutationProvider<User, Map<String, String>>(
-  (data) => api.createUser(data),
-);
-
-class TypeSafeCreateUserScreen extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final createUser = ref.watch(createUserProvider);
-    
-    return ElevatedButton(
-      onPressed: createUser.isLoading ? null : () {
-        // Type-safe mutation call
-        createUser.mutate({
-          'name': 'John Doe',
-          'email': 'john@example.com',
-        });
-      },
-      child: Text('Create User'),
-    );
-  }
-}
-```
-
-## Common Patterns
-
-### Loading Button
-
-```dart
-class CreateUserButton extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final createUser = ref.watch(createUserProvider);
-    
-    return ElevatedButton(
-      onPressed: createUser.isLoading ? null : () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
-      child: createUser.isLoading
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Text('Create User'),
-    );
-  }
-}
-```
-
-### Success Feedback
-
-```dart
-final createUserProvider = mutationProvider<User, Map<String, String>>(
-  (data) => api.createUser(data),
+final createCommentProvider = mutationProvider<Comment, String>(
+  (content) => api.addComment(content),
   options: MutationOptions(
-    onSuccess: (user) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('User created: ${user.name}'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    },
+    queueWhenOffline: true, // Mutation will execute when back online
   ),
 );
-
-class CreateUserScreen extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final createUser = ref.watch(createUserProvider);
-    
-    return ElevatedButton(
-      onPressed: createUser.isLoading ? null : () => createUser.mutate({'name': 'John', 'email': 'john@example.com'}),
-      child: Text('Create User'),
-    );
-  }
-}
 ```
-
-### Form Validation
-
-```dart
-class CreateUserForm extends ConsumerStatefulWidget {
-  @override
-  ConsumerState<CreateUserForm> createState() => _CreateUserFormState();
-}
-
-class _CreateUserFormState extends ConsumerState<CreateUserForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  
-  @override
-  Widget build(BuildContext context) {
-    final createUser = ref.watch(createUserProvider);
-    
-    return Form(
-      key: _formKey,
-      child: Column(
-        children: [
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(labelText: 'Name'),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Name is required';
-              }
-              return null;
-            },
-          ),
-          ElevatedButton(
-            onPressed: createUser.isLoading ? null : () {
-              if (_formKey.currentState!.validate()) {
-                createUser.mutate({'name': _nameController.text});
-              }
-            },
-            child: Text('Create User'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-```
-
-## Performance Tips
-
-1. **Use optimistic updates** - Provide instant feedback
-2. **Handle errors gracefully** - Don't leave users stuck
-3. **Invalidate related queries** - Keep data fresh
-4. **Use proper types** - Leverage compile-time safety
-5. **Provide loading states** - Show progress to users
 
 ## Next Steps
 
-- **[queryProvider](/docs/riverpod/query-provider)** - Learn about queries
-- **[Family Providers](/docs/riverpod/family-providers)** - Parameterized mutations
-- **[Riverpod Patterns](/docs/riverpod/riverpod-patterns)** - Best practices
-- **[Examples](/docs/riverpod/examples)** - Complete working examples
+- **[`queryProvider`](/docs/riverpod/query-provider)** - Standard data fetching
+- **[`infiniteQueryProvider`](/docs/riverpod/infinite-query-provider)** - Paginated list management
+- **[Offline Support](/docs/riverpod/offline-queue)** - Learn more about offline capabilities

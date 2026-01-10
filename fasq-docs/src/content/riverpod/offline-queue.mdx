@@ -1,14 +1,16 @@
 # Offline Queue with Riverpod
 
-Use `mutationProvider` with offline queuing capabilities.
+Mutations in Fasq can be configured to queue their execution when the device is offline, ensuring data eventual consistency.
 
 ## Basic Usage
+
+To enable offline queuing, set `queueWhenOffline` to `true` in your `MutationOptions`.
 
 ```dart
 import 'package:fasq_riverpod/fasq_riverpod.dart';
 
 final todoMutationProvider = mutationProvider<String, String>(
-  mutationFn: (String todo) async {
+  (todo) async {
     return await api.createPost(todo);
   },
   options: const MutationOptions(
@@ -17,200 +19,92 @@ final todoMutationProvider = mutationProvider<String, String>(
   ),
 );
 
-Widget MyWidget() {
-  return Consumer(
-    builder: (context, ref, child) {
-      final mutation = ref.watch(todoMutationProvider);
-      
-      return Column(
-        children: [
-          if (mutation.state.isQueued)
-            Text('Queued for sync'),
-          if (mutation.state.isLoading)
-            CircularProgressIndicator(),
-          ElevatedButton(
-            onPressed: () => mutation.mutate('Hello'),
-            child: Text('Submit'),
-          ),
-        ],
-      );
-    },
-  );
-}
-```
-
-## Queue Status
-
-```dart
-final queueLengthProvider = StreamProvider<int>((ref) {
-  return OfflineQueueManager.instance.stream
-      .map((entries) => entries.length);
-});
-
-Widget QueueBadge() {
-  return Consumer(
-    builder: (context, ref, child) {
-      final queueLength = ref.watch(queueLengthProvider).value ?? 0;
-      
-      if (queueLength > 0) {
-        return Badge(
-          label: Text('$queueLength'),
-          child: Icon(Icons.queue),
-        );
-      }
-      return SizedBox.shrink();
-    },
-  );
-}
-```
-
-## Network Status
-
-```dart
-final networkStatusProvider = StreamProvider<bool>((ref) {
-  return NetworkStatus.instance.stream;
-});
-
-Widget NetworkIndicator() {
-  return Consumer(
-    builder: (context, ref, child) {
-      final isOnline = ref.watch(networkStatusProvider).value ?? true;
-      
-      return Container(
-        color: isOnline ? Colors.green : Colors.red,
-        child: Text(isOnline ? 'Online' : 'Offline'),
-      );
-    },
-  );
-}
-```
-
-## Complete Example
-
-```dart
-final todoMutationProvider = mutationProvider<String, String>(
-  mutationFn: (String todo) async {
-    await Future.delayed(Duration(milliseconds: 500));
-    return 'Added: $todo';
-  },
-  options: const MutationOptions(
-    queueWhenOffline: true,
-    onQueued: (variables) {
-      // Show snackbar or update UI
-    },
-  ),
-);
-
-final queueLengthProvider = StreamProvider<int>((ref) {
-  return OfflineQueueManager.instance.stream
-      .map((entries) => entries.length);
-});
-
-final networkStatusProvider = StreamProvider<bool>((ref) {
-  return NetworkStatus.instance.stream;
-});
-
-class OfflineTodoPage extends ConsumerWidget {
+class MyWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mutation = ref.watch(todoMutationProvider);
-    final queueLength = ref.watch(queueLengthProvider).value ?? 0;
-    final isOnline = ref.watch(networkStatusProvider).value ?? true;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Offline Todos'),
-        actions: [
-          if (queueLength > 0)
-            Badge(
-              label: Text('$queueLength'),
-              child: Icon(Icons.queue),
-            ),
-          Switch(
-            value: isOnline,
-            onChanged: (value) {
-              NetworkStatus.instance.setOnline(value);
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Container(
-            color: isOnline ? Colors.green.shade100 : Colors.red.shade100,
-            child: Text(isOnline ? 'Online' : 'Offline'),
-          ),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (mutation.state.isQueued)
-                    Text('Mutation queued for sync'),
-                  if (mutation.state.isLoading)
-                    CircularProgressIndicator(),
-                  if (mutation.state.isSuccess)
-                    Text('Success: ${mutation.state.data}'),
-                  ElevatedButton(
-                    onPressed: () => mutation.mutate('New Todo'),
-                    child: Text('Add Todo'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+    return Column(
+      children: [
+        if (mutation.isQueued)
+          const Text('You are offline. Your change will sync when connected.'),
+
+        if (mutation.isLoading)
+          const CircularProgressIndicator(),
+
+        ElevatedButton(
+          onPressed: () => ref.read(todoMutationProvider.notifier).mutate('Hello World'),
+          child: const Text('Submit'),
+        ),
+      ],
     );
   }
 }
 ```
 
-## Advanced Usage
+## Queue Monitoring
+
+You can monitor the status of the offline queue by watching the `fasqClientProvider` or using core Fasq utilities.
 
 ```dart
-// Custom mutation notifier with offline handling
-class OfflineTodoNotifier extends MutationNotifier<String, String> {
-  OfflineTodoNotifier() : super(
-    mutationFn: (String todo) async {
-      return await api.createPost(todo);
-    },
-    options: const MutationOptions(
-      queueWhenOffline: true,
-      maxRetries: 5,
-      onQueued: (variables) {
-        // Custom queued handling
-      },
-    ),
-  );
+// Example of watching global queue length (if supported by core)
+final queueLengthProvider = Provider<int>((ref) {
+  final client = ref.watch(fasqClientProvider);
+  return client.offlineQueue.length;
+});
+```
 
-  void addTodo(String todo) {
-    mutate(todo);
+## Network Status Integration
+
+Fasq works best when it knows the current network status. While it handles basic connectivity, you can manually toggle or monitor status.
+
+```dart
+class NetworkIndicator extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // This depends on how you implement network monitoring in your app
+    final isOnline = ref.watch(networkStatusProvider);
+
+    return Container(
+      padding: EdgeInsets.all(8),
+      color: isOnline ? Colors.green : Colors.red,
+      child: Text(isOnline ? 'Online' : 'Offline - Sync Paused'),
+    );
   }
 }
+```
 
-final offlineTodoNotifierProvider = 
-    NotifierProvider<OfflineTodoNotifier, MutationState<String>>(
-  () => OfflineTodoNotifier(),
-);
+## Advanced Offline Handling
 
-Widget AdvancedTodoWidget() {
-  return Consumer(
-    builder: (context, ref, child) {
-      final state = ref.watch(offlineTodoNotifierProvider);
-      final notifier = ref.read(offlineTodoNotifierProvider.notifier);
-      
-      return Column(
-        children: [
-          if (state.isQueued)
-            Text('Queued for sync'),
-          ElevatedButton(
-            onPressed: () => notifier.addTodo('New Todo'),
-            child: Text('Add Todo'),
-          ),
-        ],
+You can use `onQueued` to provide immediate feedback when a mutation is added to the offline queue.
+
+```dart
+final todoMutationProvider = mutationProvider<String, String>(
+  (todo) => api.createPost(todo),
+  options: MutationOptions(
+    queueWhenOffline: true,
+    onQueued: (variables) {
+      // Show a temporary snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved offline: ${variables}'))
       );
     },
-  );
-}
+    onSuccess: (data, variables) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Synced: ${variables}'))
+      );
+    },
+  ),
+);
 ```
+
+## Best Practices
+
+1. **Optimistic Updates**: Use offline queuing in combination with optimistic updates for the best user experience.
+2. **Persistence**: Ensure you have a persistence layer (like `hive` or `sqflite`) configured in your `QueryClient` so the queue survives app restarts.
+3. **Idempotency**: Ensure your backend handles duplicate requests gracefully, as retry logic might occasionally trigger them.
+
+## Next Steps
+
+- **[`mutationProvider`](/docs/riverpod/mutation-provider)** - Core mutation concepts
+- **[Caching & Persistence](/docs/core/query-client)** - How to survive app restarts

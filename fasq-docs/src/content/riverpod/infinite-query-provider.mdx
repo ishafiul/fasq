@@ -1,20 +1,125 @@
-# infiniteQueryProvider
+# `infiniteQueryProvider`
+
+The `infiniteQueryProvider` handles lists of data that can be fetched in pages (infinite scroll or "load more"). It returns `AsyncValue<InfiniteQueryState<TData, TParam>>`.
+
+## Basic Usage
 
 ```dart
-final provider = infiniteQueryProvider<List<Post>, int>(
-  'posts',
-  (page) => api.fetchPosts(page: page),
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// 1. Define the infinite query provider <Data, Param>
+final postFeedProvider = infiniteQueryProvider<List<Post>, int>(
+  'posts'.toQueryKey(),
+  (pageParam) => api.fetchPostPage(page: pageParam),
   options: InfiniteQueryOptions(
-    getNextPageParam: (pages, last) => pages.length + 1,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) {
+      // Calculate next page param based on last page data
+      return lastPage.data.isNotEmpty ? allPages.length + 1 : null;
+    },
   ),
 );
 
-final state = ref.watch(provider);
-final notifier = ref.read(provider.notifier);
+class PostFeed extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 2. Watch the provider
+    final feedAsync = ref.watch(postFeedProvider);
 
-if (state.hasNextPage) {
-  await notifier.fetchNextPage();
+    return feedAsync.when(
+      data: (state) => ListView.builder(
+        itemCount: state.pages.length,
+        itemBuilder: (context, index) {
+          final page = state.pages[index];
+          return Column(
+            children: [
+              ...page.data.map((post) => PostTile(post)),
+
+              // 3. Trigger next page at the end of the list
+              if (index == state.pages.length - 1 && state.hasNextPage)
+                ElevatedButton(
+                  onPressed: state.isFetchingNextPage
+                    ? null
+                    : () => ref.read(postFeedProvider.notifier).fetchNextPage(),
+                  child: Text('Load More'),
+                ),
+            ],
+          );
+        },
+      ),
+      loading: () => Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('Error')),
+    );
+  }
 }
 ```
 
+## `InfiniteQueryState` Structure
 
+The data inside `AsyncValue` is an `InfiniteQueryState<TData, TParam>`:
+
+- **`pages`**: A list of `Page<TData, TParam>` objects. Each page contains:
+  - `data`: The actual data returned from the fetch function.
+  - `param`: The parameter used to fetch this page.
+- **`hasNextPage`**: Whether more pages are available (determined by `getNextPageParam`).
+- **`hasPreviousPage`**: Whether previous pages are available (determined by `getPreviousPageParam`).
+- **`isFetchingNextPage`**: True when a request for the next page is in progress.
+- **`isFetchingPreviousPage`**: True when a request for the previous page is in progress.
+
+## Pagination Methods
+
+Trigger pagination operations via the notifier:
+
+```dart
+// Fetch the next page using the next page param
+ref.read(postFeedProvider.notifier).fetchNextPage();
+
+// Fetch the previous page (if supported)
+ref.read(postFeedProvider.notifier).fetchPreviousPage();
+
+// Reset the query (clears all pages and starts over)
+ref.read(postFeedProvider.notifier).reset();
+```
+
+## Automatic Scroll Loading
+
+In many cases, you want to load the next page automatically when the user scrolls to the bottom.
+
+```dart
+class AutoLoadFeed extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<AutoLoadFeed> createState() => _AutoLoadFeedState();
+}
+
+class _AutoLoadFeedState extends ConsumerState<AutoLoadFeed> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      final state = ref.read(postFeedProvider).value;
+      if (state == null) return;
+
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        if (state.hasNextPage && !state.isFetchingNextPage) {
+          ref.read(postFeedProvider.notifier).fetchNextPage();
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // ... use _scrollController in your ListView
+  }
+}
+```
+
+## Next Steps
+
+- **[`queryProvider`](/docs/riverpod/query-provider)** - Standard data fetching
+- **[`mutationProvider`](/docs/riverpod/mutation-provider)** - Handling server-side updates
+- **[Pagination Deep Dive](/docs/guides/pagination)** - Advanced pagination patterns

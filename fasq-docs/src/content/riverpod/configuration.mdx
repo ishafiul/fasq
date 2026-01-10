@@ -1,0 +1,152 @@
+# Configuration
+
+Fasq Riverpod uses a set of specialized providers to configure the global `QueryClient`. This approach makes configuration declarative and easily overridable at any level of your app's widget tree.
+
+## Global Client Configuration
+
+The `fasqClientProvider` (which all other providers use) is built by listening to several configuration providers. To customize your client, you should override these providers in your `ProviderScope`.
+
+### 1. Cache Configuration (`fasqCacheConfigProvider`)
+
+Use this to set global defaults for `staleTime`, `cacheTime`, and other cache-specific behaviors.
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+void main() {
+  runApp(
+    ProviderScope(
+      overrides: [
+        fasqCacheConfigProvider.overrideWithValue(
+          const CacheConfig(
+            defaultStaleTime: Duration(minutes: 5),
+            defaultCacheTime: Duration(minutes: 15),
+          ),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+```
+
+### 2. Persistence Options (`fasqPersistenceOptionsProvider`)
+
+To enable the offline cache, you must provide a storage directory. You can also specify encryption keys or custom serialization logic.
+
+```dart
+import 'package:path_provider/path_provider.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final dir = await getApplicationDocumentsDirectory();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        fasqPersistenceOptionsProvider.overrideWithValue(
+          PersistenceOptions(
+            directory: dir.path,
+          ),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+```
+
+### 3. Observers & Logging (`fasqObserversProvider`)
+
+Observers allow you to monitor lifecycle events (fetching, success, error) across all queries in your app. The `FasqLogger` is provided out of the box for development.
+
+```dart
+ProviderScope(
+  overrides: [
+    fasqObserversProvider.overrideWithValue([
+      FasqLogger(), // Prints query events to the console
+    ]),
+  ],
+  child: const MyApp(),
+)
+```
+
+## Accessing the raw QueryClient (`fasqClientProvider`)
+
+While most operations are handled by the high-level providers, you can access the underlying `QueryClient` instance whenever you need lower-level control.
+
+### Why access the client?
+
+- To manually fetch data without using a provider.
+- To manipulate cache data directly using `setQueryData` or `getQueryData`.
+- To perform complex invalidation patterns (e.g., invalidating by tag or fuzzy matching).
+- To listen to global cache events.
+
+### Usage in Widgets
+
+You can watch the client just like any other provider:
+
+```dart
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final client = ref.watch(fasqClientProvider);
+
+    return ElevatedButton(
+      onPressed: () {
+        // Clear the entire cache
+        client.clear();
+      },
+      child: Text('Clear All Cache'),
+    );
+  }
+}
+```
+
+### Usage in other Providers
+
+The client is often used inside other providers to perform side effects:
+
+```dart
+final authControllerProvider = Provider((ref) {
+  return AuthController(
+    onLogout: () {
+      // Access the client to wipe all secure data on logout
+      ref.read(fasqClientProvider).clear();
+    },
+  );
+});
+```
+
+## Advanced Configuration Providers
+
+| Provider                             | Purpose                                                        |
+| :----------------------------------- | :------------------------------------------------------------- |
+| `fasqCacheConfigProvider`            | Global stale and cache time defaults.                          |
+| `fasqPersistenceOptionsProvider`     | Configuration for disk persistence (SQLite/Hive).              |
+| `fasqObserversProvider`              | List of observers for logging or analytics.                    |
+| `fasqErrorReportersProvider`         | Integration with services like Sentry or Firebase Crashlytics. |
+| `fasqSecurityPluginProvider`         | Options for hardware-backed encryption or secure storage.      |
+| `fasqCircuitBreakerRegistryProvider` | Configuration for global circuit breaker patterns.             |
+
+## Why use Providers for Configuration?
+
+By using Riverpod providers for configuration:
+
+1. **Managed Singleton**: The `QueryClient` is created once and automatically disposed when the app is destroyed.
+2. **Context-Aware**: You can theoretically have different `QueryClient` configurations for different branches of your widget tree by nesting `ProviderScope`.
+3. **Reactive**: While most configurations are static, you could dynamically update your client configuration based on app state (e.g., toggling debug logs).
+
+## Next Steps
+
+- **[Security Features](/docs/riverpod/security)** - Secure storage and encryption
+- **[Offline Queue](/docs/riverpod/offline-queue)** - Handling offline updates
+- **[Metadata Handling](/docs/riverpod/metadata)**
+- **[Circuit Breaker](/docs/riverpod/circuit-breaker)**
+- **[DevTools Integration](/docs/riverpod/devtools)**
+- **[Error Tracking](/docs/riverpod/error-tracking)**
+- **[Leak Detection](/docs/riverpod/leak-detection)**
+- **[Logging](/docs/riverpod/logging)**
+- **[Metrics Exporters](/docs/riverpod/metrics-exporters)**
+- **[Getting Started](/docs/riverpod/)** - Introduction and basic usage

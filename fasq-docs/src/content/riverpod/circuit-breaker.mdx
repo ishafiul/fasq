@@ -1,0 +1,112 @@
+import { Callout } from "nextra/components";
+
+# Circuit Breaker
+
+The Circuit Breaker pattern is used to stop making requests to a service that is likely to fail, preventing your application from wasting resources and potentially overwhelming the failing service.
+
+Fasq provides a built-in circuit breaker implementation that integrates seamlessly with Riverpod.
+
+## How it Works
+
+The circuit breaker has three states:
+
+1.  **Closed**: Requests are allowed to pass through normally. If failures exceed a certain threshold, the circuit opens.
+2.  **Open**: Requests are immediately rejected with a `CircuitBreakerOpenException` without reaching the network. After a timeout, the circuit enters the half-open state.
+3.  **Half-Open**: A limited number of requests are allowed to pass through. If they succeed, the circuit closes. If they fail, it opens again.
+
+## Global Setup
+
+By default, Fasq provides a `fasqCircuitBreakerRegistryProvider` that you can override to configure the global circuit breaker behavior.
+
+```dart
+ProviderScope(
+  overrides: [
+    fasqCircuitBreakerRegistryProvider.overrideWithValue(
+      CircuitBreakerRegistry(),
+    ),
+  ],
+  child: MyApp(),
+)
+```
+
+## Configuring Queries
+
+You can enable and configure the circuit breaker for individual queries by passing `CircuitBreakerOptions` to the `queryProvider`.
+
+```dart
+final userProvider = queryProvider<User>(
+  'user',
+  () => fetchUser(),
+  options: QueryOptions(
+    circuitBreaker: CircuitBreakerOptions(
+      failureThreshold: 5,
+      resetTimeout: Duration(seconds: 30),
+    ),
+  ),
+);
+```
+
+### Circuit Breaker Scope
+
+By default, circuit breakers are scoped to the unique query key. This means if one query fails, it won't affect other unrelated queries.
+
+However, you can group multiple related queries under a single circuit breaker (e.g., all queries that hit the same API domain) using `circuitBreakerScope`.
+
+```dart
+final postsProvider = queryProvider<List<Post>>(
+  'posts',
+  () => fetchPosts(),
+  options: QueryOptions(
+    circuitBreakerScope: 'api.example.com',
+    circuitBreaker: CircuitBreakerOptions(failureThreshold: 10),
+  ),
+);
+
+final commentsProvider = queryProvider<List<Comment>>(
+  'comments',
+  () => fetchComments(),
+  options: QueryOptions(
+    circuitBreakerScope: 'api.example.com', // Shares the same breaker as 'posts'
+  ),
+);
+```
+
+<Callout type="info">
+  When multiple queries share a scope, the `CircuitBreakerOptions` from the
+  first query that initializes the breaker will be used. Subsequent queries
+  sharing the same scope will use the existing breaker.
+</Callout>
+
+## Handling Circuit Breaker Exceptions
+
+When the circuit is open, subsequent requests will throw a `CircuitBreakerOpenException`. You should handle this in your UI to show a friendly message to the user.
+
+```dart
+final userAsync = ref.watch(userProvider);
+
+return userAsync.when(
+  data: (user) => UserProfile(user: user),
+  loading: () => LoadingIndicator(),
+  error: (error, stack) {
+    if (error is CircuitBreakerOpenException) {
+      return Text('Service is temporarily unavailable. Please try again later.');
+    }
+    return Text('Error: $error');
+  },
+);
+```
+
+## Mutations
+
+While `MutationOptions` does not explicitly take `CircuitBreakerOptions` yet, mutations will still honor the global circuit breaker state if they share a scope with a protected query, or if you manually access the `CircuitBreakerRegistry` through the `QueryClient`.
+
+<Callout type="warning">
+  Direct circuit breaker support for mutations is planned for a future update.
+</Callout>
+
+## Next Steps
+
+Now that you've secured your queries with circuit breakers, you might want to look at:
+
+- [Metadata Handling](/docs/riverpod/metadata)
+- [Global Configuration](/docs/riverpod/configuration)

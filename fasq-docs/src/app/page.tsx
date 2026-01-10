@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DEFAULT_DESCRIPTION, SITE_URL, defaultImage } from "../lib/seo";
 
+export const dynamic = "force-static";
+export const revalidate = false;
+
 export const metadata: Metadata = {
   title: "Fasq | Flutter Async State Query",
   description: DEFAULT_DESCRIPTION,
