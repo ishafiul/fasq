@@ -1,3 +1,7 @@
+## 0.3.1
+
+ - **FEAT**: Riverpod Update (#54).
+
 ## 0.3.0+2
 
  - Update a dependency to the latest release.

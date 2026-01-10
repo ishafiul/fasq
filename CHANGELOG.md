@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2026-01-11
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq_riverpod` - `v0.3.1`](#fasq_riverpod---v031)
+
+---
+
+#### `fasq_riverpod` - `v0.3.1`
+
+ - **FEAT**: Riverpod Update (#54).
+
+
 ## 2026-01-04
 
 ### Changes
