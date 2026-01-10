@@ -80,8 +80,8 @@ void main() {
     });
   });
 
-  group('usePrefetch', () {
-    testWidgets('prefetches correctly', (tester) async {
+  group('Hook-like prefetch', () {
+    testWidgets('prefetches correctly via extension', (tester) async {
       int fetchCount = 0;
 
       Future<String> fetchData() async {
@@ -89,17 +89,21 @@ void main() {
         return 'test-data';
       }
 
+      var hasInitialized = false;
+
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
             home: Consumer(
               builder: (context, ref, child) {
-                usePrefetch(ref, [
-                  PrefetchConfig(
-                    queryKey: 'test-key'.toQueryKey(),
-                    queryFn: fetchData,
-                  ),
-                ]);
+                if (!hasInitialized) {
+                  hasInitialized = true;
+                  // Use the extension method to prefetch
+                  Future.microtask(() => ref.prefetchQuery(
+                        'test-key'.toQueryKey(),
+                        fetchData,
+                      ));
+                }
                 return const SizedBox();
               },
             ),
@@ -107,7 +111,7 @@ void main() {
         ),
       );
 
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(fetchCount, equals(1));
     });
@@ -126,21 +130,27 @@ void main() {
         return 'test-data-2';
       }
 
+      var hasInitialized = false;
+
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
             home: Consumer(
               builder: (context, ref, child) {
-                usePrefetch(ref, [
-                  PrefetchConfig(
-                    queryKey: 'test-key-1'.toQueryKey(),
-                    queryFn: fetchData1,
-                  ),
-                  PrefetchConfig(
-                    queryKey: 'test-key-2'.toQueryKey(),
-                    queryFn: fetchData2,
-                  ),
-                ]);
+                if (!hasInitialized) {
+                  hasInitialized = true;
+                  // Use the extension method to prefetch multiple queries
+                  Future.microtask(() => ref.prefetchQueries([
+                        PrefetchConfig(
+                          queryKey: 'test-key-1'.toQueryKey(),
+                          queryFn: fetchData1,
+                        ),
+                        PrefetchConfig(
+                          queryKey: 'test-key-2'.toQueryKey(),
+                          queryFn: fetchData2,
+                        ),
+                      ]));
+                }
                 return const SizedBox();
               },
             ),
@@ -148,7 +158,7 @@ void main() {
         ),
       );
 
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(fetchCount1, equals(1));
       expect(fetchCount2, equals(1));

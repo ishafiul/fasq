@@ -21,10 +21,23 @@ void main() {
       ),
     );
 
+    // Initially should be loading
+    final initialValue = container.read(provider);
+    expect(initialValue, isA<AsyncLoading>());
+
+    // Fetch the first page
     final notifier = container.read(provider.notifier);
-    expect(container.read(provider).pages, isEmpty);
     await notifier.fetchNextPage(1);
-    expect(
-        container.read(provider).pages.where((p) => p.data != null).length, 1);
+
+    // Wait for data to be available
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // Check that we have data
+    final asyncValue = container.read(provider);
+    expect(asyncValue, isA<AsyncData<InfiniteQueryState<List<int>, int>>>());
+
+    final state = asyncValue.value!;
+    expect(state.pages.where((p) => p.data != null).length, 1);
+    expect(state.pages.first.data, [1]);
   });
 }

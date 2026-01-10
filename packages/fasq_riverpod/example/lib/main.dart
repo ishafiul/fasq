@@ -65,7 +65,7 @@ class GreetingsScreen extends ConsumerWidget {
             );
           }
 
-          final greetings = state.data ?? const <String>[];
+          final greetings = state.value ?? const <String>[];
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: greetings.length,
