@@ -1,0 +1,108 @@
+# Logging
+
+Fasq Riverpod makes it easy to monitor your application's data flow using the built-in `FasqLogger`.
+
+## The Default Logger
+
+`fasq_riverpod` provides a `fasqLoggerProvider` that gives you a pre-configured instance of `FasqLogger`. This logger automatically hooks into the `QueryClient` lifecycle to log events like fetches, successes, and errors.
+
+### Setup
+
+To enable logging, add the logger to the `fasqObserversProvider` via an override in your `ProviderScope`:
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+void main() {
+  runApp(
+    ProviderScope(
+      overrides: [
+        fasqObserversProvider.overrideWith((ref) => [
+          // Use the default logger
+          ref.watch(fasqLoggerProvider),
+        ]),
+      ],
+      child: MyApp(),
+    ),
+  );
+}
+```
+
+## Configuration
+
+You can customize the logger by overriding `fasqLoggerProvider`:
+
+```dart
+ProviderScope(
+  overrides: [
+    fasqLoggerProvider.overrideWithValue(
+      FasqLogger(
+        // Disable logging entirely
+        enabled: !kReleaseMode,
+
+        // Show data in logs (privacy-first: false by default)
+        showData: true,
+
+        // Truncate long data strings
+        truncateLength: 50,
+      ),
+    ),
+  ],
+  child: MyApp(),
+)
+```
+
+## Log Format
+
+The logger uses emoji-coded messages for easy scanning in your console:
+
+- ⏳ `[Fetch]`: A query or mutation has started.
+- ✅ `[Success]`: A query or mutation completed successfully.
+- ❌ `[Error]`: A query or mutation failed.
+- 🚀 `[Mutation]`: A mutation has started.
+
+### Example Console Output
+
+```
+⏳ [Fetch] user:123
+✅ [Success] user:123 (150ms) {"id": 123, "name": "John"}
+```
+
+## Privacy-First Logging
+
+By default, `FasqLogger` does **not** log the data returned by your queries. This ensures that sensitive information is not leaked into your production logs.
+
+Only enable `showData: true` during local development or when debugging specific issues.
+
+## Custom Observers
+
+If you need more advanced logging (e.g., sending logs to a remote service), you can implement your own `QueryClientObserver` and add it to `fasqObserversProvider`:
+
+```dart
+class MyAnalyticsObserver extends QueryClientObserver {
+  @override
+  void onQuerySuccess(QuerySnapshot snapshot, QueryMeta? meta, BuildContext? context) {
+    // Send event to analytics service
+    analytics.logEvent('query_success', {'key': snapshot.key.toString()});
+  }
+}
+```
+
+Then register it:
+
+```dart
+overrides: [
+  fasqObserversProvider.overrideWith((ref) => [
+    ref.watch(fasqLoggerProvider), // Include default logger
+    MyAnalyticsObserver(),         // Add your custom observer
+  ]),
+]
+```
+
+## See Also
+
+- [Error Tracking](/docs/riverpod/diagnostics/error-tracking)
+- [DevTools Integration](/docs/riverpod/diagnostics/devtools)
+- [Client Configuration](/docs/riverpod/advanced/configuration)

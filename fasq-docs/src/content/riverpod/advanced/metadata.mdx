@@ -1,0 +1,98 @@
+# Metadata
+
+Metadata allows you to attach extra information to your queries and mutations. This is extremely powerful when combined with global observers to handle side effects like showing snackbars, logging, or triggering analytics consistently across your entire app.
+
+## Adding Metadata to Providers
+
+Both `queryProvider` and `mutationProvider` accept a `meta` property within their options.
+
+### Query Metadata
+
+Use `QueryMeta` to store info about a data fetch:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users'.toQueryKey(),
+  () => api.fetchUsers(),
+  options: QueryOptions(
+    meta: const QueryMeta(
+      errorMessage: 'Failed to load users. Please check your connection.',
+    ),
+  ),
+);
+```
+
+### Mutation Metadata
+
+Use `MutationMeta` to store info about an update:
+
+```dart
+final createUserProvider = mutationProvider<User, String>(
+  (name) => api.createUser(name),
+  options: MutationOptions(
+    meta: const MutationMeta(
+      successMessage: 'User created successfully!',
+      errorMessage: 'Could not create user.',
+      invalidateKeys: [['users']],
+    ),
+  ),
+);
+```
+
+## Consuming Metadata Globally
+
+The real power of metadata comes from consuming it in a global observer. This allows you to write the logic for showing snackbars or alerts **once** and have it work for every query/mutation in your app.
+
+### 1. Create a Global Observer
+
+```dart
+class FeedbackObserver extends FasqObserver {
+  @override
+  void onMutationSuccess(MutationSnapshot snapshot, MutationMeta? meta, BuildContext? context) {
+    if (meta?.successMessage != null && context != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(meta!.successMessage!)),
+      );
+    }
+  }
+
+  @override
+  void onQueryError(QuerySnapshot snapshot, QueryMeta? meta, BuildContext? context) {
+    if (meta?.errorMessage != null && context != null) {
+      showGlobalErrorDialog(context, meta!.errorMessage!);
+    }
+  }
+}
+```
+
+### 2. Register the Observer
+
+Override the `fasqObserversProvider` at the root of your app:
+
+```dart
+void main() {
+  runApp(
+    ProviderScope(
+      overrides: [
+        fasqObserversProvider.overrideWithValue([
+          FeedbackObserver(),
+          FasqLogger(),
+        ]),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+```
+
+## Why use Metadata?
+
+1. **Separation of Concerns**: Your UI widgets don't need to know about snackbars or error dialogs. They just watch the provider.
+2. **Consistency**: All error messages and success alerts look and behave the same way throughout the app.
+3. **Declarative**: Side effects are declared alongside the provider definition, making the intent clear.
+
+## Next Steps
+
+- **[Configuration](/docs/riverpod/advanced/configuration)** - Learn more about global observer setup
+- **[Security Features](/docs/riverpod/security)** - How metadata is handled for secure queries
+- **[Examples](/docs/riverpod/examples)** - See metadata in a real-world app

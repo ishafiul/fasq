@@ -1,0 +1,138 @@
+# Family Providers (Parameterized Queries)
+
+In Riverpod, "families" are used to pass parameters to providers. While `queryProvider` is a factory function, you can easily create parameterized queries by wrapping the factory call in a function or a getter.
+
+## Basic Parameterized Query
+
+The most common way to handle parameters is to define a function that returns the provider for a specific set of arguments.
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// 1. Create a function that returns the provider
+typedef UserProvider = AutoDisposeAsyncNotifierProvider<QueryNotifier<User>, User>;
+
+UserProvider userProvider(String userId) {
+  return queryProvider<User>(
+    ['user', userId].toQueryKey(),
+    () => api.fetchUser(userId),
+    options: QueryOptions(
+      staleTime: Duration(minutes: 5),
+    ),
+  );
+}
+
+class UserProfileScreen extends ConsumerWidget {
+  final String userId;
+  const UserProfileScreen({required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 2. Watch the specific provider instance
+    final userAsync = ref.watch(userProvider(userId));
+
+    return Scaffold(
+      appBar: AppBar(title: Text('User Profile')),
+      body: userAsync.when(
+        data: (user) => Text('Name: ${user.name}'),
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+      ),
+    );
+  }
+}
+```
+
+## Multiple Parameters
+
+When you have multiple parameters, it's best to group them into a custom class or record to ensure consistent caching and comparison.
+
+```dart
+// Using a record for multiple parameters
+final userPostsProvider = (String userId, int page) => queryProvider<List<Post>>(
+  ['posts', userId, page].toQueryKey(),
+  () => api.fetchUserPosts(userId, page),
+);
+
+class UserPostsScreen extends ConsumerWidget {
+  final String userId;
+  final int page;
+
+  const UserPostsScreen({required this.userId, this.page = 1});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watching with multiple parameters
+    final postsAsync = ref.watch(userPostsProvider(userId, page));
+
+    return postsAsync.when(
+      data: (posts) => ListView.builder(
+        itemCount: posts.length,
+        itemBuilder: (context, index) => ListTile(title: Text(posts[index].title)),
+      ),
+      loading: () => CircularProgressIndicator(),
+      error: (e, s) => Text('Error'),
+    );
+  }
+}
+```
+
+## Parameterized Mutations
+
+Similarly, mutations can be parameterized if they depend on external state or specific IDs for their logic.
+
+```dart
+final updateUserProvider = (String userId) => mutationProvider<User, String>(
+  (newName) => api.updateUser(userId, newName),
+  options: MutationOptions(
+    onSuccess: (data, variables) {
+      // Invalidate the specific user query
+      ref.invalidate(userProvider(userId));
+    },
+  ),
+);
+
+// In your widget:
+final mutation = ref.watch(updateUserProvider(userId));
+
+ElevatedButton(
+  onPressed: () => ref.read(updateUserProvider(userId).notifier).mutate('New Name'),
+  child: Text('Update'),
+)
+```
+
+## Dependent Queries
+
+You can use the result of one query to enable or parameterize another query.
+
+```dart
+class UserProfile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUserId = ref.watch(currentUserIdProvider);
+
+    // Dependent fetch: only enabled if userId is present
+    final userAsync = ref.watch(userProvider(currentUserId ?? ''));
+
+    return userAsync.when(
+      data: (user) => UserDetails(user),
+      loading: () => CircularProgressIndicator(),
+      error: (e, s) => Text('Error'),
+    );
+  }
+}
+```
+
+## Performance & Caching
+
+Fasq handles the heavy lifting of caching results by their `QueryKey`. Even if you recreate the provider instance via a function call, as long as the `QueryKey` is identical and the provider is still being watched elsewhere, Fasq will return the same underlying data and Riverpod will share the same state.
+
+> [!TIP]
+> Always include all parameters that affect the data in your `QueryKey`. This ensures that different parameters don't clobber each other's cache.
+
+## Next Steps
+
+- **[`queryProvider`](/docs/riverpod/essentials/query-provider)** - Deep dive into standard queries
+- **[`mutationProvider`](/docs/riverpod/essentials/mutation-provider)** - Learn about mutations
+- **[Caching Strategy](/docs/core/cache-configuration)** - How keys and stale time work together

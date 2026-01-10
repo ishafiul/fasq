@@ -1,0 +1,106 @@
+# DevTools Integration
+
+Fasq provides built-in support for Flutter DevTools integration, allowing you to visualize performance metrics in real-time. In Riverpod, this is made even easier with dedicated providers.
+
+## Overview
+
+DevTools integration in Riverpod revolves around:
+
+1.  **fasqMetricsProvider**: A `StreamProvider` that emits real-time performance snapshots.
+2.  **getMetrics()**: A method on `QueryClient` for one-off snapshots.
+3.  **FasqMetricsExtension**: The UI component for displaying these metrics.
+
+## Real-time Metrics
+
+The `fasqMetricsProvider` is a `StreamProvider` that emits a new `PerformanceSnapshot` every 5 seconds (by default). This is the recommended way to power DevTools or custom monitoring UIs.
+
+### Consuming Metrics
+
+You can listen to the metrics stream in any widget or other providers:
+
+```dart
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class MetricsViewer extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metricsAsync = ref.watch(fasqMetricsProvider);
+
+    return metricsAsync.when(
+      data: (snapshot) => Column(
+        children: [
+          Text('Cache Hit Rate: ${(snapshot.cacheMetrics.hitRate * 100).toStringAsFixed(1)}%'),
+          Text('Active Queries: ${snapshot.activeQueries}'),
+          Text('Memory Usage: ${snapshot.memoryUsageBytes ~/ 1024} KB'),
+        ],
+      ),
+      loading: () => const CircularProgressIndicator(),
+      error: (err, stack) => Text('Error: $err'),
+    );
+  }
+}
+```
+
+## FasqMetricsExtension Widget
+
+The `FasqMetricsExtension` widget (from the core `fasq` package) provides a ready-to-use dashboard. You can easily integrate it with Riverpod.
+
+### Basic Integration
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class DevToolsPage extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Get the stream for real-time updates
+    final metricsStream = ref.watch(fasqMetricsProvider.stream);
+
+    // Get an initial snapshot for immediate display
+    final initialSnapshot = ref.read(fasqClientProvider).getMetrics();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Fasq DevTools')),
+      body: FasqMetricsExtension(
+        metricsStream: metricsStream,
+        initialSnapshot: initialSnapshot,
+      ),
+    );
+  }
+}
+```
+
+## One-off Metrics
+
+If you don't need real-time updates, you can use `getMetrics()` on the `QueryClient` via `fasqClientProvider`.
+
+```dart
+final client = ref.read(fasqClientProvider);
+final snapshot = client.getMetrics();
+```
+
+## Monitored Data
+
+The DevTools integration tracks comprehensive performance data:
+
+- **Cache Performance**: Hit rate, miss rate, and eviction counts.
+- **Timing**: Average fetch times, P95 fetch times, and cache lookup durations.
+- **Memory**: Current and peak memory consumption.
+- **Query Registry**: Total queries vs. active queries (queries with active listeners).
+- **Throughput**: Requests per minute (RPM) and requests per second (RPS) per query.
+
+## Best Practices
+
+- **Development Only**: Metrics tracking has minor overhead. It is best used during development and debugging session.
+- **Filtering**: Use the individual query metrics to identify "slow" queries that may benefit from better caching or optimization.
+- **Memory Management**: Monitor memory usage when using large result sets or many unique query keys.
+
+## See Also
+
+- [Client Configuration](/docs/riverpod/advanced/configuration)
+- [Global Observers](/docs/riverpod/advanced/configuration#global-observers)
+- [Circuit Breaker](/docs/riverpod/advanced/circuit-breaker)

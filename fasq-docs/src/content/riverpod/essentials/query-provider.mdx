@@ -1,0 +1,156 @@
+# `queryProvider`
+
+The `queryProvider` is a Riverpod provider factory that creates and manages Fasq queries. It returns `AsyncValue<T>`, Riverpod's native async type, for seamless integration with reactive UI patterns.
+
+## Basic Usage
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// Define your query provider
+final usersProvider = queryProvider<List<User>>(
+  'users'.toQueryKey(),
+  () => api.fetchUsers(),
+);
+
+class UsersScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersAsync = ref.watch(usersProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Users')),
+      body: usersAsync.when(
+        data: (users) => ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) => ListTile(title: Text(users[index].name)),
+        ),
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+      ),
+    );
+  }
+}
+```
+
+## Configuration
+
+You can configure query behavior with `QueryOptions`:
+
+```dart
+final usersProvider = queryProvider<List<User>>(
+  'users'.toQueryKey(),
+  () => api.fetchUsers(),
+  options: QueryOptions(
+    staleTime: Duration(minutes: 5),    // Marks data as stale after 5 minutes
+    cacheTime: Duration(minutes: 10),   // Keeps data in cache for 10 minutes
+    enabled: true,                       // Set to false to disable auto-fetch
+    refetchOnMount: true,                // Whether to refetch when provider is first watched
+  ),
+);
+```
+
+## Parameterized Queries
+
+Since `queryProvider` works with standard Riverpod providers, the idiomatic way to handle parameters is to use a function that returns a provider. This ensures type safety and avoids the limitations of the legacy `.family` pattern.
+
+```dart
+// Use a function that returns a provider for a specific ID
+AutoDisposeAsyncNotifierProvider<QueryNotifier<User>, User> userProvider(String userId) {
+  return queryProvider<User>(
+    ['user', userId].toQueryKey(),
+    () => api.fetchUser(userId),
+    options: QueryOptions(
+      staleTime: Duration(minutes: 5),
+    ),
+  );
+}
+
+class UserDetail extends ConsumerWidget {
+  final String userId;
+  UserDetail(this.userId);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the specific provider instance
+    final userAsync = ref.watch(userProvider(userId));
+
+    return userAsync.when(
+      data: (user) => Text(user.name),
+      loading: () => CircularProgressIndicator(),
+      error: (e, s) => Text('Error'),
+    );
+  }
+}
+```
+
+## Manual Refetching & Invalidation
+
+The `queryProvider` notifier exposes methods to manually control the query:
+
+```dart
+// Refetch the data immediately
+ref.read(usersProvider.notifier).refetch();
+
+// Invalidate the cache (marks as stale and refetches if being watched)
+ref.read(usersProvider.notifier).invalidate();
+```
+
+## Background Refetching
+
+One of the best features of Fasq is background refetching. When stale data exists in the cache, `ref.watch(usersProvider)` will return `AsyncData` containing the cached data, but it will also trigger a background fetch.
+
+You can check if a fetch is happening even if you have data:
+
+```dart
+final usersAsync = ref.watch(usersProvider);
+
+return Column(
+  children: [
+    // Show a small indicator during background sync
+    if (usersAsync.isRefreshing)
+      LinearProgressIndicator(),
+
+    Expanded(
+      child: usersAsync.when(...)
+    ),
+  ],
+);
+```
+
+> [!NOTE]
+> `AsyncValue.isRefreshing` is available in Riverpod 2.0+ and is `true` when the provider is being refreshed but still has data.
+
+## Dependent Queries
+
+Queries can depend on other query keys. When a dependent query is invalidated or its data changes, the child query can react.
+
+```dart
+final userProvider = queryProvider<User>(...);
+
+final postsProvider = queryProvider<List<Post>>(
+  QueryKeys.userPosts(userId),
+  () => api.fetchPosts(userId),
+  dependsOn: QueryKeys.user(userId), // Optional: react to parent query changes
+);
+```
+
+## Cancellation Tokens
+
+For long-running fetches that should be cancelled when the widget is disposed, use `queryProviderWithToken`:
+
+```dart
+final searchProvider = queryProviderWithToken<List<Result>>(
+  'search'.toQueryKey(),
+  (token) async {
+    return await api.performSearch(query, cancellationToken: token);
+  },
+);
+```
+
+## Next Steps
+
+- **[`infiniteQueryProvider`](/docs/riverpod/essentials/infinite-query-provider)** - Handling large lists with pagination
+- **[`mutationProvider`](/docs/riverpod/essentials/mutation-provider)** - Managing updates and side effects
+- **[Riverpod Patterns](/docs/riverpod/essentials/riverpod-patterns)** - Advanced architectural patterns

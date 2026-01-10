@@ -71,6 +71,7 @@ flutter:
   generate: true
   assets:
     - assets/images/
+    - assets/images/muscle_diagram.svg
     - assets/icons/
     - assets/icons/outlined/
     - assets/icons/filled/

@@ -1,0 +1,95 @@
+# Metrics Exporters
+
+Fasq provides a flexible metrics export system that allows you to send performance data to external monitoring systems, log files, or analytics platforms in a Riverpod-idiomatic way.
+
+## Configuration
+
+In Fasq Riverpod, you configure metrics exporters by overriding the `fasqMetricsConfigProvider`. This provider provides a `MetricsConfig` object that specifies the exporters to use, the export interval, and whether auto-export is enabled.
+
+### Available Exporters
+
+The core `fasq` package provides several built-in exporters:
+
+- **ConsoleExporter**: Outputs metrics to the console. Great for development.
+- **JsonExporter**: Exports metrics as JSON strings.
+- **OpenTelemetryExporter**: Sends metrics to OpenTelemetry-compatible backends (OTLP).
+
+### Setup Example
+
+To enable metrics export, override `fasqMetricsConfigProvider` in your `ProviderScope`:
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+void main() {
+  runApp(
+    ProviderScope(
+      overrides: [
+        fasqMetricsConfigProvider.overrideWithValue(
+          MetricsConfig(
+            exporters: [
+              // Export to console for development
+              ConsoleExporter(),
+
+              // Export to an OTLP collector for production
+              OpenTelemetryExporter(
+                endpoint: 'https://otel.example.com/v1/metrics',
+              ),
+            ],
+            enableAutoExport: true,
+            exportInterval: const Duration(minutes: 1),
+          ),
+        ),
+      ],
+      child: MyApp(),
+    ),
+  );
+}
+```
+
+## Automatic Export
+
+When `enableAutoExport` is set to `true`, the `QueryClient` will automatically trigger an export of gathered performance metrics at the specified `exportInterval`.
+
+This is handled internally by the `QueryClient` and requires no additional setup when using `fasq_riverpod`.
+
+## Manual Export
+
+If you prefer to trigger exports manually, you can access the `QueryClient` and call `exportMetricsManually()`:
+
+```dart
+final client = ref.read(fasqClientProvider);
+await client.exportMetricsManually();
+```
+
+## Custom Exporters
+
+You can create custom exporters by implementing the `MetricsExporter` interface from the core `fasq` package and including them in your `MetricsConfig`.
+
+```dart
+class MyCustomExporter implements MetricsExporter {
+  @override
+  Future<void> export(PerformanceSnapshot snapshot) async {
+    // Custom export logic here...
+  }
+
+  @override
+  void configure(Map<String, dynamic> config) {
+    // Optional configuration logic...
+  }
+}
+```
+
+## Best Practices
+
+- **Interval Balancing**: Set an `exportInterval` that balances the need for fresh data with the overhead of network requests.
+- **Environment Specifics**: Use different exporters for different environments (e.g., `ConsoleExporter` for dev, `OpenTelemetryExporter` for prod).
+- **Error Handling**: Fasq's export system is fault-tolerant; a failure in one exporter will not affect others.
+
+## See Also
+
+- [DevTools Integration](/docs/riverpod/diagnostics/devtools)
+- [Client Configuration](/docs/riverpod/advanced/configuration)
+- [Error Tracking](/docs/riverpod/diagnostics/error-tracking)

@@ -1,0 +1,80 @@
+# Combining Queries
+
+Combining multiple query providers into a single state is straightforward in Riverpod using standard `Provider` composition.
+
+## Standard Pattern: Using `Provider`
+
+Since `queryProvider` returns a standard Riverpod provider, you can use `Provider` or `FutureProvider` to combine them.
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// 1. Define individual providers
+final usersProvider = queryProvider('users'.toQueryKey(), () => api.fetchUsers());
+final postsProvider = queryProvider('posts'.toQueryKey(), () => api.fetchPosts());
+
+// 2. Combine them using a simple Provider
+final dashboardProvider = Provider<AsyncValue<DashboardData>>((ref) {
+  final usersState = ref.watch(usersProvider);
+  final postsState = ref.watch(postsProvider);
+
+  // You can return a combined AsyncValue
+  if (usersState.hasError) return AsyncValue.error(usersState.error!, usersState.stackTrace!);
+  if (postsState.hasError) return AsyncValue.error(postsState.error!, postsState.stackTrace!);
+
+  if (usersState.hasValue && postsState.hasValue) {
+    return AsyncValue.data(DashboardData(
+      users: usersState.value!,
+      posts: postsState.value!,
+    ));
+  }
+
+  return const AsyncValue.loading();
+});
+
+class DashboardData {
+  final List<User> users;
+  final List<Post> posts;
+  DashboardData({required this.users, required this.posts});
+}
+```
+
+## Dependent Combinations
+
+Sometimes you only want to fetch the second query after the first one has succeeded.
+
+```dart
+final userProvider = queryProvider('user'.toQueryKey(), () => api.fetchUser());
+
+final userPreferencesProvider = queryProvider(
+  'prefs'.toQueryKey(),
+  () async {
+    final user = ref.read(userProvider).value;
+    return await api.fetchPreferences(user!.id);
+  },
+  // Only enable if user is loaded
+  options: QueryOptions(
+    enabled: ref.watch(userProvider).hasValue,
+  ),
+);
+```
+
+## Why no `combineQueries`?
+
+While some libraries provide a specific `combineQueries` function, Riverpod's native composition is more powerful and flexible. By using standard providers, you get:
+
+1. **Granular Rebuilds**: Widgets can watch only the specific part of the combination they need.
+2. **Type Safety**: No need for index-based access or casting.
+3. **Familiar Patterns**: Use the same Riverpod patterns you use for everything else.
+
+## Best Practices
+
+- **Avoid heavy logic in build**: Keep your combinations in providers rather than calculating them inside widget `build` methods.
+- **Handle all states**: Remember that when combining `AsyncValue`s, you need to decide how to represent the combined loading and error states.
+- **Use `.when` on individual providers**: If your UI allows it, handle the loading/error states of each query independently for a better user experience (e.g., showing parts of the dashboard while others are still loading).
+
+## Next Steps
+
+- **[`queryProvider`](/docs/riverpod/essentials/query-provider)** - Deep dive into standard queries
+- **[Riverpod Patterns](/docs/riverpod/essentials/riverpod-patterns)** - Architecture and best practices

@@ -1,0 +1,159 @@
+<svg viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Body Outline (Base Layer) -->
+  <g id="body-outline">
+    <!-- Head -->
+    <ellipse cx="200" cy="50" rx="35" ry="40" fill="#2A2A2A"/>
+    
+    <!-- Neck -->
+    <rect x="185" y="50" width="30" height="25" fill="#2A2A2A"/>
+    
+    <!-- Torso -->
+    <path d="M 150 75 Q 140 100 145 200 Q 145 250 150 300 Q 150 350 160 400 L 240 400 Q 250 350 250 300 Q 250 250 255 200 Q 260 100 250 75 Z" fill="#2A2A2A"/>
+    
+    <!-- Arms -->
+    <path d="M 150 100 Q 120 120 100 200 Q 95 250 100 300 Q 105 320 120 330 L 130 320 Q 125 300 125 280 Q 125 240 135 200 Q 145 150 150 120 Z" fill="#2A2A2A"/>
+    <path d="M 250 100 Q 280 120 300 200 Q 305 250 300 300 Q 295 320 280 330 L 270 320 Q 275 300 275 280 Q 275 240 265 200 Q 255 150 250 120 Z" fill="#2A2A2A"/>
+    
+    <!-- Legs -->
+    <path d="M 160 400 Q 155 450 150 500 Q 145 550 150 580 L 170 580 Q 165 550 170 500 Q 175 450 180 400 Z" fill="#2A2A2A"/>
+    <path d="M 240 400 Q 245 450 250 500 Q 255 550 250 580 L 230 580 Q 235 550 230 500 Q 225 450 220 400 Z" fill="#2A2A2A"/>
+  </g>
+
+  <!-- Muscle Groups -->
+  
+  <!-- Chest (Pectorals) -->
+  <g id="chest" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <path d="M 160 120 Q 170 140 180 160 Q 190 180 200 185 Q 210 180 220 160 Q 230 140 240 120 Q 235 110 225 105 Q 200 100 175 105 Q 165 110 160 120 Z" />
+    <circle cx="175" cy="145" r="3" fill="#1A1A1A"/>
+  </g>
+
+  <!-- Shoulders (Deltoids) -->
+  <g id="shoulder-left" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <ellipse cx="130" cy="120" rx="25" ry="20" transform="rotate(-15 130 120)"/>
+    <circle cx="125" cy="115" r="3" fill="#1A1A1A"/>
+  </g>
+  
+  <g id="shoulder-right" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <ellipse cx="270" cy="120" rx="25" ry="20" transform="rotate(15 270 120)"/>
+  </g>
+
+  <!-- Biceps -->
+  <g id="biceps-left" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <ellipse cx="115" cy="200" rx="15" ry="35" transform="rotate(-20 115 200)"/>
+  </g>
+  
+  <g id="biceps-right" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <ellipse cx="285" cy="200" rx="15" ry="35" transform="rotate(20 285 200)"/>
+    <circle cx="290" cy="195" r="3" fill="#1A1A1A"/>
+  </g>
+
+  <!-- Forearms -->
+  <g id="forearm-left" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <ellipse cx="105" cy="280" rx="12" ry="30" transform="rotate(-10 105 280)"/>
+    <circle cx="100" cy="275" r="3" fill="#1A1A1A"/>
+  </g>
+  
+  <g id="forearm-right" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <ellipse cx="295" cy="280" rx="12" ry="30" transform="rotate(10 295 280)"/>
+  </g>
+
+  <!-- Abs (Rectus Abdominis) -->
+  <g id="abs" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <rect x="180" y="220" width="40" height="60" rx="3"/>
+    <line x1="200" y1="220" x2="200" y2="280" stroke="#1A1A1A" stroke-width="1"/>
+    <line x1="200" y1="240" x2="200" y2="240" stroke="#1A1A1A" stroke-width="1"/>
+    <line x1="200" y1="260" x2="200" y2="260" stroke="#1A1A1A" stroke-width="1"/>
+    <circle cx="185" cy="270" r="3" fill="#1A1A1A"/>
+  </g>
+
+  <!-- Obliques -->
+  <g id="oblique-left" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <path d="M 150 240 Q 140 250 135 270 Q 130 290 135 310 L 155 305 Q 150 285 155 265 Q 160 250 150 240 Z"/>
+    <circle cx="140" cy="275" r="3" fill="#1A1A1A"/>
+  </g>
+  
+  <g id="oblique-right" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <path d="M 250 240 Q 260 250 265 270 Q 270 290 265 310 L 245 305 Q 250 285 245 265 Q 240 250 250 240 Z"/>
+  </g>
+
+  <!-- Quads (Quadriceps) -->
+  <g id="quad-left" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <path d="M 165 380 Q 160 420 155 460 Q 150 500 155 530 L 175 525 Q 170 495 175 460 Q 180 420 175 380 Z"/>
+    <circle cx="160" cy="450" r="3" fill="#1A1A1A"/>
+  </g>
+  
+  <g id="quad-right" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <path d="M 235 380 Q 240 420 245 460 Q 250 500 245 530 L 225 525 Q 230 495 225 460 Q 220 420 225 380 Z"/>
+  </g>
+
+  <!-- Adductors (Inner Thighs) -->
+  <g id="adductor-left" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <path d="M 170 450 Q 175 480 175 510 L 185 505 Q 185 480 180 450 Z"/>
+  </g>
+  
+  <g id="adductor-right" class="muscle" fill="#3A3A3A" style="transition: fill 0.2s;">
+    <path d="M 230 450 Q 225 480 225 510 L 215 505 Q 215 480 220 450 Z"/>
+    <circle cx="225" cy="480" r="3" fill="#1A1A1A"/>
+  </g>
+
+  <!-- Labels with Dotted Lines -->
+  
+  <!-- Left Side Labels -->
+  <g id="labels-left">
+    <!-- Shoulder Label -->
+    <line x1="80" y1="120" x2="125" y2="115" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="70" y="115" fill="white" font-family="sans-serif" font-size="12" font-weight="500">Shoulder</text>
+    
+    <!-- Chest Label -->
+    <line x1="80" y1="150" x2="175" y2="145" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="70" y="145" fill="white" font-family="sans-serif" font-size="12" font-weight="500">Chest</text>
+    
+    <!-- Forearms Label -->
+    <line x1="60" y1="280" x2="100" y2="275" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="50" y="275" fill="white" font-family="sans-serif" font-size="12" font-weight="500">Forearms</text>
+    
+    <!-- Obliques Label -->
+    <line x1="60" y1="275" x2="140" y2="275" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="50" y="270" fill="white" font-family="sans-serif" font-size="12" font-weight="500">Obliques</text>
+    
+    <!-- Quads Label -->
+    <line x1="60" y1="450" x2="160" y2="450" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="50" y="445" fill="white" font-family="sans-serif" font-size="12" font-weight="500">Quads</text>
+  </g>
+
+  <!-- Right Side Labels -->
+  <g id="labels-right">
+    <!-- Biceps Label -->
+    <line x1="320" y1="200" x2="290" y2="195" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="325" y="195" fill="white" font-family="sans-serif" font-size="12" font-weight="500">biceps</text>
+    
+    <!-- Abs Label -->
+    <line x1="320" y1="250" x2="285" y2="270" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="325" y="245" fill="white" font-family="sans-serif" font-size="12" font-weight="500">abs</text>
+    
+    <!-- Adductors Label -->
+    <line x1="320" y1="480" x2="225" y2="480" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="325" y="475" fill="white" font-family="sans-serif" font-size="12" font-weight="500">Adductors</text>
+  </g>
+
+  <!-- Cardio Icon and Label -->
+  <g id="cardio">
+    <line x1="320" y1="100" x2="340" y2="90" stroke="white" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+    <text x="325" y="95" fill="white" font-family="sans-serif" font-size="12" font-weight="500">Cardio</text>
+    <path d="M 340 85 Q 345 80 350 85 Q 355 80 360 85 Q 360 90 355 95 Q 350 100 345 95 Q 340 90 340 85 Z" fill="#00FF88"/>
+    <path d="M 345 88 Q 348 85 350 88 Q 352 85 355 88 Q 355 90 352 92 Q 350 94 348 92 Q 345 90 345 88 Z" fill="#00FF88"/>
+  </g>
+
+  <!-- Bottom Right Icon (Switch View) -->
+  <g id="switch-view-icon">
+    <circle cx="360" cy="550" r="25" fill="#2A2A2A" stroke="#3A3A3A" stroke-width="2"/>
+    <!-- Two figures -->
+    <circle cx="350" cy="545" r="4" fill="white" opacity="0.8"/>
+    <circle cx="365" cy="550" r="4" fill="white" opacity="0.6"/>
+    <!-- Arrows -->
+    <path d="M 345 550 Q 360 540 375 550" stroke="white" stroke-width="1.5" fill="none" opacity="0.7"/>
+    <path d="M 375 550 Q 360 560 345 550" stroke="white" stroke-width="1.5" fill="none" opacity="0.7"/>
+    <polygon points="340,550 345,545 345,555" fill="white" opacity="0.7"/>
+    <polygon points="380,550 375,545 375,555" fill="white" opacity="0.7"/>
+  </g>
+</svg>

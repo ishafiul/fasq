@@ -1,0 +1,159 @@
+# Riverpod Patterns
+
+Best practices and common patterns for using Fasq with Riverpod to build maintainable and performant applications.
+
+## Provider Organization
+
+### Group Related Providers
+
+Organize providers by feature or domain. Instead of `.family`, use functions to pass parameters:
+
+```dart
+// user_providers.dart
+
+final usersProvider = queryProvider<List<User>>(
+  'users'.toQueryKey(),
+  () => api.fetchUsers(),
+);
+
+final userProvider = (String userId) => queryProvider<User>(
+  ['user', userId].toQueryKey(),
+  () => api.fetchUser(userId),
+);
+
+final createUserProvider = mutationProvider<User, Map<String, dynamic>>(
+  (data) => api.createUser(data),
+);
+
+final updateUserProvider = (String userId) => mutationProvider<User, Map<String, dynamic>>(
+  (data) => api.updateUser(userId, data),
+);
+```
+
+## State Management Patterns
+
+### Derived State
+
+Create computed state from query results using Riverpod's `Provider`:
+
+```dart
+final activeUsersProvider = Provider<List<User>>((ref) {
+  // Watch the query provider
+  final users = ref.watch(usersProvider).value ?? [];
+
+  // Return derived data
+  return users.where((user) => user.isActive).toList();
+});
+
+final userCountProvider = Provider<int>((ref) {
+  return ref.watch(usersProvider).value?.length ?? 0;
+});
+```
+
+## Side Effects & Mutations
+
+### Global Error Handling
+
+Use a dedicated provider or utility for consistent error feedback:
+
+```dart
+final createUserProvider = mutationProvider<User, String>(
+  (name) => api.createUser(name),
+  options: MutationOptions(
+    onError: (error, name) {
+      // Access global notification service or context
+      showGlobalError('Failed to create user "$name": $error');
+    },
+  ),
+);
+
+// In your widget:
+ElevatedButton(
+  onPressed: () => ref.read(createUserProvider.notifier).mutate('John Doe'),
+  child: Text('Create'),
+)
+```
+
+### Cache Invalidation Strategies
+
+Centralize cache invalidation after mutations to keep your UI in sync:
+
+```dart
+final updateUserProvider = (String userId) => mutationProvider<User, String>(
+  (newName) => api.updateUser(userId, newName),
+  options: MutationOptions(
+    onSuccess: (user, newName) {
+      // 1. Invalidate specific user query
+      ref.invalidate(userProvider(userId));
+
+      // 2. Invalidate users list
+      ref.invalidate(usersProvider);
+
+      // 3. Optional: manually update cache for instant feedback
+      // ref.read(fasqClientProvider).setQueryData(['user', userId].toQueryKey(), user);
+    },
+  ),
+);
+```
+
+## Form Handling
+
+Integrate mutations with form state:
+
+```dart
+class UserForm extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mutation = ref.watch(createUserProvider);
+    final nameController = useTextEditingController();
+
+    return Column(
+      children: [
+        TextField(controller: nameController),
+
+        ElevatedButton(
+          // Disable button while loading
+          onPressed: mutation.isLoading
+            ? null
+            : () => ref.read(createUserProvider.notifier).mutate(nameController.text),
+          child: mutation.isLoading
+            ? CircularProgressIndicator()
+            : Text('Submit'),
+        ),
+
+        if (mutation.hasError)
+          Text('Error: ${mutation.error}', style: TextStyle(color: Colors.red)),
+      ],
+    );
+  }
+}
+```
+
+## Repository Pattern
+
+For complex apps, wrap your API calls in a repository and inject it using Riverpod:
+
+```dart
+final userRepositoryProvider = Provider((ref) => UserRepository(api: api));
+
+final usersProvider = queryProvider<List<User>>(
+  'users'.toQueryKey(),
+  () {
+    final repo = ref.watch(userRepositoryProvider);
+    return repo.getAllUsers();
+  },
+);
+```
+
+## Performance Tips
+
+1. **Watch Granularly**: Use `.select` if you only need a specific property of the data to avoid unnecessary rebuilds.
+2. **Handle Loading Gracefully**: Use `AsyncValue.when` to ensure users see a loading state while data is being fetched.
+3. **Background Sync**: Mention that `AsyncValue` holds previous data during background refetching (stale-while-revalidate), making the app feel faster.
+4. **Dispose Unused Queries**: `queryProvider` uses `AutoDispose` by default, so it cleans up after itself when the last widget stops watching.
+
+## Next Steps
+
+- **[`queryProvider`](/docs/riverpod/essentials/query-provider)** - Standard data fetching
+- **[`mutationProvider`](/docs/riverpod/essentials/mutation-provider)** - Handling server-side updates
+- **[Examples](/docs/riverpod/examples)** - Full application examples

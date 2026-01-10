@@ -17,8 +17,19 @@ void main() {
 
     final container = ProviderContainer();
     addTearDown(container.dispose);
+
+    // With enabled: false, the query should not auto-fetch
+    // It should be in loading state initially
     final state = container.read(provider);
-    expect(state.isIdle, true);
+    expect(state.isLoading, true);
+    expect(calls, 0);
+
+    // Wait to ensure no fetch happens
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // Should still be loading (idle) with no calls made
+    final stateAfter = container.read(provider);
+    expect(stateAfter.isLoading, true);
     expect(calls, 0);
   });
 }

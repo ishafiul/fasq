@@ -1,0 +1,141 @@
+# `mutationProvider`
+
+The `mutationProvider` manages server-side operations like creating, updating, or deleting data. Unlike queries, mutations are triggered imperatively and their state is exposed for UI feedback.
+
+## Basic Usage
+
+To use a mutation, you define the provider and then use the **notifier** to trigger the transition.
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+// 1. Define the mutation provider <Data, Variables>
+final createUserProvider = mutationProvider<User, String>(
+  (name) => api.createUser(name),
+);
+
+class CreateUserScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 2. Watch the state for UI feedback
+    final mutation = ref.watch(createUserProvider);
+
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: mutation.isLoading
+            ? null
+            : () {
+                // 3. Trigger the mutation via the NOTIFIER
+                ref.read(createUserProvider.notifier).mutate('John Doe');
+              },
+          child: mutation.isLoading
+            ? CircularProgressIndicator()
+            : Text('Create User'),
+        ),
+
+        if (mutation.hasError)
+          Text('Error: ${mutation.error}'),
+
+        if (mutation.isSuccess)
+          Text('Created: ${mutation.data!.name}'),
+      ],
+    );
+  }
+}
+```
+
+> [!IMPORTANT]
+> Always call `.mutate()` on the notifier (`ref.read(provider.notifier).mutate(...)`) rather than attempting to call it on the state object.
+
+## `MutationState` Properties
+
+The `mutationProvider` returns a `MutationState<T>` object, which provides the following properties:
+
+- **`status`**: The current `MutationStatus` (idle, loading, success, error).
+- **`data`**: The result of the mutation if successful.
+- **`error`**: The error object if the mutation failed.
+- **`isLoading`**, **`isSuccess`**, **`isError`**, **`isIdle`**: Helper getters for status.
+- **`hasData`**, **`hasError`**: Helper getters for presence of data/error.
+
+## Side Effects (Success/Error)
+
+Handle side effects like navigation, showing snackbars, or invalidating queries using `MutationOptions`:
+
+```dart
+final deleteUserProvider = mutationProvider<void, String>(
+  (userId) => api.deleteUser(userId),
+  options: MutationOptions(
+    onSuccess: (data, variables) {
+      // Invalidate related queries to refresh data
+      ref.read(fasqClientProvider).invalidateQuery('users'.toQueryKey());
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User deleted')),
+      );
+    },
+    onError: (error, variables) {
+      print('Failed to delete: $error');
+    },
+  ),
+);
+```
+
+## Optimistic Updates
+
+Implement optimistic updates to make your UI feel instant:
+
+```dart
+final updatePostProvider = mutationProvider<Post, Post>(
+  (post) => api.updatePost(post),
+  options: MutationOptions(
+    onMutate: (post) {
+      // 1. Cancel outgoing refetches
+      ref.read(fasqClientProvider).cancelQuery(QueryKeys.post(post.id));
+
+      // 2. Snapshot the current value
+      final previousPost = ref.read(fasqClientProvider).getQueryData<Post>(
+        QueryKeys.post(post.id)
+      );
+
+      // 3. Optimistically update to the new value
+      ref.read(fasqClientProvider).setQueryData(QueryKeys.post(post.id), post);
+
+      return previousPost; // Return for rollback
+    },
+    onError: (error, post, previousPost) {
+      // 4. Rollback on error
+      if (previousPost != null) {
+        ref.read(fasqClientProvider).setQueryData(
+          QueryKeys.post(post.id),
+          previousPost
+        );
+      }
+    },
+    onSettled: (data, error, post) {
+      // 5. Always refetch after error or success to synchronize
+      ref.read(fasqClientProvider).invalidateQuery(QueryKeys.post(post.id));
+    },
+  ),
+);
+```
+
+## Offline Queueing
+
+Fasq supports queueing mutations when the device is offline:
+
+```dart
+final createCommentProvider = mutationProvider<Comment, String>(
+  (content) => api.addComment(content),
+  options: MutationOptions(
+    queueWhenOffline: true, // Mutation will execute when back online
+  ),
+);
+```
+
+## Next Steps
+
+- **[`queryProvider`](/docs/riverpod/essentials/query-provider)** - Standard data fetching
+- **[`infiniteQueryProvider`](/docs/riverpod/essentials/infinite-query-provider)** - Paginated list management
+- **[Offline Support](/docs/riverpod/advanced/offline-queue)** - Learn more about offline capabilities

@@ -85,6 +85,17 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             SizedBox(height: spacing.md),
+            // Muscle Selection Link
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.fitness_center),
+                title: const Text('Muscle Selection'),
+                subtitle: const Text('Select target muscles for workouts'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.router.push(const MuscleSelectionRoute()),
+              ),
+            ),
+            SizedBox(height: spacing.md),
             Container(
               width: 350,
               color: Colors.red,

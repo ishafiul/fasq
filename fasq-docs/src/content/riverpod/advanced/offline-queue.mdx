@@ -1,0 +1,110 @@
+# Offline Queue with Riverpod
+
+Mutations in Fasq can be configured to queue their execution when the device is offline, ensuring data eventual consistency.
+
+## Basic Usage
+
+To enable offline queuing, set `queueWhenOffline` to `true` in your `MutationOptions`.
+
+```dart
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+final todoMutationProvider = mutationProvider<String, String>(
+  (todo) async {
+    return await api.createPost(todo);
+  },
+  options: const MutationOptions(
+    queueWhenOffline: true,
+    maxRetries: 3,
+  ),
+);
+
+class MyWidget extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mutation = ref.watch(todoMutationProvider);
+
+    return Column(
+      children: [
+        if (mutation.isQueued)
+          const Text('You are offline. Your change will sync when connected.'),
+
+        if (mutation.isLoading)
+          const CircularProgressIndicator(),
+
+        ElevatedButton(
+          onPressed: () => ref.read(todoMutationProvider.notifier).mutate('Hello World'),
+          child: const Text('Submit'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+## Queue Monitoring
+
+You can monitor the status of the offline queue by watching the `fasqClientProvider` or using core Fasq utilities.
+
+```dart
+// Example of watching global queue length (if supported by core)
+final queueLengthProvider = Provider<int>((ref) {
+  final client = ref.watch(fasqClientProvider);
+  return client.offlineQueue.length;
+});
+```
+
+## Network Status Integration
+
+Fasq works best when it knows the current network status. While it handles basic connectivity, you can manually toggle or monitor status.
+
+```dart
+class NetworkIndicator extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // This depends on how you implement network monitoring in your app
+    final isOnline = ref.watch(networkStatusProvider);
+
+    return Container(
+      padding: EdgeInsets.all(8),
+      color: isOnline ? Colors.green : Colors.red,
+      child: Text(isOnline ? 'Online' : 'Offline - Sync Paused'),
+    );
+  }
+}
+```
+
+## Advanced Offline Handling
+
+You can use `onQueued` to provide immediate feedback when a mutation is added to the offline queue.
+
+```dart
+final todoMutationProvider = mutationProvider<String, String>(
+  (todo) => api.createPost(todo),
+  options: MutationOptions(
+    queueWhenOffline: true,
+    onQueued: (variables) {
+      // Show a temporary snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved offline: ${variables}'))
+      );
+    },
+    onSuccess: (data, variables) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Synced: ${variables}'))
+      );
+    },
+  ),
+);
+```
+
+## Best Practices
+
+1. **Optimistic Updates**: Use offline queuing in combination with optimistic updates for the best user experience.
+2. **Persistence**: Ensure you have a persistence layer (like `hive` or `sqflite`) configured in your `QueryClient` so the queue survives app restarts.
+3. **Idempotency**: Ensure your backend handles duplicate requests gracefully, as retry logic might occasionally trigger them.
+
+## Next Steps
+
+- **[`mutationProvider`](/docs/riverpod/essentials/mutation-provider)** - Core mutation concepts
+- **[Caching & Persistence](/docs/core/query-client)** - How to survive app restarts

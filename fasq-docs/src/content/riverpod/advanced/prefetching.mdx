@@ -1,0 +1,89 @@
+# Prefetching
+
+Prefetching allows you to fetch data before it's actually needed in the UI, warming up the cache and making navigation feel instantaneous. The Riverpod adapter provides a convenient way to do this via extensions on `WidgetRef`.
+
+## `PrefetchExtension`
+
+The `fasq_riverpod` package adds `prefetchQuery` and `prefetchQueries` methods to Riverpod's `WidgetRef`.
+
+### Basic Prefetching
+
+```dart
+class CategoryList extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListView(
+      children: categories.map((category) {
+        return MouseRegion(
+          onEnter: (_) {
+            // Prefetch category details when user hovers over the tile
+            ref.prefetchQuery(
+              CategoryKeys.detail(category.id),
+              () => api.fetchCategoryDetail(category.id),
+            );
+          },
+          child: ListTile(
+            title: Text(category.name),
+            onTap: () => Navigator.push(...),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+```
+
+## When to Prefetch
+
+### On Hover
+
+As shown above, prefetching when a user hovers over a link or button is a highly effective way to hide network latency. By the time the user clicks, the data might already be in the cache.
+
+### Before Navigation
+
+If you know a user is very likely to navigate to a specific screen, you can prefetch the required data in the `onTap` handler before pushing the route.
+
+```dart
+onTap: () async {
+  // Start prefetching
+  ref.prefetchQuery(
+    QueryKeys.userProfile(userId),
+    () => api.fetchProfile(userId),
+  );
+
+  // Navigate immediately
+  context.push('/profile/$userId');
+}
+```
+
+### Multiple Queries
+
+You can prefetch multiple queries at once using `prefetchQueries`:
+
+```dart
+onEnter: (_) {
+  ref.prefetchQueries([
+    PrefetchConfig(
+      queryKey: QueryKeys.user(id),
+      queryFn: () => api.fetchUser(id),
+    ),
+    PrefetchConfig(
+      queryKey: QueryKeys.userPosts(id),
+      queryFn: () => api.fetchUserPosts(id),
+    ),
+  ]);
+}
+```
+
+## How it Works
+
+1. **Cache Check**: `prefetchQuery` first checks if the cache already contains fresh data for the given key.
+2. **Background Fetch**: If the data is missing or stale, it triggers a fetch in the background.
+3. **Non-blocking**: Prefetching does not block the UI or change the state of your existing `ref.watch` providers until the fetch completes.
+4. **Shared Cache**: Because it uses the same `QueryClient` as your providers, the fetched data is immediately available to any widget that watches that query key.
+
+## Next Steps
+
+- **[`queryProvider`](/docs/riverpod/essentials/query-provider)** - How to consume prefetched data
+- **[`infiniteQueryProvider`](/docs/riverpod/essentials/infinite-query-provider)** - Prefetching paginated lists
+- **[Caching Strategy](/docs/core/cache-configuration)** - Understanding how long prefetched data stays fresh

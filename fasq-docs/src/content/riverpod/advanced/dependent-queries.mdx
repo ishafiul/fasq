@@ -1,0 +1,66 @@
+# Dependent Queries
+
+In Riverpod, dependent queries are easily achieved by watching one provider inside another.
+
+## Basic Dependent Query
+
+If query B depends on data from query A, you can use `ref.watch` to ensure query B is updated (or enabled) only when query A has data.
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+
+final userProvider = queryProvider<User>(
+  'user'.toQueryKey(),
+  () => fetchUser(),
+);
+
+final postsProvider = (String userId) => queryProvider<List<Post>>(
+  ['posts', userId].toQueryKey(),
+  () => fetchPosts(userId),
+);
+
+// A provider that reactivey manages the dependency
+final userPostsProvider = Provider<AsyncValue<List<Post>>>((ref) {
+  final userAsync = ref.watch(userProvider);
+
+  return userAsync.when(
+    data: (user) => ref.watch(postsProvider(user.id)),
+    loading: () => const AsyncValue.loading(),
+    error: (e, s) => AsyncValue.error(e, s),
+  );
+});
+```
+
+## Conditional Fetching (Enabled)
+
+You can also use the `enabled` option to prevent a query from running until its dependency is met.
+
+```dart
+final postsProvider = queryProvider<List<Post>>(
+  'posts'.toQueryKey(),
+  () {
+    // We can use ref.read here because we've ensured it's enabled
+    // only when data is present
+    final user = ref.read(userProvider).value!;
+    return fetchPosts(user.id);
+  },
+  options: QueryOptions(
+    // Re-evaluate when userProvider changes
+    enabled: ref.watch(userProvider).hasValue,
+  ),
+);
+```
+
+## Why use this pattern?
+
+By leveraging Riverpod's `ref.watch`, you ensure that:
+
+1. **Automatic Cancellation**: If the dependency changes (e.g., user logs out), the dependent query is automatically cancelled or disposed.
+2. **Reactivity**: Query B automatically refetchs if Query A's data changes in a way that affects Query B's parameters.
+3. **Type Safety**: You get full compile-time safety across your dependency chain.
+
+## Next Steps
+
+- **[Family Providers](/docs/riverpod/essentials/family-providers)** - Passing parameters to queries
+- **[Riverpod Patterns](/docs/riverpod/essentials/riverpod-patterns)** - Architecture best practices

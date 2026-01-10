@@ -1,0 +1,117 @@
+# Error Tracking
+
+Fasq Riverpod makes it easy to monitor and report query failures globally by leveraging Riverpod's dependency injection system. You can easily integrate external services like Sentry, Firebase Crashlytics, or custom logging.
+
+## Global Error Reporting
+
+Error reporters are registered globally via the `fasqErrorReportersProvider`. This provider accepts a list of `FasqErrorReporter` implementations.
+
+### Default Setup
+
+By default, the list of error reporters is empty:
+
+```dart
+final fasqErrorReportersProvider = Provider<List<FasqErrorReporter>>((ref) {
+  return [];
+});
+```
+
+### Adding Reporters
+
+To add error reporters, override the `fasqErrorReportersProvider` in your `ProviderScope`:
+
+```dart
+import 'package:fasq_riverpod/fasq_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+void main() {
+  runApp(
+    ProviderScope(
+      overrides: [
+        fasqErrorReportersProvider.overrideWithValue([
+          SentryErrorReporter(),
+          CrashlyticsErrorReporter(),
+        ]),
+      ],
+      child: MyApp(),
+    ),
+  );
+}
+```
+
+## Implementing a Reporter
+
+To create an error reporter, implement the `FasqErrorReporter` interface from the core `fasq` package.
+
+### Sentry Example
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+class SentryErrorReporter implements FasqErrorReporter {
+  @override
+  void report(FasqErrorContext context) {
+    Sentry.captureException(
+      context.error,
+      stackTrace: context.stackTrace,
+      hint: Hint.withMap({
+        'queryKey': context.queryKey.join('/'),
+        'retryCount': context.retryCount,
+        'networkStatus': context.networkStatus ? 'online' : 'offline',
+        // Always use sanitized options to avoid leaking PII
+        'options': context.sanitizedQueryOptions,
+      }),
+    );
+  }
+}
+```
+
+## FasqErrorContext
+
+The `FasqErrorContext` provides rich metadata about why a query failed:
+
+- **`queryKey`**: The key of the failing query.
+- **`error`**: The actual error object.
+- **`stackTrace`**: The associated stack trace.
+- **`retryCount`**: How many times the query was retried before giving up.
+- **`networkStatus`**: Whether the device was online during the failure.
+- **`sanitizedQueryOptions`**: A PII-safe version of the query options.
+
+## PII Sanitization
+
+Fasq automatically sanitizes query options before they reach your reporter. This ensures that sensitive data like tokens or user-specific metadata (from `QueryMeta`) are not leaked into your error tracking service.
+
+> [!IMPORTANT]
+> Always prefer `context.sanitizedQueryOptions` over accessing the raw query options in your reporters.
+
+## Integration Examples
+
+### Custom Logger
+
+You can use a reporter to send errors to your own logging system or analytics:
+
+```dart
+class AnalyticsErrorReporter implements FasqErrorReporter {
+  @override
+  void report(FasqErrorContext context) {
+    Analytics.logEvent(
+      name: 'query_failure',
+      parameters: {
+        'key': context.queryKey.join('_'),
+        'error': context.error.toString(),
+      },
+    );
+  }
+}
+```
+
+### Combined with Observers
+
+While `FasqErrorReporter` is dedicated to failure reporting, you can also use global observers (via `fasqObserversProvider`) to track the entire lifecycle of queries, including successful fetches and cache hits.
+
+## See Also
+
+- [Client Configuration](/docs/riverpod/advanced/configuration)
+- [DevTools Integration](/docs/riverpod/diagnostics/devtools)
+- [Circuit Breaker](/docs/riverpod/advanced/circuit-breaker)

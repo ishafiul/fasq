@@ -3,14 +3,14 @@ import type { NextConfig } from "next";
 const withNextra = nextra({
   latex: true,
   search: {
-    codeblocks: false
+    codeblocks: false,
   },
-  contentDirBasePath: '/docs'
+  contentDirBasePath: "/docs",
 });
 
 const nextConfig: NextConfig = withNextra({
   // ... Add regular Next.js options here
-})
+});
 
 export default nextConfig;
 
