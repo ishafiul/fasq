@@ -1,0 +1,97 @@
+# Serialization & Code Generation
+
+**Fasq Serializer Generator** is a powerful companion package for FASQ that automates the registration of serializers for your `TypedQueryKey` declarations.
+
+While FASQ's `TypedQueryKey` provides excellent compile-time type safety, complex data types like nested lists or custom classes still require manual JSON serialization (via `fromJson`/`toJson`) to be correctly cached and persisted. This package eliminates that boilerplate.
+
+## Features
+
+- **🤖 Automated Detection**: Automatically finds all `TypedQueryKey` declarations in your annotated classes.
+- **📦 Boilerplate-Free**: Generates the `CodecRegistry` wiring needed for the `QueryClient` to handle your custom types.
+- **🏗️ Build Runner Integration**: Works with standard Flutter code generation tools.
+
+## Installation
+
+Add the generator and build_runner to your `dev_dependencies`:
+
+```bash
+flutter pub add -d fasq_serializer_generator build_runner
+```
+
+## Setup & Usage
+
+### 1. Annotate Your Keys
+
+Organize your query keys into a class and annotate it with `@AutoRegisterSerializers()`. Ensure your data models (e.g., `Product`, `User`) have standard `fromJson` factory methods.
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:fasq_serializer_generator/fasq_serializer_generator.dart';
+import 'models/product.dart';
+import 'models/user.dart';
+
+// 1. Add the part directive for the generated file
+part 'query_keys.serializers.g.dart';
+
+@AutoRegisterSerializers()
+class QueryKeys {
+  static const products = TypedQueryKey<List<Product>>('products', List<Product>);
+  static const currentUser = TypedQueryKey<User>('user', User);
+}
+```
+
+### 2. Run the Generator
+
+Execute the standard build command:
+
+```bash
+dart run build_runner build
+```
+
+### 3. Initialize the Registry
+
+The generator creates a `registerQueryKeySerializers` function. Use it to initialize your `QueryClient`.
+
+```dart
+import 'query_keys.serializers.g.dart';
+
+void main() {
+  // 1. Create a registry and pipe it through the generated helper
+  final registry = registerQueryKeySerializers(CacheDataCodecRegistry());
+
+  // 2. Pass the registry to your QueryClient configuration
+  final client = QueryClient(
+    config: CacheConfig(
+      codecRegistry: registry,
+    ),
+  );
+
+  runApp(QueryClientProvider(client: client, child: MyApp()));
+}
+```
+
+## Why use the Serializer Generator?
+
+Without the generator, you would have to manually register a `Codec` for every single type you use in a `TypedQueryKey`:
+
+```dart
+// The manual way (Avoid this!)
+final registry = CacheDataCodecRegistry()
+  ..registerCodec(
+    'Product',
+    (json) => Product.fromJson(json),
+    (data) => data.toJson(),
+  )
+  ..registerCodec(
+    'List<Product>',
+    (json) => (json as List).map((e) => Product.fromJson(e)).toList(),
+    (data) => data.map((e) => e.toJson()).toList(),
+  );
+```
+
+The generator handles all of this—including complex types like `List<T>`, `Map<K, V>`, and nested generics—automatically.
+
+## Next Steps
+
+- **[Type Safety Essentials](/docs/core/essentials/type-safety)** - Learn more about `TypedQueryKey`.
+- **[Encrypted Persistence](/docs/security/persistence)** - How serialization helps secure disk storage.

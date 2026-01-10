@@ -1,4 +1,4 @@
-# Security Features with fasq_bloc 
+# Security Features with fasq_bloc
 
 fasq_bloc supports all FASQ security features through QueryClient configuration, enabling secure data handling in your Bloc-based applications.
 
@@ -220,9 +220,9 @@ class SecureHomeContent extends StatelessWidget {
             return Text('Token: ${state.data}');
           },
         ),
-        
+
         SizedBox(height: 20),
-        
+
         // Display user profile
         BlocBuilder<QueryCubit<User>, QueryState<User>>(
           builder: (context, state) {
@@ -231,9 +231,9 @@ class SecureHomeContent extends StatelessWidget {
             return Text('User: ${state.data?.name}');
           },
         ),
-        
+
         SizedBox(height: 20),
-        
+
         // Update profile button
         BlocBuilder<MutationCubit<User, User>, MutationState<User>>(
           builder: (context, state) {
@@ -330,14 +330,14 @@ BlocConsumer<QueryCubit<String>, QueryState<String>>(
 
 ### Enabling Security in Existing Apps
 
-1. **Add security dependencies** to your `pubspec.yaml`:
+1. **Add the security package** using the Flutter CLI:
 
-```yaml
-dependencies:
-  fasq_bloc: ^0.2.0
-  encrypt: ^5.0.3
-  flutter_secure_storage: ^9.0.0
+```bash
+flutter pub add fasq_security
 ```
+
+> [!TIP]
+> This package integrates with the [Fasq core](/docs/core) and the [bloc adapter](/docs/bloc).
 
 2. **Wrap your app** with `QueryClientProvider`:
 
@@ -398,24 +398,27 @@ MutationCubit<String, String>(
 ### Common Issues
 
 **Client not found:**
+
 - Ensure `QueryClientProvider` wraps your app
 - Use `context.queryClient` to access the configured client
 
 **Security validation errors:**
+
 - Check query key format (alphanumeric, colon, hyphen, underscore only)
 - Ensure durations are non-negative
 - Verify cache data doesn't contain functions
 
 **Performance issues:**
+
 - Large data (>50KB) is automatically encrypted in isolates
 - Consider reducing cache size for better performance
 - Use appropriate TTL values to prevent memory bloat
 
 ### Error Messages
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "Query key must contain only alphanumeric, colon, hyphen, underscore" | Invalid query key format | Use valid characters only |
-| "Secure queries must specify maxAge for TTL enforcement" | Missing maxAge for secure query | Add maxAge to QueryOptions |
-| "staleTime must be non-negative" | Negative duration | Use positive or zero duration |
-| "Cache data cannot be a function or closure" | Function in cache data | Remove functions from cached data |
+| Error                                                                 | Cause                           | Solution                          |
+| --------------------------------------------------------------------- | ------------------------------- | --------------------------------- |
+| "Query key must contain only alphanumeric, colon, hyphen, underscore" | Invalid query key format        | Use valid characters only         |
+| "Secure queries must specify maxAge for TTL enforcement"              | Missing maxAge for secure query | Add maxAge to QueryOptions        |
+| "staleTime must be non-negative"                                      | Negative duration               | Use positive or zero duration     |
+| "Cache data cannot be a function or closure"                          | Function in cache data          | Remove functions from cached data |

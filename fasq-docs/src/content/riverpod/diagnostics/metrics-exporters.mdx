@@ -4,6 +4,9 @@ Fasq provides a flexible metrics export system that allows you to send performan
 
 ## Configuration
 
+> [!TIP]
+> We are developing the **[fasq_metrics](/docs/installation#coming-soon)** package to provide turn-key metrics exporting for Riverpod-based applications, including automated OpenTelemetry integration.
+
 In Fasq Riverpod, you configure metrics exporters by overriding the `fasqMetricsConfigProvider`. This provider provides a `MetricsConfig` object that specifies the exporters to use, the export interval, and whether auto-export is enabled.
 
 ### Available Exporters

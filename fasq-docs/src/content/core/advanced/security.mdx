@@ -4,7 +4,11 @@ Fasq provides a robust interface for securely persisting your query cache. While
 
 ## Overview
 
+> [!TIP]
+> While you can implement your own security plugin, we recommend using the pre-built **[fasq_security](/docs/security)** package which provides enterprise-grade AES-GCM encryption and encrypted SQLite persistence out of the box.
+
 Security in Fasq is handled through the `SecurityPlugin` interface, which coordinates three providers:
+
 1. **EncryptionProvider**: Encrypts/decrypts data.
 2. **PersistenceProvider**: Stores data (e.g., SQLite, SharedPreferences).
 3. **SecurityProvider**: Manages encryption keys securely.
@@ -41,7 +45,7 @@ You can build a custom security plugin by implementing `SecurityPlugin`.
 class MySecurePlugin implements SecurityPlugin {
   @override
   final String name = 'MySecurePlugin';
-  
+
   @override
   final String version = '1.0.0';
 
@@ -62,19 +66,22 @@ class MySecurePlugin implements SecurityPlugin {
 ## Best Practices
 
 ### 1. Secure Sensitive Data
+
 Always mark tokens, PII, and financial data with `isSecure: true`.
 
 ### 2. Set Max Age
+
 Secure data should not live forever. Always set `maxAge` to a reasonable session length.
 
 ```dart
 QueryOptions(
   isSecure: true,
-  maxAge: Duration(minutes: 15), 
+  maxAge: Duration(minutes: 15),
 )
 ```
 
 ### 3. Clear on Logout
+
 When a user logs out, ensure you clear the cache.
 
 ```dart

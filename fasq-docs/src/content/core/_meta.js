@@ -1,23 +1,7 @@
-const meta = {
+export default {
   index: 'Overview',
-  'query-builder': 'QueryBuilder',
-  'mutation-builder': 'MutationBuilder',
-  'query-client': 'QueryClient',
-  'query-state': 'QueryState',
-  'query-options': 'QueryOptions',
-  'infinite-queries': 'Infinite Queries',
-  'dependent-queries': 'Dependent Queries',
-  'parallel-queries': 'Parallel Queries',
-  'prefetching': 'Prefetching',
-  'offline-mutation-queue': 'Offline Mutation Queue',
-  'cache-configuration': 'Cache Configuration',
-  'cache-invalidation': 'Cache Invalidation',
-  'error-handling': 'Error Handling',
-  logging: 'Logging',
-  security: 'Security Features',
+  essentials: 'Essentials',
   advanced: 'Advanced Topics',
-  'type-safety': 'Type Safety',
+  diagnostics: 'Diagnostics',
   examples: 'Examples',
 }
-
-export default meta

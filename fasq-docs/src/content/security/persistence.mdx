@@ -1,0 +1,74 @@
+# Encrypted Persistence
+
+Fasq Security provides a specialized persistence layer that ensures your cached data remains encrypted even when the application is closed.
+
+## Drift Persistence
+
+The security package includes a `DriftPersistenceProvider` built on the powerful **Drift** (formerly Moor) library. It uses a high-performance SQL database (SQLite) for storing query snapshots.
+
+### Features
+
+- **AES-at-Rest**: Every byte written to the disk is encrypted.
+- **Schema Safety**: Fully typed database schema.
+- **Atomic Updates**: Ensures cache consistency even if the app crashes during a write.
+- **Query Key Support**: Efficiently indexes and retrieves data using Fasq's complex query keys.
+
+## Setup
+
+To enable encrypted persistence, you need to configure the `persistenceOptions` of your `QueryClient` using the `DriftPersistenceProvider`.
+
+```dart
+import 'package:fasq/fasq.dart';
+import 'package:fasq_security/fasq_security.dart';
+
+void main() async {
+  // 1. Initialize security plugin
+  final security = DefaultSecurityPlugin();
+  await security.initialize();
+
+  // 2. Configure persistence
+  final persistence = DriftPersistenceProvider(
+    // The security plugin provides the encryption key for the DB
+    encryptionKey: security.getDatabaseKey(),
+  );
+
+  final client = QueryClient(
+    securityPlugin: security,
+    persistenceOptions: PersistenceOptions(
+      provider: persistence,
+    ),
+  );
+
+  runApp(QueryClientProvider(client: client, child: MyApp()));
+}
+```
+
+## How It Works
+
+1. **Key Exchange**: When the app starts, the `SecurityPlugin` retrieves the database master key from the platform's secure storage.
+2. **Transparent Encryption**: As Fasq core attempts to persist a query result, the `DriftPersistenceProvider` encrypts the payload before it hits the SQLite file.
+3. **Background Writes**: Database operations are performed asynchronously to ensure they don't block the UI.
+
+## Performance Tuning
+
+For applications with very large datasets, you can tune the persistence behavior:
+
+```dart
+PersistenceOptions(
+  provider: persistence,
+  // Only persist data if it's been in the cache for at least 1 minute
+  minPersistenceAge: Duration(minutes: 1),
+  // Ignore small updates to reduce disk I/O
+  onPersist: (snapshot) => snapshot.dataSize > 1024,
+)
+```
+
+## Security Considerations
+
+- **Database File**: The database file is stored in your app's local documents directory but remains unreadable without the hardware-protected key.
+- **Backup**: Encrypted databases are typically excluded from cloud backups (auto-backup) by default for security, though this can be configured.
+
+## Next Steps
+
+- **[Security Overview](/docs/security/)** - Return to the overview.
+- **[Caching Strategy](/docs/core/essentials/cache-configuration)** - How persistence interacts with cache timing.

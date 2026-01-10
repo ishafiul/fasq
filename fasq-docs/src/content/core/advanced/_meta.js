@@ -1,12 +1,10 @@
-const meta = {
-    metadata: 'Metadata & Side Effects',
-    performance: 'Performance & Isolates',
-    'metrics-exporters': 'Metrics Exporters',
-    'devtools': 'DevTools Integration',
-    'leak-detection': 'Leak Detection & Prevention',
-    'error-tracking': 'Error Tracking & Reporting',
-    'network-status': 'Network Status',
-    'circuit-breaker': 'Circuit Breaker',
+export default {
+  'dependent-queries': 'Dependent Queries',
+  'parallel-queries': 'Parallel Queries',
+  'prefetching': 'Prefetching',
+  'offline-mutation-queue': 'Offline Mutation Queue',
+  'security': 'Security Features',
+  metadata: 'Metadata & Side Effects',
+  'network-status': 'Network Status',
+  'circuit-breaker': 'Circuit Breaker',
 }
-
-export default meta
