@@ -8,7 +8,7 @@ import 'package:ecommerce/core/services/auth_service.dart';
 import 'package:ecommerce/core/services/user_service.dart';
 import 'package:ecommerce/core/widgets/button/button.dart';
 import 'package:ecommerce/core/widgets/number_stepper.dart';
-import 'package:ecommerce/core/widgets/number_stepper_controller.dart';
+import 'package:ecommerce/core/widgets/number_stepper/components/compact.dart';
 import 'package:ecommerce/core/widgets/spinner/rotating_dots.dart';
 import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
 import 'package:fasq/fasq.dart';
@@ -96,17 +96,13 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             SizedBox(height: spacing.md),
-            Container(
-              width: 350,
-              color: Colors.red,
-              child: Center(
-                child: NumberStepper(
-                  min: 1,
-                  max: 10,
-                  compact: true,
-                  expandDirection: NumberStepperExpandDirection.left,
-                  onChanged: (value) {},
-                ),
+            Center(
+              child: NumberStepper(
+                min: 1,
+                max: 10,
+                compact: true,
+                direction: PopoverDirection.bottom,
+                onChanged: (value) {},
               ),
             ),
             // Login/Logout Button
