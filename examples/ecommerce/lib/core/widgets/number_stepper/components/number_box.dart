@@ -28,7 +28,12 @@ class NumberBox extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: height,
+        constraints: BoxConstraints(
+          maxWidth: height,
+          maxHeight: height,
+          minWidth: height,
+          minHeight: height,
+        ),
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(borderRadius),
@@ -40,7 +45,7 @@ class NumberBox extends StatelessWidget {
           valueText,
           textAlign: TextAlign.center,
           style: context.textTheme.bodySmall?.copyWith(
-            fontSize: 14,
+            fontSize: 12,
             color: textColor,
           ),
         ),

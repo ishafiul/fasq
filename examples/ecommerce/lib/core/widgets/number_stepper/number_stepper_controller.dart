@@ -1,17 +1,14 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
-enum NumberStepperExpandDirection {
-  top,
-  bottom,
-  left,
-  right,
-  centerHorizontal,
-  centerVertical,
-}
-
+/// Controller for NumberStepper widget that manages value state and validation.
+/// All business logic is encapsulated here, following Single Responsibility.
 class NumberStepperController extends ChangeNotifier {
+  /// Creates a NumberStepperController with the given configuration.
+  ///
+  /// Assertions validate the configuration:
+  /// - [step] must be positive
+  /// - [min] must be less than or equal to [max] if both are provided
+  /// - [digits] must be between 0 and 20 if provided
   NumberStepperController({
     num? value,
     this.defaultValue = 0,
@@ -21,72 +18,88 @@ class NumberStepperController extends ChangeNotifier {
     this.digits,
     this.allowEmpty = false,
     this.formatter,
-    this.compact = false,
-    NumberStepperExpandDirection expandDirection = NumberStepperExpandDirection.left,
-    this.collapseDelay = const Duration(seconds: 2),
-  })  : _value = value ?? defaultValue,
-        _expandDirection = expandDirection;
+  })  : assert(step > 0, 'step must be positive'),
+        assert(
+          min == null || max == null || min <= max,
+          'min must be less than or equal to max',
+        ),
+        assert(
+          digits == null || (digits >= 0 && digits <= 20),
+          'digits must be between 0 and 20',
+        ),
+        _value = value ?? defaultValue;
 
   num? _value;
-  bool _isExpanded = false;
-  NumberStepperExpandDirection _expandDirection;
-  Timer? _collapseTimer;
 
+  /// Default value used when value is null and allowEmpty is false.
   final num defaultValue;
+
+  /// Minimum allowed value. If null, no minimum is enforced.
   final num? min;
+
+  /// Maximum allowed value. If null, no maximum is enforced.
   final num? max;
+
+  /// Step size for increment/decrement operations.
   final num step;
+
+  /// Number of decimal digits to display.
   final int? digits;
+
+  /// Whether the value can be null/empty.
   final bool allowEmpty;
+
+  /// Custom formatter for displaying the value.
   final String Function(num? value)? formatter;
-  final bool compact;
-  final Duration collapseDelay;
 
+  /// Current value of the stepper.
   num? get value => _value;
-  bool get isExpanded => _isExpanded;
-  NumberStepperExpandDirection get expandDirection => _expandDirection;
 
+  /// Formatted string representation of the current value.
   String get formattedValue => formatValue(_value);
 
-  bool get isAtMin => _isAtMin();
-  bool get isAtMax => _isAtMax();
-  bool get canIncrement => _canIncrement();
-  bool get canDecrement => _canDecrement();
-
-  bool get isMinusDisabled {
-    if (_value == null) return false;
-    if (compact && isAtMin) return false;
-    if (min == null) return false;
-    return _value! <= min!;
+  /// Returns true if the value is at or below the minimum.
+  bool get isAtMin {
+    final currentValue = _value;
+    final minValue = min;
+    if (currentValue == null || minValue == null) return false;
+    return currentValue <= minValue;
   }
 
-  bool get isPlusDisabled {
-    if (_value == null) return false;
-    if (max == null) return false;
-    return _value! >= max!;
+  /// Returns true if the value is at or above the maximum.
+  bool get isAtMax {
+    final currentValue = _value;
+    final maxValue = max;
+    if (currentValue == null || maxValue == null) return false;
+    return currentValue >= maxValue;
   }
 
-  bool get shouldShowCollapsedPlusOnly {
-    if (!compact) return false;
-    if (_isExpanded) return false;
-    return isAtMin;
-  }
+  /// Returns true if increment is possible.
+  bool get canIncrement => !isAtMax;
 
-  bool get shouldShowCollapsedNumber {
-    if (!compact) return false;
-    if (_isExpanded) return false;
-    return !isAtMin;
+  /// Returns true if decrement is possible.
+  bool get canDecrement => _value != null && !isAtMin;
+
+  /// Whether the value should trigger deletion (show delete button).
+  /// Returns true when value is 1 or at the minimum value (but above 0).
+  bool get shouldShowDelete {
+    final currentValue = _value ?? defaultValue;
+    final minValue = min;
+    return currentValue == 1 || (minValue != null && currentValue == minValue && currentValue > 0);
   }
 
   int _getValidDigits() {
-    if (digits == null) return 0;
-    return digits!.clamp(0, 20);
+    final digitValue = digits;
+    if (digitValue == null) return 0;
+    return digitValue.clamp(0, 20);
   }
 
+  /// Formats the value for display.
   String formatValue(num? value) {
     if (value == null) return '';
-    if (formatter != null) {
-      return formatter!(value);
+    final formatterFn = formatter;
+    if (formatterFn != null) {
+      return formatterFn(value);
     }
     final validDigits = _getValidDigits();
     if (validDigits > 0) {
@@ -97,12 +110,16 @@ class NumberStepperController extends ChangeNotifier {
 
   num _clampValue(num value) {
     var result = value;
-    if (min != null && result < min!) {
-      result = min!;
+    final minValue = min;
+    final maxValue = max;
+
+    if (minValue != null && result < minValue && result != 0) {
+      result = minValue;
     }
-    if (max != null && result > max!) {
-      result = max!;
+    if (maxValue != null && result > maxValue) {
+      result = maxValue;
     }
+
     final validDigits = _getValidDigits();
     if (validDigits > 0) {
       result = num.parse(result.toStringAsFixed(validDigits));
@@ -110,6 +127,7 @@ class NumberStepperController extends ChangeNotifier {
     return result;
   }
 
+  /// Sets a new value, clamping it to min/max bounds.
   void setValue(num? newValue) {
     num? finalValue = newValue;
     if (finalValue == null && !allowEmpty) {
@@ -124,76 +142,20 @@ class NumberStepperController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setExpandDirection(NumberStepperExpandDirection direction) {
-    if (_expandDirection == direction) return;
-    _expandDirection = direction;
-    notifyListeners();
-  }
-
+  /// Increments the value by step.
   void increment() {
     final current = _value ?? defaultValue;
-    setValue(current + step);
-    if (compact) {
-      expand();
+    final minValue = min;
+    if (minValue != null && current < minValue) {
+      setValue(minValue);
+      return;
     }
+    setValue(current + step);
   }
 
+  /// Decrements the value by step.
   void decrement() {
     final current = _value ?? defaultValue;
     setValue(current - step);
-    if (compact) {
-      expand();
-    }
-  }
-
-  void expand() {
-    _collapseTimer?.cancel();
-    _isExpanded = true;
-    notifyListeners();
-    _startCollapseTimer();
-  }
-
-  void collapse() {
-    _collapseTimer?.cancel();
-    _isExpanded = false;
-    notifyListeners();
-  }
-
-  void _startCollapseTimer() {
-    _collapseTimer?.cancel();
-    _collapseTimer = Timer(collapseDelay, () {
-      collapse();
-    });
-  }
-
-  bool _isAtMin() {
-    if (_value == null) return false;
-    if (min == null) return false;
-    return _value! <= min!;
-  }
-
-  bool _isAtMax() {
-    if (_value == null) return false;
-    if (max == null) return false;
-    return _value! >= max!;
-  }
-
-  bool _canIncrement() {
-    if (_value == null) return true;
-    if (max == null) return true;
-    return _value! < max!;
-  }
-
-  bool _canDecrement() {
-    if (_value == null) return false;
-    if (compact && isAtMin) return true;
-    if (min == null) return true;
-    return _value! > min!;
-  }
-
-  @override
-  void dispose() {
-    _collapseTimer?.cancel();
-    super.dispose();
   }
 }
