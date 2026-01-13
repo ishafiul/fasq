@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:ecommerce/api/models/product_image_response.dart';
+import 'package:ecommerce/api/models/product_detail_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
@@ -9,7 +9,6 @@ import 'package:ecommerce/core/widgets/image_viewer/image_viewer.dart';
 import 'package:ecommerce/core/widgets/image_viewer/image_viewer_show.dart';
 import 'package:ecommerce/core/widgets/no_data.dart';
 import 'package:ecommerce/core/widgets/page_indicator.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/core/widgets/swiper.dart';
 import 'package:fasq/fasq.dart';
@@ -47,38 +46,20 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
     final radius = context.radius;
     final palette = context.palette;
 
-    return QueryBuilder(
+    return QueryBuilder<ProductDetailResponse>(
       queryKey: QueryKeys.productDetail(widget.id),
       queryFn: () => locator.get<ProductService>().getProductById(widget.id),
       builder: (context, productState) {
-        if (productState.isLoading) {
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              const aspectRatio = 0.75;
-              final height = width * aspectRatio;
-              return ShimmerLoading(
-                isLoading: true,
-                child: Container(
-                  width: width,
-                  height: height,
-                  decoration: BoxDecoration(
-                    color: palette.surface,
-                    borderRadius: radius.all(radius.sm),
-                  ),
-                ),
-              );
-            },
-          );
-        }
-        if (productState.hasError || productState.data == null) {
+        if (productState.data == null) {
           return const Center(
             child: NoData(message: 'Failed to load product details'),
           );
         }
-        final sortedImages = List<ProductImageResponse>.from(productState.data!.images)
-          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-
+        if (productState.data != null && productState.data!.images.isEmpty) {
+          return const Center(
+            child: NoData(message: 'Failed to load product details'),
+          );
+        }
         return Column(
           children: [
             LayoutBuilder(
@@ -87,7 +68,7 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
                 const aspectRatio = 0.75; // 4:3 aspect ratio (less height)
                 final height = width * aspectRatio;
 
-                if (sortedImages.isEmpty) {
+                if (productState.data!.images.isEmpty) {
                   return Container(
                     width: width,
                     height: height,
@@ -107,7 +88,7 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
                     showMultiImageViewer(
                       context,
                       MultiImageViewerProps(
-                        images: sortedImages.map((img) => img.url).toList(),
+                        images: productState.data!.images.map((img) => img.url).toList(),
                         defaultIndex: _currentIndex,
                       ),
                     );
@@ -119,12 +100,12 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
                       ref: _swiperRef,
                       defaultIndex: _currentIndex,
                       onIndexChange: _onIndexChange,
-                      showIndicator: sortedImages.length > 1,
+                      showIndicator: productState.data!.images.length > 1,
                       indicatorProps: const SwiperIndicatorProps(
                         color: PageIndicatorColor.primary,
                         position: SwiperIndicatorPosition.center,
                       ),
-                      children: sortedImages
+                      children: productState.data!.images
                           .map((image) => SwiperItem(
                                 child: CachedNetworkImage(
                                   imageUrl: image.url,
@@ -151,7 +132,7 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
                 );
               },
             ),
-            if (sortedImages.length > 1) ...[
+            if (productState.data!.images.length > 1) ...[
               SizedBox(height: spacing.sm),
               SizedBox(
                 height: 60,
@@ -159,7 +140,7 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
                   scrollDirection: Axis.horizontal,
                   padding: EdgeInsets.symmetric(horizontal: spacing.sm),
                   child: Row(
-                    children: sortedImages.asMap().entries.map((entry) {
+                    children: productState.data!.images.asMap().entries.map((entry) {
                       final index = entry.key;
                       final image = entry.value;
                       final isSelected = index == _currentIndex;
@@ -168,7 +149,7 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
                         child: Container(
                           width: 60,
                           height: 60,
-                          margin: EdgeInsets.only(right: index < sortedImages.length - 1 ? spacing.xs : 0),
+                          margin: EdgeInsets.only(right: index < productState.data!.images.length - 1 ? spacing.xs : 0),
                           decoration: BoxDecoration(
                             borderRadius: radius.all(radius.sm),
                             border: Border.all(

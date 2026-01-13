@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerce/api/models/category_tree_node.dart';
@@ -30,78 +32,94 @@ class CategorySection extends StatelessWidget {
         queryKey: QueryKeys.categoryTree,
         queryFn: () => locator.get<CategoryService>().getCategoryTree(),
         builder: (context, state) {
-          if (state.hasError) {
-            return SizedBox(
-              height: 100,
-              child: Center(
-                child: Text(
-                  'Failed to load categories',
-                  style: typography.bodySmall.toTextStyle(color: palette.danger),
-                ),
-              ),
-            );
-          }
-
           final categories = state.data ?? [];
           final isLoading = state.isLoading;
-          final itemCount = isLoading ? 6 : categories.length;
 
           if (!isLoading && categories.isEmpty) {
             return const SizedBox.shrink();
           }
 
-          return SizedBox(
-            height: 100,
-            child: Row(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.only(left: spacing.sm),
-                    itemCount: itemCount,
-                    itemBuilder: (context, index) {
-                      // Create mock category data when loading
-                      final category = isLoading ? null : categories[index];
+          final itemCount = isLoading ? 6 : categories.length;
 
-                      return ShimmerLoading(
-                        isLoading: isLoading,
-                        child: _CategoryCard(
-                          category: category,
-                          onTap: isLoading
-                              ? () {}
-                              : () {
-                                  if (category != null) {
-                                    if (onCategoryTap != null) {
-                                      onCategoryTap?.call(category);
-                                    } else {
-                                      context.router.push(CategoryRoute(id: category.id));
-                                    }
-                                  }
-                                },
-                          palette: palette,
-                          spacing: spacing,
-                          typography: typography,
-                          radius: radius,
-                        ),
-                      );
-                    },
-                  ),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Section Header
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: spacing.sm),
+                child: Text(
+                  'Categories',
+                  style: typography.titleMedium.toTextStyle(color: palette.textPrimary),
                 ),
-                if (!isLoading)
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: spacing.sm),
-                    child: _SeeAllButton(
-                      onTap: () {
-                        context.router.push(const CategoriesListRoute());
-                      },
-                      palette: palette,
-                      spacing: spacing,
-                      typography: typography,
-                      radius: radius,
+              ),
+              SizedBox(height: spacing.sm),
+              if (state.hasError)
+                SizedBox(
+                  height: 100,
+                  child: Center(
+                    child: Text(
+                      'Failed to load categories',
+                      style: typography.bodySmall.toTextStyle(color: palette.danger),
                     ),
                   ),
-              ],
-            ),
+                )
+              else
+                SizedBox(
+                  height: 100,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: EdgeInsets.only(left: spacing.sm),
+                          itemCount: itemCount,
+                          itemBuilder: (context, index) {
+                            // Create mock category data when loading
+                            final category = isLoading ? null : categories[index];
+
+                            return ShimmerLoading(
+                              isLoading: isLoading,
+                              child: _CategoryCard(
+                                category: category,
+                                onTap: isLoading
+                                    ? () {}
+                                    : () {
+                                        if (category != null) {
+                                          if (onCategoryTap != null) {
+                                            onCategoryTap?.call(category);
+                                          } else {
+                                            unawaited(context.router.push(CategoryRoute(id: category.id)));
+                                          }
+                                        }
+                                      },
+                                palette: palette,
+                                spacing: spacing,
+                                typography: typography,
+                                radius: radius,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      if (!isLoading)
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: spacing.sm),
+                          child: _SeeAllButton(
+                            onTap: () {
+                              unawaited(context.router.push(const CategoriesListRoute()));
+                            },
+                            palette: palette,
+                            spacing: spacing,
+                            typography: typography,
+                            radius: radius,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              SizedBox(height: spacing.md),
+            ],
           );
         },
       ),

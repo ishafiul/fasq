@@ -59,7 +59,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           // Menu Icon
           IconButton(
             onPressed: () {
-              // TODO: Implement menu drawer or bottom sheet
+              context.router.pushNamed('/menu');
             },
             icon: Icon(Icons.menu, color: palette.textPrimary),
             tooltip: 'Menu',

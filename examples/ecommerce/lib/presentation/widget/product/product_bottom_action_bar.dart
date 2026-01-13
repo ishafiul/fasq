@@ -45,6 +45,13 @@ class _ProductBottomActionBarState extends State<ProductBottomActionBar> {
           border: Border(
             top: BorderSide(color: palette.border, width: 1),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              offset: const Offset(0, -2),
+              blurRadius: 8,
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

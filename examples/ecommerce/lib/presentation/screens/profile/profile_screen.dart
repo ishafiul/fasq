@@ -7,9 +7,9 @@ import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/auth_service.dart';
 import 'package:ecommerce/core/services/user_service.dart';
 import 'package:ecommerce/core/widgets/button/button.dart';
-import 'package:ecommerce/core/widgets/number_stepper.dart';
-import 'package:ecommerce/core/widgets/number_stepper/components/compact.dart';
-import 'package:ecommerce/core/widgets/spinner/rotating_dots.dart';
+import 'package:ecommerce/core/widgets/devider.dart';
+import 'package:ecommerce/core/widgets/list_item.dart';
+import 'package:ecommerce/core/widgets/spinner/rotating_dots.dart' show WaveDots;
 import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +22,6 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final spacing = context.spacing;
-    final typography = context.typography;
 
     return Scaffold(
       appBar: AppBar(
@@ -35,77 +34,15 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(spacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User Email Section
-            QueryBuilder<String?>(
-              queryKey: QueryKeys.userEmail,
-              queryFn: () => locator.get<UserService>().getUserEmail(),
-              builder: (context, state) {
-                if (state.isLoading) {
-                  return Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(spacing.xl),
-                      child: CircularProgressIndicator(color: palette.brand),
-                    ),
-                  );
-                }
-
-                final email = state.data;
-
-                return Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(spacing.md),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Email', style: typography.bodyMedium.toTextStyle(color: palette.textSecondary)),
-                        SizedBox(height: spacing.xs),
-                        Text(
-                          email ?? 'Not logged in',
-                          style: typography.bodyLarge.toTextStyle(color: palette.textPrimary),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+            _buildUserProfileSection(context),
+            AppDivider.base(axis: Axis.horizontal),
+            _buildPromotionalBanner(context),
+            AppDivider.base(axis: Axis.horizontal),
+            _buildAccountSettingsSection(context),
             SizedBox(height: spacing.lg),
-            // Performance Metrics Link
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.analytics),
-                title: const Text('Performance Metrics'),
-                subtitle: const Text('View FASQ performance metrics'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.router.push(const MetricsRoute()),
-              ),
-            ),
-            SizedBox(height: spacing.md),
-            // Muscle Selection Link
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.fitness_center),
-                title: const Text('Muscle Selection'),
-                subtitle: const Text('Select target muscles for workouts'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.router.push(const MuscleSelectionRoute()),
-              ),
-            ),
-            SizedBox(height: spacing.md),
-            Center(
-              child: NumberStepper(
-                min: 1,
-                max: 10,
-                compact: true,
-                direction: PopoverDirection.bottom,
-                onChanged: (value) {},
-              ),
-            ),
-            // Login/Logout Button
             QueryBuilder<bool>(
               queryKey: QueryKeys.isLoggedIn,
               queryFn: () => locator.get<UserService>().isLoggedIn(),
@@ -117,15 +54,222 @@ class ProfileScreen extends StatelessWidget {
                 final isLoggedIn = state.data ?? false;
 
                 if (isLoggedIn) {
-                  return const _LogoutButton();
+                  return Padding(
+                    padding: EdgeInsets.all(spacing.md),
+                    child: const _LogoutButton(),
+                  );
                 } else {
-                  return const _LoginButton();
+                  return Padding(
+                    padding: EdgeInsets.all(spacing.md),
+                    child: const _LoginButton(),
+                  );
                 }
               },
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildUserProfileSection(BuildContext context) {
+    final palette = context.palette;
+    final spacing = context.spacing;
+    final typography = context.typography;
+
+    return QueryBuilder<String?>(
+      queryKey: QueryKeys.userEmail,
+      queryFn: () => locator.get<UserService>().getUserEmail(),
+      builder: (context, state) {
+        final email = state.data;
+        final userName = email?.split('@').first ?? 'Guest';
+
+        return Padding(
+          padding: EdgeInsets.all(spacing.md),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: palette.brand.withValues(alpha: 0.1),
+                child: Text(
+                  userName.isNotEmpty ? userName[0].toUpperCase() : 'G',
+                  style: typography.headlineMedium
+                      .toTextStyle(
+                        color: palette.brand,
+                      )
+                      .copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              SizedBox(width: spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      userName,
+                      style: typography.headlineSmall
+                          .toTextStyle(
+                            color: palette.textPrimary,
+                          )
+                          .copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: spacing.xs / 2),
+                    GestureDetector(
+                      onTap: () {
+                        // TODO: Navigate to profile details
+                      },
+                      child: Text(
+                        'View profile',
+                        style: typography.bodyMedium
+                            .toTextStyle(
+                              color: palette.brand,
+                            )
+                            .copyWith(
+                              decoration: TextDecoration.underline,
+                              decorationColor: palette.brand,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPromotionalBanner(BuildContext context) {
+    final palette = context.palette;
+    final spacing = context.spacing;
+    final typography = context.typography;
+
+    return Padding(
+      padding: EdgeInsets.all(spacing.md),
+      child: Row(
+        children: [
+          Icon(
+            Icons.account_balance_wallet_outlined,
+            color: palette.brand,
+            size: 24,
+          ),
+          SizedBox(width: spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Earn money from your extra space',
+                  style: typography.bodyMedium.toTextStyle(
+                    color: palette.textPrimary,
+                  ),
+                ),
+                SizedBox(height: spacing.xs / 2),
+                GestureDetector(
+                  onTap: () {
+                    // TODO: Navigate to learn more
+                  },
+                  child: Text(
+                    'Learn more',
+                    style: typography.bodyMedium
+                        .toTextStyle(
+                          color: palette.brand,
+                        )
+                        .copyWith(
+                          decoration: TextDecoration.underline,
+                          decorationColor: palette.brand,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountSettingsSection(BuildContext context) {
+    final palette = context.palette;
+    final spacing = context.spacing;
+    final typography = context.typography;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(spacing.md, spacing.md, spacing.md, spacing.sm),
+          child: Text(
+            'Account Settings',
+            style: typography.titleLarge
+                .toTextStyle(
+                  color: palette.textPrimary,
+                )
+                .copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Card(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListItem(
+                prefix: Icon(Icons.location_on_outlined, color: palette.textPrimary, size: 20),
+                title: Text('Addresses'),
+                arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
+                onClick: () {
+                  context.router.push(const AddressesRoute());
+                },
+              ),
+              AppDivider.base(axis: Axis.horizontal),
+              ListItem(
+                prefix: Icon(Icons.shopping_bag_outlined, color: palette.textPrimary, size: 20),
+                title: Text('My Orders'),
+                arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
+                onClick: () {
+                  context.router.push(const OrdersRoute());
+                },
+              ),
+              AppDivider.base(axis: Axis.horizontal),
+              ListItem(
+                prefix: Icon(Icons.translate_outlined, color: palette.textPrimary, size: 20),
+                title: Text('Translation'),
+                arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
+                onClick: () {
+                  // TODO: Navigate to translation settings
+                },
+              ),
+              AppDivider.base(axis: Axis.horizontal),
+              ListItem(
+                prefix: Icon(Icons.notifications_outlined, color: palette.textPrimary, size: 20),
+                title: Text('Notifications'),
+                arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
+                onClick: () {
+                  // TODO: Navigate to notifications
+                },
+              ),
+              AppDivider.base(axis: Axis.horizontal),
+              ListItem(
+                prefix: Icon(Icons.lock_outline, color: palette.textPrimary, size: 20),
+                title: Text('Privacy and sharing'),
+                arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
+                onClick: () {
+                  // TODO: Navigate to privacy settings
+                },
+              ),
+              AppDivider.base(axis: Axis.horizontal),
+              ListItem(
+                prefix: Icon(Icons.business_center_outlined, color: palette.textPrimary, size: 20),
+                title: Text('Travel for work'),
+                arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
+                onClick: () {
+                  // TODO: Navigate to travel settings
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

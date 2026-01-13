@@ -474,7 +474,3 @@ extension SvgElementListExtension on List<SvgElement> {
     }
   }
 }
-
-
-
-

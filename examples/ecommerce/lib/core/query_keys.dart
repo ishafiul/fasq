@@ -1,6 +1,8 @@
+import 'package:ecommerce/api/models/address_response.dart';
 import 'package:ecommerce/api/models/cart_response.dart';
 import 'package:ecommerce/api/models/category_response.dart';
 import 'package:ecommerce/api/models/category_tree_node.dart';
+import 'package:ecommerce/api/models/order_get_user_orders_response.dart';
 import 'package:ecommerce/api/models/product_detail_response.dart';
 import 'package:ecommerce/api/models/product_list_products_response.dart';
 import 'package:ecommerce/api/models/product_response.dart';
@@ -140,4 +142,20 @@ class QueryKeys {
   // Cart
   /// Query key for the current cart.
   static TypedQueryKey<CartResponse> get cart => const TypedQueryKey<CartResponse>('cart', CartResponse);
+
+  // Addresses
+  /// Query key for user addresses.
+  static TypedQueryKey<List<AddressResponse>> get addresses =>
+      const TypedQueryKey<List<AddressResponse>>('addresses', List<AddressResponse>);
+
+  // Orders
+  /// Query key for user orders with pagination.
+  static TypedQueryKey<OrderGetUserOrdersResponse> userOrders({
+    int page = 1,
+    int limit = 20,
+  }) =>
+      TypedQueryKey<OrderGetUserOrdersResponse>(
+        'orders:user:$page:$limit',
+        OrderGetUserOrdersResponse,
+      );
 }
