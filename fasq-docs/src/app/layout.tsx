@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import "nextra-theme-docs/style.css";
-import { Head } from "nextra/components";
 import { getPageMap } from "nextra/page-map";
 import {
   DEFAULT_DESCRIPTION,
@@ -110,7 +109,6 @@ export default async function RootLayout({
   const pageMap = await getPageMap();
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <Head faviconGlyph="F" />
       <body>
         <Script
           id="fasq-organization"

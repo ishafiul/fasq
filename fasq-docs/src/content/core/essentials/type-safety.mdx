@@ -2,6 +2,9 @@
 
 Fasq is designed to be fully type-safe. Using `TypedQueryKey` allows you to enforce type constraints between your query keys and the data they return, preventing runtime casting errors.
 
+> [!TIP]
+> To automate serializer registration for complex data types and eliminate manual boilerplate, check out the **[fasq_serializer_generator](/docs/serialization)** package.
+
 ## TypedQueryKey
 
 A `TypedQueryKey<T>` binds a specific data type `T` to a query key string.
@@ -40,5 +43,5 @@ final todoDetailKey = TypedQueryKey<Todo>('todo', Todo);
 
 // Generate a specific key for ID '123'
 // The resulting key is still a TypedQueryKey<Todo>
-final myTodoKey = todoDetailKey.withParam('123'); 
+final myTodoKey = todoDetailKey.withParam('123');
 ```

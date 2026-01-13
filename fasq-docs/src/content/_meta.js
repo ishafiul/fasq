@@ -7,6 +7,8 @@ const meta = {
   hooks: 'Hooks Adapter',
   bloc: 'Bloc Adapter',
   riverpod: 'Riverpod Adapter',
+  security: 'Security Package',
+  serialization: 'Serialization Package',
   guides: 'Guides',
   // advanced: 'Advanced',
   examples: 'Examples',

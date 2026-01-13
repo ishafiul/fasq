@@ -487,7 +487,7 @@ class Query<T> {
 
     if (cache != null) {
       try {
-          final previous = _currentState;
+        final previous = _currentState;
         _updateState(_currentState.copyWith(
           isFetching: true,
           status: _currentState.status == QueryStatus.idle

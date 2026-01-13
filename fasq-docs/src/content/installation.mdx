@@ -1,67 +1,59 @@
 # Installation
 
-Add Fasq to your Flutter project. You can use the core package alone or add adapters for your preferred state management solution.
+Add **Fasq** to your Flutter project. You can use the core package alone or add one of the optimized adapters for your preferred state management solution.
 
 ## Core Package
 
-The core package provides the `QueryBuilder` widget and all underlying functionality.
+The core package provides the `QueryBuilder`, `MutationBuilder`, and all underlying caching functionality.
 
-```yaml
-dependencies:
-  fasq: ^0.3.7
+```bash
+flutter pub add fasq
 ```
 
-## Adapters (Optional)
+## State Management Adapters
 
-If you are already using one of these state management libraries, you can use the corresponding adapter for a more integrated experience.
+If you are already using a state management library, we highly recommend using the corresponding adapter for a more integrated and idiomatic experience.
 
-### Hooks Adapter (flutter_hooks)
+### Riverpod Adapter (Recommended)
 
-```yaml
-dependencies:
-  fasq_hooks: ^0.2.4+1
-  flutter_hooks: ^0.20.0
+```bash
+flutter pub add fasq_riverpod
 ```
 
-### Bloc Adapter (flutter_bloc)
+### Bloc Adapter
 
-```yaml
-dependencies:
-  fasq_bloc: ^0.2.4+1
-  flutter_bloc: ^8.1.0
+```bash
+flutter pub add fasq_bloc
 ```
 
-### Riverpod Adapter (flutter_riverpod)
+### Hooks Adapter
 
-```yaml
-dependencies:
-  fasq_riverpod: ^0.2.4+1
-  flutter_riverpod: ^2.4.0
+```bash
+flutter pub add fasq_hooks
 ```
 
-## Security Plugin
+## Ecosystem & Security
 
-For encrypted storage and secure caching:
+### Security Package
 
-```yaml
-dependencies:
-  fasq_security: ^0.1.4
+For enterprise-grade encryption and secure SQL persistence:
+
+```bash
+flutter pub add fasq_security
 ```
 
-## Code Generation (Optional)
+### Serializer Generator
 
-If you want to use the serializer generator:
+To automate type-safe query serialization and eliminate boilerplate:
 
-```yaml
-dev_dependencies:
-  build_runner: ^2.4.0
-  fasq_serializer_generator: ^0.1.1
+```bash
+flutter pub add -d fasq_serializer_generator build_runner
 ```
 
-## Installation Steps
+## Getting Started
 
-1. **Add dependencies** to your `pubspec.yaml`
-2. **Run** `flutter pub get`
+1. **Install the dependencies** using the commands above.
+2. **Import** the packages in your Dart files:
 3. **Import** the packages you need:
 
 ```dart
@@ -77,5 +69,6 @@ import 'package:fasq/fasq.dart';
 ## Compatibility
 
 Fasq requires:
+
 - **Flutter**: 3.10.0 or higher
 - **Dart**: 3.0.0 or higher

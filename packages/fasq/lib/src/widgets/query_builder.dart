@@ -7,7 +7,6 @@ import '../core/query.dart';
 import '../core/query_client.dart';
 import '../core/query_key.dart';
 import '../core/query_options.dart';
-import '../core/query_snapshot.dart';
 import '../core/query_state.dart';
 
 /// A widget that executes an async operation and builds UI based on its state.
@@ -135,6 +134,19 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
     required bool shouldFetch,
     bool forceRefetch = false,
   }) {
+    // If already attached to the same query, skip reattaching
+    if (_hasQuery && _query == query) {
+      // Already attached to this query, just check if we need to fetch
+      final hasFreshData = _query.state.hasValue && !_query.state.isStale;
+      final needsFetch = shouldFetch && (!hasFreshData || forceRefetch);
+      if (needsFetch) {
+        _query
+            .fetch(forceRefetch: forceRefetch)
+            .catchError((_) => _query.state);
+      }
+      return;
+    }
+
     _detachCurrentQuery();
 
     _query = query;
@@ -143,7 +155,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
 
     _query.addListener();
     _subscription = _query.stream.listen((state) {
-      if (mounted) {
+      if (mounted && state != _state) {
         final previous = _state;
         _state = state;
         _emitContextNotifications(previous, state);
@@ -151,12 +163,19 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       }
     });
 
+    final hasFreshData = _query.state.hasValue && !_query.state.isStale;
+    final isFirstSubscriber =
+        _query.referenceCount == 1 && !_query.state.hasValue;
     final needsFetch =
-        shouldFetch || (_query.referenceCount == 1 && !_query.state.hasValue);
+        isFirstSubscriber || (shouldFetch && (!hasFreshData || forceRefetch));
 
     if (needsFetch) {
       _query.fetch(forceRefetch: forceRefetch).catchError((_) => _query.state);
-    } else if (mounted) {
+    }
+
+    // Always call setState after attaching to ensure UI reflects current query state
+    // The state equality check in the stream listener will prevent unnecessary rebuilds
+    if (mounted) {
       setState(() {});
     }
   }
@@ -212,6 +231,14 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       dependsOn: widget.dependsOn,
     );
 
+    // If query instance is the same and only function reference changed (but key is same),
+    // don't reattach - the query already has the correct function stored
+    if (newQuery == _query && !keyChanged && !optionsChanged) {
+      // Only function reference changed, but query key is same
+      // The query already has the correct function, no need to reattach
+      return;
+    }
+
     final shouldFetch = keyChanged || fnChanged || optionsChanged;
     final forceRefetch =
         (widget.options?.refetchOnMount ?? false) || keyChanged || fnChanged;
@@ -231,36 +258,8 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
     QueryState<T> previous,
     QueryState<T> current,
   ) {
-    final client = _client;
-    if (client == null || !mounted) {
-      return;
-    }
-
-    final snapshot = QuerySnapshot<T>(
-      queryKey: widget.queryKey,
-      previousState: previous,
-      currentState: current,
-      options: widget.options,
-    );
-    final meta = widget.options?.meta;
-
-    final enteredLoading = (!previous.isLoading && current.isLoading) ||
-        (!previous.isFetching && current.isFetching);
-    if (enteredLoading) {
-      client.notifyQueryLoading(snapshot, meta, context);
-    }
-
-    final becameSuccess = (!previous.isSuccess && current.isSuccess) ||
-        (previous.isFetching && !current.isFetching && current.isSuccess);
-    if (becameSuccess) {
-      client.notifyQuerySuccess(snapshot, meta, context);
-      client.notifyQuerySettled(snapshot, meta, context);
-    }
-
-    final becameError = !previous.hasError && current.hasError;
-    if (becameError) {
-      client.notifyQueryError(snapshot, meta, context);
-      client.notifyQuerySettled(snapshot, meta, context);
-    }
+    // Notifications are already handled by Query._notifySuccess/_notifyError
+    // to avoid duplicate notifications when multiple QueryBuilders subscribe
+    // to the same query. QueryBuilder only needs to rebuild the UI.
   }
 }
