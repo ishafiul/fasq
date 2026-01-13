@@ -82,12 +82,12 @@ class ProductCard extends StatelessWidget {
                 data: data,
                 layout: ProductCardLayout.vertical,
               ),
-              if (showAddToCart)
+              if (showAddToCart && data.hasValidId)
                 Positioned(
                   bottom: 0,
                   right: 0,
                   child: ProductCartStepper(
-                    id: product!.id,
+                    id: data.productId,
                     max: 10,
                     compact: true,
                   ),
@@ -182,9 +182,9 @@ class ProductCardHorizontal extends StatelessWidget {
                     data: data,
                     layout: ProductCardLayout.horizontal,
                   ),
-                  if (showAddToCart)
+                  if (showAddToCart && data.hasValidId)
                     ProductCartStepper(
-                      id: product!.id,
+                      id: data.productId,
                       max: 10,
                       expandDirection: NumberStepperExpandDirection.right,
                     ),
