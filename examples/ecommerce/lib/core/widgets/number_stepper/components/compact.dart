@@ -23,12 +23,14 @@ class NumberStepperCompact extends StatefulWidget {
     required this.controller,
     required this.config,
     this.disabled = false,
+    this.onDelete,
   });
 
   final PopoverDirection direction;
   final NumberStepperController controller;
   final NumberStepperConfig config;
   final bool disabled;
+  final VoidCallback? onDelete;
 
   @override
   State<NumberStepperCompact> createState() => _NumberStepperCompactState();
@@ -96,10 +98,13 @@ class _NumberStepperCompactState extends State<NumberStepperCompact> {
               controller: widget.controller,
               config: widget.config,
               axis: _axisForDirection(widget.direction),
-              showDeleteButton: true,
+              showDeleteButton: widget.onDelete != null,
               onIncrement: _resetAutoCloseTimer,
               onDecrement: _resetAutoCloseTimer,
-              onDelete: _closeMenu,
+              onDelete: () {
+                widget.onDelete?.call();
+                _closeMenu();
+              },
             ),
           ),
         ],

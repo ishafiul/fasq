@@ -1,36 +1,26 @@
+import 'package:ecommerce/core/colors.dart';
+import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/widgets/number_stepper/components/compact.dart';
-import 'package:ecommerce/core/widgets/number_stepper/components/number_stepper_content.dart';
+import 'package:ecommerce/core/widgets/number_stepper/components/number_box.dart';
+import 'package:ecommerce/core/widgets/number_stepper/components/stepper_button.dart';
 import 'package:ecommerce/core/widgets/number_stepper/number_stepper_config.dart';
 import 'package:ecommerce/core/widgets/number_stepper/number_stepper_controller.dart';
 import 'package:flutter/material.dart';
 
-/// A number stepper widget that allows users to increment/decrement a value.
-///
-/// Can be used in two modes:
-/// - Full-size mode (default): Shows minus button, value, and plus button inline
-/// - Compact mode: Shows only the value (or plus button when zero),
-///   with a popover for controls
-///
-/// The stepper can be controlled via:
-/// - External [controller] for full control over the value and state
-/// - Direct [value] property for simpler use cases
-///
-/// Example:
-/// ```dart
-/// NumberStepper(
-///   value: 1,
-///   min: 0,
-///   max: 10,
-///   onChanged: (value) => print('Value: $value'),
-/// )
-/// ```
+enum NumberStepperExpandDirection { left, right, top, bottom }
+
+extension NumberStepperExpandDirectionExtension on NumberStepperExpandDirection {
+  PopoverDirection toPopoverDirection() {
+    return switch (this) {
+      NumberStepperExpandDirection.left => PopoverDirection.left,
+      NumberStepperExpandDirection.right => PopoverDirection.right,
+      NumberStepperExpandDirection.top => PopoverDirection.top,
+      NumberStepperExpandDirection.bottom => PopoverDirection.bottom,
+    };
+  }
+}
+
 class NumberStepper extends StatefulWidget {
-  /// Creates a NumberStepper widget.
-  ///
-  /// Assertions ensure proper configuration:
-  /// - Either [controller] or [value] should be provided, not both for updates
-  /// - [step] must be positive
-  /// - [min] must be <= [max] if both provided
   const NumberStepper({
     super.key,
     this.controller,
@@ -44,57 +34,31 @@ class NumberStepper extends StatefulWidget {
     this.disabled = false,
     this.allowEmpty = false,
     this.formatter,
-    this.config = const NumberStepperConfig(),
     this.compact = false,
-    this.direction = PopoverDirection.right,
-  })  : assert(step > 0, 'step must be positive'),
-        assert(
-          min == null || max == null || min <= max,
-          'min must be less than or equal to max',
-        );
+    this.expandDirection = NumberStepperExpandDirection.left,
+    this.onDelete,
+    this.collapseDelay = const Duration(seconds: 2),
+    this.showDirectionMenu = false,
+    this.config = const NumberStepperConfig(),
+  });
 
-  /// External controller for the stepper value.
-  /// If provided, the widget will use this controller instead of creating one.
   final NumberStepperController? controller;
-
-  /// Initial/current value of the stepper.
   final num? value;
-
-  /// Default value when value is null and allowEmpty is false.
   final num defaultValue;
-
-  /// Callback when the value changes.
   final ValueChanged<num?>? onChanged;
-
-  /// Minimum allowed value.
   final num? min;
-
-  /// Maximum allowed value.
   final num? max;
-
-  /// Step size for increment/decrement.
   final num step;
-
-  /// Number of decimal digits to display.
   final int? digits;
-
-  /// Whether the stepper is disabled.
   final bool disabled;
-
-  /// Whether the value can be empty/null.
   final bool allowEmpty;
-
-  /// Custom value formatter.
   final String Function(num? value)? formatter;
-
-  /// Configuration for visual appearance.
-  final NumberStepperConfig config;
-
-  /// Whether to use compact mode (popover-based).
   final bool compact;
-
-  /// Direction for the popover in compact mode.
-  final PopoverDirection direction;
+  final NumberStepperExpandDirection expandDirection;
+  final VoidCallback? onDelete;
+  final Duration collapseDelay;
+  final bool showDirectionMenu;
+  final NumberStepperConfig config;
 
   @override
   State<NumberStepper> createState() => _NumberStepperState();
@@ -105,9 +69,8 @@ class _NumberStepperState extends State<NumberStepper> {
   bool _usesExternalController = false;
 
   NumberStepperController get _controller {
-    final externalController = widget.controller;
-    if (externalController != null) {
-      return externalController;
+    if (widget.controller != null) {
+      return widget.controller!;
     }
     return _internalController;
   }
@@ -129,7 +92,7 @@ class _NumberStepperState extends State<NumberStepper> {
       );
       _internalController.addListener(_onControllerChanged);
     } else {
-      widget.controller?.addListener(_onControllerChanged);
+      widget.controller!.addListener(_onControllerChanged);
     }
   }
 
@@ -149,9 +112,8 @@ class _NumberStepperState extends State<NumberStepper> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.removeListener(_onControllerChanged);
-      final newController = widget.controller;
-      if (newController != null) {
-        newController.addListener(_onControllerChanged);
+      if (widget.controller != null) {
+        widget.controller!.addListener(_onControllerChanged);
         _usesExternalController = true;
       } else {
         _usesExternalController = false;
@@ -165,26 +127,117 @@ class _NumberStepperState extends State<NumberStepper> {
 
   void _onControllerChanged() {
     if (mounted) {
+      setState(() {});
       widget.onChanged?.call(_controller.value);
     }
   }
 
+  void _handleIncrement() {
+    _controller.increment();
+  }
+
+  void _handleDecrement() {
+    _controller.decrement();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.compact) {
-      return NumberStepperCompact(
-        direction: widget.direction,
-        controller: _controller,
-        config: widget.config,
-        disabled: widget.disabled,
+    final palette = context.palette;
+    final radius = context.radius;
+    final spacing = context.spacing;
+
+    final backgroundColor = palette.background;
+    final borderColor = palette.border;
+    final primaryColor = palette.info;
+    final textColor = palette.textPrimary;
+    final disabledTextColor = palette.disabledText;
+    final borderRadius = widget.config.calculateBorderRadius(radius.xs);
+    final iconSize = widget.config.iconSize;
+    final inputHeight = widget.config.calculateInputHeight(spacing.xs);
+    final inputPadding = widget.config.calculateInputPadding(spacing.xs);
+
+    if (!widget.compact) {
+      return _buildFullStepper(
+        palette: palette,
+        backgroundColor: backgroundColor,
+        borderColor: borderColor,
+        primaryColor: primaryColor,
+        textColor: textColor,
+        disabledTextColor: disabledTextColor,
+        borderRadius: borderRadius,
+        iconSize: iconSize,
+        inputHeight: inputHeight,
+        inputPadding: inputPadding,
       );
     }
 
-    return NumberStepperContent(
+    return NumberStepperCompact(
+      direction: widget.expandDirection.toPopoverDirection(),
       controller: _controller,
       config: widget.config,
-      axis: StepperAxis.horizontal,
       disabled: widget.disabled,
+      onDelete: widget.onDelete,
+    );
+  }
+
+  Widget _buildFullStepper({
+    required AppPalette palette,
+    required Color backgroundColor,
+    required Color borderColor,
+    required Color primaryColor,
+    required Color textColor,
+    required Color disabledTextColor,
+    required double borderRadius,
+    required double iconSize,
+    required double inputHeight,
+    required EdgeInsets inputPadding,
+  }) {
+    final shouldShowDelete = widget.onDelete != null && _controller.shouldShowDelete;
+
+    return Opacity(
+      opacity: widget.disabled ? 0.4 : 1.0,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (shouldShowDelete)
+            StepperDeleteButton(
+              iconSize: iconSize,
+              dangerColor: palette.danger,
+              disabledColor: disabledTextColor,
+              isDisabled: widget.disabled,
+              onPressed: widget.disabled
+                  ? null
+                  : () {
+                      _controller.setValue(0);
+                      widget.onDelete?.call();
+                    },
+            )
+          else
+            StepperMinusButton(
+              iconSize: iconSize,
+              primaryColor: primaryColor,
+              disabledColor: disabledTextColor,
+              isDisabled: widget.disabled || !_controller.canDecrement,
+              onPressed: widget.disabled ? null : _handleDecrement,
+            ),
+          NumberBox(
+            backgroundColor: backgroundColor,
+            borderColor: borderColor,
+            textColor: textColor,
+            borderRadius: borderRadius,
+            height: inputHeight,
+            padding: inputPadding,
+            valueText: _controller.formattedValue,
+          ),
+          StepperPlusButton(
+            iconSize: iconSize,
+            primaryColor: primaryColor,
+            disabledColor: disabledTextColor,
+            isDisabled: widget.disabled || !_controller.canIncrement,
+            onPressed: widget.disabled ? null : _handleIncrement,
+          ),
+        ],
+      ),
     );
   }
 }
