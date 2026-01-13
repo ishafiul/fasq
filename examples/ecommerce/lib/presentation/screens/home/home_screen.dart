@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:ecommerce/api/models/product_list_products_response.dart';
 import 'package:ecommerce/api/models/product_response.dart';
@@ -82,7 +84,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 SliverToBoxAdapter(child: SizedBox(height: spacing.md)),
                 // Category Section
                 const SliverToBoxAdapter(child: CategorySection()),
-                SliverToBoxAdapter(child: SizedBox(height: spacing.md)),
                 // Featured Products
                 const SliverToBoxAdapter(child: _FeaturedProductsSection()),
                 // Best Deals
@@ -139,7 +140,7 @@ class _FeaturedProductsSection extends StatelessWidget {
           isLoading: isLoading,
           onProductTap: (product) {
             if (product != null) {
-              context.router.push(ProductDetailRoute(id: product.id));
+              unawaited(context.router.push(ProductDetailRoute(id: product.id)));
             }
           },
         );
@@ -186,7 +187,7 @@ class _BestDealsSection extends StatelessWidget {
           isLoading: isLoading,
           onProductTap: (product) {
             if (product != null) {
-              context.router.push(ProductDetailRoute(id: product.id));
+              unawaited(context.router.push(ProductDetailRoute(id: product.id)));
             }
           },
         );
@@ -233,7 +234,7 @@ class _TopProductsSection extends StatelessWidget {
           isLoading: isLoading,
           onProductTap: (product) {
             if (product != null) {
-              context.router.push(ProductDetailRoute(id: product.id));
+              unawaited(context.router.push(ProductDetailRoute(id: product.id)));
             }
           },
         );
@@ -323,7 +324,7 @@ class _AllProductsSection extends StatelessWidget {
 
     return QueryBuilder<ProductListProductsResponse>(
       queryKey: QueryKeys.products(search: searchQuery),
-      queryFn: () => locator.get<ProductService>().getProducts(search: searchQuery, limit: 20),
+      queryFn: () => locator.get<ProductService>().getProducts(search: searchQuery),
       options: QueryOptions(staleTime: const Duration(minutes: 2), cacheTime: const Duration(minutes: 10)),
       builder: (context, state) {
         if (state.hasError) {
@@ -368,7 +369,7 @@ class _AllProductsSection extends StatelessWidget {
           isLoading: isLoading,
           onProductTap: (product) {
             if (product != null) {
-              context.router.push(ProductDetailRoute(id: product.id));
+              unawaited(context.router.push(ProductDetailRoute(id: product.id)));
             }
           },
         );

@@ -73,4 +73,3 @@ class FasqLoggerService {
     logger.t('[FASQ] Query execution recorded: $queryKey');
   }
 }
-

@@ -63,4 +63,3 @@ class FasqQueryObserver implements QueryClientObserver {
     // Mutation events - can be logged if needed
   }
 }
-
