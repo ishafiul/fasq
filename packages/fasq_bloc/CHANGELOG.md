@@ -1,3 +1,7 @@
+## 0.3.1+1
+
+ - Update a dependency to the latest release.
+
 ## 0.3.1
 
  - **FEAT**(fasq_bloc): Major Refactor - Composition, Lifecycle Hooks, and Feature Parity (#53).

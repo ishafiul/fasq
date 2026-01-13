@@ -3,6 +3,42 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2026-01-13
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.4.2+1`](#fasq---v0421)
+ - [`fasq_bloc` - `v0.3.1+1`](#fasq_bloc---v0311)
+ - [`fasq_security` - `v0.2.0+3`](#fasq_security---v0203)
+ - [`fasq_hooks` - `v0.3.0+3`](#fasq_hooks---v0303)
+ - [`fasq_serializer_generator` - `v0.1.1+7`](#fasq_serializer_generator---v0117)
+ - [`fasq_riverpod` - `v0.3.1+1`](#fasq_riverpod---v0311)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `fasq_bloc` - `v0.3.1+1`
+ - `fasq_security` - `v0.2.0+3`
+ - `fasq_hooks` - `v0.3.0+3`
+ - `fasq_serializer_generator` - `v0.1.1+7`
+ - `fasq_riverpod` - `v0.3.1+1`
+
+---
+
+#### `fasq` - `v0.4.2+1`
+
+ - **REFACTOR**: Improve query and mutation handling in widgets (#56).
+
+
 ## 2026-01-11
 
 ### Changes

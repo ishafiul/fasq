@@ -1,3 +1,7 @@
+## 0.4.2+1
+
+ - **REFACTOR**: Improve query and mutation handling in widgets (#56).
+
 ## 0.4.2
 
  - **REFACTOR**: Update LeakDetector to throw Exception instead of TestFailure.
