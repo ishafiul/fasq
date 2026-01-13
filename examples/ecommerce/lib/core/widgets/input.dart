@@ -116,20 +116,29 @@ class _TextInputFieldState extends State<TextInputField> {
       opacity: widget.disabled ? 0.4 : 1,
       child: Container(
         color: palette.background,
-        padding: EdgeInsets.only(left: spacing.sm, right: spacing.sm, top: spacing.sm),
+        padding: EdgeInsets.symmetric(horizontal: spacing.sm, vertical: spacing.xs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (widget.labelText != null) ...[
-              Row(
-                children: [
-                  Text(widget.labelText!, style: typography.labelSmall.toTextStyle(color: palette.textSecondary)),
-                  if (widget.isRequired)
-                    Padding(
-                      padding: EdgeInsets.only(left: spacing.xs / 2),
-                      child: Text('*', style: typography.labelSmall.toTextStyle(color: palette.danger)),
+              Padding(
+                padding: EdgeInsets.only(bottom: spacing.xs / 2),
+                child: Row(
+                  children: [
+                    Text(
+                      widget.labelText!,
+                      style: typography.labelMedium.toTextStyle(color: palette.textPrimary),
                     ),
-                ],
+                    if (widget.isRequired)
+                      Padding(
+                        padding: EdgeInsets.only(left: spacing.xs / 2),
+                        child: Text(
+                          '*',
+                          style: typography.labelMedium.toTextStyle(color: palette.danger),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
             TextFormField(
@@ -140,14 +149,18 @@ class _TextInputFieldState extends State<TextInputField> {
               keyboardType: widget.keyboardType,
               minLines: widget.obscureText ? 1 : widget.minLines,
               maxLines: widget.obscureText ? 1 : widget.maxLines,
-              style: typography.bodySmall.toTextStyle(color: palette.textPrimary),
+              style: typography.bodyMedium.toTextStyle(color: palette.textPrimary),
               onChanged: (value) {
                 widget.onChanged?.call(value);
               },
               decoration: InputDecoration(
                 hintText: widget.placeholder,
-                hintStyle: typography.bodySmall.toTextStyle(color: palette.textSecondary),
+                hintStyle: typography.bodyMedium.toTextStyle(color: palette.textSecondary),
                 enabled: !widget.disabled,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 0,
+                  vertical: spacing.xs,
+                ),
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.end,
