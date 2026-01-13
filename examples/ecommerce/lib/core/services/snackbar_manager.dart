@@ -19,11 +19,19 @@ class SnackbarManager extends QueryClientObserver {
 
   ScaffoldMessengerState? _getMessenger(BuildContext? context) {
     if (context != null && context.mounted) {
-      return ScaffoldMessenger.maybeOf(context);
+      try {
+        return ScaffoldMessenger.maybeOf(context);
+      } catch (_) {
+        // Context was deactivated between mounted check and maybeOf call
+      }
     }
     final navigatorContext = _context;
     if (navigatorContext != null && navigatorContext.mounted) {
-      return ScaffoldMessenger.maybeOf(navigatorContext);
+      try {
+        return ScaffoldMessenger.maybeOf(navigatorContext);
+      } catch (_) {
+        // Context was deactivated between mounted check and maybeOf call
+      }
     }
     return null;
   }
