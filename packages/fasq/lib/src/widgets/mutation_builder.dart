@@ -85,6 +85,11 @@ class _MutationBuilderState<T, TVariables>
       return;
     }
 
+    final effectiveContext = mounted ? context : null;
+    if (effectiveContext == null) {
+      return;
+    }
+
     final snapshot = MutationSnapshot<T, TVariables>(
       previousState: previous,
       currentState: current,
@@ -94,17 +99,17 @@ class _MutationBuilderState<T, TVariables>
     final meta = widget.options?.meta;
 
     if (!previous.isLoading && current.isLoading) {
-      client.notifyMutationLoading(snapshot, meta, context);
+      client.notifyMutationLoading(snapshot, meta, effectiveContext);
     }
 
     if (!previous.isSuccess && current.isSuccess) {
-      client.notifyMutationSuccess(snapshot, meta, context);
-      client.notifyMutationSettled(snapshot, meta, context);
+      client.notifyMutationSuccess(snapshot, meta, effectiveContext);
+      client.notifyMutationSettled(snapshot, meta, effectiveContext);
     }
 
     if (!previous.isError && current.isError) {
-      client.notifyMutationError(snapshot, meta, context);
-      client.notifyMutationSettled(snapshot, meta, context);
+      client.notifyMutationError(snapshot, meta, effectiveContext);
+      client.notifyMutationSettled(snapshot, meta, effectiveContext);
     }
   }
 }
