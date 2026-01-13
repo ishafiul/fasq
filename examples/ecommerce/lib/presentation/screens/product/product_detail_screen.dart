@@ -1,26 +1,20 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:ecommerce/api/models/cart_add_item_request.dart';
-import 'package:ecommerce/api/models/cart_response.dart';
+import 'package:ecommerce/api/models/product_detail_response.dart';
+import 'package:ecommerce/api/models/review_response.dart';
 import 'package:ecommerce/api/models/variants.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
-import 'package:ecommerce/core/router/app_router.gr.dart';
-import 'package:ecommerce/core/services/cart_service.dart';
-import 'package:ecommerce/core/services/user_service.dart';
-import 'package:ecommerce/core/widgets/card.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
-import 'package:ecommerce/core/widgets/snackbar.dart';
+import 'package:ecommerce/core/services/product_service.dart';
+import 'package:ecommerce/core/services/review_service.dart';
 import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
-import 'package:ecommerce/presentation/widget/product/product_bottom_action_bar.dart';
-import 'package:ecommerce/presentation/widget/product/product_details_tab.dart';
-import 'package:ecommerce/presentation/widget/product/product_image_carousel.dart';
-import 'package:ecommerce/presentation/widget/product/product_info_section.dart';
+import 'package:ecommerce/presentation/widget/product/details/product_bottom_nav.dart';
+import 'package:ecommerce/presentation/widget/product/details/product_image_carousel.dart';
 import 'package:ecommerce/presentation/widget/product/product_reviews_tab.dart';
-import 'package:ecommerce/presentation/widget/product/variants_section.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 @RoutePage()
 class ProductDetailScreen extends StatefulWidget {
@@ -50,249 +44,475 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return _selectedVariant!.inventoryQuantity <= 0;
   }
 
+  void _handleShare(String? productName, String? productUrl) {
+    if (productName == null || productUrl == null) return;
+    Share.share('Check out $productName: $productUrl');
+  }
+
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final spacing = context.spacing;
+    final typography = context.typography;
     return Scaffold(
-      body: DefaultTabController(
-        length: 3,
-        child: Shimmer(
-          child: NestedScrollView(
+      body: QueryBuilder<ProductDetailResponse>(
+        queryKey: QueryKeys.productDetail(widget.id),
+        queryFn: () => locator.get<ProductService>().getProductById(widget.id),
+        builder: (context, productState) {
+          final product = productState.data;
+          if (productState.isLoading || !productState.hasData) return SizedBox();
+          return NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
                 const SliverAppBar(
                   title: Text('Product Details'),
                   floating: true,
                   snap: true,
+                  pinned: true,
                   actions: [
                     CartIconButton(),
                   ],
                 ),
-                SliverToBoxAdapter(
-                  child: ProductImageCarousel(
-                    id: widget.id,
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: context.spacing.sm),
-                ),
-                SliverPersistentHeader(
-                  delegate: _SliverAppBarDelegate(
-                    TabBar(
-                      tabs: const [
-                        Tab(text: 'Product'),
-                        Tab(text: 'Details'),
-                        Tab(text: 'Reviews'),
-                      ],
-                      labelColor: context.palette.brand,
-                      unselectedLabelColor: context.palette.textSecondary,
-                      indicatorColor: context.palette.brand,
-                      labelPadding: EdgeInsets.symmetric(horizontal: context.spacing.sm),
-                    ),
-                  ),
-                  pinned: true,
-                ),
               ];
             },
-            body: TabBarView(
-              children: [
-                _ProductTab(
-                  id: widget.id,
-                  onVariantSelected: _handleVariantSelected,
+            body: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: ProductImageCarousel(
+                    id: product!.id,
+                  ),
                 ),
-                ProductDetailsTab(
-                  productId: widget.id,
-                ),
-                ProductReviewsTab(
-                  productId: widget.id,
-                ),
+                // SliverPadding(
+                //   padding: EdgeInsets.all(spacing.md),
+                //   sliver: SliverList(
+                //     delegate: SliverChildListDelegate(
+                //       [
+                //         _ProductHeaderSection(
+                //           product: product,
+                //           isLoading: productState.isLoading,
+                //           selectedVariant: _selectedVariant,
+                //           onShare: () => _handleShare(product.name, product.slug),
+                //         ),
+                //         SizedBox(height: spacing.lg),
+                //         const Divider(height: 1),
+                //         SizedBox(height: spacing.lg),
+                //         VariantsSection(
+                //           product: product,
+                //           isLoading: productState.isLoading,
+                //           onVariantSelected: _handleVariantSelected,
+                //         ),
+                //         SizedBox(height: spacing.lg),
+                //         const Divider(height: 1),
+                //         SizedBox(height: spacing.lg),
+                //         if (product.description != null) ...[
+                //           Collapse(
+                //             items: [
+                //               CollapsePanel(
+                //                 key: 'description',
+                //                 title: Text(
+                //                   'Description',
+                //                   style: typography.titleMedium.toTextStyle(),
+                //                 ),
+                //                 child: Text(
+                //                   product.description!,
+                //                   style: typography.bodyMedium.toTextStyle(
+                //                     color: palette.textSecondary,
+                //                   ),
+                //                 ),
+                //               ),
+                //               CollapsePanel(
+                //                 key: 'specifications',
+                //                 title: Text(
+                //                   'Specifications',
+                //                   style: typography.titleMedium.toTextStyle(),
+                //                 ),
+                //                 child: _SpecificationsContent(product: product),
+                //               ),
+                //               CollapsePanel(
+                //                 key: 'shipping',
+                //                 title: Text(
+                //                   'Delivery',
+                //                   style: typography.titleMedium.toTextStyle(),
+                //                 ),
+                //                 child: _DeliveryOptions(),
+                //               ),
+                //             ],
+                //           ),
+                //           SizedBox(height: spacing.lg),
+                //         ],
+                //         _RatingReviewsSection(
+                //           productId: widget.id,
+                //           productName: product.name,
+                //         ),
+                //         SizedBox(height: spacing.lg),
+                //       ],
+                //     ),
+                //   ),
+                // ),
               ],
             ),
-          ),
-        ),
+          );
+        },
       ),
-      bottomNavigationBar: _AddToCartButton(
+      bottomNavigationBar: ProductBottomActionBar(
         productId: widget.id,
         selectedVariant: _selectedVariant,
         isOutOfStock: _isOutOfStock,
-        maxQuantity: _selectedVariant?.inventoryQuantity.toInt(),
       ),
     );
   }
 }
 
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate(this._tabBar);
-
-  final TabBar _tabBar;
-
-  @override
-  double get minExtent => _tabBar.preferredSize.height;
-
-  @override
-  double get maxExtent => _tabBar.preferredSize.height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SafeArea(child: _tabBar),
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return false;
-  }
-}
-
-class _ProductTab extends StatelessWidget {
-  final String id;
-  final ValueChanged<Variants?>? onVariantSelected;
-
-  const _ProductTab({
-    required this.id,
-    this.onVariantSelected,
+class _SpecificationsContent extends StatelessWidget {
+  const _SpecificationsContent({
+    required this.product,
   });
+
+  final ProductDetailResponse product;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.all(spacing.sm),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate(
-              [
-                AppCard(
-                  children: [
-                    ProductInfoSection(id: id),
-                  ],
+    final specifications = <String, String>{};
+
+    if (product.tags != null && product.tags!.isNotEmpty) {
+      specifications['Tags'] = product.tags!.join(', ');
+    }
+
+    if (specifications.isEmpty) {
+      return Text(
+        'No specifications available',
+        style: typography.bodyMedium.toTextStyle(
+          color: palette.textSecondary,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: specifications.entries.map((entry) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: spacing.xs),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing.sm,
+                  vertical: spacing.xs,
                 ),
-                SizedBox(height: spacing.md),
-                VariantsSection(
-                  productId: id,
-                  onVariantSelected: onVariantSelected,
+                decoration: BoxDecoration(
+                  color: palette.surface,
+                  borderRadius: BorderRadius.circular(context.radius.sm),
+                  border: Border.all(color: palette.border),
                 ),
-              ],
-            ),
+                child: Text(
+                  entry.value,
+                  style: typography.bodyMedium.toTextStyle(
+                    color: palette.textSecondary,
+                  ),
+                ),
+              ),
+            ],
           ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _DeliveryOptions extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+
+    return Column(
+      children: [
+        _DeliveryOption(
+          title: 'Standard',
+          duration: '5-7 days',
+          price: '\$3.00',
+        ),
+        SizedBox(height: spacing.sm),
+        _DeliveryOption(
+          title: 'Express',
+          duration: '1-2 days',
+          price: '\$12.00',
         ),
       ],
     );
   }
 }
 
-class _AddToCartButton extends StatefulWidget {
-  const _AddToCartButton({
+class _DeliveryOption extends StatelessWidget {
+  const _DeliveryOption({
+    required this.title,
+    required this.duration,
+    required this.price,
+  });
+
+  final String title;
+  final String duration;
+  final String price;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
+    final radius = context.radius;
+
+    return Container(
+      padding: EdgeInsets.all(spacing.sm),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: radius.all(radius.sm),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: typography.bodyLarge
+                    .toTextStyle(
+                      color: palette.textPrimary,
+                    )
+                    .copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              SizedBox(height: spacing.xs / 2),
+              Text(
+                duration,
+                style: typography.bodySmall.toTextStyle(
+                  color: palette.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            price,
+            style: typography.bodyMedium
+                .toTextStyle(
+                  color: palette.brand,
+                )
+                .copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RatingReviewsSection extends StatelessWidget {
+  const _RatingReviewsSection({
     required this.productId,
-    required this.selectedVariant,
-    required this.isOutOfStock,
-    this.maxQuantity,
+    this.productName,
   });
 
   final String productId;
-  final Variants? selectedVariant;
-  final bool isOutOfStock;
-  final int? maxQuantity;
+  final String? productName;
 
-  @override
-  State<_AddToCartButton> createState() => _AddToCartButtonState();
-}
-
-class _AddToCartButtonState extends State<_AddToCartButton> {
   @override
   Widget build(BuildContext context) {
-    return QueryBuilder<bool>(
-      queryKey: QueryKeys.isLoggedIn,
-      queryFn: () => locator.get<UserService>().isLoggedIn(),
-      builder: (context, authState) {
-        final isLoggedIn = authState.data ?? false;
+    final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
 
-        if (!isLoggedIn) {
-          return ProductBottomActionBar(
-            productId: widget.productId,
-            isOutOfStock: widget.isOutOfStock,
-            maxQuantity: widget.maxQuantity,
-            onAddToCart: (quantity) {
-              showSnackBar(
-                context: context,
-                type: SnackBarType.alert,
-                message: 'Please login to add items to cart',
-                withIcon: true,
-              );
-              Future.delayed(const Duration(seconds: 1), () {
-                if (context.mounted) {
-                  context.router.push(const LoginRoute());
-                }
-              });
-            },
-          );
+    return QueryBuilder(
+      queryKey: QueryKeys.productReviews(productId),
+      queryFn: () => locator.get<ReviewService>().getProductReviews(productId, limit: 1),
+      builder: (context, state) {
+        if (state.hasError || (state.data == null && !state.isLoading)) {
+          return const SizedBox.shrink();
         }
 
-        if (widget.selectedVariant == null) {
-          return ProductBottomActionBar(
-            productId: widget.productId,
-            isOutOfStock: false,
-            maxQuantity: widget.maxQuantity,
-            onAddToCart: (quantity) {
-              showSnackBar(
-                context: context,
-                type: SnackBarType.alert,
-                message: 'Please select a variant',
-                withIcon: true,
-              );
-            },
-          );
+        final rating = state.data?.rating;
+        final reviews = state.data?.data ?? [];
+        final totalReviews = state.data?.meta.total ?? 0;
+
+        if (rating == null && totalReviews == 0 && !state.isLoading) {
+          return const SizedBox.shrink();
         }
 
-        final cartService = locator.get<CartService>();
-        final variant = widget.selectedVariant!;
-        final priceAtAdd = variant.price;
-
-        return MutationBuilder<CartResponse, CartAddItemRequest>(
-          mutationFn: (request) => cartService.addItem(
-            productId: request.productId,
-            variantId: request.variantId,
-            quantity: request.quantity,
-            priceAtAdd: request.priceAtAdd,
-          ),
-          options: MutationOptions(
-            meta: const MutationMeta(
-              successMessage: 'Item added to cart',
-              errorMessage: 'Failed to add item to cart',
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Rating & Reviews',
+                  style: typography.titleMedium
+                      .toTextStyle(
+                        color: palette.textPrimary,
+                      )
+                      .copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                if (totalReviews > 0)
+                  TextButton(
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder: (context) {
+                          return SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.8,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(spacing.md),
+                              ),
+                              child: Scaffold(
+                                appBar: AppBar(
+                                  title: const Text('Reviews'),
+                                  automaticallyImplyLeading: false,
+                                  actions: [
+                                    IconButton(
+                                      icon: const Icon(Icons.close),
+                                      onPressed: () => Navigator.pop(context),
+                                    ),
+                                  ],
+                                ),
+                                body: ProductReviewsTab(productId: productId),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    child: const Text('View All Reviews'),
+                  ),
+              ],
             ),
-            onSuccess: (data) {
-              final queryClient = context.queryClient;
-              if (queryClient != null) {
-                queryClient.setQueryData(QueryKeys.cart, data);
-              }
-            },
-          ),
-          builder: (context, state, mutate) {
-            return ProductBottomActionBar(
-              productId: widget.productId,
-              isLoading: state.isLoading,
-              isOutOfStock: widget.isOutOfStock,
-              maxQuantity: widget.maxQuantity,
-              onAddToCart: (quantity) {
-                final request = CartAddItemRequest(
-                  productId: widget.productId,
-                  variantId: variant.id,
-                  quantity: quantity,
-                  priceAtAdd: priceAtAdd,
-                );
-                mutate(request);
-              },
-            );
-          },
+            if (rating != null) ...[
+              SizedBox(height: spacing.sm),
+              Row(
+                children: [
+                  Icon(
+                    Icons.star_rounded,
+                    size: 24,
+                    color: palette.warning,
+                  ),
+                  SizedBox(width: spacing.xs),
+                  Text(
+                    rating.averageRating.toStringAsFixed(1),
+                    style: typography.headlineSmall
+                        .toTextStyle(
+                          color: palette.textPrimary,
+                        )
+                        .copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  SizedBox(width: spacing.xs),
+                  Text(
+                    '/5',
+                    style: typography.bodyMedium.toTextStyle(
+                      color: palette.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (reviews.isNotEmpty) ...[
+              SizedBox(height: spacing.md),
+              _ReviewItem(review: reviews.first),
+            ],
+          ],
         );
       },
+    );
+  }
+}
+
+class _ReviewItem extends StatelessWidget {
+  const _ReviewItem({
+    required this.review,
+  });
+
+  final ReviewResponse review;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final typography = context.typography;
+    final palette = context.palette;
+
+    return Container(
+      padding: EdgeInsets.all(spacing.sm),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(context.radius.sm),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: palette.surface,
+                child: Icon(
+                  Icons.person,
+                  color: palette.textSecondary,
+                ),
+              ),
+              SizedBox(width: spacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'User',
+                      style: typography.bodyMedium
+                          .toTextStyle(
+                            color: palette.textPrimary,
+                          )
+                          .copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    SizedBox(height: spacing.xs / 2),
+                    Row(
+                      children: List.generate(5, (index) {
+                        return Icon(
+                          index < review.rating.toInt() ? Icons.star_rounded : Icons.star_outline_rounded,
+                          size: 16,
+                          color: palette.warning,
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (review.comment != null && review.comment!.isNotEmpty) ...[
+            SizedBox(height: spacing.sm),
+            Text(
+              review.comment ?? '',
+              style: typography.bodyMedium.toTextStyle(
+                color: palette.textSecondary,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

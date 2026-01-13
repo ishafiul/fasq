@@ -6,6 +6,7 @@ import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/widgets/badge.dart' as core;
 import 'package:ecommerce/core/widgets/card.dart';
+import 'package:ecommerce/core/widgets/number_stepper/number_stepper.dart';
 import 'package:ecommerce/core/widgets/rating.dart';
 import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/core/widgets/tag.dart';
@@ -75,9 +76,23 @@ class ProductCard extends StatelessWidget {
       children: [
         Expanded(
           flex: 5,
-          child: ProductImage(
-            data: data,
-            layout: ProductCardLayout.vertical,
+          child: Stack(
+            children: [
+              ProductImage(
+                data: data,
+                layout: ProductCardLayout.vertical,
+              ),
+              if (showAddToCart)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: ProductCartStepper(
+                    id: product!.id,
+                    max: 10,
+                    compact: true,
+                  ),
+                ),
+            ],
           ),
         ),
         Padding(
@@ -93,14 +108,6 @@ class ProductCard extends StatelessWidget {
                 data: data,
                 layout: ProductCardLayout.vertical,
               ),
-              if (showAddToCart) ...[
-                SizedBox(height: spacing.xs / 2),
-                GestureDetector(
-                  onTap: () {},
-                  behavior: HitTestBehavior.opaque,
-                  child: ProductCartStepper(product: product),
-                ),
-              ],
             ],
           ),
         ),
@@ -176,10 +183,10 @@ class ProductCardHorizontal extends StatelessWidget {
                     layout: ProductCardLayout.horizontal,
                   ),
                   if (showAddToCart)
-                    GestureDetector(
-                      onTap: () {},
-                      behavior: HitTestBehavior.opaque,
-                      child: ProductCartStepper(product: product),
+                    ProductCartStepper(
+                      id: product!.id,
+                      max: 10,
+                      expandDirection: NumberStepperExpandDirection.right,
                     ),
                 ],
               ),
