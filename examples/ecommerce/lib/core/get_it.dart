@@ -7,7 +7,7 @@ import 'package:ecommerce/core/get_it.config.dart';
 import 'package:ecommerce/core/interceptors/auth_interceptor.dart';
 import 'package:ecommerce/core/interceptors/token_refresh_interceptor.dart';
 import 'package:ecommerce/core/services/auth_service.dart';
-import 'package:ecommerce/core/theme.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';

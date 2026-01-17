@@ -1,10 +1,8 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:ecommerce/api/models/items.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
-import 'package:ecommerce/core/widgets/card.dart';
 import 'package:ecommerce/presentation/widget/product/product_cart_stepper.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:flutter/material.dart';
 
 class CartItemCard extends StatelessWidget {

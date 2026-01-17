@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:ecommerce/core/services/navigator_key_service.dart';
-import 'package:ecommerce/core/widgets/snackbar.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';

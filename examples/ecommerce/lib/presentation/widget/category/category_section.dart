@@ -3,14 +3,11 @@ import 'dart:async';
 import 'package:auto_route/auto_route.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerce/api/models/category_tree_node.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/category_service.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 

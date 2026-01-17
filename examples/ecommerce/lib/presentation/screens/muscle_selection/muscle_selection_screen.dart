@@ -1,11 +1,8 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
-import 'package:ecommerce/core/widgets/button/button.dart';
-import 'package:ecommerce/core/widgets/tag.dart';
 import 'package:ecommerce/presentation/screens/muscle_selection/interactive_svg_viewer.dart';
 import 'package:ecommerce/presentation/screens/muscle_selection/services/svg_parser.dart';
 import 'package:ecommerce/presentation/screens/muscle_selection/svg_interaction_controller.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:flutter/material.dart';
 
 @RoutePage()

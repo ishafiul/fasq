@@ -1,7 +1,7 @@
 import 'package:ecommerce/api/models/product_detail_response.dart';
 import 'package:ecommerce/api/models/variants.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/presentation/widget/product/variant_selector.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:flutter/material.dart';
 
 class VariantsSection extends StatelessWidget {
@@ -22,8 +22,8 @@ class VariantsSection extends StatelessWidget {
       return ShimmerLoading(
         isLoading: true,
         child: VariantSelector(
-          variants: const [],
           onVariantSelected: onVariantSelected,
+          productId: '',
         ),
       );
     }
@@ -32,13 +32,11 @@ class VariantsSection extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final variants = product!.variants;
-
     return ShimmerLoading(
       isLoading: false,
       child: VariantSelector(
-        variants: variants,
         onVariantSelected: onVariantSelected,
+        productId: '',
       ),
     );
   }

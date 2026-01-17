@@ -1,20 +1,20 @@
+// ignore_for_file: unused_local_variable
+
 import 'package:auto_route/auto_route.dart';
 import 'package:ecommerce/api/models/product_detail_response.dart';
 import 'package:ecommerce/api/models/review_response.dart';
 import 'package:ecommerce/api/models/variants.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/services/product_service.dart';
 import 'package:ecommerce/core/services/review_service.dart';
-import 'package:ecommerce/core/widgets/pull_to_refresh.dart';
 import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
 import 'package:ecommerce/presentation/widget/product/details/product_bottom_nav.dart';
 import 'package:ecommerce/presentation/widget/product/details/product_header.dart';
 import 'package:ecommerce/presentation/widget/product/details/product_image_carousel.dart';
 import 'package:ecommerce/presentation/widget/product/product_reviews_tab.dart';
 import 'package:ecommerce/presentation/widget/product/variant_selector.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 

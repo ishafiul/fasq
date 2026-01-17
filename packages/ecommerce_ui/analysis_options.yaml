@@ -1,0 +1,20 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    - always_declare_return_types
+    - always_require_non_null_named_parameters
+    - avoid_print
+    - avoid_redundant_argument_values
+    - avoid_relative_lib_imports
+    - avoid_types_as_parameter_names
+    - cancel_subscriptions
+    - close_sinks
+    - no_duplicate_case_values
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_final_fields
+    - prefer_final_locals
+    - prefer_single_quotes
+    - unawaited_futures
+    - use_key_in_widget_constructors

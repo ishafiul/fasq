@@ -1,16 +1,11 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/auth_service.dart';
 import 'package:ecommerce/core/services/user_service.dart';
-import 'package:ecommerce/core/widgets/button/button.dart';
-import 'package:ecommerce/core/widgets/devider.dart';
-import 'package:ecommerce/core/widgets/list_item.dart';
-import 'package:ecommerce/core/widgets/spinner/rotating_dots.dart' show WaveDots;
 import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 
@@ -215,7 +210,7 @@ class ProfileScreen extends StatelessWidget {
             children: [
               ListItem(
                 prefix: Icon(Icons.location_on_outlined, color: palette.textPrimary, size: 20),
-                title: Text('Addresses'),
+                title: const Text('Addresses'),
                 arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
                 onClick: () {
                   context.router.push(const AddressesRoute());
@@ -224,7 +219,7 @@ class ProfileScreen extends StatelessWidget {
               AppDivider.base(axis: Axis.horizontal),
               ListItem(
                 prefix: Icon(Icons.shopping_bag_outlined, color: palette.textPrimary, size: 20),
-                title: Text('My Orders'),
+                title: const Text('My Orders'),
                 arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
                 onClick: () {
                   context.router.push(const OrdersRoute());
@@ -233,7 +228,7 @@ class ProfileScreen extends StatelessWidget {
               AppDivider.base(axis: Axis.horizontal),
               ListItem(
                 prefix: Icon(Icons.translate_outlined, color: palette.textPrimary, size: 20),
-                title: Text('Translation'),
+                title: const Text('Translation'),
                 arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
                 onClick: () {
                   // TODO: Navigate to translation settings
@@ -242,7 +237,7 @@ class ProfileScreen extends StatelessWidget {
               AppDivider.base(axis: Axis.horizontal),
               ListItem(
                 prefix: Icon(Icons.notifications_outlined, color: palette.textPrimary, size: 20),
-                title: Text('Notifications'),
+                title: const Text('Notifications'),
                 arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
                 onClick: () {
                   // TODO: Navigate to notifications
@@ -251,7 +246,7 @@ class ProfileScreen extends StatelessWidget {
               AppDivider.base(axis: Axis.horizontal),
               ListItem(
                 prefix: Icon(Icons.lock_outline, color: palette.textPrimary, size: 20),
-                title: Text('Privacy and sharing'),
+                title: const Text('Privacy and sharing'),
                 arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
                 onClick: () {
                   // TODO: Navigate to privacy settings
@@ -260,7 +255,7 @@ class ProfileScreen extends StatelessWidget {
               AppDivider.base(axis: Axis.horizontal),
               ListItem(
                 prefix: Icon(Icons.business_center_outlined, color: palette.textPrimary, size: 20),
-                title: Text('Travel for work'),
+                title: const Text('Travel for work'),
                 arrowIcon: Icon(Icons.chevron_right, color: palette.textSecondary, size: 20),
                 onClick: () {
                   // TODO: Navigate to travel settings

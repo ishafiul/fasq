@@ -1,7 +1,4 @@
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
-import 'package:ecommerce/core/widgets/button/button.dart';
-import 'package:ecommerce/core/widgets/number_stepper.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:flutter/material.dart';
 
 class ProductBottomActionBar extends StatefulWidget {

@@ -1,13 +1,10 @@
 import 'package:ecommerce/api/models/product_detail_response.dart';
 import 'package:ecommerce/api/models/variants.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/services/product_service.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/presentation/widget/product/details/rating.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';

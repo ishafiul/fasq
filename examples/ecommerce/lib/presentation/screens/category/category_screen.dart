@@ -1,21 +1,14 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:ecommerce/api/models/product_list_products_response.dart';
 import 'package:ecommerce/api/models/product_response.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/category_service.dart';
 import 'package:ecommerce/core/services/product_service.dart';
-import 'package:ecommerce/core/widgets/no_data.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
-import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
-import 'package:ecommerce/core/widgets/spinner/rotating_dots.dart';
-import 'package:ecommerce/core/widgets/type_ahead/type_ahead.dart';
 import 'package:ecommerce/presentation/widget/category/category_info_card.dart';
 import 'package:ecommerce/presentation/widget/product/product_grid.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 

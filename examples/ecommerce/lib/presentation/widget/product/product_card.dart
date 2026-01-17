@@ -1,18 +1,11 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerce/api/models/product_response.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
-import 'package:ecommerce/core/widgets/badge.dart' as core;
-import 'package:ecommerce/core/widgets/card.dart';
-import 'package:ecommerce/core/widgets/number_stepper/number_stepper.dart';
-import 'package:ecommerce/core/widgets/rating.dart';
-import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
-import 'package:ecommerce/core/widgets/tag.dart';
 import 'package:ecommerce/presentation/widget/product/product_card_data.dart';
 import 'package:ecommerce/presentation/widget/product/product_cart_stepper.dart';
-import 'package:flutter/material.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
+import 'package:flutter/material.dart' hide Badge;
 
 enum ProductTagType {
   new_,
@@ -285,7 +278,7 @@ class _DiscountBadge extends StatelessWidget {
     return Positioned(
       top: 6,
       left: 6,
-      child: core.Badge(
+      child: Badge(
         color: palette.danger,
         content: Text(
           data.formattedDiscountPercentage,

@@ -1,18 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerce/api/models/product_detail_response.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/services/product_service.dart';
-import 'package:ecommerce/core/widgets/image_viewer/image_viewer.dart';
-import 'package:ecommerce/core/widgets/image_viewer/image_viewer_show.dart';
-import 'package:ecommerce/core/widgets/no_data.dart';
-import 'package:ecommerce/core/widgets/page_indicator.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
-import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
-import 'package:ecommerce/core/widgets/swiper.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 

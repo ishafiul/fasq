@@ -1,15 +1,12 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:ecommerce/api/models/address_response.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/services/address_service.dart';
-import 'package:ecommerce/core/widgets/button/button.dart';
-import 'package:ecommerce/core/widgets/no_data.dart';
 import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
 import 'package:ecommerce/presentation/widget/profile/address_form_sheet.dart';
 import 'package:ecommerce/presentation/widget/profile/address_list_item.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 

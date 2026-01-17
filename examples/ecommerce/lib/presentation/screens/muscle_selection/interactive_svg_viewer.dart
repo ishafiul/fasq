@@ -1,9 +1,8 @@
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/presentation/screens/muscle_selection/services/svg_loader.dart' as svg_loader;
 import 'package:ecommerce/presentation/screens/muscle_selection/services/svg_parser.dart';
 import 'package:ecommerce/presentation/screens/muscle_selection/services/svg_style_applier.dart';
 import 'package:ecommerce/presentation/screens/muscle_selection/svg_interaction_controller.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 

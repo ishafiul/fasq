@@ -1,0 +1,51 @@
+name: ecommerce_ui
+description: A comprehensive Flutter design system package with theme, widgets, icons, and fonts
+version: 0.1.0
+publish_to: none
+repository: https://github.com/ishafiul/flutter_query
+homepage: https://fasq.shafi.dev
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_svg: ^2.2.0
+  cached_network_image: ^3.4.1
+  image_picker: ^1.2.0
+  vibration: ^3.1.4
+  photo_view: ^0.15.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.15
+  flutter_gen_runner:
+
+flutter_gen:
+  integrations:
+    flutter_svg: true
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/icons/
+    - assets/images/
+    - assets/icons/outlined/
+    - assets/icons/filled/
+    - assets/icons/twotone/
+  fonts:
+    - family: Arial
+      fonts:
+        - asset: assets/fonts/ARIAL.ttf
+        - asset: assets/fonts/ARIALBD.ttf
+          weight: 700
+        - asset: assets/fonts/ARIALI.ttf
+          style: italic
+        - asset: assets/fonts/ARIALBI.ttf
+          weight: 700
+          style: italic

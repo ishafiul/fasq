@@ -1,14 +1,12 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/cart_service.dart';
 import 'package:ecommerce/core/services/user_service.dart';
-import 'package:ecommerce/core/widgets/no_data.dart';
-import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/presentation/widget/cart/cart_item_card.dart';
 import 'package:ecommerce/presentation/widget/cart/cart_summary.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 

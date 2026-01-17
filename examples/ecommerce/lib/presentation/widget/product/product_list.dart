@@ -1,6 +1,6 @@
 import 'package:ecommerce/api/models/product_response.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
+import 'package:ecommerce_ui/src/theme/colors.dart';
+import 'package:ecommerce_ui/src/theme/const.dart';
 import 'package:ecommerce/presentation/widget/product/product_grid.dart';
 import 'package:flutter/material.dart';
 

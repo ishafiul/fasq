@@ -4,8 +4,8 @@ import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/services/product_service.dart';
 import 'package:ecommerce/core/services/vendor_service.dart';
 import 'package:ecommerce/core/utils/logger.dart';
-import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/presentation/widget/vendor/vendor_info_card.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 

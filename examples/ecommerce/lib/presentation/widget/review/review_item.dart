@@ -1,8 +1,5 @@
 import 'package:ecommerce/api/models/review_response.dart';
-import 'package:ecommerce/core/colors.dart';
-import 'package:ecommerce/core/const.dart';
-import 'package:ecommerce/core/widgets/badge.dart' as core;
-import 'package:ecommerce/core/widgets/rating.dart';
+import 'package:ecommerce_ui/ecommerce_ui.dart';
 import 'package:flutter/material.dart' hide Badge;
 import 'package:intl/intl.dart';
 
@@ -56,7 +53,7 @@ class ReviewItem extends StatelessWidget {
                         if (review.isVerifiedPurchase)
                           Padding(
                             padding: EdgeInsets.only(left: spacing.xs),
-                            child: core.Badge(
+                            child: Badge(
                               color: palette.success,
                               content: Text(
                                 'Verified',
