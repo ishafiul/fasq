@@ -48,7 +48,7 @@ class QueryClientService {
         ),
       ),
       persistenceOptions: PersistenceOptions(
-        enabled: true,
+        enabled: false,
         codecRegistry: codecRegistry,
       ),
       securityPlugin: _securityPlugin,

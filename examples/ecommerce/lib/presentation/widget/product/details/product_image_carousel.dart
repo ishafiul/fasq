@@ -9,6 +9,8 @@ import 'package:ecommerce/core/widgets/image_viewer/image_viewer.dart';
 import 'package:ecommerce/core/widgets/image_viewer/image_viewer_show.dart';
 import 'package:ecommerce/core/widgets/no_data.dart';
 import 'package:ecommerce/core/widgets/page_indicator.dart';
+import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
+import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/core/widgets/spinner/circular_progress.dart';
 import 'package:ecommerce/core/widgets/swiper.dart';
 import 'package:fasq/fasq.dart';
@@ -46,93 +48,98 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
     final radius = context.radius;
     final palette = context.palette;
 
-    return QueryBuilder<ProductDetailResponse>(
-      queryKey: QueryKeys.productDetail(widget.id),
-      queryFn: () => locator.get<ProductService>().getProductById(widget.id),
-      builder: (context, productState) {
-        if (productState.data == null) {
-          return const Center(
-            child: NoData(message: 'Failed to load product details'),
-          );
-        }
-        if (productState.data != null && productState.data!.images.isEmpty) {
-          return const Center(
-            child: NoData(message: 'Failed to load product details'),
-          );
-        }
-        return Column(
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                const aspectRatio = 0.75; // 4:3 aspect ratio (less height)
-                final height = width * aspectRatio;
+    return Shimmer(
+      child: QueryBuilder<ProductDetailResponse>(
+        queryKey: QueryKeys.productDetail(widget.id),
+        queryFn: () => locator.get<ProductService>().getProductById(widget.id),
+        builder: (context, productState) {
+          if (productState.data == null) {
+            return const Center(
+              child: NoData(message: 'Failed to load product details'),
+            );
+          }
+          if (productState.data != null && productState.data!.images.isEmpty) {
+            return const Center(
+              child: NoData(message: 'Failed to load product details'),
+            );
+          }
+          return Column(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  const aspectRatio = 0.75; // 4:3 aspect ratio (less height)
+                  final height = width * aspectRatio;
 
-                if (productState.data!.images.isEmpty) {
-                  return Container(
-                    width: width,
-                    height: height,
-                    color: palette.surface,
-                    child: Center(
-                      child: Icon(
-                        Icons.image_not_supported_outlined,
-                        color: palette.weak,
-                        size: spacing.xxl,
-                      ),
-                    ),
-                  );
-                }
-
-                return GestureDetector(
-                  onTap: () {
-                    showMultiImageViewer(
-                      context,
-                      MultiImageViewerProps(
-                        images: productState.data!.images.map((img) => img.url).toList(),
-                        defaultIndex: _currentIndex,
+                  if (productState.data!.images.isEmpty) {
+                    return Container(
+                      width: width,
+                      height: height,
+                      color: palette.surface,
+                      child: Center(
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: palette.weak,
+                          size: spacing.xxl,
+                        ),
                       ),
                     );
-                  },
-                  child: SizedBox(
-                    width: width,
-                    height: height,
-                    child: Swiper(
-                      ref: _swiperRef,
-                      defaultIndex: _currentIndex,
-                      onIndexChange: _onIndexChange,
-                      showIndicator: productState.data!.images.length > 1,
-                      indicatorProps: const SwiperIndicatorProps(
-                        color: PageIndicatorColor.primary,
-                        position: SwiperIndicatorPosition.center,
-                      ),
-                      children: productState.data!.images
-                          .map((image) => SwiperItem(
-                                child: CachedNetworkImage(
-                                  imageUrl: image.url,
-                                  fit: BoxFit.contain,
-                                  placeholder: (context, url) => ColoredBox(
-                                    color: palette.surface,
-                                    child: Center(
-                                      child: CircularProgressSpinner(color: palette.brand, size: 24, strokeWidth: 2),
+                  }
+
+                  return ShimmerLoading(
+                    isLoading: productState.isLoading,
+                    child: GestureDetector(
+                      onTap: () {
+                        showMultiImageViewer(
+                          context,
+                          MultiImageViewerProps(
+                            images: productState.data!.images.map((img) => img.url).toList(),
+                            defaultIndex: _currentIndex,
+                          ),
+                        );
+                      },
+                      child: SizedBox(
+                        width: width,
+                        height: height,
+                        child: Swiper(
+                          ref: _swiperRef,
+                          defaultIndex: _currentIndex,
+                          onIndexChange: _onIndexChange,
+                          showIndicator: productState.data!.images.length > 1,
+                          indicatorProps: const SwiperIndicatorProps(
+                            color: PageIndicatorColor.primary,
+                            position: SwiperIndicatorPosition.center,
+                          ),
+                          children: productState.data!.images
+                              .map(
+                                (image) => SwiperItem(
+                                  child: CachedNetworkImage(
+                                    imageUrl: image.url,
+                                    fit: BoxFit.contain,
+                                    placeholder: (context, url) => ColoredBox(
+                                      color: palette.surface,
+                                      child: Center(
+                                        child: CircularProgressSpinner(color: palette.brand, size: 24, strokeWidth: 2),
+                                      ),
                                     ),
-                                  ),
-                                  errorWidget: (context, url, error) => ColoredBox(
-                                    color: palette.surface,
-                                    child: Icon(
-                                      Icons.image_not_supported_outlined,
-                                      color: palette.weak,
-                                      size: spacing.lg,
+                                    errorWidget: (context, url, error) => ColoredBox(
+                                      color: palette.surface,
+                                      child: Icon(
+                                        Icons.image_not_supported_outlined,
+                                        color: palette.weak,
+                                        size: spacing.lg,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ))
-                          .toList(),
+                              )
+                              .toList(),
+                        ),
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-            if (productState.data!.images.length > 1) ...[
+                  );
+                },
+              ),
               SizedBox(height: spacing.sm),
               SizedBox(
                 height: 60,
@@ -144,22 +151,26 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
                       final index = entry.key;
                       final image = entry.value;
                       final isSelected = index == _currentIndex;
-                      return GestureDetector(
-                        onTap: () => _onThumbnailTap(index),
-                        child: Container(
-                          width: 60,
-                          height: 60,
-                          margin: EdgeInsets.only(right: index < productState.data!.images.length - 1 ? spacing.xs : 0),
-                          decoration: BoxDecoration(
-                            borderRadius: radius.all(radius.sm),
-                            border: Border.all(
-                              color: isSelected ? palette.brand : palette.border,
-                              width: isSelected ? 2 : 1,
+                      return ShimmerLoading(
+                        isLoading: productState.isLoading,
+                        child: GestureDetector(
+                          onTap: () => _onThumbnailTap(index),
+                          child: Container(
+                            width: 60,
+                            height: 60,
+                            margin:
+                                EdgeInsets.only(right: index < productState.data!.images.length - 1 ? spacing.xs : 0),
+                            decoration: BoxDecoration(
+                              borderRadius: radius.all(radius.sm),
+                              border: Border.all(
+                                color: isSelected ? palette.brand : palette.border,
+                                width: isSelected ? 2 : 1,
+                              ),
                             ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: radius.all(radius.sm),
-                            child: _ThumbnailImage(imageUrl: image.url),
+                            child: ClipRRect(
+                              borderRadius: radius.all(radius.sm),
+                              child: _ThumbnailImage(imageUrl: image.url),
+                            ),
                           ),
                         ),
                       );
@@ -168,9 +179,9 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
                 ),
               ),
             ],
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

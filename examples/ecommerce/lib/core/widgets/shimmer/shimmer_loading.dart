@@ -1,3 +1,4 @@
+import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/widgets/shimmer/shimmer.dart';
 import 'package:flutter/material.dart';
 
@@ -39,7 +40,28 @@ class ShimmerLoading extends StatefulWidget {
     required this.isLoading,
     required this.child,
     this.height,
-  });
+  }) : _isText = false;
+
+  /// Creates a shimmer loading widget specifically for text.
+  ///
+  /// When [isLoading] is true, wraps the child in a Container with white background color
+  /// to provide better shimmer effect for text widgets.
+  ///
+  /// Usage:
+  /// ```dart
+  /// Shimmer(
+  ///   child: ShimmerLoading.text(
+  ///     isLoading: state.isLoading,
+  ///     child: Text('Product Name'),
+  ///   ),
+  /// )
+  /// ```
+  const ShimmerLoading.text({
+    super.key,
+    required this.isLoading,
+    required this.child,
+    this.height,
+  }) : _isText = true;
 
   /// Whether to show the shimmer loading effect.
   final bool isLoading;
@@ -49,6 +71,9 @@ class ShimmerLoading extends StatefulWidget {
 
   /// Optional height constraint. If provided, wraps the child with a SizedBox.
   final double? height;
+
+  /// Internal flag to indicate if this is a text-specific shimmer.
+  final bool _isText;
 
   @override
   State<ShimmerLoading> createState() => _ShimmerLoadingState();
@@ -84,13 +109,25 @@ class _ShimmerLoadingState extends State<ShimmerLoading> {
   }
 
   Widget _buildChild() {
-    final child = widget.height != null
-        ? Container(
-            color: Colors.transparent,
-            height: widget.height,
-            child: widget.child,
-          )
-        : widget.child;
+    Widget child = widget.child;
+
+    if (widget.height != null) {
+      child = Container(
+        color: Colors.transparent,
+        height: widget.height,
+        child: child,
+      );
+    }
+
+    if (widget._isText && widget.isLoading) {
+      child = Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(context.radius.xs),
+        ),
+        child: child,
+      );
+    }
 
     return child;
   }

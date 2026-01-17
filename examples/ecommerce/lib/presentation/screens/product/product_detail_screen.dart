@@ -8,13 +8,15 @@ import 'package:ecommerce/core/get_it.dart';
 import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/services/product_service.dart';
 import 'package:ecommerce/core/services/review_service.dart';
+import 'package:ecommerce/core/widgets/pull_to_refresh.dart';
 import 'package:ecommerce/presentation/widget/cart/cart_icon_button.dart';
 import 'package:ecommerce/presentation/widget/product/details/product_bottom_nav.dart';
+import 'package:ecommerce/presentation/widget/product/details/product_header.dart';
 import 'package:ecommerce/presentation/widget/product/details/product_image_carousel.dart';
 import 'package:ecommerce/presentation/widget/product/product_reviews_tab.dart';
+import 'package:ecommerce/presentation/widget/product/variant_selector.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
 @RoutePage()
 class ProductDetailScreen extends StatefulWidget {
@@ -44,9 +46,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return _selectedVariant!.inventoryQuantity <= 0;
   }
 
-  void _handleShare(String? productName, String? productUrl) {
-    if (productName == null || productUrl == null) return;
-    Share.share('Check out $productName: $productUrl');
+  Future<void> _handleRefresh() async {
+    final queryClient = context.queryClient;
+    if (queryClient == null) return;
+
+    // Invalidate all product-related queries
+    queryClient.invalidateQuery(QueryKeys.productDetail(widget.id));
+    queryClient.invalidateQuery(QueryKeys.productReviews(widget.id));
   }
 
   @override
@@ -59,8 +65,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         queryKey: QueryKeys.productDetail(widget.id),
         queryFn: () => locator.get<ProductService>().getProductById(widget.id),
         builder: (context, productState) {
-          final product = productState.data;
-          if (productState.isLoading || !productState.hasData) return SizedBox();
           return NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
@@ -75,81 +79,82 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
               ];
             },
-            body: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: ProductImageCarousel(
-                    id: product!.id,
+            body: PullToRefresh(
+              onRefresh: _handleRefresh,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: ProductImageCarousel(
+                      id: widget.id,
+                    ),
                   ),
-                ),
-                // SliverPadding(
-                //   padding: EdgeInsets.all(spacing.md),
-                //   sliver: SliverList(
-                //     delegate: SliverChildListDelegate(
-                //       [
-                //         _ProductHeaderSection(
-                //           product: product,
-                //           isLoading: productState.isLoading,
-                //           selectedVariant: _selectedVariant,
-                //           onShare: () => _handleShare(product.name, product.slug),
-                //         ),
-                //         SizedBox(height: spacing.lg),
-                //         const Divider(height: 1),
-                //         SizedBox(height: spacing.lg),
-                //         VariantsSection(
-                //           product: product,
-                //           isLoading: productState.isLoading,
-                //           onVariantSelected: _handleVariantSelected,
-                //         ),
-                //         SizedBox(height: spacing.lg),
-                //         const Divider(height: 1),
-                //         SizedBox(height: spacing.lg),
-                //         if (product.description != null) ...[
-                //           Collapse(
-                //             items: [
-                //               CollapsePanel(
-                //                 key: 'description',
-                //                 title: Text(
-                //                   'Description',
-                //                   style: typography.titleMedium.toTextStyle(),
-                //                 ),
-                //                 child: Text(
-                //                   product.description!,
-                //                   style: typography.bodyMedium.toTextStyle(
-                //                     color: palette.textSecondary,
-                //                   ),
-                //                 ),
-                //               ),
-                //               CollapsePanel(
-                //                 key: 'specifications',
-                //                 title: Text(
-                //                   'Specifications',
-                //                   style: typography.titleMedium.toTextStyle(),
-                //                 ),
-                //                 child: _SpecificationsContent(product: product),
-                //               ),
-                //               CollapsePanel(
-                //                 key: 'shipping',
-                //                 title: Text(
-                //                   'Delivery',
-                //                   style: typography.titleMedium.toTextStyle(),
-                //                 ),
-                //                 child: _DeliveryOptions(),
-                //               ),
-                //             ],
-                //           ),
-                //           SizedBox(height: spacing.lg),
-                //         ],
-                //         _RatingReviewsSection(
-                //           productId: widget.id,
-                //           productName: product.name,
-                //         ),
-                //         SizedBox(height: spacing.lg),
-                //       ],
-                //     ),
-                //   ),
-                // ),
-              ],
+                  SliverPadding(
+                    padding: EdgeInsets.all(spacing.md),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate(
+                        [
+                          ProductHeaderSection(
+                            id: widget.id,
+                            isLoading: productState.isLoading,
+                            selectedVariant: _selectedVariant,
+                          ),
+                          SizedBox(height: spacing.lg),
+                          const Divider(height: 1),
+                          SizedBox(height: spacing.lg),
+                          VariantSelector(
+                            productId: widget.id,
+                            onVariantSelected: _handleVariantSelected,
+                          )
+                          // SizedBox(height: spacing.lg),
+                          // const Divider(height: 1),
+                          // SizedBox(height: spacing.lg),
+                          // if (product.description != null) ...[
+                          //   Collapse(
+                          //     items: [
+                          //       CollapsePanel(
+                          //         key: 'description',
+                          //         title: Text(
+                          //           'Description',
+                          //           style: typography.titleMedium.toTextStyle(),
+                          //         ),
+                          //         child: Text(
+                          //           product.description!,
+                          //           style: typography.bodyMedium.toTextStyle(
+                          //             color: palette.textSecondary,
+                          //           ),
+                          //         ),
+                          //       ),
+                          //       CollapsePanel(
+                          //         key: 'specifications',
+                          //         title: Text(
+                          //           'Specifications',
+                          //           style: typography.titleMedium.toTextStyle(),
+                          //         ),
+                          //         child: _SpecificationsContent(product: product),
+                          //       ),
+                          //       CollapsePanel(
+                          //         key: 'shipping',
+                          //         title: Text(
+                          //           'Delivery',
+                          //           style: typography.titleMedium.toTextStyle(),
+                          //         ),
+                          //         child: _DeliveryOptions(),
+                          //       ),
+                          //     ],
+                          //   ),
+                          //   SizedBox(height: spacing.lg),
+                          // ],
+                          // _RatingReviewsSection(
+                          //   productId: widget.id,
+                          //   productName: product.name,
+                          // ),
+                          // SizedBox(height: spacing.lg),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
