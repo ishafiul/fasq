@@ -95,9 +95,13 @@ class QueryCache {
   CacheEntry<T>? get<T>(String key) {
     InputValidator.validateQueryKey(key);
 
-    // Check hot cache first
     final hotEntry = _hotCache.get(key);
     if (hotEntry != null) {
+      if (hotEntry.isSecure && hotEntry.isExpired) {
+        _hotCache.remove(key);
+        _metrics.recordMiss();
+        return null;
+      }
       _metrics.recordHit();
       final updated = hotEntry.withAccess();
       _entries[key] = updated;
@@ -492,7 +496,20 @@ class QueryCache {
     }
 
     for (final key in keysToRemove) {
-      _entries.remove(key);
+      final removed = _entries.remove(key);
+      if (removed != null) {
+        _hotCache.remove(key);
+        _entryVersions.remove(key);
+        _persistOperations.remove(key);
+        _keyTypes.remove(key);
+        if (_persistenceReady) {
+          _removePersistenceAsync(key);
+        }
+      }
+    }
+    if (keysToRemove.isNotEmpty) {
+      _updateMemoryMetrics();
+      _metrics.recordEviction();
     }
   }
 
