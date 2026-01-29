@@ -1,9 +1,34 @@
-import 'eviction_policy.dart';
+import 'package:fasq/src/cache/eviction_policy.dart';
 
 /// Global performance configuration for the cache system.
 ///
-/// Controls performance-related features across all queries and the cache system.
+/// Controls performance-related features across all queries and
+/// the cache system.
 class GlobalPerformanceConfig {
+  /// Creates a [GlobalPerformanceConfig] with the given options.
+  const GlobalPerformanceConfig({
+    this.enableTracking = true,
+    this.hotCacheSize = 50,
+    this.enableWarnings = true,
+    this.slowQueryThresholdMs = 1000,
+    this.memoryWarningThreshold = 10 * 1024 * 1024, // 10MB
+    this.isolatePoolSize = 2,
+    this.defaultIsolateThreshold = 100 * 1024, // 100KB
+  })  : assert(hotCacheSize > 0, 'hotCacheSize must be positive'),
+        assert(isolatePoolSize > 0, 'isolatePoolSize must be positive'),
+        assert(
+          slowQueryThresholdMs > 0,
+          'slowQueryThresholdMs must be positive',
+        ),
+        assert(
+          memoryWarningThreshold > 0,
+          'memoryWarningThreshold must be positive',
+        ),
+        assert(
+          defaultIsolateThreshold > 0,
+          'defaultIsolateThreshold must be positive',
+        );
+
   /// Enable performance tracking globally
   final bool enableTracking;
 
@@ -24,23 +49,6 @@ class GlobalPerformanceConfig {
 
   /// Default threshold for automatic isolate usage (bytes)
   final int defaultIsolateThreshold;
-
-  const GlobalPerformanceConfig({
-    this.enableTracking = true,
-    this.hotCacheSize = 50,
-    this.enableWarnings = true,
-    this.slowQueryThresholdMs = 1000,
-    this.memoryWarningThreshold = 10 * 1024 * 1024, // 10MB
-    this.isolatePoolSize = 2,
-    this.defaultIsolateThreshold = 100 * 1024, // 100KB
-  })  : assert(hotCacheSize > 0, 'hotCacheSize must be positive'),
-        assert(isolatePoolSize > 0, 'isolatePoolSize must be positive'),
-        assert(
-            slowQueryThresholdMs > 0, 'slowQueryThresholdMs must be positive'),
-        assert(memoryWarningThreshold > 0,
-            'memoryWarningThreshold must be positive'),
-        assert(defaultIsolateThreshold > 0,
-            'defaultIsolateThreshold must be positive');
 
   /// Create a copy with some fields changed
   GlobalPerformanceConfig copyWith({
@@ -93,6 +101,18 @@ class GlobalPerformanceConfig {
 /// );
 /// ```
 class CacheConfig {
+  /// Creates a [CacheConfig] with the given cache limits and options.
+  const CacheConfig({
+    this.maxCacheSize = 50 * 1024 * 1024,
+    this.maxEntries = 1000,
+    this.defaultStaleTime = Duration.zero,
+    this.defaultCacheTime = const Duration(minutes: 5),
+    this.evictionPolicy = EvictionPolicy.lru,
+    this.enableMemoryPressure = true,
+    this.performance = const GlobalPerformanceConfig(),
+  })  : assert(maxCacheSize > 0, 'maxCacheSize must be positive'),
+        assert(maxEntries > 0, 'maxEntries must be positive');
+
   /// Maximum cache size in bytes. Default: 50MB.
   final int maxCacheSize;
 
@@ -113,17 +133,6 @@ class CacheConfig {
 
   /// Global performance configuration
   final GlobalPerformanceConfig performance;
-
-  const CacheConfig({
-    this.maxCacheSize = 50 * 1024 * 1024,
-    this.maxEntries = 1000,
-    this.defaultStaleTime = Duration.zero,
-    this.defaultCacheTime = const Duration(minutes: 5),
-    this.evictionPolicy = EvictionPolicy.lru,
-    this.enableMemoryPressure = true,
-    this.performance = const GlobalPerformanceConfig(),
-  })  : assert(maxCacheSize > 0, 'maxCacheSize must be positive'),
-        assert(maxEntries > 0, 'maxEntries must be positive');
 
   @override
   String toString() {

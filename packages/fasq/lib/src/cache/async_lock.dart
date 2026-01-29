@@ -35,8 +35,7 @@ class AsyncLock {
   /// Releases the lock, allowing the next waiter to proceed.
   void release() {
     if (_queue.isNotEmpty) {
-      final next = _queue.removeAt(0);
-      next.complete();
+      _queue.removeAt(0).complete();
     } else {
       _locked = false;
     }
