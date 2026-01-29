@@ -1,36 +1,26 @@
-import '../cache_entry.dart';
-import 'eviction_strategy.dart';
+import 'package:fasq/src/cache/cache_entry.dart';
 
-/// First In First Out eviction strategy.
-///
-/// Evicts the oldest cache entries first.
-/// Simple but effective for time-based data.
-class FIFOEviction implements EvictionStrategy {
-  const FIFOEviction();
+/// First In First Out eviction: evicts the oldest cache entries first.
+List<String> selectKeysToEvictFIFO(
+  Map<String, CacheEntry<Object?>> entries,
+  int currentSize,
+  int targetSize,
+) {
+  final evictableEntries = entries.entries
+      .where((e) => e.value.referenceCount == 0)
+      .toList()
+    ..sort((a, b) => a.value.createdAt.compareTo(b.value.createdAt));
 
-  @override
-  List<String> selectKeysToEvict(
-    Map<String, CacheEntry> entries,
-    int currentSize,
-    int targetSize,
-  ) {
-    final evictableEntries =
-        entries.entries.where((e) => e.value.referenceCount == 0).toList();
+  final keysToEvict = <String>[];
+  final sizeToEvict = currentSize - targetSize;
+  var evictedSize = 0;
 
-    evictableEntries
-        .sort((a, b) => a.value.createdAt.compareTo(b.value.createdAt));
+  for (final entry in evictableEntries) {
+    if (evictedSize >= sizeToEvict) break;
 
-    final keysToEvict = <String>[];
-    int sizeToEvict = currentSize - targetSize;
-    int evictedSize = 0;
-
-    for (final entry in evictableEntries) {
-      if (evictedSize >= sizeToEvict) break;
-
-      keysToEvict.add(entry.key);
-      evictedSize += entry.value.estimateSize();
-    }
-
-    return keysToEvict;
+    keysToEvict.add(entry.key);
+    evictedSize += entry.value.estimateSize();
   }
+
+  return keysToEvict;
 }
