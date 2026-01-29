@@ -242,7 +242,8 @@ class OfflineQueueManager {
           }
 
           if (updatedEntry.attempts >= 5) {
-            break;
+            await remove(entry.id);
+            continue;
           }
         }
       }
