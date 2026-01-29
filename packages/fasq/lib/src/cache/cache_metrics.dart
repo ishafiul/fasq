@@ -8,6 +8,7 @@ class CacheMetrics {
   int _hits = 0;
   int _misses = 0;
   int _evictions = 0;
+  int _gcRemovals = 0;
 
   // New timing metrics
   final List<Duration> _fetchTimes = [];
@@ -34,6 +35,9 @@ class CacheMetrics {
 
   /// Total number of cache evictions.
   int get evictions => _evictions;
+
+  /// Total number of entries removed by garbage collection.
+  int get gcRemovals => _gcRemovals;
 
   /// Total number of cache requests.
   int get totalRequests => _hits + _misses;
@@ -102,6 +106,11 @@ class CacheMetrics {
   /// Records a cache eviction.
   void recordEviction() {
     _evictions++;
+  }
+
+  /// Records entries removed by garbage collection.
+  void recordGcRemoval(int count) {
+    _gcRemovals += count;
   }
 
   /// Records a fetch operation timing
@@ -207,6 +216,7 @@ class CacheMetrics {
     _hits = 0;
     _misses = 0;
     _evictions = 0;
+    _gcRemovals = 0;
     _fetchTimes.clear();
     _cacheLookupTimes.clear();
     _totalFetches = 0;
@@ -240,7 +250,7 @@ class CacheMetrics {
         'hits: $_hits, '
         'misses: $_misses, '
         'hitRate: ${(hitRate * 100).toStringAsFixed(1)}%, '
-        'evictions: $_evictions, '
+        'evictions: $_evictions, gcRemovals: $_gcRemovals, '
         'avgFetch: ${averageFetchTime.inMilliseconds}ms, '
         'memory: ${currentMemoryBytes ~/ 1024}KB)';
   }

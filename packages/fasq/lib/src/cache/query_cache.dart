@@ -110,13 +110,18 @@ class QueryCache {
   CacheEntry<T>? get<T>(String key) {
     InputValidator.validateQueryKey(key);
 
-    // Check hot cache first
     final hotEntry = _hotCache.get(key);
     if (hotEntry != null) {
-      _metrics.recordHit();
       final updated = hotEntry.withAccess();
       _entries[key] = updated;
-      return _reconstructEntry<T>(updated);
+      final reconstructed = _reconstructEntry<T>(updated);
+      if (reconstructed == null) {
+        _removeInMemoryOnly(key);
+        _metrics.recordMiss();
+        return null;
+      }
+      _metrics.recordHit();
+      return reconstructed;
     }
 
     final entry = _entries[key];
@@ -125,33 +130,34 @@ class QueryCache {
       return null;
     }
 
-    // Check if secure entry has expired
     if (entry.isSecure && entry.isExpired) {
-      _entries.remove(key);
+      _removeKeyEverywhere(key);
       _metrics.recordMiss();
       return null;
     }
 
-    _metrics.recordHit();
-
     final updated = entry.withAccess();
     _entries[key] = updated;
 
-    // Promote to hot cache if accessed frequently enough
     if (_hotCache.shouldPromote(key, updated.accessCount)) {
       _hotCache.put(key, updated);
     }
 
-    return _reconstructEntry<T>(updated);
+    final reconstructed = _reconstructEntry<T>(updated);
+    if (reconstructed == null) {
+      _removeInMemoryOnly(key);
+      _metrics.recordMiss();
+      return null;
+    }
+    _metrics.recordHit();
+    return reconstructed;
   }
 
-  /// Reconstructs a CacheEntry with type T from a CacheEntry (any type).
-  ///
-  /// Preserves all metadata while ensuring type safety by reconstructing
-  /// with explicit type parameter instead of unsafe casting.
-  CacheEntry<T> _reconstructEntry<T>(CacheEntry<Object?> entry) {
+  CacheEntry<T>? _reconstructEntry<T>(CacheEntry<Object?> entry) {
+    final data = entry.data;
+    if (data is! T) return null;
     return CacheEntry<T>(
-      data: entry.data as T,
+      data: data,
       createdAt: entry.createdAt,
       lastAccessedAt: entry.lastAccessedAt,
       accessCount: entry.accessCount,
@@ -221,24 +227,46 @@ class QueryCache {
   /// Removes a cache entry by key.
   void remove(String key) {
     InputValidator.validateQueryKey(key);
+    _removeKeyEverywhere(key);
+  }
+
+  void _removeKeyEverywhere(String key, {bool removeFromPersistence = true}) {
     final removed = _entries.remove(key);
-    if (removed != null) {
-      _hotCache.remove(key);
-      _entryVersions.remove(key);
-      final persistF = _persistOperations.remove(key);
-      if (persistF != null) unawaited(persistF);
-      _keyTypes.remove(key);
-      _updateMemoryMetrics();
-      if (_persistenceReady) {
-        _removePersistenceAsync(key);
-      }
+    if (removed == null) return;
+
+    final remove = _inFlightRequests.remove(key);
+    if (remove != null) unawaited(remove);
+    _hotCache.remove(key);
+    _entryVersions.remove(key);
+
+    final persistF = _persistOperations.remove(key);
+    if (persistF != null) unawaited(persistF);
+
+    _keyTypes.remove(key);
+
+    _updateMemoryMetrics();
+
+    if (removeFromPersistence && _persistenceReady) {
+      _removePersistenceAsync(key);
     }
+  }
+
+  void _removeInMemoryOnly(String key) {
+    final removed = _entries.remove(key);
+    if (removed == null) return;
+    _hotCache.remove(key);
+    _entryVersions.remove(key);
+    final persistF = _persistOperations.remove(key);
+    if (persistF != null) unawaited(persistF);
+    _keyTypes.remove(key);
+    _updateMemoryMetrics();
   }
 
   void _clearInMemory() {
     _entries.clear();
     _hotCache.clear();
     _inFlightRequests.clear();
+    _locks.clear();
     _metrics.reset();
     _entryVersions.clear();
     _persistOperations.clear();
@@ -261,19 +289,11 @@ class QueryCache {
   ///
   /// Removes only entries marked as secure, leaving non-secure entries intact.
   void clearSecureEntries() {
-    final keysToRemove = _entries.entries
+    _entries.entries
         .where((entry) => entry.value.isSecure)
         .map((entry) => entry.key)
-        .toList();
-
-    for (final key in keysToRemove) {
-      _entries.remove(key);
-      _hotCache.remove(key);
-      _entryVersions.remove(key);
-      final persistF = _persistOperations.remove(key);
-      if (persistF != null) unawaited(persistF);
-      _keyTypes.remove(key);
-    }
+        .toList()
+        .forEach(_removeKeyEverywhere);
   }
 
   /// Invalidates a specific cache entry.
@@ -299,9 +319,6 @@ class QueryCache {
   /// Invalidates multiple queries in a single operation
   void invalidateMultiple(List<String> keys) {
     keys.forEach(remove);
-    if (keys.isNotEmpty) {
-      _metrics.recordEviction();
-    }
   }
 
   /// Invalidates queries matching predicate with single notification
@@ -339,6 +356,10 @@ class QueryCache {
   ///
   /// If a request with the same key is in flight, returns the existing future.
   /// Otherwise, executes and tracks the new request.
+  ///
+  /// A query key must always be used with the same type [T] across calls;
+  /// using the same key with different types throws a [StateError] when
+  /// awaiting the returned future.
   Future<T> deduplicate<T>(
     String key,
     Future<T> Function() fn,
@@ -347,7 +368,15 @@ class QueryCache {
 
     final existing = _inFlightRequests[key];
     if (existing != null) {
-      return existing as Future<T>;
+      return existing.then((v) {
+        if (v is! T) {
+          throw StateError(
+            'In-flight result type mismatch for key=$key. '
+            'Expected $T, got ${v.runtimeType}.',
+          );
+        }
+        return v;
+      });
     }
 
     // Get or create lock for this key to prevent race conditions
@@ -355,19 +384,25 @@ class QueryCache {
 
     await lock.acquire();
     try {
-      // Double-check after acquiring lock
       final existingUnderLock = _inFlightRequests[key];
       if (existingUnderLock != null) {
-        return existingUnderLock as Future<T>;
+        return existingUnderLock.then((v) {
+          if (v is! T) {
+            throw StateError(
+              'In-flight result type mismatch for key=$key. '
+              'Expected $T, got ${v.runtimeType}.',
+            );
+          }
+          return v;
+        });
       }
 
       final future = fn().whenComplete(() {
         final inFlight = _inFlightRequests.remove(key);
         if (inFlight != null) unawaited(inFlight);
-        _locks.remove(key);
       });
 
-      _inFlightRequests[key] = future;
+      _inFlightRequests[key] = future.then<Object?>((v) => v);
       return future;
     } finally {
       lock.release();
@@ -442,12 +477,7 @@ class QueryCache {
     );
 
     for (final key in keysToEvict) {
-      _entries.remove(key);
-      _hotCache.remove(key);
-      _entryVersions.remove(key);
-      final persistF = _persistOperations.remove(key);
-      if (persistF != null) unawaited(persistF);
-      _keyTypes.remove(key);
+      _removeKeyEverywhere(key, removeFromPersistence: false);
       _metrics.recordEviction();
     }
   }
@@ -500,7 +530,10 @@ class QueryCache {
       }
     }
 
-    keysToRemove.forEach(_entries.remove);
+    keysToRemove.forEach(_removeKeyEverywhere);
+    if (keysToRemove.isNotEmpty) {
+      _metrics.recordGcRemoval(keysToRemove.length);
+    }
   }
 
   /// Trims the cache to release memory.
