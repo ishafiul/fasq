@@ -584,7 +584,7 @@ class QueryCache {
     await _disposePersistenceResources();
   }
 
-  void _onMemoryPressure(bool critical) {
+  void _onMemoryPressure({required bool critical}) {
     // Handle memory pressure based on severity level:
     // - critical: true -> Level 2 (Critical): Remove all inactive entries
     // - critical: false -> Level 1 (Warning/Low): Remove only stale inactive entries
