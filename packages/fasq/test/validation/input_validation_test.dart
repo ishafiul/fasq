@@ -358,16 +358,20 @@ void main() {
 
       test('validateBoolean works correctly', () {
         // Valid booleans
-        expect(() => InputValidator.validateBoolean(true, 'value'),
+        expect(() => InputValidator.validateBoolean('value', value: true),
             returnsNormally);
-        expect(() => InputValidator.validateBoolean(false, 'value'),
+        expect(() => InputValidator.validateBoolean('value', value: false),
             returnsNormally);
-        expect(() => InputValidator.validateBoolean(null, 'value'),
+        expect(() => InputValidator.validateBoolean('value', value: null),
             returnsNormally);
 
         // Required but null
         expect(
-          () => InputValidator.validateBoolean(null, 'value', required: true),
+          () => InputValidator.validateBoolean(
+            'value',
+            value: null,
+            required: true,
+          ),
           throwsA(isA<ArgumentError>().having(
             (e) => e.message,
             'message',
