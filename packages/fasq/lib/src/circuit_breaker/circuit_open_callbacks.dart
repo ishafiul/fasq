@@ -1,4 +1,6 @@
-import 'circuit_open_event.dart';
+import 'dart:developer' as developer;
+
+import 'package:fasq/fasq.dart';
 
 /// Default logging callback for circuit open events.
 ///
@@ -13,9 +15,9 @@ import 'circuit_open_event.dart';
 /// registry.registerCircuitOpenCallback(logCircuitOpenEvent);
 /// ```
 void logCircuitOpenEvent(CircuitOpenEvent event) {
-  // ignore: avoid_print
-  print(
+  developer.log(
     '[Circuit Breaker] Circuit "${event.circuitId}" opened at '
     '${event.openedAt.toIso8601String()}',
+    name: 'fasq.circuit_breaker',
   );
 }
