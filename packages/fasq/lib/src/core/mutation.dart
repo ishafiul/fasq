@@ -1,21 +1,15 @@
 import 'dart:async';
 
-import 'mutation_options.dart';
-import 'mutation_snapshot.dart';
-import 'mutation_state.dart';
-import 'network_status.dart';
-import 'offline_queue.dart';
-import 'query_client.dart';
+import 'package:fasq/src/core/mutation_options.dart';
+import 'package:fasq/src/core/mutation_snapshot.dart';
+import 'package:fasq/src/core/mutation_state.dart';
+import 'package:fasq/src/core/network_status.dart';
+import 'package:fasq/src/core/offline_queue.dart';
+import 'package:fasq/src/core/query_client.dart';
 
+/// Executes and tracks a mutation with optional offline queueing.
 class Mutation<T, TVariables> {
-  final Future<T> Function(TVariables variables) mutationFn;
-  final MutationOptions<T, TVariables>? options;
-
-  MutationState<T> _currentState = const MutationState.idle();
-  late final StreamController<MutationState<T>> _controller;
-  bool _isDisposed = false;
-  TVariables? _lastVariables;
-
+  /// Creates a mutation executor for [mutationFn] with optional [options].
   Mutation({
     required this.mutationFn,
     this.options,
@@ -23,12 +17,30 @@ class Mutation<T, TVariables> {
     _controller = StreamController<MutationState<T>>.broadcast();
   }
 
+  /// Function that performs the mutation work.
+  final Future<T> Function(TVariables variables) mutationFn;
+
+  /// Optional mutation behavior and callbacks.
+  final MutationOptions<T, TVariables>? options;
+
+  MutationState<T> _currentState = const MutationState.idle();
+  late final StreamController<MutationState<T>> _controller;
+  bool _isDisposed = false;
+  TVariables? _lastVariables;
+
+  /// Broadcast stream of mutation state updates.
   Stream<MutationState<T>> get stream => _controller.stream;
 
+  /// Current mutation state snapshot.
   MutationState<T> get state => _currentState;
 
+  /// Whether this mutation instance has been disposed.
   bool get isDisposed => _isDisposed;
 
+  /// Runs the mutation with [variables].
+  ///
+  /// When offline queueing is enabled and the device is offline, the mutation
+  /// is queued instead of executed immediately.
   Future<void> mutate(TVariables variables) async {
     if (_isDisposed) return;
 
@@ -72,19 +84,21 @@ class Mutation<T, TVariables> {
         options?.onSuccess?.call(data);
         if (client != null) {
           final snapshot = _snapshot(previous);
-          client.notifyMutationSuccess(snapshot, options?.meta, null);
-          client.notifyMutationSettled(snapshot, options?.meta, null);
+          client
+            ..notifyMutationSuccess(snapshot, options?.meta, null)
+            ..notifyMutationSettled(snapshot, options?.meta, null);
         }
       }
-    } catch (error, stackTrace) {
+    } on Object catch (error, stackTrace) {
       if (!_isDisposed) {
         final previous = _currentState;
         _updateState(MutationState.error(error, stackTrace));
         options?.onError?.call(error);
         if (client != null) {
           final snapshot = _snapshot(previous);
-          client.notifyMutationError(snapshot, options?.meta, null);
-          client.notifyMutationSettled(snapshot, options?.meta, null);
+          client
+            ..notifyMutationError(snapshot, options?.meta, null)
+            ..notifyMutationSettled(snapshot, options?.meta, null);
         }
       }
     }
@@ -96,6 +110,7 @@ class Mutation<T, TVariables> {
     return 'mutation_${mutationFn.hashCode}';
   }
 
+  /// Resets this mutation to the idle state.
   void reset() {
     if (_isDisposed) return;
     _lastVariables = null;
@@ -120,12 +135,14 @@ class Mutation<T, TVariables> {
     );
   }
 
+  /// Variables passed to the most recent [mutate] call.
   TVariables? get lastVariables => _lastVariables;
 
+  /// Disposes this mutation and closes its state stream.
   void dispose() {
     if (_isDisposed) return;
 
     _isDisposed = true;
-    _controller.close();
+    unawaited(_controller.close());
   }
 }
