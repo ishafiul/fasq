@@ -46,9 +46,9 @@ class InputValidator {
     }
 
     // Check for complex objects that might contain functions
-    if (data is Map) {
+    if (data is Map<Object?, Object?>) {
       _validateMap(data);
-    } else if (data is List) {
+    } else if (data is List<Object?>) {
       _validateList(data);
     }
 
@@ -92,33 +92,34 @@ class InputValidator {
   }
 
   /// Validates a map for functions or closures.
-  static void _validateMap(Map<dynamic, dynamic> map) {
+  static void _validateMap(Map<Object?, Object?> map) {
     for (final entry in map.entries) {
       if (entry.key is Function) {
         throw ArgumentError('Map keys cannot be functions or closures');
       }
-      if (entry.value is Function) {
+      final value = entry.value;
+      if (value is Function) {
         throw ArgumentError('Map values cannot be functions or closures');
       }
-      if (entry.value is Map<dynamic, dynamic>) {
-        _validateMap(entry.value as Map<dynamic, dynamic>);
+      if (value is Map<Object?, Object?>) {
+        _validateMap(value);
       }
-      if (entry.value is List<dynamic>) {
-        _validateList(entry.value as List<dynamic>);
+      if (value is List<Object?>) {
+        _validateList(value);
       }
     }
   }
 
   /// Validates a list for functions or closures.
-  static void _validateList(List<dynamic> list) {
+  static void _validateList(List<Object?> list) {
     for (final item in list) {
       if (item is Function) {
         throw ArgumentError('List items cannot be functions or closures');
       }
-      if (item is Map<dynamic, dynamic>) {
+      if (item is Map<Object?, Object?>) {
         _validateMap(item);
       }
-      if (item is List<dynamic>) {
+      if (item is List<Object?>) {
         _validateList(item);
       }
     }
