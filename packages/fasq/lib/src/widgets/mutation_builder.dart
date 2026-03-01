@@ -1,28 +1,34 @@
 import 'dart:async';
 
+import 'package:fasq/src/core/mutation.dart';
+import 'package:fasq/src/core/mutation_options.dart';
+import 'package:fasq/src/core/mutation_snapshot.dart';
+import 'package:fasq/src/core/mutation_state.dart';
+import 'package:fasq/src/core/query_client.dart';
 import 'package:flutter/widgets.dart';
 
-import '../core/mutation.dart';
-import '../core/mutation_options.dart';
-import '../core/mutation_snapshot.dart';
-import '../core/mutation_state.dart';
-import '../core/query_client.dart';
-
+/// A widget that builds UI from the state of a mutation.
 class MutationBuilder<T, TVariables> extends StatefulWidget {
-  final Future<T> Function(TVariables variables) mutationFn;
-  final Widget Function(
-    BuildContext context,
-    MutationState<T> state,
-    Future<void> Function(TVariables variables) mutate,
-  ) builder;
-  final MutationOptions<T, TVariables>? options;
-
+  /// Creates a [MutationBuilder].
   const MutationBuilder({
     required this.mutationFn,
     required this.builder,
     this.options,
     super.key,
   });
+
+  /// Async mutation function invoked by the `mutate` callback.
+  final Future<T> Function(TVariables variables) mutationFn;
+
+  /// Builds UI from the current mutation `state` and `mutate` callback.
+  final Widget Function(
+    BuildContext context,
+    MutationState<T> state,
+    Future<void> Function(TVariables variables) mutate,
+  ) builder;
+
+  /// Optional behavior and callback configuration for the mutation.
+  final MutationOptions<T, TVariables>? options;
 
   @override
   State<MutationBuilder<T, TVariables>> createState() =>
@@ -62,7 +68,7 @@ class _MutationBuilderState<T, TVariables>
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     _mutation.dispose();
     super.dispose();
   }
@@ -103,13 +109,15 @@ class _MutationBuilderState<T, TVariables>
     }
 
     if (!previous.isSuccess && current.isSuccess) {
-      client.notifyMutationSuccess(snapshot, meta, effectiveContext);
-      client.notifyMutationSettled(snapshot, meta, effectiveContext);
+      client
+        ..notifyMutationSuccess(snapshot, meta, effectiveContext)
+        ..notifyMutationSettled(snapshot, meta, effectiveContext);
     }
 
     if (!previous.isError && current.isError) {
-      client.notifyMutationError(snapshot, meta, effectiveContext);
-      client.notifyMutationSettled(snapshot, meta, effectiveContext);
+      client
+        ..notifyMutationError(snapshot, meta, effectiveContext)
+        ..notifyMutationSettled(snapshot, meta, effectiveContext);
     }
   }
 }
