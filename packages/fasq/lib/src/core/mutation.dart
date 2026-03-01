@@ -50,7 +50,7 @@ class Mutation<T, TVariables> {
     final shouldQueue = isOffline && (options?.queueWhenOffline ?? false);
 
     if (shouldQueue) {
-      final queueManager = OfflineQueueManager.instance;
+      final queueManager = OfflineQueueManager.instance();
       final mutationType = _getMutationType();
 
       await queueManager.enqueue(

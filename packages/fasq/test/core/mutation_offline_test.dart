@@ -22,7 +22,7 @@ void main() {
     tearDown(() {
       mutation.dispose();
       NetworkStatus.instance.setOnline(online: true);
-      OfflineQueueManager.instance.clear();
+      OfflineQueueManager.instance().clear();
     });
 
     test('should execute immediately when online', () async {
@@ -53,7 +53,7 @@ void main() {
 
       expect(states.length, equals(1));
       expect(states.first.isQueued, isTrue);
-      expect(OfflineQueueManager.instance.length, equals(1));
+      expect(OfflineQueueManager.instance().length, equals(1));
 
       subscription.cancel();
     });
@@ -79,7 +79,7 @@ void main() {
       expect(states.length, greaterThanOrEqualTo(2));
       expect(states.first.isLoading, isTrue);
       expect(states.last.isSuccess, isTrue);
-      expect(OfflineQueueManager.instance.length, equals(0));
+      expect(OfflineQueueManager.instance().length, equals(0));
 
       subscription.cancel();
       mutationNoQueue.dispose();

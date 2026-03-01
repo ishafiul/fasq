@@ -8,7 +8,7 @@ void main() {
     late OfflineQueueManager queueManager;
 
     setUp(() async {
-      queueManager = OfflineQueueManager.instance;
+      queueManager = OfflineQueueManager.instance();
       await queueManager.resetForTesting();
     });
 
