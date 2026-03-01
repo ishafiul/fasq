@@ -28,5 +28,6 @@ abstract class EncryptionProvider {
   /// Returns true if the key is valid, false otherwise
   bool isValidKey(String key);
 
+  /// Releases any resources held by this provider.
   Future<void> dispose();
 }
