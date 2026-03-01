@@ -2,19 +2,28 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
-import '../../cache/cache_metrics.dart';
-import '../metrics_exporter.dart';
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/performance/metrics_exporter.dart';
 
+/// Exports performance snapshots in OpenTelemetry (OTLP) JSON format.
 class OpenTelemetryExporter implements MetricsExporter {
-  final String? endpoint;
-  final Map<String, String> resourceAttributes;
-  Map<String, dynamic> _config = {};
-
+  /// Creates an OpenTelemetry exporter.
+  ///
+  /// If [endpoint] is provided, exported payloads are sent to that endpoint.
+  /// [resourceAttributes] are attached to OTLP resource metadata.
   OpenTelemetryExporter({
     this.endpoint,
     this.resourceAttributes = const {},
   });
 
+  /// OTLP HTTP endpoint where metrics payloads are sent.
+  final String? endpoint;
+
+  /// Additional OTLP resource attributes included with exported metrics.
+  final Map<String, String> resourceAttributes;
+  Map<String, dynamic> _config = {};
+
+  /// Current exporter configuration.
   Map<String, dynamic> get config => _config;
 
   @override
@@ -49,12 +58,14 @@ class OpenTelemetryExporter implements MetricsExporter {
         'attributes': [
           {
             'key': 'service.name',
-            'value': {'stringValue': 'fasq'}
+            'value': {'stringValue': 'fasq'},
           },
-          ...resourceAttributes.entries.map((e) => {
-                'key': e.key,
-                'value': {'stringValue': e.value}
-              }),
+          ...resourceAttributes.entries.map(
+            (e) => {
+              'key': e.key,
+              'value': {'stringValue': e.value},
+            },
+          ),
         ],
       },
       'scopeMetrics': scopeMetrics,
@@ -70,114 +81,113 @@ class OpenTelemetryExporter implements MetricsExporter {
     PerformanceReport cacheReport,
     int timestampNanos,
   ) {
-    final metrics = <Map<String, dynamic>>[];
-
-    metrics.add(_createGaugeMetric(
-      'fasq.cache.hit_rate',
-      'Cache hit rate (0.0 to 1.0)',
-      cacheReport.hitRate,
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.cache.hits',
-      'Total number of cache hits',
-      snapshot.cacheMetrics.hits.toDouble(),
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.cache.misses',
-      'Total number of cache misses',
-      snapshot.cacheMetrics.misses.toDouble(),
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.cache.evictions',
-      'Total number of cache evictions',
-      snapshot.cacheMetrics.evictions.toDouble(),
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.memory.usage_bytes',
-      'Total memory usage in bytes',
-      snapshot.memoryUsageBytes.toDouble(),
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.memory.peak_bytes',
-      'Peak memory usage in bytes',
-      cacheReport.peakMemoryBytes.toDouble(),
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.queries.total',
-      'Total number of queries',
-      snapshot.totalQueries.toDouble(),
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.queries.active',
-      'Number of active queries',
-      snapshot.activeQueries.toDouble(),
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.cache.fetch_time.avg_ms',
-      'Average fetch time in milliseconds',
-      cacheReport.avgFetchTime.inMilliseconds.toDouble(),
-      timestampNanos,
-    ));
-
-    metrics.add(_createGaugeMetric(
-      'fasq.cache.fetch_time.p95_ms',
-      '95th percentile fetch time in milliseconds',
-      cacheReport.p95FetchTime.inMilliseconds.toDouble(),
-      timestampNanos,
-    ));
+    final metrics = <Map<String, dynamic>>[
+      _createGaugeMetric(
+        'fasq.cache.hit_rate',
+        'Cache hit rate (0.0 to 1.0)',
+        cacheReport.hitRate,
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.cache.hits',
+        'Total number of cache hits',
+        snapshot.cacheMetrics.hits.toDouble(),
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.cache.misses',
+        'Total number of cache misses',
+        snapshot.cacheMetrics.misses.toDouble(),
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.cache.evictions',
+        'Total number of cache evictions',
+        snapshot.cacheMetrics.evictions.toDouble(),
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.memory.usage_bytes',
+        'Total memory usage in bytes',
+        snapshot.memoryUsageBytes.toDouble(),
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.memory.peak_bytes',
+        'Peak memory usage in bytes',
+        cacheReport.peakMemoryBytes.toDouble(),
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.queries.total',
+        'Total number of queries',
+        snapshot.totalQueries.toDouble(),
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.queries.active',
+        'Number of active queries',
+        snapshot.activeQueries.toDouble(),
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.cache.fetch_time.avg_ms',
+        'Average fetch time in milliseconds',
+        cacheReport.avgFetchTime.inMilliseconds.toDouble(),
+        timestampNanos,
+      ),
+      _createGaugeMetric(
+        'fasq.cache.fetch_time.p95_ms',
+        '95th percentile fetch time in milliseconds',
+        cacheReport.p95FetchTime.inMilliseconds.toDouble(),
+        timestampNanos,
+      ),
+    ];
 
     snapshot.queryMetrics.forEach((queryKey, queryMetrics) {
       if (queryMetrics.averageFetchTime != null) {
-        metrics.add(_createGaugeMetric(
-          'fasq.query.fetch_time.avg_ms',
-          'Average fetch time for query in milliseconds',
-          queryMetrics.averageFetchTime!.inMilliseconds.toDouble(),
-          timestampNanos,
-          attributes: {'query': queryKey},
-        ));
+        metrics.add(
+          _createGaugeMetric(
+            'fasq.query.fetch_time.avg_ms',
+            'Average fetch time for query in milliseconds',
+            queryMetrics.averageFetchTime!.inMilliseconds.toDouble(),
+            timestampNanos,
+            attributes: {'query': queryKey},
+          ),
+        );
       }
 
       if (queryMetrics.maxFetchTime != null) {
-        metrics.add(_createGaugeMetric(
-          'fasq.query.fetch_time.max_ms',
-          'Maximum fetch time for query in milliseconds',
-          queryMetrics.maxFetchTime!.inMilliseconds.toDouble(),
-          timestampNanos,
-          attributes: {'query': queryKey},
-        ));
+        metrics.add(
+          _createGaugeMetric(
+            'fasq.query.fetch_time.max_ms',
+            'Maximum fetch time for query in milliseconds',
+            queryMetrics.maxFetchTime!.inMilliseconds.toDouble(),
+            timestampNanos,
+            attributes: {'query': queryKey},
+          ),
+        );
       }
 
-      metrics.add(_createSumMetric(
-        'fasq.query.fetch.count',
-        'Total number of fetches for query',
-        queryMetrics.fetchCount.toDouble(),
-        timestampNanos,
-        attributes: {'query': queryKey},
-      ));
-
-      metrics.add(_createGaugeMetric(
-        'fasq.query.reference_count',
-        'Reference count for query',
-        queryMetrics.referenceCount.toDouble(),
-        timestampNanos,
-        attributes: {'query': queryKey},
-      ));
+      metrics
+        ..add(
+          _createSumMetric(
+            'fasq.query.fetch.count',
+            'Total number of fetches for query',
+            queryMetrics.fetchCount.toDouble(),
+            timestampNanos,
+            attributes: {'query': queryKey},
+          ),
+        )
+        ..add(
+          _createGaugeMetric(
+            'fasq.query.reference_count',
+            'Reference count for query',
+            queryMetrics.referenceCount.toDouble(),
+            timestampNanos,
+            attributes: {'query': queryKey},
+          ),
+        );
     });
 
     return metrics;
@@ -198,10 +208,12 @@ class OpenTelemetryExporter implements MetricsExporter {
         'dataPoints': [
           {
             'attributes': attributes.entries
-                .map((e) => {
-                      'key': e.key,
-                      'value': {'stringValue': e.value}
-                    })
+                .map(
+                  (e) => {
+                    'key': e.key,
+                    'value': {'stringValue': e.value},
+                  },
+                )
                 .toList(),
             'asInt': null,
             'asDouble': value,
@@ -229,10 +241,12 @@ class OpenTelemetryExporter implements MetricsExporter {
         'dataPoints': [
           {
             'attributes': attributes.entries
-                .map((e) => {
-                      'key': e.key,
-                      'value': {'stringValue': e.value}
-                    })
+                .map(
+                  (e) => {
+                    'key': e.key,
+                    'value': {'stringValue': e.value},
+                  },
+                )
                 .toList(),
             'asInt': null,
             'asDouble': value,
@@ -263,9 +277,12 @@ class OpenTelemetryExporter implements MetricsExporter {
       } finally {
         client.close();
       }
-    } catch (e, stackTrace) {
-      log('Error exporting to OpenTelemetry: $e',
-          error: e, stackTrace: stackTrace);
+    } on Object catch (e, stackTrace) {
+      log(
+        'Error exporting to OpenTelemetry: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 

@@ -1,11 +1,13 @@
 import 'dart:developer';
 
-import '../../cache/cache_metrics.dart';
-import '../metrics_exporter.dart';
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/performance/metrics_exporter.dart';
 
+/// Exports performance snapshots to the developer console.
 class ConsoleExporter implements MetricsExporter {
   Map<String, dynamic> _config = {};
 
+  /// Current exporter configuration.
   Map<String, dynamic> get config => _config;
 
   @override
@@ -14,8 +16,14 @@ class ConsoleExporter implements MetricsExporter {
     log('  Timestamp: ${snapshot.timestamp.toIso8601String()}');
     log('  Total Queries: ${snapshot.totalQueries}');
     log('  Active Queries: ${snapshot.activeQueries}');
-    log('  Cache Hit Rate: ${(snapshot.cacheMetrics.hitRate * 100).toStringAsFixed(2)}%');
-    log('  Memory Usage: ${(snapshot.memoryUsageBytes / (1024 * 1024)).toStringAsFixed(2)} MB');
+    log(
+      '  Cache Hit Rate: '
+      '${(snapshot.cacheMetrics.hitRate * 100).toStringAsFixed(2)}%',
+    );
+    log(
+      '  Memory Usage: '
+      '${(snapshot.memoryUsageBytes / (1024 * 1024)).toStringAsFixed(2)} MB',
+    );
     log('  Cache Requests: ${snapshot.cacheMetrics.totalRequests}');
     log('  Cache Hits: ${snapshot.cacheMetrics.hits}');
     log('  Cache Misses: ${snapshot.cacheMetrics.misses}');
