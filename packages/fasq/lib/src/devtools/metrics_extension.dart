@@ -1,9 +1,8 @@
 import 'dart:async';
 
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/devtools/metrics_stream.dart';
 import 'package:flutter/material.dart';
-
-import '../cache/cache_metrics.dart';
-import 'metrics_stream.dart';
 
 /// Flutter widget for displaying FASQ performance metrics.
 ///
@@ -20,6 +19,16 @@ import 'metrics_stream.dart';
 /// );
 /// ```
 class FasqMetricsExtension extends StatefulWidget {
+  /// Creates a new [FasqMetricsExtension] widget.
+  ///
+  /// [metricsStream] Optional stream for real-time metric updates.
+  /// [initialSnapshot] Optional initial snapshot to display.
+  const FasqMetricsExtension({
+    super.key,
+    this.metricsStream,
+    this.initialSnapshot,
+  });
+
   /// Optional stream of performance metrics for real-time updates.
   ///
   /// If provided, the widget will listen to this stream and update the UI
@@ -31,16 +40,6 @@ class FasqMetricsExtension extends StatefulWidget {
   /// Useful for showing initial state or when using the widget without
   /// a metrics stream.
   final PerformanceSnapshot? initialSnapshot;
-
-  /// Creates a new [FasqMetricsExtension] widget.
-  ///
-  /// [metricsStream] Optional stream for real-time metric updates.
-  /// [initialSnapshot] Optional initial snapshot to display.
-  const FasqMetricsExtension({
-    super.key,
-    this.metricsStream,
-    this.initialSnapshot,
-  });
 
   @override
   State<FasqMetricsExtension> createState() => _FasqMetricsExtensionState();
@@ -68,7 +67,7 @@ class _FasqMetricsExtensionState extends State<FasqMetricsExtension> {
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     super.dispose();
   }
 
@@ -94,7 +93,7 @@ class _FasqMetricsExtensionState extends State<FasqMetricsExtension> {
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -123,11 +122,13 @@ class _FasqMetricsExtensionState extends State<FasqMetricsExtension> {
               _buildSectionTitle('Memory Usage'),
               _buildMetricCard(
                 'Current Memory',
-                '${(snapshot.memoryUsageBytes / (1024 * 1024)).toStringAsFixed(2)} MB',
+                '${(snapshot.memoryUsageBytes / (1024 * 1024))
+                    .toStringAsFixed(2)} MB',
               ),
               _buildMetricCard(
                 'Peak Memory',
-                '${(cacheReport.peakMemoryBytes / (1024 * 1024)).toStringAsFixed(2)} MB',
+                '${(cacheReport.peakMemoryBytes / (1024 * 1024))
+                    .toStringAsFixed(2)} MB',
               ),
               const SizedBox(height: 20),
               _buildSectionTitle('Query Statistics'),
@@ -172,7 +173,7 @@ class _FasqMetricsExtensionState extends State<FasqMetricsExtension> {
   /// Builds a section title widget with consistent styling.
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0, top: 8.0),
+      padding: const EdgeInsets.only(bottom: 12, top: 8),
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -188,9 +189,9 @@ class _FasqMetricsExtensionState extends State<FasqMetricsExtension> {
   /// [value] The metric value to display.
   Widget _buildMetricCard(String label, String value) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 8.0),
+      margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -210,13 +211,14 @@ class _FasqMetricsExtensionState extends State<FasqMetricsExtension> {
     );
   }
 
-  /// Builds an expandable card displaying detailed metrics for a specific query.
+  /// Builds an expandable card displaying detailed metrics for a specific
+  ///  query.
   ///
   /// [queryKey] The unique identifier for the query.
   /// [metrics] The performance metrics for this query.
   Widget _buildQueryMetricsCard(String queryKey, QueryMetrics metrics) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 8.0),
+      margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         title: Text(
           'Query: $queryKey',
@@ -226,7 +228,7 @@ class _FasqMetricsExtensionState extends State<FasqMetricsExtension> {
         ),
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -282,7 +284,7 @@ class _FasqMetricsExtensionState extends State<FasqMetricsExtension> {
   /// [value] The metric value to display.
   Widget _buildMetricRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
