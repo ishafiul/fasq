@@ -1,22 +1,27 @@
 import 'dart:async';
 
-import '../cache/query_cache.dart';
-import 'infinite_query_options.dart';
-import 'infinite_query_state.dart';
-import 'query_key.dart';
-import 'query_status.dart';
+import 'package:fasq/src/cache/query_cache.dart';
+import 'package:fasq/src/core/infinite_query_options.dart';
+import 'package:fasq/src/core/infinite_query_state.dart';
+import 'package:fasq/src/core/query_key.dart';
+import 'package:fasq/src/core/query_status.dart';
 
 /// Manages infinite/paginated data fetching with support for forward and backward pagination.
 ///
-/// An [InfiniteQuery] maintains a list of [Page] objects, each containing data or error
-/// for a specific page. Pages can be fetched forward (next) or backward (previous) based
-/// on pagination parameters computed by [getNextPageParam] and [getPreviousPageParam].
+/// An [InfiniteQuery] maintains a list of [Page] objects,
+///  each containing data or error
+/// for a specific page. Pages can be fetched forward (next)
+/// or backward (previous) based
+/// on pagination parameters computed by
+/// [InfiniteQueryOptions.getNextPageParam] and
+/// [InfiniteQueryOptions.getPreviousPageParam].
 ///
 /// **Key Features:**
 /// - Automatic first page prefetch when listener is added
 /// - Concurrent fetch prevention (only one fetch at a time)
-/// - Automatic page capping via [maxPages] option
-/// - State consistency with automatic recalculation of [hasNextPage] and [hasPreviousPage]
+/// - Automatic page capping via [InfiniteQueryOptions.maxPages]
+/// - State consistency with automatic recalculation of [hasNextPage]
+///  and [hasPreviousPage]
 /// - Cancellation support (disposed queries don't update state)
 ///
 /// **Thread Safety:**
@@ -30,7 +35,8 @@ import 'query_status.dart';
 ///   'posts',
 ///   (cursor) => fetchPosts(cursor),
 ///   options: InfiniteQueryOptions(
-///     getNextPageParam: (pages, last) => last == null ? '1' : '${last.id + 1}',
+///     getNextPageParam:
+///  (pages, last) => last == null ? '1' : '${last.id + 1}',
 ///     maxPages: 5,
 ///   ),
 /// );
@@ -39,21 +45,11 @@ import 'query_status.dart';
 /// await query.fetchNextPage();
 /// ```
 class InfiniteQuery<TData, TParam> {
-  final QueryKey queryKey;
-  final String key;
-  final Future<TData> Function(TParam param) queryFn;
-  final InfiniteQueryOptions<TData, TParam>? options;
-  final QueryCache? cache;
-  final void Function()? onDispose;
-
-  InfiniteQueryState<TData, TParam> _currentState;
-  late final StreamController<InfiniteQueryState<TData, TParam>> _controller;
-  int _referenceCount = 0;
-  Timer? _disposeTimer;
-  bool _isDisposed = false;
-  Future<void>? _fetchFuture;
-  bool _isPrefetching = false;
-
+  /// Creates an infinite query instance for the provided [queryKey] and
+  /// [queryFn].
+  ///
+  /// If [initialPages] is provided, the initial state is restored from those
+  /// pages and pagination flags are recomputed.
   InfiniteQuery({
     required this.queryKey,
     required this.queryFn,
@@ -79,30 +75,68 @@ class InfiniteQuery<TData, TParam> {
         StreamController<InfiniteQueryState<TData, TParam>>.broadcast();
   }
 
+  /// Structured query key object.
+  final QueryKey queryKey;
+
+  /// String representation of [queryKey].
+  final String key;
+
+  /// Page fetch function invoked with a page parameter.
+  final Future<TData> Function(TParam param) queryFn;
+
+  /// Optional behavior configuration for this infinite query.
+  final InfiniteQueryOptions<TData, TParam>? options;
+
+  /// Optional cache integration used for lifecycle and prefetch behavior.
+  final QueryCache? cache;
+
+  /// Optional callback called when the query is disposed.
+  final void Function()? onDispose;
+
+  InfiniteQueryState<TData, TParam> _currentState;
+  late final StreamController<InfiniteQueryState<TData, TParam>> _controller;
+  int _referenceCount = 0;
+  Timer? _disposeTimer;
+  bool _isDisposed = false;
+  Future<void>? _fetchFuture;
+  bool _isPrefetching = false;
+
+  /// Broadcast stream of query state updates.
   Stream<InfiniteQueryState<TData, TParam>> get stream => _controller.stream;
+
+  /// Current in-memory state snapshot.
   InfiniteQueryState<TData, TParam> get state => _currentState;
+
+  /// Number of active listeners currently attached.
   int get referenceCount => _referenceCount;
+
+  /// Whether this query has been disposed.
   bool get isDisposed => _isDisposed;
 
+  /// Whether another forward page is currently available.
   bool get hasNextPage => _currentState.hasNextPage;
+
+  /// Whether another backward page is currently available.
   bool get hasPreviousPage => _currentState.hasPreviousPage;
 
-  /// Adds a listener to this query and triggers auto-fetch if this is the first listener.
+  /// Adds a listener to this query and triggers auto-fetch if
+  ///  this is the first listener.
   ///
   /// Increments the reference count and cancels scheduled disposal.
-  /// If this is the first listener and cache is available, automatically prefetches
+  /// If this is the first listener and cache is available,
+  /// automatically prefetches
   /// the first page if no pages exist yet.
   ///
-  /// Called automatically by [InfiniteQueryBuilder] widgets.
+  /// Called automatically by `InfiniteQueryBuilder` widgets.
   ///
   /// This method is thread-safe and prevents multiple concurrent prefetches.
-  void addListener() {
+  Future<void> addListener() async {
     if (_isDisposed) return;
     _referenceCount++;
     _cancelDisposal();
     if (_referenceCount == 1 && cache != null && !_isPrefetching) {
       _isPrefetching = true;
-      _prefetchFirstPageIfNeeded().whenComplete(() {
+      await _prefetchFirstPageIfNeeded().whenComplete(() {
         _isPrefetching = false;
       });
     }
@@ -110,10 +144,12 @@ class InfiniteQuery<TData, TParam> {
 
   /// Removes a listener from this query.
   ///
-  /// Decrements the reference count and schedules disposal if count reaches zero.
-  /// Disposal is scheduled after a 5-second delay to allow for rapid add/remove cycles.
+  /// Decrements the reference count and schedules disposal if
+  ///  count reaches zero.
+  /// Disposal is scheduled after a 5-second delay to allow
+  /// for rapid add/remove cycles.
   ///
-  /// Called automatically by [InfiniteQueryBuilder] widgets on disposal.
+  /// Called automatically by `InfiniteQueryBuilder` widgets on disposal.
   ///
   /// This method prevents negative reference counts.
   void removeListener() {
@@ -137,29 +173,34 @@ class InfiniteQuery<TData, TParam> {
     if (initialParam == null) return;
     try {
       await fetchNextPage(initialParam as TParam);
-    } catch (_) {}
+    } on Object catch (_) {}
   }
 
   /// Fetches the next page of data.
   ///
-  /// Uses [overrideParam] if provided, otherwise computes the next page parameter
-  /// using [getNextPageParam] from the options.
+  /// Uses [overrideParam] if provided, otherwise computes the
+  ///  next page parameter
+  /// using [InfiniteQueryOptions.getNextPageParam] from the options.
   ///
-  /// **Concurrency**: Only one fetch operation (next or previous) can run at a time.
+  /// **Concurrency**: Only one fetch operation
+  /// (next or previous) can run at a time.
   /// If a fetch is already in progress, this method returns immediately without
   /// starting a new fetch.
   ///
   /// **State Updates**: After successful fetch, updates state with new page and
-  /// recalculates [hasNextPage]. Applies [maxPages] limit if configured.
+  /// recalculates [hasNextPage]. Applies [InfiniteQueryOptions.maxPages] limit
+  /// if configured.
   ///
   /// **Error Handling**: On error, adds an error page to the pages list and
-  /// applies [maxPages] limit. The error page does not replace existing pages.
+  /// applies [InfiniteQueryOptions.maxPages] limit. The error page does not
+  /// replace existing pages.
   ///
-  /// **Cancellation**: If the query is disposed during fetch, state is not updated.
+  /// **Cancellation**: If the query is disposed during fetch,
+  ///  state is not updated.
   ///
   /// Returns immediately if:
   /// - Query is disposed
-  /// - Query is disabled ([enabled] is false)
+  /// - Query is disabled ([InfiniteQueryOptions.enabled] is false)
   /// - Another fetch is already in progress
   /// - No next page parameter can be computed
   ///
@@ -190,10 +231,12 @@ class InfiniteQuery<TData, TParam> {
       return;
     }
     if (_isDisposed) return;
-    _updateState(_currentState.copyWith(
-      isFetchingNextPage: true,
-      status: pages.isEmpty ? QueryStatus.loading : _currentState.status,
-    ));
+    _updateState(
+      _currentState.copyWith(
+        isFetchingNextPage: true,
+        status: pages.isEmpty ? QueryStatus.loading : _currentState.status,
+      ),
+    );
     try {
       final data = await queryFn(nextParam);
       if (_isDisposed) return;
@@ -207,7 +250,7 @@ class InfiniteQuery<TData, TParam> {
         dataUpdatedAt: DateTime.now(),
       );
       options?.onSuccess?.call();
-    } catch (e, s) {
+    } on Object catch (e, s) {
       if (_isDisposed) return;
       final errorPage = Page<TData, TParam>(param: nextParam).withError(e, s);
       final newPages = [...pages, errorPage];
@@ -223,24 +266,30 @@ class InfiniteQuery<TData, TParam> {
 
   /// Fetches the previous page of data.
   ///
-  /// Computes the previous page parameter using [getPreviousPageParam] from the options.
+  /// Computes the previous page parameter using
+  /// [InfiniteQueryOptions.getPreviousPageParam] from the options.
   ///
-  /// **Concurrency**: Only one fetch operation (next or previous) can run at a time.
+  /// **Concurrency**: Only one fetch operation (next or previous)
+  ///  can run at a time.
   /// If a fetch is already in progress, this method returns immediately without
   /// starting a new fetch.
   ///
-  /// **State Updates**: After successful fetch, updates state with new page prepended
-  /// to the pages list and recalculates [hasPreviousPage]. Applies [maxPages] limit
-  /// if configured.
+  /// **State Updates**: After successful fetch, updates state with
+  ///  new page prepended
+  /// to the pages list and recalculates [hasPreviousPage]. Applies
+  /// [InfiniteQueryOptions.maxPages] limit if configured.
   ///
-  /// **Error Handling**: On error, adds an error page to the beginning of the pages
-  /// list and applies [maxPages] limit. The error page does not replace existing pages.
+  /// **Error Handling**: On error, adds an error page to the
+  /// beginning of the pages
+  /// list and applies [InfiniteQueryOptions.maxPages] limit. The error page
+  /// does not replace existing pages.
   ///
-  /// **Cancellation**: If the query is disposed during fetch, state is not updated.
+  /// **Cancellation**: If the query is disposed during fetch,
+  ///  state is not updated.
   ///
   /// Returns immediately if:
   /// - Query is disposed
-  /// - Query is disabled ([enabled] is false)
+  /// - Query is disabled ([InfiniteQueryOptions.enabled] is false)
   /// - Another fetch is already in progress
   /// - No previous page parameter can be computed
   ///
@@ -283,7 +332,7 @@ class InfiniteQuery<TData, TParam> {
         dataUpdatedAt: DateTime.now(),
       );
       options?.onSuccess?.call();
-    } catch (e, s) {
+    } on Object catch (e, s) {
       if (_isDisposed) return;
       final errorPage = Page<TData, TParam>(param: prevParam).withError(e, s);
       final newPages = [errorPage, ...pages];
@@ -305,13 +354,16 @@ class InfiniteQuery<TData, TParam> {
   /// **Concurrency**: Prevents concurrent execution with other fetch operations
   /// by checking [_fetchFuture]. Only one fetch operation can run at a time.
   ///
-  /// **State Updates**: After successful refetch, recalculates [hasNextPage] and
+  /// **State Updates**: After successful refetch,
+  ///  recalculates [hasNextPage] and
   /// [hasPreviousPage] to ensure state consistency.
   ///
-  /// **Error Handling**: On error, updates the page with error state and recalculates
+  /// **Error Handling**: On error, updates the page with error state
+  ///  and recalculates
   /// pagination state.
   ///
-  /// **Cancellation**: If the query is disposed during fetch, state is not updated.
+  /// **Cancellation**: If the query is disposed during fetch, state
+  /// is not updated.
   ///
   /// Throws if [index] is out of bounds (< 0 or >= pages.length).
   ///
@@ -337,7 +389,7 @@ class InfiniteQuery<TData, TParam> {
         dataUpdatedAt: DateTime.now(),
       );
       options?.onSuccess?.call();
-    } catch (e, s) {
+    } on Object catch (e, s) {
       if (_isDisposed) return;
       final updated = page.withError(e, s);
       final newPages = [...pages];
@@ -364,10 +416,12 @@ class InfiniteQuery<TData, TParam> {
 
   /// Updates the query state from cached pages.
   ///
-  /// Restores pages from cache and recalculates [hasNextPage] and [hasPreviousPage]
+  /// Restores pages from cache and recalculates [hasNextPage]
+  /// and [hasPreviousPage]
   /// based on the restored pages.
   ///
-  /// This method is typically called by [QueryClient] when restoring cached state.
+  /// This method is typically called by `QueryClient` when restoring cached
+  /// state.
   ///
   /// **State Updates**: Always recalculates pagination state for consistency.
   ///
@@ -403,17 +457,19 @@ class InfiniteQuery<TData, TParam> {
     if (_isDisposed) return;
     final hasNext = _computeHasNext(pages);
     final hasPrev = _computeHasPrev(pages);
-    _updateState(_currentState.copyWith(
-      pages: pages,
-      hasNextPage: hasNext,
-      hasPreviousPage: hasPrev,
-      isFetchingNextPage:
-          isFetchingNextPage ?? _currentState.isFetchingNextPage,
-      isFetchingPreviousPage:
-          isFetchingPreviousPage ?? _currentState.isFetchingPreviousPage,
-      status: status ?? _currentState.status,
-      dataUpdatedAt: dataUpdatedAt ?? _currentState.dataUpdatedAt,
-    ));
+    _updateState(
+      _currentState.copyWith(
+        pages: pages,
+        hasNextPage: hasNext,
+        hasPreviousPage: hasPrev,
+        isFetchingNextPage:
+            isFetchingNextPage ?? _currentState.isFetchingNextPage,
+        isFetchingPreviousPage:
+            isFetchingPreviousPage ?? _currentState.isFetchingPreviousPage,
+        status: status ?? _currentState.status,
+        dataUpdatedAt: dataUpdatedAt ?? _currentState.dataUpdatedAt,
+      ),
+    );
   }
 
   TParam? _computeNextParam(List<Page<TData, TParam>> pages) {
@@ -422,7 +478,7 @@ class InfiniteQuery<TData, TParam> {
     if (pages.isEmpty) {
       return getNextPageParam(const [], null);
     }
-    for (int i = pages.length - 1; i >= 0; i--) {
+    for (var i = pages.length - 1; i >= 0; i--) {
       final page = pages[i];
       if (page.data != null) {
         return getNextPageParam(pages, page.data as TData);
@@ -435,7 +491,7 @@ class InfiniteQuery<TData, TParam> {
     final getPreviousPageParam = options?.getPreviousPageParam;
     if (getPreviousPageParam == null) return null;
     if (pages.isEmpty) return null;
-    for (int i = 0; i < pages.length; i++) {
+    for (var i = 0; i < pages.length; i++) {
       final page = pages[i];
       if (page.data != null) {
         return getPreviousPageParam(pages, page.data as TData);
@@ -452,42 +508,48 @@ class InfiniteQuery<TData, TParam> {
     return _computeHasPrevForPages(options, pages);
   }
 
-  bool _computeHasNextForPages(InfiniteQueryOptions<TData, TParam>? opts,
-      List<Page<TData, TParam>> pages) {
+  bool _computeHasNextForPages(
+    InfiniteQueryOptions<TData, TParam>? opts,
+    List<Page<TData, TParam>> pages,
+  ) {
     final getNextPageParam = opts?.getNextPageParam;
     if (getNextPageParam == null) return false;
     try {
-      for (int i = pages.length - 1; i >= 0; i--) {
+      for (var i = pages.length - 1; i >= 0; i--) {
         final page = pages[i];
         if (page.data != null) {
           return getNextPageParam(pages, page.data as TData) != null;
         }
       }
       return false;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }
 
-  bool _computeHasPrevForPages(InfiniteQueryOptions<TData, TParam>? opts,
-      List<Page<TData, TParam>> pages) {
+  bool _computeHasPrevForPages(
+    InfiniteQueryOptions<TData, TParam>? opts,
+    List<Page<TData, TParam>> pages,
+  ) {
     final getPreviousPageParam = opts?.getPreviousPageParam;
     if (getPreviousPageParam == null) return false;
     try {
-      for (int i = 0; i < pages.length; i++) {
+      for (var i = 0; i < pages.length; i++) {
         final page = pages[i];
         if (page.data != null) {
           return getPreviousPageParam(pages, page.data as TData) != null;
         }
       }
       return false;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }
 
-  List<Page<TData, TParam>> _applyMaxPages(List<Page<TData, TParam>> pages,
-      {required bool dropFromStart}) {
+  List<Page<TData, TParam>> _applyMaxPages(
+    List<Page<TData, TParam>> pages, {
+    required bool dropFromStart,
+  }) {
     final max = options?.maxPages;
     if (max == null || pages.length <= max) return pages;
     final drop = pages.length - max;
@@ -510,13 +572,16 @@ class InfiniteQuery<TData, TParam> {
     _disposeTimer = null;
   }
 
+  /// Disposes this query and releases stream/resources.
+  ///
+  /// This method is idempotent.
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
     _fetchFuture = null;
     _isPrefetching = false;
     _disposeTimer?.cancel();
-    _controller.close();
+    unawaited(_controller.close());
     onDispose?.call();
   }
 }
