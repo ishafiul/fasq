@@ -1,35 +1,34 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:fasq/src/cache/cache_config.dart';
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/cache/query_cache.dart';
+import 'package:fasq/src/circuit_breaker/circuit_breaker_registry.dart';
+import 'package:fasq/src/core/cancellation_token.dart';
+import 'package:fasq/src/core/infinite_query.dart';
+import 'package:fasq/src/core/infinite_query_options.dart';
+import 'package:fasq/src/core/mutation_meta.dart';
+import 'package:fasq/src/core/mutation_snapshot.dart';
+import 'package:fasq/src/core/prefetch_config.dart';
+import 'package:fasq/src/core/query.dart';
+import 'package:fasq/src/core/query_client_observer.dart';
+import 'package:fasq/src/core/query_dependency_manager.dart';
+import 'package:fasq/src/core/query_key.dart';
+import 'package:fasq/src/core/query_meta.dart';
+import 'package:fasq/src/core/query_options.dart';
+import 'package:fasq/src/core/query_snapshot.dart';
+import 'package:fasq/src/core/validation/input_validator.dart';
+import 'package:fasq/src/error/error_context.dart';
+import 'package:fasq/src/error/error_reporter.dart';
+import 'package:fasq/src/logger/fasq_logger.dart';
+import 'package:fasq/src/performance/isolate_pool.dart';
+import 'package:fasq/src/performance/metrics_config.dart';
+import 'package:fasq/src/performance/performance_monitor.dart';
+import 'package:fasq/src/persistence/persistence_options.dart';
+import 'package:fasq/src/security/security_plugin.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:meta/meta.dart';
-
-import '../cache/cache_config.dart';
-import '../cache/cache_metrics.dart';
-import '../cache/query_cache.dart';
-import '../circuit_breaker/circuit_breaker_registry.dart';
-import '../error/error_context.dart';
-import '../error/error_reporter.dart';
-import '../logger/fasq_logger.dart';
-import '../performance/isolate_pool.dart';
-import '../performance/metrics_config.dart';
-import '../performance/performance_monitor.dart';
-import '../persistence/persistence_options.dart';
-import '../security/security_plugin.dart';
-import 'cancellation_token.dart';
-import 'infinite_query.dart';
-import 'infinite_query_options.dart';
-import 'mutation_meta.dart';
-import 'mutation_snapshot.dart';
-import 'prefetch_config.dart';
-import 'query.dart';
-import 'query_client_observer.dart';
-import 'query_dependency_manager.dart';
-import 'query_key.dart';
-import 'query_meta.dart';
-import 'query_options.dart';
-import 'query_snapshot.dart';
-import 'validation/input_validator.dart';
 
 /// Global registry for all queries in the application.
 ///
@@ -48,10 +47,6 @@ import 'validation/input_validator.dart';
 /// final sameQuery = client.getQueryByKey<User>('user');
 /// ```
 class QueryClient with WidgetsBindingObserver {
-  static QueryClient? _instance;
-
-  static QueryClient? get maybeInstance => _instance;
-
   /// Returns the singleton instance of [QueryClient].
   factory QueryClient({
     CacheConfig? config,
@@ -99,10 +94,10 @@ class QueryClient with WidgetsBindingObserver {
           persistenceOptions: persistenceOptions,
           securityPlugin: securityPlugin,
         ) {
-    try {
+    if (BindingBase.debugBindingType() != null) {
       _binding = WidgetsBinding.instance;
       _binding?.addObserver(this);
-    } on FlutterError {
+    } else {
       _binding = null;
     }
     _isolatePool =
@@ -112,9 +107,13 @@ class QueryClient with WidgetsBindingObserver {
       queries: _queries,
     );
   }
+  static QueryClient? _instance;
 
-  final Map<String, Query> _queries = {};
-  final Map<String, InfiniteQuery> _infiniteQueries = {};
+  /// Returns the current singleton instance if already initialized, else null.
+  static QueryClient? get maybeInstance => _instance;
+
+  final Map<String, Query<Object?>> _queries = {};
+  final Map<String, InfiniteQuery<Object?, Object?>> _infiniteQueries = {};
   final QueryCache _cache;
   final CacheConfig _configSnapshot;
   final PersistenceOptions? _persistenceSnapshot;
@@ -131,15 +130,20 @@ class QueryClient with WidgetsBindingObserver {
 
   String _extractKey(QueryKey queryKey) => queryKey.key;
 
+  /// Registers an observer for query/mutation lifecycle notifications.
+  ///
+  /// Duplicate registrations are ignored.
   void addObserver(QueryClientObserver observer) {
     if (_observers.contains(observer)) return;
     _observers.add(observer);
   }
 
+  /// Unregisters a previously added observer.
   void removeObserver(QueryClientObserver observer) {
     _observers.remove(observer);
   }
 
+  /// Removes all registered observers.
   void clearObservers() {
     _observers.clear();
   }
@@ -176,7 +180,7 @@ class QueryClient with WidgetsBindingObserver {
   /// Dispatches an error context to all registered error reporters.
   ///
   /// This method is called internally when a query fails. Each reporter's
-  /// [report] method is called with the error context. If a reporter throws
+  /// `report` method is called with the error context. If a reporter throws
   /// an exception, it is caught and logged to prevent breaking the application
   /// or preventing other reporters from being notified.
   ///
@@ -189,7 +193,7 @@ class QueryClient with WidgetsBindingObserver {
     for (final reporter in _errorReporters) {
       try {
         reporter.report(context);
-      } catch (e, st) {
+      } on Object catch (e, st) {
         // Log errors from the reporter itself to avoid breaking the application
         // and to diagnose reporter issues. Try to use FasqLogger if available,
         // otherwise fall back to print.
@@ -204,7 +208,7 @@ class QueryClient with WidgetsBindingObserver {
   /// Logs an error from an error reporter.
   ///
   /// Attempts to use FasqLogger if it's registered as an observer,
-  /// otherwise falls back to print.
+  /// otherwise falls back to developer logging.
   void _logReporterError(Object error, StackTrace stackTrace) {
     // Try to find FasqLogger in observers
     for (final observer in _observers) {
@@ -214,10 +218,16 @@ class QueryClient with WidgetsBindingObserver {
       }
     }
 
-    // Fallback to print if no FasqLogger is available
-    print('Error in FasqErrorReporter: $error\n$stackTrace');
+    // Fallback to structured logging if no FasqLogger is available.
+    developer.log(
+      'Error in FasqErrorReporter: $error',
+      name: 'fasq.query_client',
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
+  /// Notifies observers that a mutation entered the loading state.
   void notifyMutationLoading(
     MutationSnapshot<dynamic, dynamic> snapshot,
     MutationMeta? meta,
@@ -228,6 +238,7 @@ class QueryClient with WidgetsBindingObserver {
     }
   }
 
+  /// Notifies observers that a mutation completed successfully.
   void notifyMutationSuccess(
     MutationSnapshot<dynamic, dynamic> snapshot,
     MutationMeta? meta,
@@ -238,6 +249,7 @@ class QueryClient with WidgetsBindingObserver {
     }
   }
 
+  /// Notifies observers that a mutation failed.
   void notifyMutationError(
     MutationSnapshot<dynamic, dynamic> snapshot,
     MutationMeta? meta,
@@ -248,6 +260,7 @@ class QueryClient with WidgetsBindingObserver {
     }
   }
 
+  /// Notifies observers that a mutation has settled (success or error).
   void notifyMutationSettled(
     MutationSnapshot<dynamic, dynamic> snapshot,
     MutationMeta? meta,
@@ -258,6 +271,7 @@ class QueryClient with WidgetsBindingObserver {
     }
   }
 
+  /// Notifies observers that a query entered the loading state.
   void notifyQueryLoading(
     QuerySnapshot<dynamic> snapshot,
     QueryMeta? meta,
@@ -268,6 +282,7 @@ class QueryClient with WidgetsBindingObserver {
     }
   }
 
+  /// Notifies observers that a query completed successfully.
   void notifyQuerySuccess(
     QuerySnapshot<dynamic> snapshot,
     QueryMeta? meta,
@@ -278,6 +293,7 @@ class QueryClient with WidgetsBindingObserver {
     }
   }
 
+  /// Notifies observers that a query failed.
   void notifyQueryError(
     QuerySnapshot<dynamic> snapshot,
     QueryMeta? meta,
@@ -288,6 +304,7 @@ class QueryClient with WidgetsBindingObserver {
     }
   }
 
+  /// Notifies observers that a query has settled (success or error).
   void notifyQuerySettled(
     QuerySnapshot<dynamic> snapshot,
     QueryMeta? meta,
@@ -300,10 +317,10 @@ class QueryClient with WidgetsBindingObserver {
 
   /// Gets an existing query or creates a new one.
   ///
-  /// If a query with the given [key] already exists, returns that query.
+  /// If a query with the given [queryKey] already exists, returns that query.
   /// Otherwise, creates a new query with the provided [queryFn] and [options].
   ///
-  /// Multiple calls with the same [key] return the same [Query] instance,
+  /// Multiple calls with the same [queryKey] return the same [Query] instance,
   /// enabling query sharing across widgets.
   ///
   /// [dependsOn] establishes a parent-child relationship. When the parent
@@ -374,10 +391,14 @@ class QueryClient with WidgetsBindingObserver {
       initialEntry: cachedEntry,
     );
 
-    _queries[key] = query;
+    _queries[key] = query as Query<Object?>;
     return query;
   }
 
+  /// Gets an existing infinite query or creates a new one.
+  ///
+  /// If a query with [queryKey] already exists, the existing instance is
+  /// returned unless it has been disposed.
   InfiniteQuery<TData, TParam> getInfiniteQuery<TData, TParam>(
     QueryKey queryKey,
     Future<TData> Function(TParam param) queryFn, {
@@ -403,7 +424,7 @@ class QueryClient with WidgetsBindingObserver {
       },
     );
 
-    _infiniteQueries[key] = infinite;
+    _infiniteQueries[key] = infinite as InfiniteQuery<Object?, Object?>;
     return infinite;
   }
 
@@ -424,8 +445,10 @@ class QueryClient with WidgetsBindingObserver {
     return _queries[key] as Query<T>?;
   }
 
+  /// Retrieves an existing infinite query by its key, or null if not found.
   InfiniteQuery<TData, TParam>? getInfiniteQueryByKey<TData, TParam>(
-      QueryKey queryKey) {
+    QueryKey queryKey,
+  ) {
     final key = _extractKey(queryKey);
     return _infiniteQueries[key] as InfiniteQuery<TData, TParam>?;
   }
@@ -440,6 +463,9 @@ class QueryClient with WidgetsBindingObserver {
     query?.dispose();
   }
 
+  /// Removes and disposes an infinite query by its key.
+  ///
+  /// The query is immediately disposed and removed from the registry.
   void removeInfiniteQuery(QueryKey queryKey) {
     final key = _extractKey(queryKey);
     final query = _infiniteQueries.remove(key);
@@ -467,7 +493,7 @@ class QueryClient with WidgetsBindingObserver {
   /// The number of queries currently in the registry.
   int get queryCount => _queries.length;
 
-  /// Whether a query with the given [key] exists.
+  /// Whether a query with the given [queryKey] exists.
   bool hasQuery(QueryKey queryKey) {
     final key = _extractKey(queryKey);
     return _queries.containsKey(key);
@@ -554,23 +580,19 @@ class QueryClient with WidgetsBindingObserver {
     _cache.invalidate(key);
     final query = _queries[key];
     if (query != null && query.referenceCount > 0) {
-      query.fetch();
+      unawaited(query.fetch());
     }
   }
 
   /// Invalidates multiple queries atomically
   void invalidateQueries(List<QueryKey> queryKeys) {
-    for (final queryKey in queryKeys) {
-      invalidateQuery(queryKey);
-    }
+    queryKeys.forEach(invalidateQuery);
   }
 
   /// Invalidates queries matching condition
   void invalidateQueriesWhere(bool Function(String key) predicate) {
-    final keysToInvalidate = _queries.keys
-        .where(predicate)
-        .map((key) => StringQueryKey(key))
-        .toList();
+    final keysToInvalidate =
+        _queries.keys.where(predicate).map(StringQueryKey.new).toList();
     invalidateQueries(keysToInvalidate);
   }
 
@@ -589,14 +611,16 @@ class QueryClient with WidgetsBindingObserver {
     for (final key in affectedKeys) {
       final query = _queries[key];
       if (query != null && query.referenceCount > 0) {
-        query.fetch();
+        unawaited(query.fetch());
       }
     }
   }
 
-  /// Prefetches a query and populates the cache without creating a persistent query.
+  /// Prefetches a query and populates the cache without creating a
+  ///  persistent query.
   ///
-  /// Useful for warming the cache before navigation or when hovering over links.
+  /// Useful for warming the cache before navigation or when hovering
+  ///  over links.
   /// The query executes in the background and the result is cached but no
   /// loading state is exposed to the UI.
   ///
@@ -648,15 +672,17 @@ class QueryClient with WidgetsBindingObserver {
   ///   PrefetchConfig(key: 'comments', queryFn: () => api.fetchComments()),
   /// ]);
   /// ```
-  Future<void> prefetchQueries(
-    List<PrefetchConfig> configs,
+  Future<void> prefetchQueries<T>(
+    List<PrefetchConfig<T>> configs,
   ) async {
     await Future.wait(
-      configs.map((config) => prefetchQuery(
-            config.queryKey,
-            config.queryFn,
-            options: config.options,
-          )),
+      configs.map(
+        (config) => prefetchQuery(
+          config.queryKey,
+          config.queryFn,
+          options: config.options,
+        ),
+      ),
     );
   }
 
@@ -671,7 +697,7 @@ class QueryClient with WidgetsBindingObserver {
     for (final key in affectedKeys) {
       final query = _queries[key];
       if (query != null && query.referenceCount > 0) {
-        query.fetch();
+        unawaited(query.fetch());
       }
     }
   }
@@ -679,8 +705,12 @@ class QueryClient with WidgetsBindingObserver {
   /// Manually sets data in the cache.
   ///
   /// Useful for optimistic updates or pre-populating cache.
-  void setQueryData<T>(QueryKey queryKey, T data,
-      {bool isSecure = false, Duration? maxAge}) {
+  void setQueryData<T>(
+    QueryKey queryKey,
+    T data, {
+    bool isSecure = false,
+    Duration? maxAge,
+  }) {
     final key = _extractKey(queryKey);
     InputValidator.validateQueryKey(key);
     InputValidator.validateCacheData(data);
@@ -727,8 +757,9 @@ class QueryClient with WidgetsBindingObserver {
   /// print('Cache hit rate: ${snapshot.cacheMetrics.hitRate}');
   /// print('Active queries: ${snapshot.activeQueries}');
   /// ```
-  PerformanceSnapshot getMetrics(
-      {Duration throughputWindow = const Duration(minutes: 1)}) {
+  PerformanceSnapshot getMetrics({
+    Duration throughputWindow = const Duration(minutes: 1),
+  }) {
     return _performanceMonitor.getSnapshot(throughputWindow: throughputWindow);
   }
 
@@ -745,8 +776,10 @@ class QueryClient with WidgetsBindingObserver {
   ///   print('Avg fetch time: ${metrics.averageFetchTime?.inMilliseconds}ms');
   /// }
   /// ```
-  QueryMetrics? getQueryMetrics(QueryKey queryKey,
-      {Duration throughputWindow = const Duration(minutes: 1)}) {
+  QueryMetrics? getQueryMetrics(
+    QueryKey queryKey, {
+    Duration throughputWindow = const Duration(minutes: 1),
+  }) {
     final key = _extractKey(queryKey);
     final snapshot =
         _performanceMonitor.getSnapshot(throughputWindow: throughputWindow);
@@ -760,7 +793,8 @@ class QueryClient with WidgetsBindingObserver {
 
   /// Configures the metrics exporters and enables/disables auto-export.
   ///
-  /// This method allows you to configure one or more [MetricsExporter] instances
+  /// This method allows you to configure one or more `MetricsExporter`
+  /// instances
   /// and optionally enable automatic periodic export of performance metrics.
   ///
   /// Example:
@@ -778,8 +812,9 @@ class QueryClient with WidgetsBindingObserver {
   /// );
   /// ```
   ///
-  /// If [enableAutoExport] is true, metrics will be automatically exported
-  /// at the specified [exportInterval]. Any previously configured auto-export
+  /// If [MetricsConfig.enableAutoExport] is true, metrics will be
+  /// automatically exported at the specified [MetricsConfig.exportInterval].
+  /// Any previously configured auto-export
   /// timer will be cancelled.
   void configureMetricsExporters(MetricsConfig config) {
     _metricsConfig = config;
@@ -797,7 +832,7 @@ class QueryClient with WidgetsBindingObserver {
         for (final exporter in _metricsConfig.exporters) {
           try {
             await exporter.export(snapshot);
-          } catch (e) {
+          } on Object catch (_) {
             // Error logging is handled by individual exporters
             // This catch prevents one exporter failure from stopping others
           }
@@ -827,7 +862,7 @@ class QueryClient with WidgetsBindingObserver {
     for (final exporter in _metricsConfig.exporters) {
       try {
         await exporter.export(snapshot);
-      } catch (e) {
+      } on Object catch (_) {
         // Error logging is handled by individual exporters
         // This catch prevents one exporter failure from stopping others
       }
@@ -849,7 +884,6 @@ class QueryClient with WidgetsBindingObserver {
       case AppLifecycleState.detached:
         // Clear secure entries when app goes to background or is terminated
         clearSecureCache();
-        break;
       case AppLifecycleState.resumed:
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
