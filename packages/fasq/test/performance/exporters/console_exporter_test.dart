@@ -22,10 +22,10 @@ void main() {
     });
 
     test('export handles snapshot with no queries', () async {
-      final cacheMetrics = CacheMetrics();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordMiss();
-      cacheMetrics.recordMemoryUsage(1024 * 1024);
+      final cacheMetrics = CacheMetrics()
+        ..recordHit()
+        ..recordMiss()
+        ..recordMemoryUsage(1024 * 1024);
 
       final snapshot = PerformanceSnapshot(
         timestamp: DateTime.now(),
@@ -43,26 +43,26 @@ void main() {
     });
 
     test('export handles snapshot with multiple queries', () async {
-      final cacheMetrics = CacheMetrics();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordMiss();
-      cacheMetrics.recordMemoryUsage(2 * 1024 * 1024);
+      final cacheMetrics = CacheMetrics()
+        ..recordHit()
+        ..recordHit()
+        ..recordMiss()
+        ..recordMemoryUsage(2 * 1024 * 1024);
 
       final queryMetrics = <String, QueryMetrics>{
-        'query1': QueryMetrics(
+        'query1': const QueryMetrics(
           fetchHistory: [
-            const Duration(milliseconds: 100),
-            const Duration(milliseconds: 150),
+            Duration(milliseconds: 100),
+            Duration(milliseconds: 150),
           ],
-          lastFetchDuration: const Duration(milliseconds: 150),
+          lastFetchDuration: Duration(milliseconds: 150),
           referenceCount: 1,
         ),
-        'query2': QueryMetrics(
+        'query2': const QueryMetrics(
           fetchHistory: [
-            const Duration(milliseconds: 200),
+            Duration(milliseconds: 200),
           ],
-          lastFetchDuration: const Duration(milliseconds: 200),
+          lastFetchDuration: Duration(milliseconds: 200),
           referenceCount: 2,
         ),
       };
@@ -85,7 +85,7 @@ void main() {
     test('export handles query metrics with no fetch history', () async {
       final cacheMetrics = CacheMetrics();
       final queryMetrics = <String, QueryMetrics>{
-        'query1': QueryMetrics(
+        'query1': const QueryMetrics(
           fetchHistory: [],
           referenceCount: 0,
         ),
@@ -107,10 +107,10 @@ void main() {
     });
 
     test('export formats cache hit rate correctly', () async {
-      final cacheMetrics = CacheMetrics();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordMiss();
+      final cacheMetrics = CacheMetrics()
+        ..recordHit()
+        ..recordHit()
+        ..recordMiss();
 
       final snapshot = PerformanceSnapshot(
         timestamp: DateTime.now(),
@@ -131,7 +131,7 @@ void main() {
 
     test('export formats memory usage in MB', () async {
       final cacheMetrics = CacheMetrics();
-      final memoryBytes = 5 * 1024 * 1024;
+      const memoryBytes = 5 * 1024 * 1024;
 
       final snapshot = PerformanceSnapshot(
         timestamp: DateTime.now(),

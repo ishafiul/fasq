@@ -98,8 +98,10 @@ void main() {
     test('removeQuery with non-existent key does not throw', () {
       final client = QueryClient();
 
-      expect(() => client.removeQuery('non-existent'.toQueryKey()),
-          returnsNormally);
+      expect(
+        () => client.removeQuery('non-existent'.toQueryKey()),
+        returnsNormally,
+      );
     });
 
     test('clear disposes all queries', () {
@@ -172,7 +174,7 @@ void main() {
 
     test('works with TypedQueryKey', () {
       final client = QueryClient();
-      final typedKey = TypedQueryKey<String>('typed-key', String);
+      const typedKey = TypedQueryKey<String>('typed-key', String);
       final query = client.getQuery<String>(
         typedKey,
         queryFn: () async => 'data',
@@ -184,7 +186,7 @@ void main() {
     });
 
     test('String extension converts to QueryKey', () {
-      final key = 'test-key';
+      const key = 'test-key';
       final queryKey = key.toQueryKey();
 
       expect(queryKey, isA<QueryKey>());
@@ -200,25 +202,28 @@ void main() {
       });
 
       test('returns debug info for active queries', () {
-        final client = QueryClient();
-        client.getQuery<String>(
-          'key1'.toQueryKey(),
-          queryFn: () async => 'data1',
-        );
-        client.getQuery<String>(
-          'key2'.toQueryKey(),
-          queryFn: () async => 'data2',
-        );
+        final client = QueryClient()
+          ..getQuery<String>(
+            'key1'.toQueryKey(),
+            queryFn: () async => 'data1',
+          )
+          ..getQuery<String>(
+            'key2'.toQueryKey(),
+            queryFn: () async => 'data2',
+          );
 
         final debugInfos = client.activeQueryDebugInfo.toList();
 
         expect(debugInfos.length, 2);
         expect(debugInfos.every((info) => info.creationStack != null), isTrue);
         expect(
-            debugInfos.every((info) =>
+          debugInfos.every(
+            (info) =>
                 info.referenceHolders.isNotEmpty ||
-                info.referenceHolders.isEmpty),
-            isTrue);
+                info.referenceHolders.isEmpty,
+          ),
+          isTrue,
+        );
       });
 
       test('does not include disposed queries', () {
@@ -226,14 +231,15 @@ void main() {
         final queryKey1 = 'key1'.toQueryKey();
         final queryKey2 = 'key2'.toQueryKey();
 
-        client.getQuery<String>(
-          queryKey1,
-          queryFn: () async => 'data1',
-        );
-        client.getQuery<String>(
-          queryKey2,
-          queryFn: () async => 'data2',
-        );
+        client
+          ..getQuery<String>(
+            queryKey1,
+            queryFn: () async => 'data1',
+          )
+          ..getQuery<String>(
+            queryKey2,
+            queryFn: () async => 'data2',
+          );
 
         expect(client.activeQueryDebugInfo.length, 2);
 
@@ -262,11 +268,11 @@ void main() {
       });
 
       test('filters out queries with null debugInfo', () {
-        final client = QueryClient();
-        client.getQuery<String>(
-          'test-key'.toQueryKey(),
-          queryFn: () async => 'data',
-        );
+        final client = QueryClient()
+          ..getQuery<String>(
+            'test-key'.toQueryKey(),
+            queryFn: () async => 'data',
+          );
 
         final debugInfos = client.activeQueryDebugInfo.toList();
         expect(debugInfos.length, 1);

@@ -21,7 +21,7 @@ void main() {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async {
-          await Future.delayed(const Duration(milliseconds: 50));
+          await Future<void>.delayed(const Duration(milliseconds: 50));
           return 'data';
         },
       );
@@ -69,7 +69,7 @@ void main() {
         queryFn: () async => 'data',
       );
 
-      int notifyCount = 0;
+      var notifyCount = 0;
       query.subscribe((_) => notifyCount++);
 
       await query.fetch();
@@ -78,22 +78,22 @@ void main() {
     });
 
     test('Query cancels fetch on disposal', () async {
-      bool fetchCompleted = false;
+      var fetchCompleted = false;
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFnWithToken: (token) async {
-          await Future.delayed(const Duration(milliseconds: 100));
+          await Future<void>.delayed(const Duration(milliseconds: 100));
           if (token.isCancelled) return 'cancelled';
           fetchCompleted = true;
           return 'data';
         },
       );
 
-      query.fetch(); // Trigger fetch
-      await Future.delayed(const Duration(milliseconds: 10));
+      await query.fetch(); // Trigger fetch
+      await Future<void>.delayed(const Duration(milliseconds: 10));
       query.dispose();
 
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(fetchCompleted, false);
     });
 
@@ -120,14 +120,14 @@ void main() {
 
     test('Query deduplicates multiple fetches using QueryClient', () async {
       final client = QueryClient();
-      int fetchCount = 0;
+      var fetchCount = 0;
       final queryKey = 'test-dedupe'.toQueryKey();
 
       final query = client.getQuery<String>(
         queryKey,
         queryFn: () async {
           fetchCount++;
-          await Future.delayed(const Duration(milliseconds: 50));
+          await Future<void>.delayed(const Duration(milliseconds: 50));
           return 'data-$fetchCount';
         },
       );
@@ -156,12 +156,12 @@ void main() {
     });
 
     test('Query state persistence during refetch', () async {
-      int fetchCount = 0;
+      var fetchCount = 0;
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async {
           fetchCount++;
-          await Future.delayed(const Duration(milliseconds: 50));
+          await Future<void>.delayed(const Duration(milliseconds: 50));
           return 'data-$fetchCount';
         },
       );
@@ -181,9 +181,7 @@ void main() {
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async => 'data',
-      );
-
-      query.updateFromCache('manual-data');
+      )..updateFromCache('manual-data');
       expect(query.state.data, 'manual-data');
       expect(query.state.status, QueryStatus.success);
     });
@@ -200,7 +198,7 @@ void main() {
     });
 
     test('Query honors manual refetch', () async {
-      int fetchCount = 0;
+      var fetchCount = 0;
       final query = Query<String>(
         queryKey: 'test'.toQueryKey(),
         queryFn: () async {
@@ -224,9 +222,7 @@ void main() {
       final query1 = client.getQuery<String>(
         queryKey,
         queryFn: () async => 'cached-data',
-      );
-
-      query1.addListener();
+      )..addListener();
       await query1.fetch(); // Wait for fetch to complete
 
       // Verify data is cached
@@ -235,10 +231,11 @@ void main() {
       expect(cachedEntry!.data, 'cached-data');
 
       // Remove listener to trigger disposal timer
-      query1.removeListener();
+      query1
+        ..removeListener()
 
-      // For testing, we'll manually dispose to trigger immediate cleanup
-      query1.dispose();
+        // For testing, we'll manually dispose to trigger immediate cleanup
+        ..dispose();
 
       // Verify cache is NOT cleared immediately (it persists until GC)
       final persistingEntry = client.cache.get<String>('test-cache-clear');
@@ -253,7 +250,7 @@ void main() {
 
     test('New query fetches data when cache is cleared', () async {
       final client = QueryClient();
-      int fetchCount = 0;
+      var fetchCount = 0;
 
       // Create first query
       final queryKey = 'test-fresh-fetch'.toQueryKey();
@@ -263,17 +260,17 @@ void main() {
           fetchCount++;
           return 'data-$fetchCount';
         },
-      );
-
-      query1.addListener(); // This will trigger fetch automatically
-      await Future.delayed(
-          const Duration(milliseconds: 10)); // Wait for async fetch
+      )..addListener(); // This will trigger fetch automatically
+      await Future<void>.delayed(
+        const Duration(milliseconds: 10),
+      ); // Wait for async fetch
       expect(fetchCount, 1);
       expect(query1.state.data, 'data-1');
 
       // Dispose query1
-      query1.removeListener();
-      query1.dispose();
+      query1
+        ..removeListener()
+        ..dispose();
 
       // Create new query with same key
       final query2 = client.getQuery<String>(
@@ -308,8 +305,9 @@ void main() {
 
       // Adding listener should trigger fetch
       query3.addListener();
-      await Future.delayed(
-          const Duration(milliseconds: 10)); // Wait for async fetch
+      await Future<void>.delayed(
+        const Duration(milliseconds: 10),
+      ); // Wait for async fetch
 
       expect(fetchCount, 2);
       expect(query3.state.data, 'data-2');
@@ -367,14 +365,18 @@ void main() {
         final query = Query<String>(
           queryKey: 'test'.toQueryKey(),
           queryFn: () async => 'data',
-        );
+        )
 
-        // Add listener without ownerId (generates unique ID)
-        query.addListener();
+          // Add listener without ownerId (generates unique ID)
+          ..addListener();
 
         expect(query.referenceCount, 1);
         expect(query.debugReferenceHolders!.length, 1);
-        expect(query.debugReferenceHolders!.keys.any((k) => k.toString().startsWith('holder_')), isTrue);
+        expect(
+          query.debugReferenceHolders!.keys
+              .any((k) => k.toString().startsWith('holder_')),
+          isTrue,
+        );
       });
 
       test('debugReferenceHolders removes listener on removeListener', () {
@@ -395,7 +397,9 @@ void main() {
         expect(query.referenceCount, 0);
       });
 
-      test('debugReferenceHolders removes most recent listener when ownerId not specified', () {
+      test(
+          'debugReferenceHolders removes most recent listener when ownerId not specified',
+          () {
         final query = Query<String>(
           queryKey: 'test'.toQueryKey(),
           queryFn: () async => 'data',
@@ -404,8 +408,9 @@ void main() {
         const ownerId1 = 'widget-1';
         const ownerId2 = 'widget-2';
 
-        query.addListener(ownerId1);
-        query.addListener(ownerId2);
+        query
+          ..addListener(ownerId1)
+          ..addListener(ownerId2);
 
         expect(query.referenceCount, 2);
         expect(query.debugReferenceHolders!.length, 2);
@@ -423,15 +428,17 @@ void main() {
         final query = Query<String>(
           queryKey: 'test'.toQueryKey(),
           queryFn: () async => 'data',
-        );
-
-        query.addListener('widget-1');
-        query.addListener('widget-2');
-        query.addListener('widget-3');
+        )
+          ..addListener('widget-1')
+          ..addListener('widget-2')
+          ..addListener('widget-3');
 
         expect(query.referenceCount, 3);
         expect(query.debugReferenceHolders!.length, 3);
-        expect(query.debugReferenceHolders!.keys, containsAll(['widget-1', 'widget-2', 'widget-3']));
+        expect(
+          query.debugReferenceHolders!.keys,
+          containsAll(['widget-1', 'widget-2', 'widget-3']),
+        );
 
         // Verify each has a stack trace
         for (final ownerId in ['widget-1', 'widget-2', 'widget-3']) {
@@ -444,16 +451,21 @@ void main() {
         final query = Query<String>(
           queryKey: 'test'.toQueryKey(),
           queryFn: () async => 'data',
+        )
+          ..addListener('widget-1')
+          ..addListener('widget-2');
+
+        expect(
+          query.referenceCount,
+          equals(query.debugReferenceHolders!.length),
         );
-
-        query.addListener('widget-1');
-        query.addListener('widget-2');
-
-        expect(query.referenceCount, equals(query.debugReferenceHolders!.length));
 
         query.removeListener('widget-1');
 
-        expect(query.referenceCount, equals(query.debugReferenceHolders!.length));
+        expect(
+          query.referenceCount,
+          equals(query.debugReferenceHolders!.length),
+        );
       });
 
       test('debugInfo returns QueryDebugInfo in debug mode', () {
@@ -483,10 +495,9 @@ void main() {
         final query = Query<String>(
           queryKey: 'test'.toQueryKey(),
           queryFn: () async => 'data',
-        );
-
-        query.addListener('widget-1');
-        query.addListener('widget-2');
+        )
+          ..addListener('widget-1')
+          ..addListener('widget-2');
 
         final debugInfo = query.debugInfo;
         expect(debugInfo, isNotNull);
@@ -500,9 +511,7 @@ void main() {
         final query = Query<String>(
           queryKey: 'test'.toQueryKey(),
           queryFn: () async => 'data',
-        );
-
-        query.addListener('widget-1');
+        )..addListener('widget-1');
 
         final debugInfo = query.debugInfo;
         expect(debugInfo, isNotNull);
@@ -530,7 +539,10 @@ void main() {
 
         query.removeListener('widget-1');
         expect(query.debugInfo!.referenceHolders.length, 1);
-        expect(query.debugInfo!.referenceHolders.containsKey('widget-2'), isTrue);
+        expect(
+          query.debugInfo!.referenceHolders.containsKey('widget-2'),
+          isTrue,
+        );
       });
     });
   });

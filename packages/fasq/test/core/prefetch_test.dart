@@ -9,11 +9,11 @@ void main() {
 
     test('prefetchQuery populates cache correctly', () async {
       final client = QueryClient(
-        config: CacheConfig(defaultStaleTime: const Duration(minutes: 5)),
+        config: const CacheConfig(defaultStaleTime: Duration(minutes: 5)),
       );
 
       Future<String> fetchData() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         return 'prefetched data';
       }
 
@@ -29,13 +29,13 @@ void main() {
 
     test('prefetchQuery skips if cache is fresh', () async {
       final client = QueryClient(
-        config: CacheConfig(defaultStaleTime: const Duration(minutes: 5)),
+        config: const CacheConfig(defaultStaleTime: Duration(minutes: 5)),
       );
-      int fetchCount = 0;
+      var fetchCount = 0;
 
       Future<String> fetchData() async {
         fetchCount++;
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         return 'data';
       }
 
@@ -48,16 +48,16 @@ void main() {
 
     test('prefetchQuery updates stale cache', () async {
       final client = QueryClient(
-        config: CacheConfig(
-          defaultStaleTime: const Duration(milliseconds: 100),
+        config: const CacheConfig(
+          defaultStaleTime: Duration(milliseconds: 100),
         ),
       );
 
-      int fetchCount = 0;
+      var fetchCount = 0;
 
       Future<String> fetchData() async {
         fetchCount++;
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         return 'data-$fetchCount';
       }
 
@@ -68,7 +68,7 @@ void main() {
       final entry1 = cache.get<String>('test-key');
       expect(entry1!.data, equals('data-1'));
 
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
 
       await client.prefetchQuery('test-key'.toQueryKey(), fetchData);
       expect(fetchCount, equals(2));
@@ -81,7 +81,7 @@ void main() {
       final client = QueryClient();
 
       Future<String> fetchData() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         return 'data';
       }
 
@@ -107,29 +107,31 @@ void main() {
       final client = QueryClient();
 
       Future<String> fetchError() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         throw Exception('Prefetch error');
       }
 
-      expect(() => client.prefetchQuery('test-key'.toQueryKey(), fetchError),
-          throwsException);
+      expect(
+        () => client.prefetchQuery('test-key'.toQueryKey(), fetchError),
+        throwsException,
+      );
     });
 
     test('prefetched data is used by subsequent queries', () async {
       final client = QueryClient();
 
       Future<String> fetchData() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         return 'prefetched data';
       }
 
       final queryKey = 'test-key'.toQueryKey();
       await client.prefetchQuery(queryKey, fetchData);
 
-      final query = client.getQuery<String>(queryKey, queryFn: fetchData);
-      query.addListener();
+      final query = client.getQuery<String>(queryKey, queryFn: fetchData)
+        ..addListener();
 
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
       expect(query.state.hasData, isTrue);
       expect(query.state.data, equals('prefetched data'));
@@ -141,7 +143,7 @@ void main() {
       final client = QueryClient();
 
       Future<String> fetchData() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         return 'data';
       }
 
@@ -164,19 +166,19 @@ void main() {
       final results = <String>[];
 
       Future<String> fetchData1() async {
-        await Future.delayed(const Duration(milliseconds: 100));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
         results.add('data1');
         return 'data1';
       }
 
       Future<String> fetchData2() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         results.add('data2');
         return 'data2';
       }
 
       Future<String> fetchData3() async {
-        await Future.delayed(const Duration(milliseconds: 75));
+        await Future<void>.delayed(const Duration(milliseconds: 75));
         results.add('data3');
         return 'data3';
       }
@@ -207,22 +209,24 @@ void main() {
       final client = QueryClient();
 
       Future<String> fetchSuccess() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         return 'success';
       }
 
       Future<String> fetchError() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         throw Exception('Error');
       }
 
       try {
         await client.prefetchQueries([
           PrefetchConfig(
-              queryKey: 'success'.toQueryKey(), queryFn: fetchSuccess),
+            queryKey: 'success'.toQueryKey(),
+            queryFn: fetchSuccess,
+          ),
           PrefetchConfig(queryKey: 'error'.toQueryKey(), queryFn: fetchError),
         ]);
-      } catch (e) {
+      } on Object {
         // Expected error, test passed
       }
 
@@ -242,7 +246,7 @@ void main() {
       final client = QueryClient();
 
       Future<String> fetchData() async {
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         return 'data';
       }
 
@@ -260,21 +264,25 @@ void main() {
       ]);
 
       final cache = client.cache;
-      expect(cache.get<String>('key1')!.staleTime,
-          equals(const Duration(minutes: 1)));
-      expect(cache.get<String>('key2')!.staleTime,
-          equals(const Duration(minutes: 5)));
+      expect(
+        cache.get<String>('key1')!.staleTime,
+        equals(const Duration(minutes: 1)),
+      );
+      expect(
+        cache.get<String>('key2')!.staleTime,
+        equals(const Duration(minutes: 5)),
+      );
     });
 
     test('prefetchQueries skips fresh entries', () async {
       final client = QueryClient(
-        config: CacheConfig(defaultStaleTime: const Duration(minutes: 5)),
+        config: const CacheConfig(defaultStaleTime: Duration(minutes: 5)),
       );
-      int fetchCount = 0;
+      var fetchCount = 0;
 
       Future<String> fetchData() async {
         fetchCount++;
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
         return 'data-$fetchCount';
       }
 

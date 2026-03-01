@@ -1,7 +1,7 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq/src/cache/query_cache.dart';
 import 'package:fasq/src/core/query_client.dart';
 import 'package:fasq/src/core/query_options.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +26,7 @@ void main() {
         'secure-token',
         'sensitive-data',
         isSecure: true,
-        maxAge: Duration(minutes: 5),
+        maxAge: const Duration(minutes: 5),
       );
 
       // Verify entry exists in memory
@@ -41,13 +41,14 @@ void main() {
 
     test('secure entries are cleared on app background', () {
       // Set both secure and non-secure entries
-      cache.set<String>(
-        'secure-token',
-        'sensitive-data',
-        isSecure: true,
-        maxAge: Duration(minutes: 5),
-      );
-      cache.set<String>('public-data', 'non-sensitive-data', isSecure: false);
+      cache
+        ..set<String>(
+          'secure-token',
+          'sensitive-data',
+          isSecure: true,
+          maxAge: const Duration(minutes: 5),
+        )
+        ..set<String>('public-data', 'non-sensitive-data');
 
       // Verify both exist
       expect(cache.get<String>('secure-token'), isNotNull);
@@ -63,13 +64,14 @@ void main() {
 
     test('secure entries are cleared on app termination', () {
       // Set both secure and non-secure entries
-      cache.set<String>(
-        'secure-token',
-        'sensitive-data',
-        isSecure: true,
-        maxAge: Duration(minutes: 5),
-      );
-      cache.set<String>('public-data', 'non-sensitive-data', isSecure: false);
+      cache
+        ..set<String>(
+          'secure-token',
+          'sensitive-data',
+          isSecure: true,
+          maxAge: const Duration(minutes: 5),
+        )
+        ..set<String>('public-data', 'non-sensitive-data');
 
       // Verify both exist
       expect(cache.get<String>('secure-token'), isNotNull);
@@ -89,14 +91,14 @@ void main() {
         'secure-token',
         'sensitive-data',
         isSecure: true,
-        maxAge: Duration(milliseconds: 100),
+        maxAge: const Duration(milliseconds: 100),
       );
 
       // Verify entry exists initially
       expect(cache.get<String>('secure-token'), isNotNull);
 
       // Wait for TTL to expire
-      Future.delayed(Duration(milliseconds: 150), () {
+      Future<void>.delayed(const Duration(milliseconds: 150), () {
         // Verify entry is expired and removed
         expect(cache.get<String>('secure-token'), isNull);
       });
@@ -104,7 +106,7 @@ void main() {
 
     test('non-secure entries are unaffected by secure operations', () {
       // Set non-secure entry
-      cache.set<String>('public-data', 'non-sensitive-data', isSecure: false);
+      cache.set<String>('public-data', 'non-sensitive-data');
 
       // Verify it exists
       expect(cache.get<String>('public-data'), isNotNull);
@@ -118,13 +120,14 @@ void main() {
 
     test('clearSecureCache removes only secure data', () {
       // Set both secure and non-secure entries
-      cache.set<String>(
-        'secure-token',
-        'sensitive-data',
-        isSecure: true,
-        maxAge: Duration(minutes: 5),
-      );
-      cache.set<String>('public-data', 'non-sensitive-data', isSecure: false);
+      cache
+        ..set<String>(
+          'secure-token',
+          'sensitive-data',
+          isSecure: true,
+          maxAge: const Duration(minutes: 5),
+        )
+        ..set<String>('public-data', 'non-sensitive-data');
 
       // Verify both exist
       expect(cache.get<String>('secure-token'), isNotNull);
@@ -140,7 +143,7 @@ void main() {
     });
 
     test('secure entries with maxAge have expiresAt set', () {
-      final maxAge = Duration(minutes: 5);
+      const maxAge = Duration(minutes: 5);
       cache.set<String>(
         'secure-token',
         'sensitive-data',
@@ -178,11 +181,11 @@ void main() {
     test('QueryOptions with isSecure flag works correctly', () {
       final options = QueryOptions(
         isSecure: true,
-        maxAge: Duration(minutes: 10),
+        maxAge: const Duration(minutes: 10),
       );
 
       expect(options.isSecure, isTrue);
-      expect(options.maxAge, equals(Duration(minutes: 10)));
+      expect(options.maxAge, equals(const Duration(minutes: 10)));
     });
 
     test('QueryOptions without isSecure flag defaults to false', () {

@@ -71,7 +71,6 @@ void main() {
         accessCount: 1,
         staleTime: const Duration(minutes: 5),
         cacheTime: const Duration(minutes: 8),
-        referenceCount: 0,
       );
 
       expect(entry.shouldGarbageCollect(now), isTrue);

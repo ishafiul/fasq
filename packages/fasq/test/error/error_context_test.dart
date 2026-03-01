@@ -12,9 +12,6 @@ void main() {
       options = QueryOptions(
         staleTime: const Duration(minutes: 5),
         cacheTime: const Duration(minutes: 10),
-        enabled: true,
-        refetchOnMount: false,
-        isSecure: false,
       );
       query = client.getQuery<String>(
         'test-key'.toQueryKey(),
@@ -94,9 +91,7 @@ void main() {
     group('PII Sanitization', () {
       test('sanitizes QueryOptions with only safe fields', () {
         final safeOptions = QueryOptions(
-          enabled: true,
           refetchOnMount: true,
-          isSecure: false,
           staleTime: const Duration(minutes: 5),
           cacheTime: const Duration(minutes: 10),
           maxAge: const Duration(hours: 1),
@@ -118,16 +113,20 @@ void main() {
         expect(sanitized['refetchOnMount'], true);
         expect(sanitized['isSecure'], false);
         expect(
-            sanitized['staleTime'], const Duration(minutes: 5).inMilliseconds);
+          sanitized['staleTime'],
+          const Duration(minutes: 5).inMilliseconds,
+        );
         expect(
-            sanitized['cacheTime'], const Duration(minutes: 10).inMilliseconds);
+          sanitized['cacheTime'],
+          const Duration(minutes: 10).inMilliseconds,
+        );
         expect(sanitized['maxAge'], const Duration(hours: 1).inMilliseconds);
       });
 
       test('excludes meta field from sanitized options', () {
         final optionsWithMeta = QueryOptions(
           staleTime: const Duration(minutes: 5),
-          meta: QueryMeta(
+          meta: const QueryMeta(
             successMessage: 'User-specific message',
             errorMessage: 'Error with user data',
           ),
@@ -147,7 +146,9 @@ void main() {
 
         expect(sanitized.containsKey('meta'), false);
         expect(
-            sanitized['staleTime'], const Duration(minutes: 5).inMilliseconds);
+          sanitized['staleTime'],
+          const Duration(minutes: 5).inMilliseconds,
+        );
       });
 
       test('excludes callbacks from sanitized options', () {
@@ -172,7 +173,9 @@ void main() {
         expect(sanitized.containsKey('onSuccess'), false);
         expect(sanitized.containsKey('onError'), false);
         expect(
-            sanitized['staleTime'], const Duration(minutes: 5).inMilliseconds);
+          sanitized['staleTime'],
+          const Duration(minutes: 5).inMilliseconds,
+        );
       });
 
       test('excludes circuit breaker fields from sanitized options', () {
@@ -197,21 +200,22 @@ void main() {
         expect(sanitized.containsKey('circuitBreaker'), false);
         expect(sanitized.containsKey('circuitBreakerScope'), false);
         expect(
-            sanitized['staleTime'], const Duration(minutes: 5).inMilliseconds);
+          sanitized['staleTime'],
+          const Duration(minutes: 5).inMilliseconds,
+        );
       });
 
       test('sanitizes performance options excluding dataTransformer', () {
         final optionsWithPerformance = QueryOptions(
           staleTime: const Duration(minutes: 5),
           performance: PerformanceOptions(
-            enableMetrics: true,
             maxRetries: 5,
             autoIsolate: true,
             enableHotCache: false,
             fetchTimeoutMs: 5000,
             isolateThreshold: 100,
             initialRetryDelay: const Duration(seconds: 2),
-            retryBackoffMultiplier: 3.0,
+            retryBackoffMultiplier: 3,
             enableDataTransform: true,
             dataTransformer: (data) async => data, // Should be excluded
           ),
@@ -236,8 +240,10 @@ void main() {
         expect(performance['enableHotCache'], false);
         expect(performance['fetchTimeoutMs'], 5000);
         expect(performance['isolateThreshold'], 100);
-        expect(performance['initialRetryDelay'],
-            const Duration(seconds: 2).inMilliseconds);
+        expect(
+          performance['initialRetryDelay'],
+          const Duration(seconds: 2).inMilliseconds,
+        );
         expect(performance['retryBackoffMultiplier'], 3.0);
         expect(performance['enableDataTransform'], true);
         expect(performance.containsKey('dataTransformer'), false);

@@ -34,7 +34,7 @@ void main() {
       final exporter1 = MockMetricsExporter();
       final exporter2 = MockMetricsExporter();
       final exporters = [exporter1, exporter2];
-      final interval = const Duration(minutes: 5);
+      const interval = Duration(minutes: 5);
 
       final config = MetricsConfig(
         exporters: exporters,
@@ -109,19 +109,22 @@ void main() {
       config.applyConfigurationToExporters(testConfig);
 
       expect(exporter.lastConfig, equals(testConfig));
-      expect(exporter.lastConfig!['endpoint'],
-          equals('https://otel-collector.example.com/v1/metrics'));
-      expect(exporter.lastConfig!['headers'],
-          equals({'Authorization': 'Bearer token'}));
+      expect(
+        exporter.lastConfig!['endpoint'],
+        equals('https://otel-collector.example.com/v1/metrics'),
+      );
+      expect(
+        exporter.lastConfig!['headers'],
+        equals({'Authorization': 'Bearer token'}),
+      );
     });
 
     test('applyConfigurationToExporters can be called multiple times', () {
       final exporter = MockMetricsExporter();
-      final config = MetricsConfig(exporters: [exporter]);
-
-      config.applyConfigurationToExporters({'key1': 'value1'});
-      config.applyConfigurationToExporters({'key2': 'value2'});
-      config.applyConfigurationToExporters({'key3': 'value3'});
+      MetricsConfig(exporters: [exporter])
+        ..applyConfigurationToExporters({'key1': 'value1'})
+        ..applyConfigurationToExporters({'key2': 'value2'})
+        ..applyConfigurationToExporters({'key3': 'value3'});
 
       expect(exporter.configureCallCount, 3);
       expect(exporter.lastConfig, equals({'key3': 'value3'}));
@@ -132,8 +135,10 @@ void main() {
       final exporter2 = MockMetricsExporter();
       final config = MetricsConfig(exporters: [exporter1, exporter2]);
 
-      expect(() => config.exporters.add(MockMetricsExporter()),
-          throwsUnsupportedError);
+      expect(
+        () => config.exporters.add(MockMetricsExporter()),
+        throwsUnsupportedError,
+      );
     });
 
     test('const constructor works with const values', () {

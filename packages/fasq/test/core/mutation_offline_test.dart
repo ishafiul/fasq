@@ -1,5 +1,7 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
+
 import 'package:fasq/fasq.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -9,11 +11,11 @@ void main() {
 
     setUp(() {
       mutation = Mutation<String, String>(
-        mutationFn: (String data) async {
-          await Future.delayed(Duration(milliseconds: 10));
+        mutationFn: (data) async {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
           return 'Processed: $data';
         },
-        options: MutationOptions(
+        options: const MutationOptions(
           queueWhenOffline: true,
         ),
       );
@@ -22,7 +24,7 @@ void main() {
     tearDown(() {
       mutation.dispose();
       NetworkStatus.instance.setOnline(online: true);
-      OfflineQueueManager.instance().clear();
+      unawaited(OfflineQueueManager.instance().clear());
     });
 
     test('should execute immediately when online', () async {
@@ -32,14 +34,14 @@ void main() {
       final subscription = mutation.stream.listen(states.add);
 
       await mutation.mutate('test data');
-      await Future.delayed(Duration(milliseconds: 50));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
       expect(states.length, greaterThanOrEqualTo(2));
       expect(states.first.isLoading, isTrue);
       expect(states.last.isSuccess, isTrue);
       expect(states.last.data, equals('Processed: test data'));
 
-      subscription.cancel();
+      await subscription.cancel();
     });
 
     test('should queue when offline', () async {
@@ -49,23 +51,21 @@ void main() {
       final subscription = mutation.stream.listen(states.add);
 
       await mutation.mutate('test data');
-      await Future.delayed(Duration(milliseconds: 50));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
       expect(states.length, equals(1));
       expect(states.first.isQueued, isTrue);
       expect(OfflineQueueManager.instance().length, equals(1));
 
-      subscription.cancel();
+      await subscription.cancel();
     });
 
     test('should not queue when queueWhenOffline is false', () async {
       final mutationNoQueue = Mutation<String, String>(
-        mutationFn: (String data) async {
+        mutationFn: (data) async {
           return 'Processed: $data';
         },
-        options: MutationOptions(
-          queueWhenOffline: false,
-        ),
+        options: const MutationOptions(),
       );
 
       NetworkStatus.instance.setOnline(online: false);
@@ -74,26 +74,26 @@ void main() {
       final subscription = mutationNoQueue.stream.listen(states.add);
 
       await mutationNoQueue.mutate('test data');
-      await Future.delayed(Duration(milliseconds: 50));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
       expect(states.length, greaterThanOrEqualTo(2));
       expect(states.first.isLoading, isTrue);
       expect(states.last.isSuccess, isTrue);
       expect(OfflineQueueManager.instance().length, equals(0));
 
-      subscription.cancel();
+      await subscription.cancel();
       mutationNoQueue.dispose();
     });
 
     test('should call onQueued callback when queued', () async {
       String? queuedData;
       final mutationWithCallback = Mutation<String, String>(
-        mutationFn: (String data) async {
+        mutationFn: (data) async {
           return 'Processed: $data';
         },
         options: MutationOptions(
           queueWhenOffline: true,
-          onQueued: (String data) {
+          onQueued: (data) {
             queuedData = data;
           },
         ),
@@ -110,10 +110,10 @@ void main() {
 
     test('should handle errors when online', () async {
       final errorMutation = Mutation<String, String>(
-        mutationFn: (String data) async {
+        mutationFn: (data) async {
           throw Exception('Test error');
         },
-        options: MutationOptions(
+        options: const MutationOptions(
           queueWhenOffline: true,
         ),
       );
@@ -124,14 +124,14 @@ void main() {
       final subscription = errorMutation.stream.listen(states.add);
 
       await errorMutation.mutate('test data');
-      await Future.delayed(Duration(milliseconds: 50));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
       expect(states.length, greaterThanOrEqualTo(2));
       expect(states.first.isLoading, isTrue);
       expect(states.last.isError, isTrue);
       expect(states.last.error.toString(), contains('Test error'));
 
-      subscription.cancel();
+      await subscription.cancel();
       errorMutation.dispose();
     });
 
@@ -139,7 +139,7 @@ void main() {
       NetworkStatus.instance.setOnline(online: true);
 
       await mutation.mutate('test data');
-      await Future.delayed(Duration(milliseconds: 50));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
       expect(mutation.state.isSuccess, isTrue);
 

@@ -32,8 +32,9 @@ void main() {
     });
 
     test('prevents transitive circular dependency', () {
-      manager.registerDependency('b', 'a');
-      manager.registerDependency('c', 'b');
+      manager
+        ..registerDependency('b', 'a')
+        ..registerDependency('c', 'b');
 
       // a -> b -> c. Trying to make a depend on c (c -> a) calls cycle
       expect(
@@ -54,10 +55,10 @@ void main() {
 
     test('unregister removes query as both parent and child', () {
       // setup: parent -> middle -> child
-      manager.registerDependency('middle', 'parent');
-      manager.registerDependency('child', 'middle');
-
-      manager.unregister('middle');
+      manager
+        ..registerDependency('middle', 'parent')
+        ..registerDependency('child', 'middle')
+        ..unregister('middle');
 
       // 'middle' should be gone
       expect(manager.getParent('middle'), isNull);
@@ -71,10 +72,11 @@ void main() {
     });
 
     test('getAllDescendants returns all deep children', () {
-      manager.registerDependency('b', 'a'); // a -> b
-      manager.registerDependency('c', 'a'); // a -> c
-      manager.registerDependency('d', 'b'); // b -> d
-      manager.registerDependency('e', 'd'); // d -> e
+      manager
+        ..registerDependency('b', 'a') // a -> b
+        ..registerDependency('c', 'a') // a -> c
+        ..registerDependency('d', 'b') // b -> d
+        ..registerDependency('e', 'd'); // d -> e
 
       final descendants = manager.getAllDescendants('a');
       expect(descendants, hasLength(4));
@@ -82,14 +84,13 @@ void main() {
     });
 
     test('notifyParentDisposed calls callback for direct children', () {
-      manager.registerDependency('child1', 'parent');
-      manager.registerDependency('child2', 'parent');
-      manager.registerDependency('grandchild', 'child1');
+      manager
+        ..registerDependency('child1', 'parent')
+        ..registerDependency('child2', 'parent')
+        ..registerDependency('grandchild', 'child1');
 
       final cancelled = <String>[];
-      manager.notifyParentDisposed('parent', (child) {
-        cancelled.add(child);
-      });
+      manager.notifyParentDisposed('parent', cancelled.add);
 
       expect(cancelled, hasLength(2));
       expect(cancelled, containsAll(['child1', 'child2']));

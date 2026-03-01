@@ -20,22 +20,22 @@ void main() {
     test('configure updates internal config', () {
       final config = {
         'endpoint': 'https://example.com/metrics',
-        'enabled': true
+        'enabled': true,
       };
       exporter.configure(config);
       expect(exporter.config, config);
     });
 
     test('export generates valid JSON for snapshot with no queries', () async {
-      final cacheMetrics = CacheMetrics();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordMiss();
-      cacheMetrics.recordMemoryUsage(1024 * 1024);
-      cacheMetrics.recordFetchTime(const Duration(milliseconds: 100));
-      cacheMetrics.recordLookupTime(const Duration(microseconds: 500));
+      final cacheMetrics = CacheMetrics()
+        ..recordHit()
+        ..recordMiss()
+        ..recordMemoryUsage(1024 * 1024)
+        ..recordFetchTime(const Duration(milliseconds: 100))
+        ..recordLookupTime(const Duration(microseconds: 500));
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: {},
         totalQueries: 0,
@@ -54,8 +54,8 @@ void main() {
       expect(decoded['totalQueries'], 0);
       expect(decoded['activeQueries'], 0);
       expect(decoded['memoryUsageBytes'], 1024 * 1024);
-      expect(decoded['cacheReport'], isA<Map>());
-      expect(decoded['queryMetrics'], isA<Map>());
+      expect(decoded['cacheReport'], isA<Map<String, dynamic>>());
+      expect(decoded['queryMetrics'], isA<Map<String, dynamic>>());
     });
 
     test('export generates valid JSON for snapshot with multiple queries',
@@ -87,7 +87,7 @@ void main() {
       };
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: queryMetrics,
         totalQueries: 2,
@@ -101,7 +101,7 @@ void main() {
 
       expect(decoded['totalQueries'], 2);
       expect(decoded['activeQueries'], 2);
-      expect(decoded['queryMetrics'], isA<Map>());
+      expect(decoded['queryMetrics'], isA<Map<String, dynamic>>());
 
       final queryMetricsMap = decoded['queryMetrics'] as Map<String, dynamic>;
       expect(queryMetricsMap.length, 2);
@@ -112,7 +112,7 @@ void main() {
       expect(query1Data['fetchCount'], 2);
       expect(query1Data['referenceCount'], 1);
       expect(query1Data['averageFetchTimeMs'], isA<int>());
-      expect(query1Data['fetchHistory'], isA<List>());
+      expect(query1Data['fetchHistory'], isA<List<Object?>>());
     });
 
     test('export handles query metrics with no fetch history', () async {
@@ -125,7 +125,7 @@ void main() {
       };
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: queryMetrics,
         totalQueries: 1,
@@ -142,23 +142,23 @@ void main() {
 
       expect(query1Data['fetchCount'], 0);
       expect(query1Data['referenceCount'], 0);
-      expect(query1Data['fetchHistory'], isA<List>());
-      expect((query1Data['fetchHistory'] as List).isEmpty, isTrue);
+      expect(query1Data['fetchHistory'], isA<List<Object?>>());
+      expect((query1Data['fetchHistory'] as List<Object?>).isEmpty, isTrue);
     });
 
     test('export includes all cache metrics', () async {
-      final cacheMetrics = CacheMetrics();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordMiss();
-      cacheMetrics.recordEviction();
-      cacheMetrics.recordMemoryUsage(5 * 1024 * 1024);
-      cacheMetrics.recordFetchTime(const Duration(milliseconds: 100));
-      cacheMetrics.recordFetchTime(const Duration(milliseconds: 150));
-      cacheMetrics.recordLookupTime(const Duration(microseconds: 500));
+      final cacheMetrics = CacheMetrics()
+        ..recordHit()
+        ..recordHit()
+        ..recordMiss()
+        ..recordEviction()
+        ..recordMemoryUsage(5 * 1024 * 1024)
+        ..recordFetchTime(const Duration(milliseconds: 100))
+        ..recordFetchTime(const Duration(milliseconds: 150))
+        ..recordLookupTime(const Duration(microseconds: 500));
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: {},
         totalQueries: 0,
@@ -203,15 +203,14 @@ void main() {
     test('export handles null optional fields in query metrics', () async {
       final cacheMetrics = CacheMetrics();
       final queryMetrics = <String, QueryMetrics>{
-        'query1': QueryMetrics(
-          fetchHistory: [const Duration(milliseconds: 100)],
-          lastFetchDuration: null,
+        'query1': const QueryMetrics(
+          fetchHistory: [Duration(milliseconds: 100)],
           referenceCount: 1,
         ),
       };
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: queryMetrics,
         totalQueries: 1,

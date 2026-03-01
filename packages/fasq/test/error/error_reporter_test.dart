@@ -55,8 +55,9 @@ void main() {
         stackTrace,
       );
 
-      reporter.report(context1);
-      reporter.report(context2);
+      reporter
+        ..report(context1)
+        ..report(context2);
 
       expect(reporter.reportedContexts.length, 2);
       expect(reporter.reportedContexts[0].queryKey, ['key1']);
@@ -71,7 +72,6 @@ void main() {
 
       final options = QueryOptions(
         staleTime: const Duration(minutes: 5),
-        enabled: true,
       );
 
       final query = QueryClient().getQuery<String>(
@@ -97,7 +97,9 @@ void main() {
       expect(reportedContext.error, error);
       expect(reportedContext.stackTrace, stackTrace);
       expect(
-          reportedContext.sanitizedQueryOptions, isA<Map<String, dynamic>>());
+        reportedContext.sanitizedQueryOptions,
+        isA<Map<String, dynamic>>(),
+      );
     });
 
     test('can be used with QueryClient.addErrorReporter', () async {
@@ -116,12 +118,12 @@ void main() {
       // Trigger an error by fetching
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected to throw
       }
 
       // Wait for async error handling to complete
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       // Verify reporter was called with the error
       expect(reporter.reportedContexts.length, 1);

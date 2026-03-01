@@ -13,9 +13,9 @@ void main() {
     });
 
     test('initializes with custom values', () {
-      final options = CircuitBreakerOptions(
+      const options = CircuitBreakerOptions(
         failureThreshold: 10,
-        resetTimeout: const Duration(seconds: 30),
+        resetTimeout: Duration(seconds: 30),
         successThreshold: 3,
         ignoreExceptions: [ArgumentError, StateError],
       );
@@ -40,11 +40,7 @@ void main() {
     });
 
     test('copyWith preserves unchanged values', () {
-      const original = CircuitBreakerOptions(
-        failureThreshold: 5,
-        resetTimeout: Duration(seconds: 60),
-        successThreshold: 1,
-      );
+      const original = CircuitBreakerOptions();
 
       final updated = original.copyWith(failureThreshold: 10);
 
@@ -62,7 +58,7 @@ void main() {
       });
 
       test('returns true for exact type match', () {
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           ignoreExceptions: [ArgumentError],
         );
 
@@ -71,7 +67,7 @@ void main() {
       });
 
       test('returns true for multiple ignored types', () {
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           ignoreExceptions: [ArgumentError, StateError],
         );
 
@@ -81,7 +77,7 @@ void main() {
       });
 
       test('handles Exception base type', () {
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           ignoreExceptions: [Exception],
         );
 
@@ -91,7 +87,7 @@ void main() {
       });
 
       test('handles Error base type', () {
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           ignoreExceptions: [Error],
         );
 
@@ -101,20 +97,20 @@ void main() {
       });
 
       test('handles specific exception types', () {
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           ignoreExceptions: [FormatException, ArgumentError],
         );
 
-        expect(options.isIgnored(FormatException('test')), isTrue);
+        expect(options.isIgnored(const FormatException('test')), isTrue);
         expect(options.isIgnored(ArgumentError('test')), isTrue);
         expect(options.isIgnored(StateError('test')), isFalse);
       });
     });
 
     test('toString includes all fields', () {
-      final options = CircuitBreakerOptions(
+      const options = CircuitBreakerOptions(
         failureThreshold: 10,
-        resetTimeout: const Duration(seconds: 30),
+        resetTimeout: Duration(seconds: 30),
         successThreshold: 3,
         ignoreExceptions: [ArgumentError, StateError],
       );
@@ -129,9 +125,8 @@ void main() {
     });
 
     test('handles minimum threshold value of 1', () {
-      final options = CircuitBreakerOptions(
+      const options = CircuitBreakerOptions(
         failureThreshold: 1,
-        successThreshold: 1,
       );
 
       expect(options.failureThreshold, 1);
@@ -139,7 +134,7 @@ void main() {
     });
 
     test('handles large threshold values', () {
-      final options = CircuitBreakerOptions(
+      const options = CircuitBreakerOptions(
         failureThreshold: 1000,
         successThreshold: 100,
       );
@@ -149,16 +144,16 @@ void main() {
     });
 
     test('handles very short reset timeout', () {
-      final options = CircuitBreakerOptions(
-        resetTimeout: const Duration(milliseconds: 1),
+      const options = CircuitBreakerOptions(
+        resetTimeout: Duration(milliseconds: 1),
       );
 
       expect(options.resetTimeout, const Duration(milliseconds: 1));
     });
 
     test('handles very long reset timeout', () {
-      final options = CircuitBreakerOptions(
-        resetTimeout: const Duration(hours: 24),
+      const options = CircuitBreakerOptions(
+        resetTimeout: Duration(hours: 24),
       );
 
       expect(options.resetTimeout, const Duration(hours: 24));
@@ -166,9 +161,6 @@ void main() {
 
     test('copyWith with null values preserves originals', () {
       const original = CircuitBreakerOptions(
-        failureThreshold: 5,
-        resetTimeout: Duration(seconds: 60),
-        successThreshold: 1,
         ignoreExceptions: [ArgumentError],
       );
 
@@ -181,7 +173,7 @@ void main() {
     });
 
     test('copyWith with empty ignoreExceptions list', () {
-      final original = CircuitBreakerOptions(
+      const original = CircuitBreakerOptions(
         ignoreExceptions: [ArgumentError, StateError],
       );
 
@@ -191,7 +183,7 @@ void main() {
     });
 
     test('isIgnored handles null-like edge cases', () {
-      final options = CircuitBreakerOptions(
+      const options = CircuitBreakerOptions(
         ignoreExceptions: [Exception],
       );
 

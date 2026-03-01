@@ -9,28 +9,28 @@ void main() {
     });
 
     test('isCancelled returns true after cancel()', () {
-      final token = CancellationToken();
-      token.cancel();
+      final token = CancellationToken()..cancel();
       expect(token.isCancelled, isTrue);
     });
 
     test('cancel() is idempotent', () {
-      final token = CancellationToken();
-      token.cancel();
-      token.cancel();
+      final token = CancellationToken()
+        ..cancel()
+        ..cancel();
       expect(token.isCancelled, isTrue);
     });
 
     test('throwIfCancelled() does nothing when not cancelled', () {
       final token = CancellationToken();
-      expect(() => token.throwIfCancelled(), returnsNormally);
+      expect(token.throwIfCancelled, returnsNormally);
     });
 
     test('throwIfCancelled() throws CancelledException when cancelled', () {
-      final token = CancellationToken();
-      token.cancel();
+      final token = CancellationToken()..cancel();
       expect(
-          () => token.throwIfCancelled(), throwsA(isA<CancelledException>()));
+        token.throwIfCancelled,
+        throwsA(isA<CancelledException>()),
+      );
     });
 
     test('onCancel callback is invoked when cancel() is called', () {
@@ -46,8 +46,7 @@ void main() {
     });
 
     test('onCancel callback is invoked immediately if already cancelled', () {
-      final token = CancellationToken();
-      token.cancel();
+      final token = CancellationToken()..cancel();
 
       var callbackInvoked = false;
       token.onCancel(() {
@@ -59,11 +58,11 @@ void main() {
     test('multiple onCancel callbacks are all invoked', () {
       final token = CancellationToken();
       var count = 0;
-      token.onCancel(() => count++);
-      token.onCancel(() => count++);
-      token.onCancel(() => count++);
-
-      token.cancel();
+      token
+        ..onCancel(() => count++)
+        ..onCancel(() => count++)
+        ..onCancel(() => count++)
+        ..cancel();
       expect(count, equals(3));
     });
 
@@ -71,7 +70,7 @@ void main() {
       final token = CancellationToken();
 
       var completed = false;
-      token.cancelled.then((_) => completed = true);
+      await token.cancelled.then((_) => completed = true);
 
       expect(completed, isFalse);
       token.cancel();
@@ -83,8 +82,7 @@ void main() {
 
     test('cancelled Future completes immediately if already cancelled',
         () async {
-      final token = CancellationToken();
-      token.cancel();
+      final token = CancellationToken()..cancel();
 
       var completed = false;
       await token.cancelled.then((_) => completed = true);
@@ -107,8 +105,7 @@ void main() {
     });
 
     test('child token is already cancelled if parent was cancelled', () {
-      final parent = CancellationToken();
-      parent.cancel();
+      final parent = CancellationToken()..cancel();
 
       final child = parent.createChild();
       expect(child.isCancelled, isTrue);
@@ -118,10 +115,10 @@ void main() {
       final token = CancellationToken();
       var secondCallbackCalled = false;
 
-      token.onCancel(() => throw Exception('error'));
-      token.onCancel(() => secondCallbackCalled = true);
-
-      token.cancel();
+      token
+        ..onCancel(() => throw Exception('error'))
+        ..onCancel(() => secondCallbackCalled = true)
+        ..cancel();
       expect(secondCallbackCalled, isTrue);
     });
   });
@@ -160,75 +157,75 @@ void main() {
 
     test('cancel() does not throw when no fetch is in progress', () {
       final query = Query<String>(
-        queryKey: StringQueryKey('test'),
+        queryKey: const StringQueryKey('test'),
         queryFn: () async => 'data',
         cache: cache,
       );
 
-      expect(() => query.cancel(), returnsNormally);
+      expect(query.cancel, returnsNormally);
       query.dispose();
     });
 
     test('cancel() cancels internal token without throwing', () async {
       final query = Query<String>(
-        queryKey: StringQueryKey('test'),
+        queryKey: const StringQueryKey('test'),
         queryFn: () async {
           await Future<void>.delayed(const Duration(milliseconds: 50));
           return 'data';
         },
         cache: cache,
-      );
-
-      query.addListener();
+      )..addListener();
 
       // Start fetch (don't await)
       final fetchFuture = query.fetch();
 
       // Cancel - should not throw
-      expect(() => query.cancel(), returnsNormally);
+      expect(query.cancel, returnsNormally);
 
       // Wait for fetch to complete (it will complete normally since
       // queryFn doesn't check cancellation token yet)
       await fetchFuture;
 
-      query.removeListener();
-      query.dispose();
+      query
+        ..removeListener()
+        ..dispose();
     });
 
     test('rapid cancel and refetch works correctly', () async {
       var fetchCount = 0;
 
       final query = Query<String>(
-        queryKey: StringQueryKey('test'),
+        queryKey: const StringQueryKey('test'),
         queryFn: () async {
           fetchCount++;
           await Future<void>.delayed(const Duration(milliseconds: 50));
           return 'data-$fetchCount';
         },
         cache: cache,
-      );
+      )
+        ..addListener()
 
-      query.addListener();
+        // Start fetch
+        // ignore: unawaited_futures
+        ..fetch()
 
-      // Start fetch
-      query.fetch();
-
-      // Cancel and refetch rapidly
-      query.cancel();
+        // Cancel and refetch rapidly
+        ..cancel();
       await query.fetch();
 
       // Query should have data
       expect(query.state.isSuccess, isTrue);
 
-      query.removeListener();
-      query.dispose();
+      query
+        ..removeListener()
+        ..dispose();
     });
 
     test('new fetch cancels previous in-flight fetch', () async {
       var firstFetchCancelled = false;
 
       final query = Query<String>(
-        queryKey: StringQueryKey('test'),
+        queryKey: const StringQueryKey('test'),
         queryFn: () async {
           await Future<void>.delayed(const Duration(milliseconds: 50));
           if (!firstFetchCancelled) {
@@ -238,9 +235,7 @@ void main() {
           return 'second';
         },
         cache: cache,
-      );
-
-      query.addListener();
+      )..addListener();
 
       // Start first fetch
       final firstFetch = query.fetch();
@@ -253,28 +248,28 @@ void main() {
       // Only one fetch result should be stored
       expect(query.state.data, anyOf('first', 'second'));
 
-      query.removeListener();
-      query.dispose();
+      query
+        ..removeListener()
+        ..dispose();
     });
 
     test('dispose() cancels in-flight fetch', () async {
       final query = Query<String>(
-        queryKey: StringQueryKey('test'),
+        queryKey: const StringQueryKey('test'),
         queryFn: () async {
           await Future<void>.delayed(const Duration(milliseconds: 100));
           return 'data';
         },
         cache: cache,
-      );
-
-      query.addListener();
+      )..addListener();
 
       // Start fetch
       unawaited(query.fetch());
 
       // Dispose immediately
-      query.removeListener();
-      query.dispose();
+      query
+        ..removeListener()
+        ..dispose();
 
       // Wait for fetch to potentially complete
       await Future<void>.delayed(const Duration(milliseconds: 150));
