@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import '../cache/cache_metrics.dart';
-import '../performance/performance_monitor.dart';
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/performance/performance_monitor.dart';
 
 /// Streams performance metrics for DevTools integration.
 ///
@@ -26,13 +26,9 @@ import '../performance/performance_monitor.dart';
 /// metricsStream.dispose();
 /// ```
 class MetricsStream {
-  final PerformanceMonitor _performanceMonitor;
-  final StreamController<PerformanceSnapshot> _controller;
-  Timer? _timer;
-
   /// Creates a new [MetricsStream] instance.
   ///
-  /// [performanceMonitor] The performance monitor to retrieve snapshots from.
+  /// `performanceMonitor` is the monitor used to retrieve snapshots.
   /// [updateInterval] How often to emit new snapshots. Defaults to 5 seconds.
   MetricsStream(
     this._performanceMonitor, {
@@ -44,6 +40,9 @@ class MetricsStream {
       }
     });
   }
+  final PerformanceMonitor _performanceMonitor;
+  final StreamController<PerformanceSnapshot> _controller;
+  Timer? _timer;
 
   /// The broadcast stream of performance snapshots.
   ///
@@ -58,6 +57,6 @@ class MetricsStream {
   void dispose() {
     _timer?.cancel();
     _timer = null;
-    _controller.close();
+    unawaited(_controller.close());
   }
 }
