@@ -1,16 +1,12 @@
-import 'query_status.dart';
-import 'infinite_query_options.dart';
+import 'package:fasq/src/core/infinite_query_options.dart';
+import 'package:fasq/src/core/query_status.dart';
 
+/// Immutable state for an infinite query.
+///
+/// Stores loaded pages, pagination availability, in-flight flags, status, and
+/// optional error/update metadata.
 class InfiniteQueryState<TData, TParam> {
-  final List<Page<TData, TParam>> pages;
-  final bool hasNextPage;
-  final bool hasPreviousPage;
-  final bool isFetchingNextPage;
-  final bool isFetchingPreviousPage;
-  final QueryStatus status;
-  final Object? error;
-  final DateTime? dataUpdatedAt;
-
+  /// Creates an infinite query state snapshot.
   const InfiniteQueryState({
     required this.pages,
     required this.hasNextPage,
@@ -22,6 +18,7 @@ class InfiniteQueryState<TData, TParam> {
     this.dataUpdatedAt,
   });
 
+  /// Returns the initial idle state with no pages loaded.
   factory InfiniteQueryState.idle() {
     return InfiniteQueryState<TData, TParam>(
       pages: const [],
@@ -33,6 +30,34 @@ class InfiniteQueryState<TData, TParam> {
     );
   }
 
+  /// All loaded pages in fetch order.
+  final List<Page<TData, TParam>> pages;
+
+  /// Whether a next page can be fetched.
+  final bool hasNextPage;
+
+  /// Whether a previous page can be fetched.
+  final bool hasPreviousPage;
+
+  /// Whether a next-page fetch is currently running.
+  final bool isFetchingNextPage;
+
+  /// Whether a previous-page fetch is currently running.
+  final bool isFetchingPreviousPage;
+
+  /// Overall query status.
+  final QueryStatus status;
+
+  /// Last error encountered by the query, if any.
+  final Object? error;
+
+  /// Timestamp of the latest successful data update.
+  final DateTime? dataUpdatedAt;
+
+  /// Returns a copy of this state with selective overrides.
+  ///
+  /// Pass `error: null` to clear an error. Omitting [error] preserves the
+  /// current value.
   InfiniteQueryState<TData, TParam> copyWith({
     List<Page<TData, TParam>>? pages,
     bool? hasNextPage,
