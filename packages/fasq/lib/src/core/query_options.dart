@@ -1,10 +1,9 @@
 import 'dart:async';
 
+import 'package:fasq/src/circuit_breaker/circuit_breaker_options.dart';
+import 'package:fasq/src/core/query_meta.dart';
+import 'package:fasq/src/core/validation/input_validator.dart';
 import 'package:flutter/foundation.dart';
-
-import '../circuit_breaker/circuit_breaker_options.dart';
-import 'query_meta.dart';
-import 'validation/input_validator.dart';
 
 /// Performance configuration options for a query.
 ///
@@ -101,7 +100,8 @@ class PerformanceOptions {
 
 /// Configuration options for a query.
 ///
-/// Allows controlling query behavior, caching, performance, and adding lifecycle callbacks.
+/// Allows controlling query behavior, caching, performance, and adding
+/// lifecycle callbacks.
 ///
 /// Example:
 /// ```dart
@@ -177,7 +177,8 @@ class QueryOptions {
 
   /// Circuit breaker configuration for this query.
   ///
-  /// If provided, this query will be protected by a circuit breaker using these options.
+  /// If provided, this query will be protected by a circuit breaker
+  /// using these options.
   /// If null, the query will not use a circuit breaker unless one is already
   /// active for its scope.
   final CircuitBreakerOptions? circuitBreaker;
