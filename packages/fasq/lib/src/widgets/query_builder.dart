@@ -1,13 +1,12 @@
 import 'dart:async';
 
+import 'package:fasq/src/core/cancellation_token.dart';
+import 'package:fasq/src/core/query.dart';
+import 'package:fasq/src/core/query_client.dart';
+import 'package:fasq/src/core/query_key.dart';
+import 'package:fasq/src/core/query_options.dart';
+import 'package:fasq/src/core/query_state.dart';
 import 'package:flutter/widgets.dart';
-
-import '../core/cancellation_token.dart';
-import '../core/query.dart';
-import '../core/query_client.dart';
-import '../core/query_key.dart';
-import '../core/query_options.dart';
-import '../core/query_state.dart';
 
 /// A widget that executes an async operation and builds UI based on its state.
 ///
@@ -33,6 +32,20 @@ import '../core/query_state.dart';
 /// )
 /// ```
 class QueryBuilder<T> extends StatefulWidget {
+  /// Creates a [QueryBuilder] for the given [queryKey].
+  const QueryBuilder({
+    required this.queryKey,
+    required this.builder,
+    this.queryFn,
+    this.queryFnWithToken,
+    this.options,
+    this.dependsOn,
+    super.key,
+  }) : assert(
+          queryFn != null || queryFnWithToken != null,
+          'Either queryFn or queryFnWithToken must be provided',
+        );
+
   /// Unique identifier for this query.
   ///
   /// Widgets with the same key share the same query instance.
@@ -67,19 +80,6 @@ class QueryBuilder<T> extends StatefulWidget {
   /// when the parent query (identified by [dependsOn]) is disposed.
   final QueryKey? dependsOn;
 
-  const QueryBuilder({
-    required this.queryKey,
-    this.queryFn,
-    this.queryFnWithToken,
-    required this.builder,
-    this.options,
-    this.dependsOn,
-    super.key,
-  }) : assert(
-          queryFn != null || queryFnWithToken != null,
-          'Either queryFn or queryFnWithToken must be provided',
-        );
-
   @override
   State<QueryBuilder<T>> createState() => _QueryBuilderState<T>();
 }
@@ -106,7 +106,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       return;
     }
     _initialized = true;
-    _initializeQuery();
+    unawaited(_initializeQuery());
   }
 
   Future<void> _initializeQuery() async {
@@ -122,32 +122,32 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       dependsOn: widget.dependsOn,
     );
     final forceRefetch = widget.options?.refetchOnMount ?? false;
-    _attachQuery(
+    await _attachQuery(
       query,
       shouldFetch: true,
       forceRefetch: forceRefetch,
     );
   }
 
-  void _attachQuery(
+  Future<void> _attachQuery(
     Query<T> query, {
     required bool shouldFetch,
     bool forceRefetch = false,
-  }) {
+  }) async {
     // If already attached to the same query, skip reattaching
     if (_hasQuery && _query == query) {
       // Already attached to this query, just check if we need to fetch
       final hasFreshData = _query.state.hasValue && !_query.state.isStale;
       final needsFetch = shouldFetch && (!hasFreshData || forceRefetch);
       if (needsFetch) {
-        _query
+        await _query
             .fetch(forceRefetch: forceRefetch)
             .catchError((_) => _query.state);
       }
       return;
     }
 
-    _detachCurrentQuery();
+    await _detachCurrentQuery();
 
     _query = query;
     _hasQuery = true;
@@ -170,18 +170,22 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
         isFirstSubscriber || (shouldFetch && (!hasFreshData || forceRefetch));
 
     if (needsFetch) {
-      _query.fetch(forceRefetch: forceRefetch).catchError((_) => _query.state);
+      await _query
+          .fetch(forceRefetch: forceRefetch)
+          .catchError((_) => _query.state);
     }
 
-    // Always call setState after attaching to ensure UI reflects current query state
-    // The state equality check in the stream listener will prevent unnecessary rebuilds
+    // Always call setState after attaching to ensure UI reflects
+    //current query state
+    // The state equality check in the stream listener will prevent
+    //unnecessary rebuilds
     if (mounted) {
       setState(() {});
     }
   }
 
-  void _detachCurrentQuery() {
-    _subscription?.cancel();
+  Future<void> _detachCurrentQuery() async {
+    await _subscription?.cancel();
     _subscription = null;
 
     if (_hasQuery) {
@@ -192,7 +196,7 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
 
   @override
   void dispose() {
-    _detachCurrentQuery();
+    unawaited(_detachCurrentQuery());
     super.dispose();
   }
 
@@ -231,7 +235,8 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
       dependsOn: widget.dependsOn,
     );
 
-    // If query instance is the same and only function reference changed (but key is same),
+    // If query instance is the same and only function reference
+    //changed (but key is same),
     // don't reattach - the query already has the correct function stored
     if (newQuery == _query && !keyChanged && !optionsChanged) {
       // Only function reference changed, but query key is same
@@ -242,10 +247,12 @@ class _QueryBuilderState<T> extends State<QueryBuilder<T>> {
     final shouldFetch = keyChanged || fnChanged || optionsChanged;
     final forceRefetch =
         (widget.options?.refetchOnMount ?? false) || keyChanged || fnChanged;
-    _attachQuery(
-      newQuery,
-      shouldFetch: shouldFetch,
-      forceRefetch: forceRefetch,
+    unawaited(
+      _attachQuery(
+        newQuery,
+        shouldFetch: shouldFetch,
+        forceRefetch: forceRefetch,
+      ),
     );
   }
 
