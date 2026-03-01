@@ -157,7 +157,7 @@ class QueryClient with WidgetsBindingObserver {
   /// Example:
   /// ```dart
   /// final client = QueryClient();
-  /// client.addErrorReporter(SentryErrorReporter());
+  /// client.addErrorReporter(sentryErrorReporter);
   /// ```
   ///
   /// [reporter] - The error reporter to register.
@@ -192,7 +192,7 @@ class QueryClient with WidgetsBindingObserver {
   void dispatchError(FasqErrorContext context) {
     for (final reporter in _errorReporters) {
       try {
-        reporter.report(context);
+        reporter(context);
       } on Object catch (e, st) {
         // Log errors from the reporter itself to avoid breaking the application
         // and to diagnose reporter issues. Try to use FasqLogger if available,

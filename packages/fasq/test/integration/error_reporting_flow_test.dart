@@ -22,7 +22,7 @@ void main() {
       final error = Exception('Test query failure');
       final queryKey = 'failing-query'.toQueryKey();
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         queryKey,
@@ -68,7 +68,7 @@ void main() {
         ),
       );
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'options-test'.toQueryKey(),
@@ -114,9 +114,9 @@ void main() {
       final reporter3 = _MockErrorReporter();
       final error = Exception('Multi-reporter test');
 
-      client.addErrorReporter(reporter1);
-      client.addErrorReporter(reporter2);
-      client.addErrorReporter(reporter3);
+      client.addErrorReporter(reporter1.callback);
+      client.addErrorReporter(reporter2.callback);
+      client.addErrorReporter(reporter3.callback);
 
       final query = client.getQuery<String>(
         'multi-reporter-test'.toQueryKey(),
@@ -154,9 +154,9 @@ void main() {
       final reporter3 = _MockErrorReporter();
       final error = Exception('Reporter failure test');
 
-      client.addErrorReporter(workingReporter);
-      client.addErrorReporter(failingReporter);
-      client.addErrorReporter(reporter3);
+      client.addErrorReporter(workingReporter.callback);
+      client.addErrorReporter(failingReporter.callback);
+      client.addErrorReporter(reporter3.callback);
 
       final query = client.getQuery<String>(
         'reporter-failure-test'.toQueryKey(),
@@ -190,8 +190,8 @@ void main() {
       final error = Exception('Logger test');
 
       client.addObserver(logger);
-      client.addErrorReporter(failingReporter);
-      client.addErrorReporter(workingReporter);
+      client.addErrorReporter(failingReporter.callback);
+      client.addErrorReporter(workingReporter.callback);
 
       final query = client.getQuery<String>(
         'logger-test'.toQueryKey(),
@@ -222,7 +222,7 @@ void main() {
       final reporter = _MockErrorReporter();
       final error = Exception('Network status test');
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'network-status-test'.toQueryKey(),
@@ -249,7 +249,7 @@ void main() {
       final reporter = _MockErrorReporter();
       final error = Exception('Retry count test');
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'retry-count-test'.toQueryKey(),
@@ -278,11 +278,11 @@ void main() {
       final reporter2 = _MockErrorReporter();
       final error = Exception('Remove reporter test');
 
-      client.addErrorReporter(reporter1);
-      client.addErrorReporter(reporter2);
+      client.addErrorReporter(reporter1.callback);
+      client.addErrorReporter(reporter2.callback);
 
       // Remove reporter2 before triggering error
-      client.removeErrorReporter(reporter2);
+      client.removeErrorReporter(reporter2.callback);
 
       final query = client.getQuery<String>(
         'remove-reporter-test'.toQueryKey(),
@@ -306,7 +306,7 @@ void main() {
       final reporter = _MockErrorReporter();
       final error = Exception('Stack trace test');
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'stack-trace-test'.toQueryKey(),
@@ -334,23 +334,22 @@ void main() {
 }
 
 /// Mock implementation of FasqErrorReporter for testing.
-class _MockErrorReporter implements FasqErrorReporter {
+class _MockErrorReporter {
   final List<FasqErrorContext> reportedContexts = [];
+  late final FasqErrorReporter callback = report;
 
-  @override
   void report(FasqErrorContext context) {
     reportedContexts.add(context);
   }
 }
 
 /// Mock error reporter that throws an exception when report is called.
-class _FailingErrorReporter implements FasqErrorReporter {
+class _FailingErrorReporter {
   int attemptedReports = 0;
+  late final FasqErrorReporter callback = report;
 
-  @override
   void report(FasqErrorContext context) {
     attemptedReports++;
     throw Exception('Reporter failed intentionally for testing');
   }
 }
-

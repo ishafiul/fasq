@@ -106,7 +106,7 @@ void main() {
       final reporter = _MockErrorReporter();
       final error = Exception('Test error');
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'test-key'.toQueryKey(),
@@ -132,10 +132,10 @@ void main() {
 }
 
 /// Mock implementation of FasqErrorReporter for testing.
-class _MockErrorReporter implements FasqErrorReporter {
+class _MockErrorReporter {
   final List<FasqErrorContext> reportedContexts = [];
+  late final FasqErrorReporter callback = report;
 
-  @override
   void report(FasqErrorContext context) {
     reportedContexts.add(context);
   }
