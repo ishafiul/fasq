@@ -112,6 +112,13 @@ class QueryCache {
 
     final hotEntry = _hotCache.get(key);
     if (hotEntry != null) {
+
+      if (hotEntry.isSecure && hotEntry.isExpired) {
+        _hotCache.remove(key);
+        _metrics.recordMiss();
+        return null;
+      }
+      _metrics.recordHit();
       final updated = hotEntry.withAccess();
       _entries[key] = updated;
       final reconstructed = _reconstructEntry<T>(updated);
@@ -530,9 +537,22 @@ class QueryCache {
       }
     }
 
-    keysToRemove.forEach(_removeKeyEverywhere);
+
+    for (final key in keysToRemove) {
+      final removed = _entries.remove(key);
+      if (removed != null) {
+        _hotCache.remove(key);
+        _entryVersions.remove(key);
+        _persistOperations.remove(key);
+        _keyTypes.remove(key);
+        if (_persistenceReady) {
+          _removePersistenceAsync(key);
+        }
+      }
+    }
     if (keysToRemove.isNotEmpty) {
-      _metrics.recordGcRemoval(keysToRemove.length);
+      _updateMemoryMetrics();
+      _metrics.recordEviction();
     }
   }
 
