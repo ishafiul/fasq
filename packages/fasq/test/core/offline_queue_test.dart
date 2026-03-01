@@ -169,10 +169,10 @@ void main() {
     });
 
     test('should update online status', () {
-      networkStatus.setOnline(false);
+      networkStatus.setOnline(online: false);
       expect(networkStatus.isOnline, isFalse);
 
-      networkStatus.setOnline(true);
+      networkStatus.setOnline(online: true);
       expect(networkStatus.isOnline, isTrue);
     });
 
@@ -180,8 +180,8 @@ void main() {
       final streamValues = <bool>[];
       final subscription = networkStatus.stream.listen(streamValues.add);
 
-      networkStatus.setOnline(false);
-      networkStatus.setOnline(true);
+      networkStatus.setOnline(online: false);
+      networkStatus.setOnline(online: true);
 
       await Future.delayed(Duration(milliseconds: 10));
 
@@ -194,10 +194,10 @@ void main() {
       final streamValues = <bool>[];
       final subscription = networkStatus.stream.listen(streamValues.add);
 
-      networkStatus.setOnline(true); // Already true
-      networkStatus.setOnline(false);
-      networkStatus.setOnline(false); // Duplicate
-      networkStatus.setOnline(true);
+      networkStatus.setOnline(online: true); // Already true
+      networkStatus.setOnline(online: false);
+      networkStatus.setOnline(online: false); // Duplicate
+      networkStatus.setOnline(online: true);
 
       await Future.delayed(Duration(milliseconds: 10));
 

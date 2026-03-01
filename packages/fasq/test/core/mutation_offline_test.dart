@@ -21,12 +21,12 @@ void main() {
 
     tearDown(() {
       mutation.dispose();
-      NetworkStatus.instance.setOnline(true);
+      NetworkStatus.instance.setOnline(online: true);
       OfflineQueueManager.instance.clear();
     });
 
     test('should execute immediately when online', () async {
-      NetworkStatus.instance.setOnline(true);
+      NetworkStatus.instance.setOnline(online: true);
 
       final states = <MutationState<String>>[];
       final subscription = mutation.stream.listen(states.add);
@@ -43,7 +43,7 @@ void main() {
     });
 
     test('should queue when offline', () async {
-      NetworkStatus.instance.setOnline(false);
+      NetworkStatus.instance.setOnline(online: false);
 
       final states = <MutationState<String>>[];
       final subscription = mutation.stream.listen(states.add);
@@ -68,7 +68,7 @@ void main() {
         ),
       );
 
-      NetworkStatus.instance.setOnline(false);
+      NetworkStatus.instance.setOnline(online: false);
 
       final states = <MutationState<String>>[];
       final subscription = mutationNoQueue.stream.listen(states.add);
@@ -99,7 +99,7 @@ void main() {
         ),
       );
 
-      NetworkStatus.instance.setOnline(false);
+      NetworkStatus.instance.setOnline(online: false);
 
       await mutationWithCallback.mutate('test data');
 
@@ -118,7 +118,7 @@ void main() {
         ),
       );
 
-      NetworkStatus.instance.setOnline(true);
+      NetworkStatus.instance.setOnline(online: true);
 
       final states = <MutationState<String>>[];
       final subscription = errorMutation.stream.listen(states.add);
@@ -136,7 +136,7 @@ void main() {
     });
 
     test('should reset state correctly', () async {
-      NetworkStatus.instance.setOnline(true);
+      NetworkStatus.instance.setOnline(online: true);
 
       await mutation.mutate('test data');
       await Future.delayed(Duration(milliseconds: 50));
