@@ -1,27 +1,39 @@
 import 'dart:developer' as developer;
 
+import 'package:fasq/src/core/mutation_meta.dart';
+import 'package:fasq/src/core/mutation_snapshot.dart';
+import 'package:fasq/src/core/query_client_observer.dart';
+import 'package:fasq/src/core/query_meta.dart';
+import 'package:fasq/src/core/query_snapshot.dart';
+import 'package:fasq/src/error/error_context.dart';
 import 'package:flutter/widgets.dart';
 
-import '../core/mutation_meta.dart';
-import '../core/mutation_snapshot.dart';
-import '../core/query_client_observer.dart';
-import '../core/query_meta.dart';
-import '../core/query_snapshot.dart';
-import '../error/error_context.dart';
-
+/// Logs query and mutation lifecycle events for debugging.
+///
+/// The logger can be attached as a [QueryClientObserver] to emit lifecycle
+/// messages and structured error logs.
 class FasqLogger implements QueryClientObserver {
-  final bool enabled;
-  final bool showData;
-  final int truncateLength;
-
-  final Map<Object, DateTime> _queryStartTimes = {};
-  final Map<Object, DateTime> _mutationStartTimes = {};
-
+  /// Creates a [FasqLogger].
+  ///
+  /// Set [enabled] to disable all logging, [showData] to include result data
+  /// in success logs, and [truncateLength] to limit logged payload length.
   FasqLogger({
     this.enabled = true,
     this.showData = false,
     this.truncateLength = 100,
   });
+
+  /// Whether this logger emits lifecycle and error logs.
+  final bool enabled;
+
+  /// Whether query and mutation data should be included in logs.
+  final bool showData;
+
+  /// Maximum number of characters to print from logged payload data.
+  final int truncateLength;
+
+  final Map<Object, DateTime> _queryStartTimes = {};
+  final Map<Object, DateTime> _mutationStartTimes = {};
 
   String _formatLoggableData(dynamic data) {
     if (!showData) {
@@ -40,6 +52,13 @@ class FasqLogger implements QueryClientObserver {
     }
   }
 
+  void _logLifecycle(String message) {
+    developer.log(
+      message,
+      name: 'Fasq',
+    );
+  }
+
   @override
   void onQueryLoading(
     QuerySnapshot<dynamic> snapshot,
@@ -50,8 +69,8 @@ class FasqLogger implements QueryClientObserver {
 
     _queryStartTimes[snapshot.queryKey] = DateTime.now();
 
-    final message = '⏳ [Fetch] ${snapshot.queryKey.toString()}';
-    print(message);
+    final message = '⏳ [Fetch] ${snapshot.queryKey}';
+    _logLifecycle(message);
   }
 
   @override
@@ -71,8 +90,8 @@ class FasqLogger implements QueryClientObserver {
     final dataLog = _formatLoggableData(snapshot.currentState.data);
 
     final logMessage =
-        '✅ [Success] ${snapshot.queryKey.toString()} $durationString$dataLog';
-    print(logMessage);
+        '✅ [Success] ${snapshot.queryKey} $durationString$dataLog';
+    _logLifecycle(logMessage);
   }
 
   @override
@@ -90,7 +109,7 @@ class FasqLogger implements QueryClientObserver {
     final errorDetails = error?.toString() ?? 'Unknown error';
 
     final logMessage = '❌ [Error] $queryKey: $errorDetails';
-    print(logMessage);
+    _logLifecycle(logMessage);
   }
 
   @override
@@ -116,7 +135,7 @@ class FasqLogger implements QueryClientObserver {
     _mutationStartTimes[mutationKey] = DateTime.now();
 
     final message = '🚀 [Mutation] $mutationKey';
-    print(message);
+    _logLifecycle(message);
   }
 
   @override
@@ -138,7 +157,7 @@ class FasqLogger implements QueryClientObserver {
 
     final logMessage =
         '✅ [Mutation Success] $mutationKey $durationString$dataLog';
-    print(logMessage);
+    _logLifecycle(logMessage);
   }
 
   @override
@@ -156,7 +175,7 @@ class FasqLogger implements QueryClientObserver {
     final errorDetails = error?.toString() ?? 'Unknown error';
 
     final logMessage = '❌ [Mutation Error] $mutationKey: $errorDetails';
-    print(logMessage);
+    _logLifecycle(logMessage);
   }
 
   @override
@@ -196,7 +215,7 @@ class FasqLogger implements QueryClientObserver {
 
     if (context != null) {
       // Structured logging with context
-      final Map<String, dynamic> structuredLog = {
+      final structuredLog = <String, dynamic>{
         'message': 'Fasq Query Error',
         'errorType': error.runtimeType.toString(),
         'errorMessage': error.toString(),
