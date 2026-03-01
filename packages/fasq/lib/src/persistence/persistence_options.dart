@@ -1,10 +1,19 @@
-import 'cache_data_codec.dart';
+import 'package:fasq/src/persistence/cache_data_codec.dart';
+import 'package:meta/meta.dart';
 
 /// Configuration options for cache persistence.
 ///
 /// Controls whether and how cache data is persisted to disk,
 /// including encryption settings and garbage collection intervals.
+@immutable
 class PersistenceOptions {
+  /// Creates persistence options.
+  const PersistenceOptions({
+    this.enabled = false,
+    this.gcInterval,
+    CacheDataCodecRegistry? codecRegistry,
+  }) : codecRegistry = codecRegistry ?? const CacheDataCodecRegistry();
+
   /// Whether persistence is enabled.
   ///
   /// When false, cache data is only stored in memory.
@@ -15,13 +24,8 @@ class PersistenceOptions {
   /// Defaults to 5 minutes if not specified.
   final Duration? gcInterval;
 
+  /// Codec registry used to serialize and deserialize persisted values.
   final CacheDataCodecRegistry codecRegistry;
-
-  const PersistenceOptions({
-    this.enabled = false,
-    this.gcInterval,
-    CacheDataCodecRegistry? codecRegistry,
-  }) : codecRegistry = codecRegistry ?? const CacheDataCodecRegistry();
 
   /// Creates a copy with updated values.
   PersistenceOptions copyWith({
@@ -38,7 +42,11 @@ class PersistenceOptions {
 
   @override
   String toString() {
-    return 'PersistenceOptions(enabled: $enabled, gcInterval: $gcInterval, codecs: ${codecRegistry.serializers.length})';
+    return 'PersistenceOptions('
+        'enabled: $enabled, '
+        'gcInterval: $gcInterval, '
+        'codecs: ${codecRegistry.serializers.length}'
+        ')';
   }
 
   @override
