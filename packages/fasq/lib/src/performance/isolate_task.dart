@@ -5,78 +5,85 @@ import 'dart:async';
 /// Encapsulates the callback function, input data, and completion handling
 /// for executing work in an isolate.
 class IsolateTask<T, R> {
-  /// The callback function to execute in the isolate
-  /// The callback function to execute in the isolate
-  final Function callback;
-
-  /// The input data to pass to the callback
-  final T message;
-
-  /// Completer to signal task completion
-  final Completer<R> completer;
-
-  /// Timestamp when the task was created
-  final DateTime createdAt;
-
-  /// Whether this task has been cancelled
-  bool _isCancelled = false;
-
+  /// Creates an isolate task.
   IsolateTask({
-    required FutureOr<R> Function(T message) callback,
+    required this.callback,
     required this.message,
     required this.completer,
-  })  : callback = callback,
-        createdAt = DateTime.now();
+  }) : createdAt = DateTime.now();
 
-  /// Whether this task has been completed
+  /// Callback function to execute in the isolate.
+  final FutureOr<R> Function(T message) callback;
+
+  /// Input data to pass to [callback].
+  final T message;
+
+  /// Completer used to signal task completion.
+  final Completer<R> completer;
+
+  /// Timestamp when the task was created.
+  final DateTime createdAt;
+
+  bool _isCancelled = false;
+
+  /// Whether this task has been completed.
   bool get isCompleted => completer.isCompleted;
 
-  /// Whether this task has been cancelled
+  /// Whether this task has been cancelled.
   bool get isCancelled => _isCancelled;
 
-  /// Complete the task with a result
+  /// Completes the task with [result].
   void complete(R result) {
     if (!completer.isCompleted) {
       completer.complete(result);
     }
   }
 
-  /// Complete the task with an error
+  /// Completes the task with [error] and optional [stackTrace].
   void completeError(Object error, [StackTrace? stackTrace]) {
     if (!completer.isCompleted) {
       completer.completeError(error, stackTrace);
     }
   }
 
-  /// Cancel the task
+  /// Cancels the task if it has not already completed.
   void cancel() {
     if (!completer.isCompleted) {
       _isCancelled = true;
       completer.completeError(
-        IsolateTaskCancelledException('Task was cancelled'),
+        const IsolateTaskCancelledException('Task was cancelled'),
       );
     }
   }
 }
 
-/// Exception thrown when an isolate task is cancelled
+/// Exception thrown when an isolate task is cancelled.
 class IsolateTaskCancelledException implements Exception {
-  final String message;
-
+  /// Creates a cancellation exception with [message].
   const IsolateTaskCancelledException(this.message);
+
+  /// Human-readable cancellation reason.
+  final String message;
 
   @override
   String toString() => 'IsolateTaskCancelledException: $message';
 }
 
-/// Exception thrown when isolate execution fails
+/// Exception thrown when isolate execution fails.
 class IsolateExecutionException implements Exception {
-  final String message;
-  final Object? originalError;
-
+  /// Creates an execution exception with [message]
+  /// and optional [originalError].
   const IsolateExecutionException(this.message, [this.originalError]);
 
+  /// Human-readable failure message.
+  final String message;
+
+  /// Original underlying error when available.
+  final Object? originalError;
+
   @override
-  String toString() =>
-      'IsolateExecutionException: $message${originalError != null ? ' (Original: $originalError)' : ''}';
+  String toString() {
+    return 'IsolateExecutionException: $message'
+        '${originalError != null ? ' (Original: $originalError)' : ''}';
+  }
 }

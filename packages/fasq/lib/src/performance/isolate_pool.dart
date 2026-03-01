@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:typed_data';
 
-import 'isolate_task.dart';
+import 'package:fasq/src/performance/isolate_task.dart';
 
 /// A worker isolate that can execute tasks.
 ///
@@ -35,10 +35,12 @@ class _IsolateWorker {
   }
 
   /// Execute a task in this worker
-  Future<R> execute<T, R>(IsolateTask<T, R> task,
-      {Duration timeout = const Duration(seconds: 30)}) async {
+  Future<R> execute<T, R>(
+    IsolateTask<T, R> task, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     if (_isDisposed) {
-      task.completeError(IsolateExecutionException('Worker is disposed'));
+      task.completeError(const IsolateExecutionException('Worker is disposed'));
       return task.completer.future;
     }
 
@@ -54,10 +56,11 @@ class _IsolateWorker {
         onTimeout: () {
           task.cancel();
           throw IsolateExecutionException(
-              'Task execution timed out after ${timeout.inSeconds}s');
+            'Task execution timed out after ${timeout.inSeconds}s',
+          );
         },
       );
-    } catch (e) {
+    } on Object catch (e) {
       if (!task.isCancelled) {
         task.completeError(e);
       }
@@ -75,7 +78,7 @@ class _IsolateWorker {
 
   void _runTask(IsolateTask<dynamic, dynamic> task) {
     if (_sendPort == null) {
-      task.completeError(IsolateExecutionException('Isolate not ready'));
+      task.completeError(const IsolateExecutionException('Isolate not ready'));
       _processNextTask();
       return;
     }
@@ -96,8 +99,8 @@ class _IsolateWorker {
 
     try {
       _sendPort!.send(taskData);
-    } catch (error, stackTrace) {
-      _currentSubscription?.cancel();
+    } on Object catch (error, stackTrace) {
+      unawaited(_currentSubscription?.cancel());
       responsePort.close();
       _currentSubscription = null;
       _currentTask = null;
@@ -139,12 +142,12 @@ class _IsolateWorker {
     }
 
     task.completeError(
-      IsolateExecutionException('Received unknown response from isolate'),
+      const IsolateExecutionException('Received unknown response from isolate'),
     );
   }
 
   void _cleanupCurrentTask() {
-    _currentSubscription?.cancel();
+    unawaited(_currentSubscription?.cancel());
     _currentSubscription = null;
     _currentTask = null;
     _processNextTask();
@@ -163,7 +166,7 @@ class _IsolateWorker {
     _taskQueue.clear();
 
     // Cancel current task
-    _currentSubscription?.cancel();
+    unawaited(_currentSubscription?.cancel());
     _currentSubscription = null;
     _currentTask?.cancel();
     _currentTask = null;
@@ -192,14 +195,14 @@ void _isolateEntryPoint(SendPort sendPort) {
     }
 
     if (message is List && message.length == 3) {
-      final Function callback = message[0] as Function;
+      final callback = message[0] as Function;
       final dynamic argument = message[1];
-      final SendPort replyPort = message[2] as SendPort;
+      final replyPort = message[2] as SendPort;
 
       try {
         final dynamic result = await Function.apply(callback, [argument]);
         replyPort.send(['success', result]);
-      } catch (error, stackTrace) {
+      } on Object catch (error, stackTrace) {
         replyPort.send(['error', error, stackTrace.toString()]);
       }
     }
@@ -208,29 +211,31 @@ void _isolateEntryPoint(SendPort sendPort) {
 
 /// A pool of isolates for executing heavy computation tasks.
 ///
-/// Provides a general-purpose isolate pool that can handle any heavy computation
+/// Provides a general-purpose isolate pool that can handle any heavy
+///  computation
 /// with automatic work distribution, lifecycle management, and error handling.
 class IsolatePool {
+  /// Create an isolate pool with the specified number of workers
+  IsolatePool({this.poolSize = 2})
+      : assert(poolSize > 0, 'Pool size must be greater than 0') {
+    _initialization = _initializeWorkers();
+  }
+
+  /// Number of worker isolates managed by this pool.
   final int poolSize;
   final List<_IsolateWorker> _workers = [];
   int _currentWorkerIndex = 0;
   bool _isDisposed = false;
   late final Future<void> _initialization;
 
-  /// Create an isolate pool with the specified number of workers
-  IsolatePool({this.poolSize = 2}) {
-    assert(poolSize > 0, 'Pool size must be greater than 0');
-    _initialization = _initializeWorkers();
-  }
-
   /// Initialize all worker isolates
   Future<void> _initializeWorkers() async {
-    for (int i = 0; i < poolSize; i++) {
+    for (var i = 0; i < poolSize; i++) {
       final worker = _IsolateWorker();
       try {
         await worker.initialize();
         _workers.add(worker);
-      } catch (e) {
+      } on Object {
         continue;
       }
     }
@@ -241,9 +246,11 @@ class IsolatePool {
   /// The callback function must be a top-level function or static method
   /// that can be serialized and sent to an isolate.
   Future<R> execute<T, R>(
-      FutureOr<R> Function(T message) callback, T message) async {
+    FutureOr<R> Function(T message) callback,
+    T message,
+  ) async {
     if (_isDisposed) {
-      throw IsolateExecutionException('Isolate pool is disposed');
+      throw const IsolateExecutionException('Isolate pool is disposed');
     }
 
     await _initialization;
@@ -284,14 +291,16 @@ class IsolatePool {
 
     try {
       return await selectedWorker.execute(task);
-    } catch (e) {
+    } on Object catch (e) {
       throw IsolateExecutionException('Task execution failed', e);
     }
   }
 
-  /// Execute a callback function in an isolate with automatic threshold detection
+  /// Execute a callback function in an isolate with automatic
+  ///  threshold detection
   ///
-  /// If the message size exceeds the threshold, it will be executed in an isolate.
+  /// If the message size exceeds the threshold, it will be
+  ///  executed in an isolate.
   /// Otherwise, it will be executed on the main thread.
   Future<R> executeIfNeeded<T, R>(
     R Function(T message) callback,
@@ -360,12 +369,7 @@ class IsolatePool {
 
 /// Status information about an isolate pool
 class IsolatePoolStatus {
-  final int totalWorkers;
-  final int busyWorkers;
-  final int idleWorkers;
-  final int totalQueuedTasks;
-  final bool isDisposed;
-
+  /// Creates an immutable snapshot of isolate-pool status values.
   const IsolatePoolStatus({
     required this.totalWorkers,
     required this.busyWorkers,
@@ -373,6 +377,21 @@ class IsolatePoolStatus {
     required this.totalQueuedTasks,
     required this.isDisposed,
   });
+
+  /// Total number of workers configured for the pool.
+  final int totalWorkers;
+
+  /// Number of workers currently executing tasks.
+  final int busyWorkers;
+
+  /// Number of workers currently idle.
+  final int idleWorkers;
+
+  /// Total queued task count across all workers.
+  final int totalQueuedTasks;
+
+  /// Whether the pool has been disposed.
+  final bool isDisposed;
 
   /// Whether the pool is healthy and operational
   bool get isHealthy => !isDisposed && totalWorkers > 0;
