@@ -81,9 +81,10 @@ void main() {
     });
 
     test('clear removes all entries', () {
-      cache.set<String>('key1', 'data1');
-      cache.set<String>('key2', 'data2');
-      cache.set<String>('key3', 'data3');
+      cache
+        ..set<String>('key1', 'data1')
+        ..set<String>('key2', 'data2')
+        ..set<String>('key3', 'data3');
 
       expect(cache.entryCount, 3);
 
@@ -93,21 +94,21 @@ void main() {
     });
 
     test('invalidate removes specific entry', () {
-      cache.set<String>('key1', 'data1');
-      cache.set<String>('key2', 'data2');
-
-      cache.invalidate('key1');
+      cache
+        ..set<String>('key1', 'data1')
+        ..set<String>('key2', 'data2')
+        ..invalidate('key1');
 
       expect(cache.get<String>('key1'), isNull);
       expect(cache.get<String>('key2'), isNotNull);
     });
 
     test('invalidateWithPrefix removes matching entries', () {
-      cache.set<String>('user:1', 'data1');
-      cache.set<String>('user:2', 'data2');
-      cache.set<String>('post:1', 'data3');
-
-      cache.invalidateWithPrefix('user:');
+      cache
+        ..set<String>('user:1', 'data1')
+        ..set<String>('user:2', 'data2')
+        ..set<String>('post:1', 'data3')
+        ..invalidateWithPrefix('user:');
 
       expect(cache.get<String>('user:1'), isNull);
       expect(cache.get<String>('user:2'), isNull);
@@ -115,11 +116,11 @@ void main() {
     });
 
     test('invalidateWhere removes matching entries', () {
-      cache.set<String>('user:1', 'data1');
-      cache.set<String>('user:2', 'data2');
-      cache.set<String>('post:1', 'data3');
-
-      cache.invalidateWhere((key) => key.contains('user'));
+      cache
+        ..set<String>('user:1', 'data1')
+        ..set<String>('user:2', 'data2')
+        ..set<String>('post:1', 'data3')
+        ..invalidateWhere((key) => key.contains('user'));
 
       expect(cache.get<String>('user:1'), isNull);
       expect(cache.get<String>('user:2'), isNull);
@@ -155,7 +156,7 @@ void main() {
         'test-key',
         () async {
           callCount++;
-          await Future.delayed(const Duration(milliseconds: 50));
+          await Future<void>.delayed(const Duration(milliseconds: 50));
           return 'data';
         },
       );
@@ -195,15 +196,17 @@ void main() {
     });
 
     test('currentSize returns total cache size', () {
-      cache.set<String>('key1', 'hello');
-      cache.set<String>('key2', 'world');
+      cache
+        ..set<String>('key1', 'hello')
+        ..set<String>('key2', 'world');
 
       expect(cache.currentSize, greaterThan(0));
     });
 
     test('getCacheInfo returns cache snapshot', () {
-      cache.set<String>('key1', 'data1');
-      cache.set<String>('key2', 'data2');
+      cache
+        ..set<String>('key1', 'data1')
+        ..set<String>('key2', 'data2');
 
       final info = cache.getCacheInfo();
 
@@ -213,9 +216,10 @@ void main() {
     });
 
     test('getCacheKeys returns all keys', () {
-      cache.set<String>('key1', 'data1');
-      cache.set<String>('key2', 'data2');
-      cache.set<String>('key3', 'data3');
+      cache
+        ..set<String>('key1', 'data1')
+        ..set<String>('key2', 'data2')
+        ..set<String>('key3', 'data3');
 
       final keys = cache.getCacheKeys();
 
@@ -235,11 +239,11 @@ void main() {
     });
 
     test('metrics track hits and misses', () {
-      cache.set<String>('test-key', 'data');
-
-      cache.get<String>('test-key');
-      cache.get<String>('non-existent');
-      cache.get<String>('non-existent-2');
+      cache
+        ..set<String>('test-key', 'data')
+        ..get<String>('test-key')
+        ..get<String>('non-existent')
+        ..get<String>('non-existent-2');
 
       final metrics = cache.metrics;
 
@@ -271,9 +275,7 @@ void main() {
         config: const CacheConfig(
           maxCacheSize: 100,
         ),
-      );
-
-      smallCache.setData('active-key', 'active data');
+      )..setData('active-key', 'active data');
 
       for (var i = 0; i < 20; i++) {
         smallCache.set<String>('key$i', 'data' * 10);
@@ -290,20 +292,26 @@ void main() {
       expect(cache.get<String>('active'), isNotNull);
 
       // 1. Fresh inactive (should keep)
-      cache.set<String>('fresh', 'data', staleTime: const Duration(hours: 1));
+      cache
+        ..set<String>('fresh', 'data', staleTime: const Duration(hours: 1))
 
-      // 2. Stale inactive (should remove)
-      cache.set<String>('stale', 'data',
-          staleTime: const Duration(milliseconds: 1) // Instant stale
-          );
+        // 2. Stale inactive (should remove)
+        ..set<String>(
+          'stale', 'data',
+          staleTime: const Duration(milliseconds: 1), // Instant stale
+        );
     });
 
     test('trim removes old stale entries', () async {
       // Setup stale entry
-      cache.set<String>('stale', 'data',
-          staleTime: const Duration(milliseconds: 1));
-      await Future.delayed(
-          const Duration(milliseconds: 10)); // Ensure it's stale
+      cache.set<String>(
+        'stale',
+        'data',
+        staleTime: const Duration(milliseconds: 1),
+      );
+      await Future<void>.delayed(
+        const Duration(milliseconds: 10),
+      ); // Ensure it's stale
 
       // Setup fresh entry
       cache.set<String>('fresh', 'data', staleTime: const Duration(hours: 1));
@@ -311,7 +319,7 @@ void main() {
       expect(cache.get<String>('stale'), isNotNull);
       expect(cache.get<String>('fresh'), isNotNull);
 
-      cache.trim(critical: false);
+      cache.trim();
 
       expect(cache.get<String>('stale'), isNull); // Removed
       expect(cache.get<String>('fresh'), isNotNull); // Kept

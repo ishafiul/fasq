@@ -94,8 +94,9 @@ void main() {
       );
       await cache.persistenceInitialization;
 
-      cache.set<String>('a', '1');
-      cache.set<String>('b', '2');
+      cache
+        ..set<String>('a', '1')
+        ..set<String>('b', '2');
       await _drainMicrotasks();
       expect(plugin.persistence.snapshot.length, 2);
 
@@ -113,7 +114,7 @@ void main() {
         CacheDataSerializer<_SerializableUser>(
           encode: (value) => value.toJson(),
           decode: (json) =>
-              _SerializableUser.fromJson(json as Map<String, dynamic>),
+              _SerializableUser.fromJson(json! as Map<String, dynamic>),
         ),
       );
 
@@ -330,9 +331,7 @@ class _FakePersistenceProvider implements PersistenceProvider {
 
   @override
   Future<void> removeMultiple(List<String> keys) async {
-    for (final key in keys) {
-      _storage.remove(key);
-    }
+    keys.forEach(_storage.remove);
   }
 
   @override

@@ -13,9 +13,9 @@ void main() {
     });
 
     test('initializes with custom options', () {
-      final options = CircuitBreakerOptions(
+      const options = CircuitBreakerOptions(
         failureThreshold: 10,
-        resetTimeout: const Duration(seconds: 30),
+        resetTimeout: Duration(seconds: 30),
         successThreshold: 2,
       );
 
@@ -41,15 +41,13 @@ void main() {
 
       test('increments success count in halfOpen state', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
             successThreshold: 2,
-            resetTimeout: const Duration(milliseconds: 1),
+            resetTimeout: Duration(milliseconds: 1),
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 10));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -62,15 +60,13 @@ void main() {
       test('stays in halfOpen when success count is below threshold (N-1)',
           () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 10),
+            resetTimeout: Duration(milliseconds: 10),
             successThreshold: 3,
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 20));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -86,15 +82,13 @@ void main() {
       test('transitions to closed exactly when success threshold is met (N)',
           () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 10),
+            resetTimeout: Duration(milliseconds: 10),
             successThreshold: 3,
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 20));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -108,15 +102,13 @@ void main() {
 
       test('transitions from halfOpen to closed when threshold met', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 1),
+            resetTimeout: Duration(milliseconds: 1),
             successThreshold: 2,
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 10));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
         breaker.stats.successCount = 1;
@@ -134,15 +126,12 @@ void main() {
 
       test('handles successThreshold of 1', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 10),
-            successThreshold: 1,
+            resetTimeout: Duration(milliseconds: 10),
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 20));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -156,10 +145,8 @@ void main() {
     group('recordFailure', () {
       test('increments failure count in closed state', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(failureThreshold: 3),
-        );
-
-        breaker.recordFailure();
+          options: const CircuitBreakerOptions(failureThreshold: 3),
+        )..recordFailure();
 
         expect(breaker.stats.failureCount, 1);
         expect(breaker.stats.lastFailureTimestamp, isNotNull);
@@ -168,9 +155,8 @@ void main() {
 
       test('stays closed when failure count is below threshold (N-1)', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 3,
-            resetTimeout: const Duration(seconds: 60),
           ),
         );
         breaker.stats.failureCount = 1;
@@ -183,9 +169,8 @@ void main() {
 
       test('transitions to open exactly when threshold is met (N)', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 3,
-            resetTimeout: const Duration(seconds: 60),
           ),
         );
         breaker.stats.failureCount = 2;
@@ -199,9 +184,8 @@ void main() {
 
       test('transitions from closed to open when threshold met', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 2,
-            resetTimeout: const Duration(seconds: 60),
           ),
         );
         breaker.stats.failureCount = 1;
@@ -215,13 +199,10 @@ void main() {
 
       test('handles threshold of 1', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(seconds: 60),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
 
         expect(breaker.state, CircuitState.open);
         expect(breaker.stats.failureCount, 1);
@@ -229,14 +210,12 @@ void main() {
 
       test('transitions from halfOpen to open immediately', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 1),
+            resetTimeout: Duration(milliseconds: 1),
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 10));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
         breaker.stats.failureCount = 0;
@@ -250,13 +229,10 @@ void main() {
 
       test('only updates timestamp in open state', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(seconds: 60),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(breaker.state, CircuitState.open);
         breaker.stats.failureCount = 5;
         final oldTimestamp = breaker.stats.lastFailureTimestamp!;
@@ -279,13 +255,10 @@ void main() {
 
       test('returns false in open state before timeout', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(seconds: 60),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(breaker.state, CircuitState.open);
 
         expect(breaker.allowRequest(), isFalse);
@@ -294,17 +267,15 @@ void main() {
 
       test('transitions to halfOpen and returns true after timeout', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 100),
+            resetTimeout: Duration(milliseconds: 100),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(breaker.state, CircuitState.open);
         breaker.stats.failureCount = 5;
 
-        await Future.delayed(const Duration(milliseconds: 150));
+        await Future<void>.delayed(const Duration(milliseconds: 150));
 
         expect(breaker.allowRequest(), isTrue);
         expect(breaker.state, CircuitState.halfOpen);
@@ -312,56 +283,50 @@ void main() {
         expect(breaker.stats.successCount, 0);
       });
 
-      test('uses Future.delayed for timing control', () async {
+      test('uses Future<void>.delayed for timing control', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 50),
+            resetTimeout: Duration(milliseconds: 50),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(breaker.state, CircuitState.open);
         expect(breaker.allowRequest(), isFalse);
 
-        await Future.delayed(const Duration(milliseconds: 40));
+        await Future<void>.delayed(const Duration(milliseconds: 40));
         expect(breaker.allowRequest(), isFalse);
         expect(breaker.state, CircuitState.open);
 
-        await Future.delayed(const Duration(milliseconds: 20));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         expect(breaker.allowRequest(), isTrue);
         expect(breaker.state, CircuitState.halfOpen);
       });
 
       test('precise moment of resetTimeout expiration', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 100),
+            resetTimeout: Duration(milliseconds: 100),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(breaker.state, CircuitState.open);
 
-        await Future.delayed(const Duration(milliseconds: 90));
+        await Future<void>.delayed(const Duration(milliseconds: 90));
         expect(breaker.allowRequest(), isFalse);
 
-        await Future.delayed(const Duration(milliseconds: 20));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         expect(breaker.allowRequest(), isTrue);
         expect(breaker.state, CircuitState.halfOpen);
       });
 
       test('allows only first request in halfOpen state', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 1),
+            resetTimeout: Duration(milliseconds: 1),
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 10));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
         expect(breaker.allowRequest(), isTrue);
         expect(breaker.state, CircuitState.halfOpen);
@@ -372,14 +337,12 @@ void main() {
 
       test('returns false for subsequent requests in halfOpen', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 1),
+            resetTimeout: Duration(milliseconds: 1),
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 10));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         breaker.allowRequest();
 
         expect(breaker.allowRequest(), isFalse);
@@ -388,15 +351,13 @@ void main() {
       test('allows requests in halfOpen when successCount > 0 and < threshold',
           () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 10),
+            resetTimeout: Duration(milliseconds: 10),
             successThreshold: 3,
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 20));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         expect(breaker.allowRequest(), isTrue);
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -416,15 +377,13 @@ void main() {
       test('returns false in halfOpen when no successes recorded yet',
           () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 10),
+            resetTimeout: Duration(milliseconds: 10),
             successThreshold: 2,
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 20));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         expect(breaker.allowRequest(), isTrue);
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -433,15 +392,12 @@ void main() {
 
       test('handles halfOpen with successThreshold of 1', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 10),
-            successThreshold: 1,
+            resetTimeout: Duration(milliseconds: 10),
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 20));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         expect(breaker.allowRequest(), isTrue);
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -452,10 +408,9 @@ void main() {
     group('state transitions', () {
       test('full cycle: closed -> open -> halfOpen -> closed', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 2,
-            resetTimeout: const Duration(milliseconds: 100),
-            successThreshold: 1,
+            resetTimeout: Duration(milliseconds: 100),
           ),
         );
 
@@ -469,7 +424,7 @@ void main() {
 
         expect(breaker.allowRequest(), isFalse);
 
-        await Future.delayed(const Duration(milliseconds: 150));
+        await Future<void>.delayed(const Duration(milliseconds: 150));
 
         expect(breaker.allowRequest(), isTrue);
         expect(breaker.state, CircuitState.halfOpen);
@@ -480,14 +435,12 @@ void main() {
 
       test('halfOpen -> open on failure', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 1),
+            resetTimeout: Duration(milliseconds: 1),
           ),
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 10));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -509,23 +462,18 @@ void main() {
     group('async interleaving scenarios', () {
       test('handles rapid success/failure interleaving in closed state',
           () async {
-        final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
-            failureThreshold: 5,
-            successThreshold: 1,
-          ),
-        );
+        final breaker = CircuitBreaker();
+        final futures = <Future<void>>[];
 
-        final futures = <Future>[];
-        for (int i = 0; i < 10; i++) {
-          if (i % 2 == 0) {
-            futures.add(Future(() => breaker.recordSuccess()));
+        for (var i = 0; i < 10; i++) {
+          if (i.isEven) {
+            futures.add(Future<void>(breaker.recordSuccess));
           } else {
-            futures.add(Future(() => breaker.recordFailure()));
+            futures.add(Future<void>(breaker.recordFailure));
           }
         }
 
-        await Future.wait(futures);
+        await Future.wait<void>(futures);
 
         expect(breaker.state, CircuitState.closed);
         expect(breaker.stats.failureCount, lessThanOrEqualTo(1));
@@ -536,9 +484,9 @@ void main() {
         final breaker = CircuitBreaker();
 
         final results = await Future.wait([
-          Future(() => breaker.allowRequest()),
-          Future(() => breaker.allowRequest()),
-          Future(() => breaker.allowRequest()),
+          Future(breaker.allowRequest),
+          Future(breaker.allowRequest),
+          Future(breaker.allowRequest),
         ]);
 
         expect(results, everyElement(isTrue));
@@ -547,21 +495,19 @@ void main() {
 
       test('handles state transition during async operation', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 2,
-            resetTimeout: const Duration(seconds: 1),
+            resetTimeout: Duration(seconds: 1),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
 
         final future1 = Future(() async {
-          await Future.delayed(const Duration(milliseconds: 10));
+          await Future<void>.delayed(const Duration(milliseconds: 10));
           return breaker.allowRequest();
         });
 
         final future2 = Future(() async {
-          await Future.delayed(const Duration(milliseconds: 20));
+          await Future<void>.delayed(const Duration(milliseconds: 20));
           breaker.recordFailure();
           return breaker.state;
         });
@@ -579,9 +525,8 @@ void main() {
         DateTime? capturedOpenedAt;
 
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 2,
-            resetTimeout: const Duration(seconds: 60),
           ),
           circuitId: 'test-circuit',
           onCircuitOpen: (circuitId, openedAt) {
@@ -603,19 +548,17 @@ void main() {
         DateTime? capturedOpenedAt;
 
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 10),
+            resetTimeout: Duration(milliseconds: 10),
           ),
           circuitId: 'test-circuit-2',
           onCircuitOpen: (circuitId, openedAt) {
             capturedCircuitId = circuitId;
             capturedOpenedAt = openedAt;
           },
-        );
-
-        breaker.recordFailure();
-        await Future.delayed(const Duration(milliseconds: 20));
+        )..recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
 
@@ -630,20 +573,17 @@ void main() {
       });
 
       test('does not invoke callback when already in open state', () {
-        int callbackCount = 0;
+        var callbackCount = 0;
 
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(seconds: 60),
           ),
           circuitId: 'test-circuit',
           onCircuitOpen: (_, __) {
             callbackCount++;
           },
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(callbackCount, 1);
 
         breaker.recordFailure();
@@ -652,30 +592,26 @@ void main() {
 
       test('works without callback', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(seconds: 60),
           ),
         );
 
-        expect(() => breaker.recordFailure(), returnsNormally);
+        expect(breaker.recordFailure, returnsNormally);
         expect(breaker.state, CircuitState.open);
       });
 
       test('works without circuitId', () {
-        int callbackCount = 0;
+        var callbackCount = 0;
 
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(seconds: 60),
           ),
           onCircuitOpen: (_, __) {
             callbackCount++;
           },
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
 
         expect(callbackCount, 0);
         expect(breaker.state, CircuitState.open);
@@ -685,14 +621,13 @@ void main() {
     group('reset', () {
       test('resets circuit breaker to initial state', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 2,
-            resetTimeout: const Duration(seconds: 1),
+            resetTimeout: Duration(seconds: 1),
           ),
-        );
-
-        breaker.recordFailure();
-        breaker.recordFailure();
+        )
+          ..recordFailure()
+          ..recordFailure();
 
         expect(breaker.state, CircuitState.open);
         expect(breaker.stats.failureCount, 2);
@@ -708,16 +643,14 @@ void main() {
 
       test('resets from halfOpen state', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(milliseconds: 1),
+            resetTimeout: Duration(milliseconds: 1),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(breaker.state, CircuitState.open);
 
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         breaker.allowRequest();
 
         expect(breaker.state, CircuitState.halfOpen);
@@ -743,13 +676,10 @@ void main() {
 
       test('reset clears resetTimeout', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(seconds: 60),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(breaker.state, CircuitState.open);
 
         breaker.reset();
@@ -762,13 +692,10 @@ void main() {
     group('edge cases and boundary conditions', () {
       test('handles multiple rapid failures without opening prematurely', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
-            failureThreshold: 5,
-            resetTimeout: const Duration(seconds: 60),
-          ),
+          options: const CircuitBreakerOptions(),
         );
 
-        for (int i = 0; i < 4; i++) {
+        for (var i = 0; i < 4; i++) {
           breaker.recordFailure();
           expect(breaker.state, CircuitState.closed);
         }
@@ -779,13 +706,10 @@ void main() {
 
       test('handles success after failures resets failure count in closed', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
-            failureThreshold: 5,
-          ),
-        );
-
-        breaker.recordFailure();
-        breaker.recordFailure();
+          options: const CircuitBreakerOptions(),
+        )
+          ..recordFailure()
+          ..recordFailure();
         expect(breaker.stats.failureCount, 2);
 
         breaker.recordSuccess();
@@ -797,13 +721,10 @@ void main() {
 
       test('handles open state with null resetTimeout', () {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 1,
-            resetTimeout: const Duration(seconds: 60),
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         expect(breaker.state, CircuitState.open);
 
         final allowRequestResult = breaker.allowRequest();
@@ -812,26 +733,26 @@ void main() {
 
       test('statistics reset correctly on state transitions', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 2,
-            resetTimeout: const Duration(milliseconds: 10),
+            resetTimeout: Duration(milliseconds: 10),
             successThreshold: 2,
           ),
-        );
-
-        breaker.recordFailure();
-        breaker.recordFailure();
+        )
+          ..recordFailure()
+          ..recordFailure();
         expect(breaker.state, CircuitState.open);
         expect(breaker.stats.failureCount, 2);
 
-        await Future.delayed(const Duration(milliseconds: 20));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
         breaker.allowRequest();
         expect(breaker.state, CircuitState.halfOpen);
         expect(breaker.stats.failureCount, 0);
         expect(breaker.stats.successCount, 0);
 
-        breaker.recordSuccess();
-        breaker.recordSuccess();
+        breaker
+          ..recordSuccess()
+          ..recordSuccess();
         expect(breaker.state, CircuitState.closed);
         expect(breaker.stats.successCount, 0);
         expect(breaker.stats.failureCount, 0);
@@ -839,15 +760,13 @@ void main() {
 
       test('lastFailureTimestamp updates on each failure', () async {
         final breaker = CircuitBreaker(
-          options: CircuitBreakerOptions(
+          options: const CircuitBreakerOptions(
             failureThreshold: 3,
           ),
-        );
-
-        breaker.recordFailure();
+        )..recordFailure();
         final timestamp1 = breaker.stats.lastFailureTimestamp;
 
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
         breaker.recordFailure();
         final timestamp2 = breaker.stats.lastFailureTimestamp;
