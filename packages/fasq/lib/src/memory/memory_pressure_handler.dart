@@ -2,35 +2,40 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+/// Callback used for memory pressure notifications.
+///
+/// When invoked, [critical] indicates whether pressure should be treated
+/// as critical.
+typedef MemoryPressureListener = void Function({required bool critical});
+
 /// Handles system memory pressure warnings.
 ///
 /// Listens to [WidgetsBindingObserver.didHaveMemoryPressure] and notifies
 /// registered listeners to release memory.
 class MemoryPressureHandler extends WidgetsBindingObserver {
-  static final MemoryPressureHandler _instance =
-      MemoryPressureHandler._internal();
-
   /// Returns the singleton instance of [MemoryPressureHandler].
   factory MemoryPressureHandler() => _instance;
 
   MemoryPressureHandler._internal() {
     WidgetsBinding.instance.addObserver(this);
   }
+  static final MemoryPressureHandler _instance =
+      MemoryPressureHandler._internal();
 
-  final List<void Function(bool critical)> _listeners = [];
+  final List<MemoryPressureListener> _listeners = [];
   Timer? _debounceTimer;
 
   /// Registers a callback to be invoked when memory pressure is detected.
   ///
-  /// The callback receives a [critical] flag, which may be true if the system
+  /// The callback receives a `critical` flag, which may be true if the system
   /// indicates a critical low-memory state (though Flutter's API is generic,
   /// we assume all warnings are important).
-  void addListener(void Function(bool critical) listener) {
+  void addListener(MemoryPressureListener listener) {
     _listeners.add(listener);
   }
 
   /// Removes a previously registered callback.
-  void removeListener(void Function(bool critical) listener) {
+  void removeListener(MemoryPressureListener listener) {
     _listeners.remove(listener);
   }
 
@@ -73,9 +78,9 @@ class MemoryPressureHandler extends WidgetsBindingObserver {
   }
 
   void _notifyListeners({required bool critical}) {
-    for (final listener in List.from(_listeners)) {
+    for (final listener in List<MemoryPressureListener>.from(_listeners)) {
       // Copy to avoid concurrent mod
-      listener(critical);
+      listener(critical: critical);
     }
   }
 

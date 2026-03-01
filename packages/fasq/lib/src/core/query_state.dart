@@ -1,4 +1,5 @@
-import 'query_status.dart';
+import 'package:fasq/src/core/query_status.dart';
+import 'package:meta/meta.dart';
 
 /// Represents the current state of a query.
 ///
@@ -17,40 +18,15 @@ import 'query_status.dart';
 ///   return SizedBox();
 /// }
 /// ```
+@immutable
 class QueryState<T> {
-  /// The data returned by the async operation, or null if not yet loaded.
-  final T? data;
-
-  /// Whether the query has produced a value (even if the value is null).
-  final bool hasValue;
-
-  /// The error that occurred during the async operation, or null if no error.
-  final Object? error;
-
-  /// The stack trace associated with the error, if any.
-  final StackTrace? stackTrace;
-
-  /// The current status of the query.
-  final QueryStatus status;
-
-  /// Whether a background refetch is in progress.
-  ///
-  /// True when serving stale data and refetching in background.
-  /// Different from [isLoading] which indicates initial fetch.
-  final bool isFetching;
-
-  /// When the data was last updated.
-  final DateTime? dataUpdatedAt;
-
-  /// Whether the data is stale (determined by cache).
-  final bool isStale;
-
+  /// Creates a query state with explicit values.
   const QueryState({
+    required this.status,
     this.data,
     this.hasValue = false,
     this.error,
     this.stackTrace,
-    required this.status,
     this.isFetching = false,
     this.dataUpdatedAt,
     this.isStale = false,
@@ -60,15 +36,17 @@ class QueryState<T> {
   factory QueryState.idle() {
     return QueryState<T>(
       status: QueryStatus.idle,
-      hasValue: false,
     );
   }
 
   /// Creates a loading state.
   ///
   /// Optionally includes [data] from a previous fetch to show while loading.
-  factory QueryState.loading(
-      {T? data, bool isFetching = false, bool isStale = false}) {
+  factory QueryState.loading({
+    T? data,
+    bool isFetching = false,
+    bool isStale = false,
+  }) {
     return QueryState<T>(
       status: QueryStatus.loading,
       data: data,
@@ -102,9 +80,35 @@ class QueryState<T> {
       status: QueryStatus.error,
       error: error,
       stackTrace: stackTrace,
-      hasValue: false,
     );
   }
+
+  /// The data returned by the async operation, or null if not yet loaded.
+  final T? data;
+
+  /// Whether the query has produced a value (even if the value is null).
+  final bool hasValue;
+
+  /// The error that occurred during the async operation, or null if no error.
+  final Object? error;
+
+  /// The stack trace associated with the error, if any.
+  final StackTrace? stackTrace;
+
+  /// The current status of the query.
+  final QueryStatus status;
+
+  /// Whether a background refetch is in progress.
+  ///
+  /// True when serving stale data and refetching in background.
+  /// Different from [isLoading] which indicates initial fetch.
+  final bool isFetching;
+
+  /// When the data was last updated.
+  final DateTime? dataUpdatedAt;
+
+  /// Whether the data is stale (determined by cache).
+  final bool isStale;
 
   /// Whether the query is currently loading.
   bool get isLoading => status == QueryStatus.loading;
@@ -121,6 +125,7 @@ class QueryState<T> {
   /// Whether the query is in idle state (not started).
   bool get isIdle => status == QueryStatus.idle;
 
+  /// Returns a copy of this state with selected fields replaced.
   QueryState<T> copyWith({
     T? data,
     bool? hasValue,
@@ -172,6 +177,10 @@ class QueryState<T> {
 
   @override
   String toString() {
-    return 'QueryState<$T>(status: $status, hasData: $hasData, hasError: $hasError)';
+    return 'QueryState<$T>('
+        'status: $status, '
+        'hasData: $hasData, '
+        'hasError: $hasError'
+        ')';
   }
 }

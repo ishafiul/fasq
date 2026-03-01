@@ -1,4 +1,5 @@
-/// Policy for selecting which cache entries to evict when memory limit is reached.
+/// Policy for selecting which cache entries to evict when memory
+/// limit is reached.
 ///
 /// Different policies optimize for different access patterns:
 /// - [lru] - Best for general use (default)

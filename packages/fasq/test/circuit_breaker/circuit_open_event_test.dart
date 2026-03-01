@@ -15,7 +15,7 @@ void main() {
     });
 
     test('toString returns formatted string', () {
-      final now = DateTime(2024, 1, 1, 12, 0, 0);
+      final now = DateTime(2024, 1, 1, 12);
       final event = CircuitOpenEvent(
         circuitId: 'api.example.com',
         openedAt: now,

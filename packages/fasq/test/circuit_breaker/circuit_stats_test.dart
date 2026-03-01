@@ -30,9 +30,7 @@ void main() {
         failureCount: 10,
         successCount: 5,
         lastFailureTimestamp: timestamp,
-      );
-
-      stats.reset();
+      )..reset();
 
       expect(stats.failureCount, 0);
       expect(stats.successCount, 0);

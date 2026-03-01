@@ -10,9 +10,13 @@ class FasqTime {
   /// Returns the current time.
   static DateTime get now => _nowProvider();
 
+  /// Returns the current time provider.
+  @visibleForTesting
+  static DateTime Function() get nowProvider => _nowProvider;
+
   /// Sets a custom provider for the current time.
   @visibleForTesting
-  static void setNowProvider(DateTime Function() provider) {
+  static set nowProvider(DateTime Function() provider) {
     _nowProvider = provider;
   }
 

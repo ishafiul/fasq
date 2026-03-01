@@ -43,11 +43,13 @@ void main() {
       test('empty key is rejected', () {
         expect(
           () => InputValidator.validateQueryKey(''),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('Query key cannot be empty'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Query key cannot be empty'),
+            ),
+          ),
         );
       });
 
@@ -55,11 +57,13 @@ void main() {
         final longKey = 'a' * 256; // 256 characters
         expect(
           () => InputValidator.validateQueryKey(longKey),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('Query key cannot exceed 255 characters'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Query key cannot exceed 255 characters'),
+            ),
+          ),
         );
       });
     });
@@ -87,11 +91,13 @@ void main() {
       test('functions are rejected', () {
         expect(
           () => InputValidator.validateCacheData(() => 'test'),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('Cache data cannot be a function'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Cache data cannot be a function'),
+            ),
+          ),
         );
       });
 
@@ -99,11 +105,13 @@ void main() {
         final mapWithFunction = {'key': () => 'value'};
         expect(
           () => InputValidator.validateCacheData(mapWithFunction),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('Map values cannot be functions'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Map values cannot be functions'),
+            ),
+          ),
         );
       });
 
@@ -111,27 +119,31 @@ void main() {
         final listWithFunction = ['item1', () => 'item2'];
         expect(
           () => InputValidator.validateCacheData(listWithFunction),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('List items cannot be functions'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('List items cannot be functions'),
+            ),
+          ),
         );
       });
 
       test('nested structures with functions are rejected', () {
         final nestedWithFunction = {
           'level1': {
-            'level2': ['item1', () => 'item2']
-          }
+            'level2': ['item1', () => 'item2'],
+          },
         };
         expect(
           () => InputValidator.validateCacheData(nestedWithFunction),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('List items cannot be functions'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('List items cannot be functions'),
+            ),
+          ),
         );
       });
     });
@@ -140,26 +152,31 @@ void main() {
       test('valid durations are accepted', () {
         final validDurations = [
           Duration.zero,
-          Duration(seconds: 1),
-          Duration(minutes: 5),
-          Duration(hours: 1),
+          const Duration(seconds: 1),
+          const Duration(minutes: 5),
+          const Duration(hours: 1),
           null,
         ];
 
         for (final duration in validDurations) {
-          expect(() => InputValidator.validateDuration(duration, 'test'),
-              returnsNormally);
+          expect(
+            () => InputValidator.validateDuration(duration, 'test'),
+            returnsNormally,
+          );
         }
       });
 
       test('negative durations are rejected', () {
         expect(
-          () => InputValidator.validateDuration(Duration(seconds: -1), 'test'),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('test must be non-negative'),
-          )),
+          () => InputValidator.validateDuration(
+              const Duration(seconds: -1), 'test',),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('test must be non-negative'),
+            ),
+          ),
         );
       });
     });
@@ -167,10 +184,8 @@ void main() {
     group('QueryOptions Validation', () {
       test('valid options are accepted', () {
         final options = QueryOptions(
-          enabled: true,
-          staleTime: Duration(minutes: 5),
-          cacheTime: Duration(minutes: 10),
-          isSecure: false,
+          staleTime: const Duration(minutes: 5),
+          cacheTime: const Duration(minutes: 10),
         );
         expect(() => InputValidator.validateOptions(options), returnsNormally);
       });
@@ -189,7 +204,7 @@ void main() {
         expect(
           () => QueryOptions(
             isSecure: true,
-            maxAge: Duration(seconds: -1),
+            maxAge: const Duration(seconds: -1),
           ),
           throwsA(isA<ArgumentError>()),
         );
@@ -213,15 +228,19 @@ void main() {
       test('QueryClient validates inputs', () {
         // Valid query
         expect(
-          () => client.getQuery<String>('valid-key'.toQueryKey(),
-              queryFn: () => Future.value('data')),
+          () => client.getQuery<String>(
+            'valid-key'.toQueryKey(),
+            queryFn: () => Future.value('data'),
+          ),
           returnsNormally,
         );
 
         // Invalid key
         expect(
-          () => client.getQuery<String>('invalid@key'.toQueryKey(),
-              queryFn: () => Future.value('data')),
+          () => client.getQuery<String>(
+            'invalid@key'.toQueryKey(),
+            queryFn: () => Future.value('data'),
+          ),
           throwsA(isA<ArgumentError>()),
         );
 
@@ -230,7 +249,7 @@ void main() {
           () => client.getQuery<String>(
             'valid-key'.toQueryKey(),
             queryFn: () => Future.value('data'),
-            options: QueryOptions(staleTime: Duration(seconds: -1)),
+            options: QueryOptions(staleTime: const Duration(seconds: -1)),
           ),
           throwsA(isA<ArgumentError>()),
         );
@@ -260,7 +279,7 @@ void main() {
           () => cache.set<String>(
             'valid-key',
             'data',
-            staleTime: Duration(seconds: -1),
+            staleTime: const Duration(seconds: -1),
           ),
           throwsA(isA<ArgumentError>()),
         );
@@ -282,7 +301,9 @@ void main() {
         // Invalid data
         expect(
           () => client.setQueryData<Function>(
-              'valid-key'.toQueryKey(), () => 'data'),
+            'valid-key'.toQueryKey(),
+            () => 'data',
+          ),
           throwsA(isA<ArgumentError>()),
         );
 
@@ -291,7 +312,7 @@ void main() {
           () => client.setQueryData<String>(
             'valid-key'.toQueryKey(),
             'data',
-            maxAge: Duration(seconds: -1),
+            maxAge: const Duration(seconds: -1),
           ),
           throwsA(isA<ArgumentError>()),
         );
@@ -301,78 +322,106 @@ void main() {
     group('Additional Validation Methods', () {
       test('validateString works correctly', () {
         // Valid strings
-        expect(() => InputValidator.validateString('test', 'name'),
-            returnsNormally);
         expect(
-            () => InputValidator.validateString(null, 'name'), returnsNormally);
+          () => InputValidator.validateString('test', 'name'),
+          returnsNormally,
+        );
+        expect(
+          () => InputValidator.validateString(null, 'name'),
+          returnsNormally,
+        );
 
         // Empty string
         expect(
           () => InputValidator.validateString('', 'name'),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('name cannot be empty'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('name cannot be empty'),
+            ),
+          ),
         );
 
         // Too long
         final longString = 'a' * 1001;
         expect(
           () => InputValidator.validateString(longString, 'name'),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('name cannot exceed 1000 characters'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('name cannot exceed 1000 characters'),
+            ),
+          ),
         );
       });
 
       test('validateNumber works correctly', () {
         // Valid numbers
         expect(
-            () => InputValidator.validateNumber(5, 'value'), returnsNormally);
-        expect(() => InputValidator.validateNumber(null, 'value'),
-            returnsNormally);
+          () => InputValidator.validateNumber(5, 'value'),
+          returnsNormally,
+        );
+        expect(
+          () => InputValidator.validateNumber(null, 'value'),
+          returnsNormally,
+        );
 
         // Below minimum
         expect(
           () => InputValidator.validateNumber(3, 'value', min: 5),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('value must be >= 5'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('value must be >= 5'),
+            ),
+          ),
         );
 
         // Above maximum
         expect(
           () => InputValidator.validateNumber(10, 'value', max: 5),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('value must be <= 5'),
-          )),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('value must be <= 5'),
+            ),
+          ),
         );
       });
 
       test('validateBoolean works correctly', () {
         // Valid booleans
-        expect(() => InputValidator.validateBoolean(true, 'value'),
-            returnsNormally);
-        expect(() => InputValidator.validateBoolean(false, 'value'),
-            returnsNormally);
-        expect(() => InputValidator.validateBoolean(null, 'value'),
-            returnsNormally);
+        expect(
+          () => InputValidator.validateBoolean('value', value: true),
+          returnsNormally,
+        );
+        expect(
+          () => InputValidator.validateBoolean('value', value: false),
+          returnsNormally,
+        );
+        expect(
+          () => InputValidator.validateBoolean('value', value: null),
+          returnsNormally,
+        );
 
         // Required but null
         expect(
-          () => InputValidator.validateBoolean(null, 'value', required: true),
-          throwsA(isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('value is required but was null'),
-          )),
+          () => InputValidator.validateBoolean(
+            'value',
+            value: null,
+            required: true,
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('value is required but was null'),
+            ),
+          ),
         );
       });
     });

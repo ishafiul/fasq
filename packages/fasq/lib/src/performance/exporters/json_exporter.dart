@@ -1,18 +1,20 @@
 import 'dart:convert';
 
-import '../../cache/cache_metrics.dart';
-import '../metrics_exporter.dart';
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/performance/metrics_exporter.dart';
 
+/// Exports performance snapshots as JSON payloads.
 class JsonExporter implements MetricsExporter {
   Map<String, dynamic> _config = {};
 
+  /// Current exporter configuration.
   Map<String, dynamic> get config => _config;
 
   @override
   Future<void> export(PerformanceSnapshot snapshot) async {
     final cacheReport = snapshot.cacheMetrics.getReport();
 
-    final Map<String, dynamic> exportData = {
+    final exportData = <String, dynamic>{
       'timestamp': snapshot.timestamp.toIso8601String(),
       'totalQueries': snapshot.totalQueries,
       'activeQueries': snapshot.activeQueries,
@@ -59,7 +61,7 @@ class JsonExporter implements MetricsExporter {
       }),
     };
 
-    final String jsonString = jsonEncode(exportData);
+    final jsonString = jsonEncode(exportData);
     await _sendJson(jsonString, _config);
   }
 

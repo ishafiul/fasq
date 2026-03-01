@@ -23,7 +23,7 @@ void main() {
               queryKey: 'lifecycle-test'.toQueryKey(),
               queryFn: () async {
                 fetchCount++;
-                await Future.delayed(Duration(milliseconds: 50));
+                await Future<void>.delayed(const Duration(milliseconds: 50));
                 return 'lifecycle data';
               },
               builder: (context, state) {
@@ -95,7 +95,7 @@ void main() {
             queryKey: 'rapid-nav'.toQueryKey(),
             queryFn: () async {
               fetchCount++;
-              await Future.delayed(Duration(milliseconds: 50));
+              await Future<void>.delayed(const Duration(milliseconds: 50));
               return 'nav data';
             },
             builder: (context, state) {
@@ -151,7 +151,7 @@ void main() {
                 queryKey: 'shared-query'.toQueryKey(),
                 queryFn: () async {
                   fetchCount++;
-                  await Future.delayed(Duration(milliseconds: 50));
+                  await Future<void>.delayed(const Duration(milliseconds: 50));
                   return 'shared';
                 },
                 builder: (context, state) => Text('A: ${state.data}'),

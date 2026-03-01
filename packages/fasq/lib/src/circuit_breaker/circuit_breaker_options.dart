@@ -9,13 +9,16 @@ class CircuitBreakerOptions {
   /// from Closed to Open state. Defaults to 5.
   final int failureThreshold;
 
-  /// Duration to wait before attempting to reset the circuit (transition to Half-Open).
+  /// Duration to wait before attempting to reset the circuit (transition to
+  ///  Half-Open).
   ///
   /// After the circuit opens, it waits for this duration before allowing
-  /// a test request to check if the service has recovered. Defaults to 60 seconds.
+  /// a test request to check if the service has recovered.
+  ///  Defaults to 60 seconds.
   final Duration resetTimeout;
 
-  /// Number of consecutive successes required in Half-Open state to close the circuit.
+  /// Number of consecutive successes required in Half-Open state to close the
+  ///  circuit.
   ///
   /// When the success count reaches this threshold while in Half-Open state,
   /// the circuit transitions back to Closed state. Defaults to 1.

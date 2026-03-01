@@ -5,11 +5,10 @@ void main() {
   group('CircuitBreakerRegistry - Circuit Open Callbacks', () {
     group('registerCircuitOpenCallback', () {
       test('registers a callback', () {
-        final registry = CircuitBreakerRegistry();
-
-        registry.registerCircuitOpenCallback((event) {
-          // Callback registered successfully
-        });
+        final registry = CircuitBreakerRegistry()
+          ..registerCircuitOpenCallback((event) {
+            // Callback registered successfully
+          });
 
         expect(registry.callbackCount, 1);
       });
@@ -18,12 +17,9 @@ void main() {
         final registry = CircuitBreakerRegistry();
         final events = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
+        registry
+          ..registerCircuitOpenCallback(events.add)
+          ..registerCircuitOpenCallback(events.add);
 
         expect(registry.callbackCount, 2);
       });
@@ -32,15 +28,12 @@ void main() {
         final registry = CircuitBreakerRegistry();
         final events = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
+        registry.registerCircuitOpenCallback(events.add);
 
-        final options = CircuitBreakerOptions(failureThreshold: 2);
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
-        breaker.recordFailure();
+        const options = CircuitBreakerOptions(failureThreshold: 2);
+        registry.getOrCreate('api.example.com', options)
+          ..recordFailure()
+          ..recordFailure();
 
         expect(events.length, 1);
         expect(events[0].circuitId, 'api.example.com');
@@ -52,17 +45,12 @@ void main() {
         final events1 = <CircuitOpenEvent>[];
         final events2 = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          events1.add(event);
-        });
-        registry.registerCircuitOpenCallback((event) {
-          events2.add(event);
-        });
+        registry
+          ..registerCircuitOpenCallback(events1.add)
+          ..registerCircuitOpenCallback(events2.add);
 
-        final options = CircuitBreakerOptions(failureThreshold: 1);
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
+        const options = CircuitBreakerOptions(failureThreshold: 1);
+        registry.getOrCreate('api.example.com', options).recordFailure();
 
         expect(events1.length, 1);
         expect(events2.length, 1);
@@ -73,14 +61,11 @@ void main() {
         final registry = CircuitBreakerRegistry();
         final events = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
+        registry.registerCircuitOpenCallback(events.add);
 
-        final options = CircuitBreakerOptions(failureThreshold: 3);
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
+        const options = CircuitBreakerOptions(failureThreshold: 3);
+        final breaker = registry.getOrCreate('api.example.com', options)
+          ..recordFailure();
         expect(events.length, 0);
 
         breaker.recordFailure();
@@ -95,24 +80,22 @@ void main() {
         final registry = CircuitBreakerRegistry();
         final events = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
+        registry.registerCircuitOpenCallback(events.add);
 
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           failureThreshold: 1,
-          resetTimeout: const Duration(milliseconds: 10),
+          resetTimeout: Duration(milliseconds: 10),
         );
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
+        final breaker = registry.getOrCreate('api.example.com', options)
+          ..recordFailure();
         expect(events.length, 1);
 
         events.clear();
 
-        await Future.delayed(const Duration(milliseconds: 20));
-        breaker.allowRequest();
-        breaker.recordFailure();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        breaker
+          ..allowRequest()
+          ..recordFailure();
 
         expect(events.length, 1);
         expect(events[0].circuitId, 'api.example.com');
@@ -122,14 +105,11 @@ void main() {
         final registry = CircuitBreakerRegistry();
         final events = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
+        registry.registerCircuitOpenCallback(events.add);
 
-        final options = CircuitBreakerOptions(failureThreshold: 1);
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
+        const options = CircuitBreakerOptions(failureThreshold: 1);
+        final breaker = registry.getOrCreate('api.example.com', options)
+          ..recordFailure();
         expect(events.length, 1);
 
         events.clear();
@@ -173,13 +153,12 @@ void main() {
           events.add(event);
         }
 
-        registry.registerCircuitOpenCallback(callback);
-        registry.unregisterCircuitOpenCallback(callback);
+        registry
+          ..registerCircuitOpenCallback(callback)
+          ..unregisterCircuitOpenCallback(callback);
 
-        final options = CircuitBreakerOptions(failureThreshold: 1);
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
+        const options = CircuitBreakerOptions(failureThreshold: 1);
+        registry.getOrCreate('api.example.com', options).recordFailure();
 
         expect(events.length, 0);
       });
@@ -192,17 +171,16 @@ void main() {
           events.add(event);
         }
 
-        registry.registerCircuitOpenCallback(callback);
-        registry.registerCircuitOpenCallback(callback);
+        registry
+          ..registerCircuitOpenCallback(callback)
+          ..registerCircuitOpenCallback(callback);
         expect(registry.callbackCount, 2);
 
         registry.unregisterCircuitOpenCallback(callback);
         expect(registry.callbackCount, 1);
 
-        final options = CircuitBreakerOptions(failureThreshold: 1);
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
+        const options = CircuitBreakerOptions(failureThreshold: 1);
+        registry.getOrCreate('api.example.com', options).recordFailure();
 
         expect(events.length, 1);
       });
@@ -210,11 +188,10 @@ void main() {
 
     group('clearCircuitOpenCallbacks', () {
       test('removes all registered callbacks', () {
-        final registry = CircuitBreakerRegistry();
-
-        registry.registerCircuitOpenCallback((event) {});
-        registry.registerCircuitOpenCallback((event) {});
-        registry.registerCircuitOpenCallback((event) {});
+        final registry = CircuitBreakerRegistry()
+          ..registerCircuitOpenCallback((event) {})
+          ..registerCircuitOpenCallback((event) {})
+          ..registerCircuitOpenCallback((event) {});
 
         expect(registry.callbackCount, 3);
 
@@ -227,19 +204,13 @@ void main() {
         final registry = CircuitBreakerRegistry();
         final events = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
+        registry
+          ..registerCircuitOpenCallback(events.add)
+          ..registerCircuitOpenCallback(events.add)
+          ..clearCircuitOpenCallbacks();
 
-        registry.clearCircuitOpenCallbacks();
-
-        final options = CircuitBreakerOptions(failureThreshold: 1);
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
+        const options = CircuitBreakerOptions(failureThreshold: 1);
+        registry.getOrCreate('api.example.com', options).recordFailure();
 
         expect(events.length, 0);
       });
@@ -252,9 +223,8 @@ void main() {
       });
 
       test('returns correct count after registrations', () {
-        final registry = CircuitBreakerRegistry();
-
-        registry.registerCircuitOpenCallback((event) {});
+        final registry = CircuitBreakerRegistry()
+          ..registerCircuitOpenCallback((event) {});
         expect(registry.callbackCount, 1);
 
         registry.registerCircuitOpenCallback((event) {});
@@ -270,17 +240,16 @@ void main() {
         final registry = CircuitBreakerRegistry();
         final events = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          throw Exception('Callback error');
-        });
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
+        registry
+          ..registerCircuitOpenCallback((event) {
+            throw Exception('Callback error');
+          })
+          ..registerCircuitOpenCallback(events.add);
 
-        final options = CircuitBreakerOptions(failureThreshold: 1);
+        const options = CircuitBreakerOptions(failureThreshold: 1);
         final breaker = registry.getOrCreate('api.example.com', options);
 
-        expect(() => breaker.recordFailure(), returnsNormally);
+        expect(breaker.recordFailure, returnsNormally);
 
         expect(events.length, 1);
       });
@@ -289,20 +258,19 @@ void main() {
         final registry = CircuitBreakerRegistry();
         final events = <CircuitOpenEvent>[];
 
-        registry.registerCircuitOpenCallback((event) {
-          throw Exception('Error 1');
-        });
-        registry.registerCircuitOpenCallback((event) {
-          throw Exception('Error 2');
-        });
-        registry.registerCircuitOpenCallback((event) {
-          events.add(event);
-        });
+        registry
+          ..registerCircuitOpenCallback((event) {
+            throw Exception('Error 1');
+          })
+          ..registerCircuitOpenCallback((event) {
+            throw Exception('Error 2');
+          })
+          ..registerCircuitOpenCallback(events.add);
 
-        final options = CircuitBreakerOptions(failureThreshold: 1);
+        const options = CircuitBreakerOptions(failureThreshold: 1);
         final breaker = registry.getOrCreate('api.example.com', options);
 
-        expect(() => breaker.recordFailure(), returnsNormally);
+        expect(breaker.recordFailure, returnsNormally);
 
         expect(events.length, 1);
       });
@@ -311,7 +279,7 @@ void main() {
     group('circuitId in CircuitBreaker', () {
       test('circuit breaker stores circuitId from registry', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         final breaker = registry.getOrCreate('api.example.com', options);
 
@@ -327,7 +295,7 @@ void main() {
       test('circuit breaker with circuitId invokes callback correctly', () {
         CircuitOpenEvent? receivedEvent;
 
-        final breaker = CircuitBreaker(
+        CircuitBreaker(
           circuitId: 'test-circuit',
           options: const CircuitBreakerOptions(failureThreshold: 1),
           onCircuitOpen: (circuitId, openedAt) {
@@ -336,9 +304,7 @@ void main() {
               openedAt: openedAt,
             );
           },
-        );
-
-        breaker.recordFailure();
+        ).recordFailure();
 
         expect(receivedEvent, isNotNull);
         expect(receivedEvent!.circuitId, 'test-circuit');
@@ -349,16 +315,22 @@ void main() {
       test('includes callback count in string representation', () {
         final registry = CircuitBreakerRegistry();
 
-        expect(registry.toString(),
-            'CircuitBreakerRegistry(count: 0, callbacks: 0)');
+        expect(
+          registry.toString(),
+          'CircuitBreakerRegistry(count: 0, callbacks: 0)',
+        );
 
         registry.registerCircuitOpenCallback((event) {});
-        expect(registry.toString(),
-            'CircuitBreakerRegistry(count: 0, callbacks: 1)');
+        expect(
+          registry.toString(),
+          'CircuitBreakerRegistry(count: 0, callbacks: 1)',
+        );
 
         registry.getOrCreate('api.example.com', const CircuitBreakerOptions());
-        expect(registry.toString(),
-            'CircuitBreakerRegistry(count: 1, callbacks: 1)');
+        expect(
+          registry.toString(),
+          'CircuitBreakerRegistry(count: 1, callbacks: 1)',
+        );
       });
     });
   });

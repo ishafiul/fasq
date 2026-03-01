@@ -23,12 +23,12 @@ void main() {
     });
 
     test('detects leaked query with active listener', () {
-      final query = client.getQuery<String>(
-        'leaked-query'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      query.addListener('test-widget');
+      client
+          .getQuery<String>(
+            'leaked-query'.toQueryKey(),
+            queryFn: () async => 'data',
+          )
+          .addListener('test-widget');
 
       expect(
         () => detector.expectNoLeakedQueries(client),
@@ -37,14 +37,14 @@ void main() {
     });
 
     test('passes when query is disposed after removing listener', () {
-      final query = client.getQuery<String>(
+      client.getQuery<String>(
         'auto-disposed-query'.toQueryKey(),
         queryFn: () async => 'data',
-      );
-
-      query.addListener('test-widget');
-      query.removeListener('test-widget');
-      // With disposalDelay = Duration.zero, query should be disposed immediately
+      )
+        ..addListener('test-widget')
+        ..removeListener('test-widget');
+      // With disposalDelay = Duration.zero, query should be disposed
+      // immediately
 
       expect(
         () => detector.expectNoLeakedQueries(client),
@@ -53,14 +53,13 @@ void main() {
     });
 
     test('passes when query is properly disposed', () {
-      final query = client.getQuery<String>(
+      client.getQuery<String>(
         'properly-disposed-query'.toQueryKey(),
         queryFn: () async => 'data',
-      );
-
-      query.addListener('test-widget');
-      query.removeListener('test-widget');
-      query.dispose();
+      )
+        ..addListener('test-widget')
+        ..removeListener('test-widget')
+        ..dispose();
 
       expect(
         () => detector.expectNoLeakedQueries(client),
@@ -69,13 +68,12 @@ void main() {
     });
 
     test('passes when all queries are removed from client', () {
-      final query = client.getQuery<String>(
+      client.getQuery<String>(
         'removed-query'.toQueryKey(),
         queryFn: () async => 'data',
-      );
-
-      query.addListener('test-widget');
-      query.removeListener('test-widget');
+      )
+        ..addListener('test-widget')
+        ..removeListener('test-widget');
       client.removeQuery('removed-query'.toQueryKey());
 
       expect(
@@ -85,12 +83,12 @@ void main() {
     });
 
     test('error message includes query key', () {
-      final query = client.getQuery<String>(
-        'test-leak-key'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      query.addListener('test-widget');
+      client
+          .getQuery<String>(
+            'test-leak-key'.toQueryKey(),
+            queryFn: () async => 'data',
+          )
+          .addListener('test-widget');
 
       try {
         detector.expectNoLeakedQueries(client);
@@ -102,12 +100,12 @@ void main() {
     });
 
     test('error message includes creation stack trace', () {
-      final query = client.getQuery<String>(
-        'stack-trace-test'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      query.addListener('test-widget');
+      client
+          .getQuery<String>(
+            'stack-trace-test'.toQueryKey(),
+            queryFn: () async => 'data',
+          )
+          .addListener('test-widget');
 
       try {
         detector.expectNoLeakedQueries(client);
@@ -139,12 +137,12 @@ void main() {
     });
 
     test('allows specified queries in allowedLeakKeys', () {
-      final persistentQuery = client.getQuery<String>(
-        'persistent-query'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      persistentQuery.addListener('test-widget');
+      client
+          .getQuery<String>(
+            'persistent-query'.toQueryKey(),
+            queryFn: () async => 'data',
+          )
+          .addListener('test-widget');
 
       expect(
         () => detector.expectNoLeakedQueries(
@@ -182,7 +180,8 @@ void main() {
     testWidgets('passes when widget properly disposes query automatically',
         (tester) async {
       // QueryBuilder uses QueryClient.maybeInstance, so we need to ensure
-      // the singleton is set. Since we create QueryClient() in setUp, it's already set.
+      // the singleton is set. Since we create QueryClient() in setUp,
+      //it's already set.
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -203,10 +202,12 @@ void main() {
       // Get the client instance that QueryBuilder is using
       final queryClient = QueryClient.maybeInstance ?? client;
 
-      // Remove widget - QueryBuilder should automatically remove listener in dispose()
+      // Remove widget - QueryBuilder should automatically remove
+      // listener in dispose()
       await tester.pumpWidget(Container());
 
-      // Wait for disposal to complete (with disposalDelay = Duration.zero, it's immediate)
+      // Wait for disposal to complete (with disposalDelay = Duration.zero,
+      // it's immediate)
       await tester.pump();
 
       // Verify no leaks - QueryBuilder should have cleaned up properly
@@ -220,12 +221,12 @@ void main() {
     testWidgets('detects leaked query when manually created and not disposed',
         (tester) async {
       // Manually create a query without using QueryBuilder
-      final query = client.getQuery<String>(
-        'manual-query-leak'.toQueryKey(),
-        queryFn: () async => 'data',
-      );
-
-      query.addListener('manual-listener');
+      client
+          .getQuery<String>(
+            'manual-query-leak'.toQueryKey(),
+            queryFn: () async => 'data',
+          )
+          .addListener('manual-listener');
 
       // Don't remove listener or dispose - this should be detected as a leak
       expect(

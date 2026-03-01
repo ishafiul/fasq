@@ -1,5 +1,5 @@
-import '../core/query.dart';
-import '../core/query_client.dart';
+import 'package:fasq/src/core/query.dart';
+import 'package:fasq/src/core/query_client.dart';
 
 /// Utility class for detecting memory leaks in FASQ queries.
 ///
@@ -32,6 +32,11 @@ import '../core/query_client.dart';
 /// });
 /// ```
 class LeakDetector {
+  /// Creates a new [LeakDetector] instance.
+  LeakDetector() {
+    _finalizer = Finalizer<String>(_gcConfirmed.add);
+  }
+
   /// Internal map to track expected disposals.
   ///
   /// This will be used in future tasks to track queries that should be
@@ -46,7 +51,8 @@ class LeakDetector {
 
   /// Map of tracked objects to their debug labels and identity hashes.
   ///
-  /// Keys are the debug labels, values are the identity hash of the tracked object.
+  /// Keys are the debug labels, values are the identity hash of
+  ///  the tracked object.
   /// Objects are removed from this map when they are GC'd.
   final Map<String, int> _trackedObjects = {};
 
@@ -55,14 +61,6 @@ class LeakDetector {
   /// When the Finalizer callback is invoked, the object's label is
   /// added to this set.
   final Set<String> _gcConfirmed = {};
-
-  /// Creates a new [LeakDetector] instance.
-  LeakDetector() {
-    _finalizer = Finalizer<String>((label) {
-      // This callback is invoked when the tracked object is GC'd
-      _gcConfirmed.add(label);
-    });
-  }
 
   /// Checks for leaked queries in the given [QueryClient].
   ///
@@ -129,24 +127,25 @@ class LeakDetector {
     final startTime = DateTime.now();
 
     // Wait a bit to allow GC to run
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
 
     // Check periodically if all objects have been GC'd
     while (DateTime.now().difference(startTime) < timeout) {
       // Check if all tracked objects have been GC'd
-      if (_trackedObjects.keys.every((label) => _gcConfirmed.contains(label))) {
+      if (_trackedObjects.keys.every(_gcConfirmed.contains)) {
         return true;
       }
 
       // Wait a bit more for GC
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
 
     // Final check
-    return _trackedObjects.keys.every((label) => _gcConfirmed.contains(label));
+    return _trackedObjects.keys.every(_gcConfirmed.contains);
   }
 
-  /// Returns a list of labels for objects that are still tracked but not yet garbage collected.
+  /// Returns a list of labels for objects that are still tracked but not yet
+  /// garbage collected.
   ///
   /// This is useful for debugging which objects are preventing GC.
   List<String> getLeakedObjects() {
@@ -197,7 +196,8 @@ class LeakDetector {
   /// ```dart
   /// test('with allowed leaks', () {
   ///   final client = QueryClient();
-  ///   final persistentQuery = client.getQuery<String>('persistent', () async => 'data');
+  ///   final persistentQuery = client.getQuery<String>('persistent',
+  ///  () async => 'data');
   ///
   ///   final detector = LeakDetector();
   ///   detector.expectNoLeakedQueries(
@@ -226,32 +226,37 @@ class LeakDetector {
     }
 
     // Build detailed error message
-    final buffer = StringBuffer();
-    buffer.writeln('Found ${leakedQueries.length} leaked query(ies):');
-    buffer.writeln();
+    final buffer = StringBuffer()
+      ..writeln('Found ${leakedQueries.length} leaked query(ies):')
+      ..writeln();
 
     for (final entry in leakedQueries) {
       final queryKey = entry.key;
       final debugInfo = entry.value;
 
-      buffer.writeln('Query: $queryKey');
-      buffer.writeln('─' * 50);
+      buffer
+        ..writeln('Query: $queryKey')
+        ..writeln('─' * 50);
 
       if (debugInfo.creationStack != null) {
-        buffer.writeln('Created at:');
-        buffer.writeln(debugInfo.creationStack.toString());
-        buffer.writeln();
+        buffer
+          ..writeln('Created at:')
+          ..writeln(debugInfo.creationStack.toString())
+          ..writeln();
       } else {
-        buffer.writeln('Created at: (stack trace not available)');
-        buffer.writeln();
+        buffer
+          ..writeln('Created at: (stack trace not available)')
+          ..writeln();
       }
 
       if (debugInfo.referenceHolders.isNotEmpty) {
         buffer.writeln(
-            'Held by ${debugInfo.referenceHolders.length} reference holder(s):');
+          'Held by ${debugInfo.referenceHolders.length} reference holder(s):',
+        );
         for (final holderEntry in debugInfo.referenceHolders.entries) {
-          buffer.writeln('  - ${holderEntry.key}');
-          buffer.writeln('    Stack trace:');
+          buffer
+            ..writeln('  - ${holderEntry.key}')
+            ..writeln('    Stack trace:');
           final stackLines = holderEntry.value.toString().split('\n');
           for (final line in stackLines.take(5)) {
             buffer.writeln('    $line');
@@ -262,8 +267,9 @@ class LeakDetector {
           buffer.writeln();
         }
       } else {
-        buffer.writeln('Held by: (no active reference holders)');
-        buffer.writeln();
+        buffer
+          ..writeln('Held by: (no active reference holders)')
+          ..writeln();
       }
 
       buffer.writeln();

@@ -14,9 +14,9 @@ void main() {
     group('getOrCreate', () {
       test('creates new circuit breaker for new scope key', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           failureThreshold: 10,
-          resetTimeout: const Duration(seconds: 30),
+          resetTimeout: Duration(seconds: 30),
           successThreshold: 2,
         );
 
@@ -33,7 +33,7 @@ void main() {
 
       test('returns same instance for same scope key', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions(failureThreshold: 5);
+        const options = CircuitBreakerOptions();
 
         final breaker1 = registry.getOrCreate('api.example.com', options);
         final breaker2 = registry.getOrCreate('api.example.com', options);
@@ -44,7 +44,7 @@ void main() {
 
       test('returns different instances for different scope keys', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions(failureThreshold: 5);
+        const options = CircuitBreakerOptions();
 
         final breaker1 = registry.getOrCreate('api.example.com', options);
         final breaker2 = registry.getOrCreate('api.other.com', options);
@@ -55,8 +55,8 @@ void main() {
 
       test('uses provided options only when creating new breaker', () {
         final registry = CircuitBreakerRegistry();
-        final options1 = CircuitBreakerOptions(failureThreshold: 5);
-        final options2 = CircuitBreakerOptions(failureThreshold: 10);
+        const options1 = CircuitBreakerOptions();
+        const options2 = CircuitBreakerOptions(failureThreshold: 10);
 
         final breaker1 = registry.getOrCreate('api.example.com', options1);
         final breaker2 = registry.getOrCreate('api.example.com', options2);
@@ -68,16 +68,17 @@ void main() {
 
       test('maintains isolation between different scopes', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           failureThreshold: 2,
-          resetTimeout: const Duration(seconds: 1),
+          resetTimeout: Duration(seconds: 1),
         );
 
         final breaker1 = registry.getOrCreate('api.example.com', options);
         final breaker2 = registry.getOrCreate('api.other.com', options);
 
-        breaker1.recordFailure();
-        breaker1.recordFailure();
+        breaker1
+          ..recordFailure()
+          ..recordFailure();
 
         expect(breaker1.state, CircuitState.open);
         expect(breaker2.state, CircuitState.closed);
@@ -88,10 +89,11 @@ void main() {
     group('clearAll', () {
       test('removes all circuit breakers from registry', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
-        registry.getOrCreate('api.example.com', options);
-        registry.getOrCreate('api.other.com', options);
+        registry
+          ..getOrCreate('api.example.com', options)
+          ..getOrCreate('api.other.com', options);
 
         expect(registry.count, 2);
 
@@ -104,10 +106,11 @@ void main() {
 
       test('allows creating new breakers after clearing', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
-        registry.getOrCreate('api.example.com', options);
-        registry.clearAll();
+        registry
+          ..getOrCreate('api.example.com', options)
+          ..clearAll();
 
         final newBreaker = registry.getOrCreate('api.example.com', options);
 
@@ -119,15 +122,14 @@ void main() {
     group('reset', () {
       test('resets circuit breaker to closed state', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           failureThreshold: 2,
-          resetTimeout: const Duration(seconds: 1),
+          resetTimeout: Duration(seconds: 1),
         );
 
-        final breaker = registry.getOrCreate('api.example.com', options);
-
-        breaker.recordFailure();
-        breaker.recordFailure();
+        final breaker = registry.getOrCreate('api.example.com', options)
+          ..recordFailure()
+          ..recordFailure();
 
         expect(breaker.state, CircuitState.open);
         expect(breaker.stats.failureCount, 2);
@@ -149,13 +151,14 @@ void main() {
 
       test('resets only the specified circuit breaker', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions(failureThreshold: 2);
+        const options = CircuitBreakerOptions(failureThreshold: 2);
 
         final breaker1 = registry.getOrCreate('api.example.com', options);
         final breaker2 = registry.getOrCreate('api.other.com', options);
 
-        breaker1.recordFailure();
-        breaker1.recordFailure();
+        breaker1
+          ..recordFailure()
+          ..recordFailure();
         breaker2.recordFailure();
 
         expect(breaker1.state, CircuitState.open);
@@ -172,7 +175,7 @@ void main() {
     group('contains', () {
       test('returns true for existing scope key', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         registry.getOrCreate('api.example.com', options);
 
@@ -189,7 +192,7 @@ void main() {
     group('get', () {
       test('returns circuit breaker for existing scope key', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         final created = registry.getOrCreate('api.example.com', options);
         final retrieved = registry.get('api.example.com');
@@ -208,7 +211,7 @@ void main() {
     group('count', () {
       test('returns correct count after operations', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         expect(registry.count, 0);
 
@@ -229,21 +232,25 @@ void main() {
     group('toString', () {
       test('returns string representation with count', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
-        expect(registry.toString(),
-            'CircuitBreakerRegistry(count: 0, callbacks: 0)');
+        expect(
+          registry.toString(),
+          'CircuitBreakerRegistry(count: 0, callbacks: 0)',
+        );
 
         registry.getOrCreate('api.example.com', options);
-        expect(registry.toString(),
-            'CircuitBreakerRegistry(count: 1, callbacks: 0)');
+        expect(
+          registry.toString(),
+          'CircuitBreakerRegistry(count: 1, callbacks: 0)',
+        );
       });
     });
 
     group('edge cases and advanced scenarios', () {
       test('handles empty string scope key', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         final breaker = registry.getOrCreate('', options);
 
@@ -254,7 +261,7 @@ void main() {
 
       test('handles very long scope keys', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
         final longKey = 'a' * 1000;
 
         final breaker = registry.getOrCreate(longKey, options);
@@ -266,12 +273,12 @@ void main() {
 
       test('maintains isolation with many circuit breakers', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           failureThreshold: 1,
         );
 
         final breakers = <CircuitBreaker>[];
-        for (int i = 0; i < 100; i++) {
+        for (var i = 0; i < 100; i++) {
           final breaker = registry.getOrCreate('scope-$i', options);
           breakers.add(breaker);
         }
@@ -287,7 +294,7 @@ void main() {
       test('getOrCreate with same key returns same instance after clearAll',
           () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         final breaker1 = registry.getOrCreate('api.example.com', options);
         registry.clearAll();
@@ -299,12 +306,12 @@ void main() {
 
       test('reset works on breaker retrieved after getOrCreate', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions(
+        const options = CircuitBreakerOptions(
           failureThreshold: 1,
         );
 
-        final breaker = registry.getOrCreate('api.example.com', options);
-        breaker.recordFailure();
+        final breaker = registry.getOrCreate('api.example.com', options)
+          ..recordFailure();
         expect(breaker.state, CircuitState.open);
 
         registry.reset('api.example.com');
@@ -317,12 +324,13 @@ void main() {
 
       test('handles concurrent getOrCreate calls for same key', () async {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         final futures = <Future<CircuitBreaker>>[];
-        for (int i = 0; i < 10; i++) {
+        for (var i = 0; i < 10; i++) {
           futures.add(
-              Future(() => registry.getOrCreate('api.example.com', options)));
+            Future(() => registry.getOrCreate('api.example.com', options)),
+          );
         }
 
         final breakers = await Future.wait(futures);
@@ -336,18 +344,21 @@ void main() {
 
       test('handles concurrent getOrCreate calls for different keys', () async {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         final futures = <Future<CircuitBreaker>>[];
-        for (int i = 0; i < 10; i++) {
-          futures.add(Future(
-              () => registry.getOrCreate('api-$i.example.com', options)));
+        for (var i = 0; i < 10; i++) {
+          futures.add(
+            Future(
+              () => registry.getOrCreate('api-$i.example.com', options),
+            ),
+          );
         }
 
         final breakers = await Future.wait(futures);
 
-        for (int i = 0; i < breakers.length; i++) {
-          for (int j = i + 1; j < breakers.length; j++) {
+        for (var i = 0; i < breakers.length; i++) {
+          for (var j = i + 1; j < breakers.length; j++) {
             expect(identical(breakers[i], breakers[j]), false);
           }
         }
@@ -356,7 +367,7 @@ void main() {
 
       test('get returns null after clearAll', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         registry.getOrCreate('api.example.com', options);
         expect(registry.get('api.example.com'), isNotNull);
@@ -367,7 +378,7 @@ void main() {
 
       test('contains returns false after clearAll', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         registry.getOrCreate('api.example.com', options);
         expect(registry.contains('api.example.com'), true);
@@ -378,12 +389,13 @@ void main() {
 
       test('count is accurate after mixed operations', () {
         final registry = CircuitBreakerRegistry();
-        final options = CircuitBreakerOptions();
+        const options = CircuitBreakerOptions();
 
         expect(registry.count, 0);
 
-        registry.getOrCreate('scope1', options);
-        registry.getOrCreate('scope2', options);
+        registry
+          ..getOrCreate('scope1', options)
+          ..getOrCreate('scope2', options);
         expect(registry.count, 2);
 
         registry.getOrCreate('scope1', options);

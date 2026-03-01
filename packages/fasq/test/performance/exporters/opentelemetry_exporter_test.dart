@@ -18,22 +18,23 @@ void main() {
     test('configure updates internal config', () {
       final config = {
         'endpoint': 'https://otel-collector.example.com/v1/metrics',
-        'enabled': true
+        'enabled': true,
       };
       exporter.configure(config);
       expect(exporter.config, config);
     });
 
-    test('export generates valid OTLP payload for snapshot with no queries', () async {
-      final cacheMetrics = CacheMetrics();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordMiss();
-      cacheMetrics.recordMemoryUsage(1024 * 1024);
-      cacheMetrics.recordFetchTime(const Duration(milliseconds: 100));
-      cacheMetrics.recordLookupTime(const Duration(microseconds: 500));
+    test('export generates valid OTLP payload for snapshot with no queries',
+        () async {
+      final cacheMetrics = CacheMetrics()
+        ..recordHit()
+        ..recordMiss()
+        ..recordMemoryUsage(1024 * 1024)
+        ..recordFetchTime(const Duration(milliseconds: 100))
+        ..recordLookupTime(const Duration(microseconds: 500));
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: {},
         totalQueries: 0,
@@ -48,32 +49,32 @@ void main() {
     });
 
     test('export generates valid OTLP payload structure', () async {
-      final cacheMetrics = CacheMetrics();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordMiss();
-      cacheMetrics.recordMemoryUsage(2 * 1024 * 1024);
+      final cacheMetrics = CacheMetrics()
+        ..recordHit()
+        ..recordHit()
+        ..recordMiss()
+        ..recordMemoryUsage(2 * 1024 * 1024);
 
       final queryMetrics = <String, QueryMetrics>{
-        'query1': QueryMetrics(
+        'query1': const QueryMetrics(
           fetchHistory: [
-            const Duration(milliseconds: 100),
-            const Duration(milliseconds: 150),
+            Duration(milliseconds: 100),
+            Duration(milliseconds: 150),
           ],
-          lastFetchDuration: const Duration(milliseconds: 150),
+          lastFetchDuration: Duration(milliseconds: 150),
           referenceCount: 1,
         ),
-        'query2': QueryMetrics(
+        'query2': const QueryMetrics(
           fetchHistory: [
-            const Duration(milliseconds: 200),
+            Duration(milliseconds: 200),
           ],
-          lastFetchDuration: const Duration(milliseconds: 200),
+          lastFetchDuration: Duration(milliseconds: 200),
           referenceCount: 2,
         ),
       };
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: queryMetrics,
         totalQueries: 2,
@@ -90,14 +91,14 @@ void main() {
     test('export handles query metrics with no fetch history', () async {
       final cacheMetrics = CacheMetrics();
       final queryMetrics = <String, QueryMetrics>{
-        'query1': QueryMetrics(
+        'query1': const QueryMetrics(
           fetchHistory: [],
           referenceCount: 0,
         ),
       };
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: queryMetrics,
         totalQueries: 1,
@@ -117,22 +118,24 @@ void main() {
         resourceAttributes: {'environment': 'test'},
       );
 
-      expect(exporterWithEndpoint.endpoint, 'https://otel-collector.example.com/v1/metrics');
+      expect(
+        exporterWithEndpoint.endpoint,
+        'https://otel-collector.example.com/v1/metrics',
+      );
       expect(exporterWithEndpoint.resourceAttributes['environment'], 'test');
     });
 
     test('export handles null optional fields in query metrics', () async {
       final cacheMetrics = CacheMetrics();
       final queryMetrics = <String, QueryMetrics>{
-        'query1': QueryMetrics(
-          fetchHistory: [const Duration(milliseconds: 100)],
-          lastFetchDuration: null,
+        'query1': const QueryMetrics(
+          fetchHistory: [Duration(milliseconds: 100)],
           referenceCount: 1,
         ),
       };
 
       final snapshot = PerformanceSnapshot(
-        timestamp: DateTime(2024, 1, 1, 12, 0, 0),
+        timestamp: DateTime(2024, 1, 1, 12),
         cacheMetrics: cacheMetrics,
         queryMetrics: queryMetrics,
         totalQueries: 1,
@@ -165,4 +168,3 @@ void main() {
     });
   });
 }
-

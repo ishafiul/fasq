@@ -9,12 +9,12 @@ void main() {
 
   test('accumulates pages and sets hasNextPage', () async {
     final client = QueryClient();
-    int calls = 0;
+    var calls = 0;
     final query = client.getInfiniteQuery<List<int>, int>(
       'test:infinite'.toQueryKey(),
       (page) async {
         calls++;
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         return List.generate(3, (i) => (page - 1) * 3 + i + 1);
       },
       options: InfiniteQueryOptions<List<int>, int>(
@@ -23,7 +23,7 @@ void main() {
       ),
     );
 
-    query.addListener();
+    await query.addListener();
     await query.fetchNextPage(1);
     await query.fetchNextPage();
     await query.fetchNextPage();
@@ -38,7 +38,7 @@ void main() {
     final query = client.getInfiniteQuery<List<int>, int>(
       'test:maxpages'.toQueryKey(),
       (page) async {
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         return [page];
       },
       options: InfiniteQueryOptions<List<int>, int>(
@@ -47,7 +47,7 @@ void main() {
       ),
     );
 
-    query.addListener();
+    await query.addListener();
     await query.fetchNextPage(1);
     await query.fetchNextPage();
     await query.fetchNextPage();
@@ -61,7 +61,7 @@ void main() {
     final query = client.getInfiniteQuery<List<int>, int>(
       'test:error-page'.toQueryKey(),
       (p) async {
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
         if (p == 2) {
           throw Exception('fail page 2');
         }
@@ -72,7 +72,7 @@ void main() {
       ),
     );
 
-    query.addListener();
+    await query.addListener();
     await query.fetchNextPage(1);
     await query.fetchNextPage(); // 2 -> error
     await query.fetchNextPage(); // 3
@@ -83,7 +83,7 @@ void main() {
     expect(query.state.pages[2].data, isNotNull);
   });
 
-  test('removeListener prevents negative reference count', () {
+  test('removeListener prevents negative reference count', () async {
     final client = QueryClient();
     final query = client.getInfiniteQuery<List<int>, int>(
       'test:negative-refs'.toQueryKey(),
@@ -102,7 +102,7 @@ void main() {
     expect(query.referenceCount, 0); // Should remain 0, not go negative
 
     // Add one listener
-    query.addListener();
+    await query.addListener();
     expect(query.referenceCount, 1);
 
     // Remove listener twice (more removes than adds)

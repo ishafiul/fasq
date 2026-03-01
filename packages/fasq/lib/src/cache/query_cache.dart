@@ -2,38 +2,72 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
-import '../core/typed_query_key.dart';
-import '../core/validation/input_validator.dart';
-import '../memory/index.dart'; // Add import
-import '../persistence/cache_data_codec.dart';
-import '../persistence/persistence_options.dart';
-import '../security/encryption_provider.dart';
-import '../security/persistence_provider.dart';
-import '../security/security_plugin.dart';
-import '../security/security_provider.dart';
-import 'async_lock.dart';
-import 'cache_config.dart';
-import 'cache_entry.dart';
-import 'cache_metrics.dart';
-import 'eviction/eviction_strategy.dart';
-import 'eviction/fifo_eviction.dart';
-import 'eviction/lfu_eviction.dart';
-import 'eviction/lru_eviction.dart';
-import 'eviction_policy.dart';
-import 'hot_cache.dart';
+import 'package:fasq/src/cache/async_lock.dart';
+import 'package:fasq/src/cache/cache_config.dart';
+import 'package:fasq/src/cache/cache_entry.dart';
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/cache/eviction/eviction_strategy.dart';
+import 'package:fasq/src/cache/eviction/fifo_eviction.dart'
+    show selectKeysToEvictFIFO;
+import 'package:fasq/src/cache/eviction/lfu_eviction.dart'
+    show selectKeysToEvictLFU;
+import 'package:fasq/src/cache/eviction/lru_eviction.dart'
+    show selectKeysToEvictLRU;
+import 'package:fasq/src/cache/eviction_policy.dart';
+import 'package:fasq/src/cache/hot_cache.dart';
+import 'package:fasq/src/core/typed_query_key.dart';
+import 'package:fasq/src/core/validation/input_validator.dart';
+import 'package:fasq/src/memory/index.dart'; // Add import
+import 'package:fasq/src/persistence/cache_data_codec.dart';
+import 'package:fasq/src/persistence/persistence_options.dart';
+import 'package:fasq/src/security/encryption_provider.dart';
+import 'package:fasq/src/security/persistence_provider.dart';
+import 'package:fasq/src/security/security_plugin.dart';
+import 'package:fasq/src/security/security_provider.dart';
 
 /// Core cache storage and management for queries.
 ///
 /// Handles caching, staleness detection, eviction, and request deduplication.
 class QueryCache {
+  /// Creates a [QueryCache] with the given config and optional persistence.
+  QueryCache({
+    CacheConfig? config,
+    this.persistenceOptions,
+    this.securityPlugin,
+    bool enableMemoryPressure = true,
+  })  : config = config ?? const CacheConfig(),
+        _enableMemoryPressure = enableMemoryPressure,
+        _codecRegistry = persistenceOptions?.codecRegistry ??
+            const CacheDataCodecRegistry() {
+    _hotCache = HotCache<CacheEntry<Object?>>(
+      maxSize: this.config.performance.hotCacheSize,
+    );
+    _startGarbageCollection();
+    _persistenceInitFuture = _initializePersistence();
+
+    if (_enableMemoryPressure) {
+      try {
+        MemoryPressureHandler().addListener(_onMemoryPressure);
+      } on Object catch (_) {
+        // Ignore errors if running in non-flutter environment
+      }
+    }
+  }
+
+  /// Cache configuration (limits, eviction policy, performance options).
   final CacheConfig config;
+
+  /// Optional persistence (e.g. disk) configuration.
   final PersistenceOptions? persistenceOptions;
+
+  /// Optional security plugin for encrypted entries.
   final SecurityPlugin? securityPlugin;
-  final Map<String, CacheEntry> _entries = {};
-  final Map<String, Future> _inFlightRequests = {};
+
+  final Map<String, CacheEntry<Object?>> _entries = {};
+  final Map<String, Future<Object?>> _inFlightRequests = {};
   final Map<String, AsyncLock> _locks = {};
   final CacheMetrics _metrics = CacheMetrics();
-  late final HotCache<CacheEntry> _hotCache;
+  late final HotCache<CacheEntry<Object?>> _hotCache;
   Future<void>? _globalPersistenceOperation;
   final Map<String, Future<void>> _persistOperations = {};
   final Map<String, int> _entryVersions = {};
@@ -51,7 +85,10 @@ class QueryCache {
   Timer? _gcTimer;
   Timer? _persistenceGcTimer;
 
+  /// Interval between cache garbage collection runs.
   static Duration gcInterval = const Duration(seconds: 30);
+
+  /// Interval between persistence garbage collection runs, or null to disable.
   static Duration? persistenceGcInterval;
 
   final CacheDataCodecRegistry _codecRegistry;
@@ -63,31 +100,9 @@ class QueryCache {
       _encryptionProvider != null &&
       _persistenceProvider != null;
 
+  /// Future that completes when persistence (e.g. security provider) is ready.
   Future<void> get persistenceInitialization =>
       _persistenceInitFuture ?? Future.value();
-
-  QueryCache({
-    CacheConfig? config,
-    this.persistenceOptions,
-    this.securityPlugin,
-    bool enableMemoryPressure = true,
-  })  : config = config ?? const CacheConfig(),
-        _enableMemoryPressure = enableMemoryPressure,
-        _codecRegistry = (persistenceOptions?.codecRegistry ??
-            const CacheDataCodecRegistry()) {
-    _hotCache =
-        HotCache<CacheEntry>(maxSize: this.config.performance.hotCacheSize);
-    _startGarbageCollection();
-    _persistenceInitFuture = _initializePersistence();
-
-    if (_enableMemoryPressure) {
-      try {
-        MemoryPressureHandler().addListener(_onMemoryPressure);
-      } catch (_) {
-        // Ignore errors if running in non-flutter environment
-      }
-    }
-  }
 
   /// Gets a cache entry if it exists.
   ///
@@ -97,6 +112,7 @@ class QueryCache {
 
     final hotEntry = _hotCache.get(key);
     if (hotEntry != null) {
+
       if (hotEntry.isSecure && hotEntry.isExpired) {
         _hotCache.remove(key);
         _metrics.recordMiss();
@@ -105,7 +121,14 @@ class QueryCache {
       _metrics.recordHit();
       final updated = hotEntry.withAccess();
       _entries[key] = updated;
-      return _reconstructEntry<T>(updated);
+      final reconstructed = _reconstructEntry<T>(updated);
+      if (reconstructed == null) {
+        _removeInMemoryOnly(key);
+        _metrics.recordMiss();
+        return null;
+      }
+      _metrics.recordHit();
+      return reconstructed;
     }
 
     final entry = _entries[key];
@@ -114,33 +137,34 @@ class QueryCache {
       return null;
     }
 
-    // Check if secure entry has expired
     if (entry.isSecure && entry.isExpired) {
-      _entries.remove(key);
+      _removeKeyEverywhere(key);
       _metrics.recordMiss();
       return null;
     }
 
-    _metrics.recordHit();
-
     final updated = entry.withAccess();
     _entries[key] = updated;
 
-    // Promote to hot cache if accessed frequently enough
     if (_hotCache.shouldPromote(key, updated.accessCount)) {
       _hotCache.put(key, updated);
     }
 
-    return _reconstructEntry<T>(updated);
+    final reconstructed = _reconstructEntry<T>(updated);
+    if (reconstructed == null) {
+      _removeInMemoryOnly(key);
+      _metrics.recordMiss();
+      return null;
+    }
+    _metrics.recordHit();
+    return reconstructed;
   }
 
-  /// Reconstructs a CacheEntry with type T from a CacheEntry (any type).
-  ///
-  /// Preserves all metadata while ensuring type safety by reconstructing
-  /// with explicit type parameter instead of unsafe casting.
-  CacheEntry<T> _reconstructEntry<T>(CacheEntry entry) {
+  CacheEntry<T>? _reconstructEntry<T>(CacheEntry<Object?> entry) {
+    final data = entry.data;
+    if (data is! T) return null;
     return CacheEntry<T>(
-      data: entry.data as T,
+      data: data,
       createdAt: entry.createdAt,
       lastAccessedAt: entry.lastAccessedAt,
       accessCount: entry.accessCount,
@@ -155,8 +179,8 @@ class QueryCache {
 
   /// Sets data in the cache.
   ///
-  /// Creates or updates a cache entry. Triggers eviction if size limit exceeded.
-  /// Secure entries are never persisted to disk.
+  /// Creates or updates a cache entry. Triggers eviction if size limit
+  /// exceeded. Secure entries are never persisted to disk.
   void set<T>(
     String key,
     T data, {
@@ -182,7 +206,6 @@ class QueryCache {
       cacheTime: cacheTime ?? config.defaultCacheTime,
       isSecure: isSecure,
       maxAge: maxAge,
-      hasValue: true,
     );
 
     _entries[key] = entry;
@@ -197,7 +220,7 @@ class QueryCache {
     _hotCache.remove(key);
 
     // Queue persistence without blocking
-    if (persistenceOptions?.enabled == true &&
+    if ((persistenceOptions?.enabled ?? false) &&
         !isSecure &&
         securityPlugin != null) {
       _queuePersistence(key, entry, version);
@@ -211,23 +234,46 @@ class QueryCache {
   /// Removes a cache entry by key.
   void remove(String key) {
     InputValidator.validateQueryKey(key);
+    _removeKeyEverywhere(key);
+  }
+
+  void _removeKeyEverywhere(String key, {bool removeFromPersistence = true}) {
     final removed = _entries.remove(key);
-    if (removed != null) {
-      _hotCache.remove(key);
-      _entryVersions.remove(key);
-      _persistOperations.remove(key);
-      _keyTypes.remove(key);
-      _updateMemoryMetrics();
-      if (_persistenceReady) {
-        _removePersistenceAsync(key);
-      }
+    if (removed == null) return;
+
+    final remove = _inFlightRequests.remove(key);
+    if (remove != null) unawaited(remove);
+    _hotCache.remove(key);
+    _entryVersions.remove(key);
+
+    final persistF = _persistOperations.remove(key);
+    if (persistF != null) unawaited(persistF);
+
+    _keyTypes.remove(key);
+
+    _updateMemoryMetrics();
+
+    if (removeFromPersistence && _persistenceReady) {
+      _removePersistenceAsync(key);
     }
+  }
+
+  void _removeInMemoryOnly(String key) {
+    final removed = _entries.remove(key);
+    if (removed == null) return;
+    _hotCache.remove(key);
+    _entryVersions.remove(key);
+    final persistF = _persistOperations.remove(key);
+    if (persistF != null) unawaited(persistF);
+    _keyTypes.remove(key);
+    _updateMemoryMetrics();
   }
 
   void _clearInMemory() {
     _entries.clear();
     _hotCache.clear();
     _inFlightRequests.clear();
+    _locks.clear();
     _metrics.reset();
     _entryVersions.clear();
     _persistOperations.clear();
@@ -250,18 +296,11 @@ class QueryCache {
   ///
   /// Removes only entries marked as secure, leaving non-secure entries intact.
   void clearSecureEntries() {
-    final keysToRemove = _entries.entries
+    _entries.entries
         .where((entry) => entry.value.isSecure)
         .map((entry) => entry.key)
-        .toList();
-
-    for (final key in keysToRemove) {
-      _entries.remove(key);
-      _hotCache.remove(key);
-      _entryVersions.remove(key);
-      _persistOperations.remove(key);
-      _keyTypes.remove(key);
-    }
+        .toList()
+        .forEach(_removeKeyEverywhere);
   }
 
   /// Invalidates a specific cache entry.
@@ -273,36 +312,26 @@ class QueryCache {
 
   /// Invalidates all cache entries with keys starting with the prefix.
   void invalidateWithPrefix(String prefix) {
-    final keysToRemove =
-        _entries.keys.where((key) => key.startsWith(prefix)).toList();
-
-    for (final key in keysToRemove) {
-      remove(key);
-    }
+    _entries.keys
+        .where((key) => key.startsWith(prefix))
+        .toList()
+        .forEach(remove);
   }
 
   /// Invalidates cache entries matching the predicate.
   void invalidateWhere(bool Function(String key) predicate) {
-    final keysToRemove = _entries.keys.where(predicate).toList();
-
-    for (final key in keysToRemove) {
-      remove(key);
-    }
+    _entries.keys.where(predicate).toList().forEach(remove);
   }
 
   /// Invalidates multiple queries in a single operation
   void invalidateMultiple(List<String> keys) {
-    for (final key in keys) {
-      remove(key);
-    }
-    if (keys.isNotEmpty) {
-      _metrics.recordEviction();
-    }
+    keys.forEach(remove);
   }
 
   /// Invalidates queries matching predicate with single notification
   void invalidateWhereDetailed(
-      bool Function(String key, CacheEntry entry) predicate) {
+    bool Function(String key, CacheEntry<Object?> entry) predicate,
+  ) {
     final keysToRemove = <String>[];
 
     _entries.forEach((key, entry) {
@@ -321,8 +350,12 @@ class QueryCache {
   }
 
   /// Sets raw data in cache (for manual updates).
-  void setData<T>(String key, T data,
-      {bool isSecure = false, Duration? maxAge}) {
+  void setData<T>(
+    String key,
+    T data, {
+    bool isSecure = false,
+    Duration? maxAge,
+  }) {
     set<T>(key, data, isSecure: isSecure, maxAge: maxAge);
   }
 
@@ -330,6 +363,10 @@ class QueryCache {
   ///
   /// If a request with the same key is in flight, returns the existing future.
   /// Otherwise, executes and tracks the new request.
+  ///
+  /// A query key must always be used with the same type [T] across calls;
+  /// using the same key with different types throws a [StateError] when
+  /// awaiting the returned future.
   Future<T> deduplicate<T>(
     String key,
     Future<T> Function() fn,
@@ -338,28 +375,41 @@ class QueryCache {
 
     final existing = _inFlightRequests[key];
     if (existing != null) {
-      return existing as Future<T>;
+      return existing.then((v) {
+        if (v is! T) {
+          throw StateError(
+            'In-flight result type mismatch for key=$key. '
+            'Expected $T, got ${v.runtimeType}.',
+          );
+        }
+        return v;
+      });
     }
 
     // Get or create lock for this key to prevent race conditions
-    final lock = _locks.putIfAbsent(key, () => AsyncLock());
+    final lock = _locks.putIfAbsent(key, AsyncLock.new);
 
     await lock.acquire();
     try {
-      // Double-check after acquiring lock
       final existingUnderLock = _inFlightRequests[key];
       if (existingUnderLock != null) {
-        return existingUnderLock as Future<T>;
+        return existingUnderLock.then((v) {
+          if (v is! T) {
+            throw StateError(
+              'In-flight result type mismatch for key=$key. '
+              'Expected $T, got ${v.runtimeType}.',
+            );
+          }
+          return v;
+        });
       }
 
       final future = fn().whenComplete(() {
-        // Always clean up the in-flight request
-        _inFlightRequests.remove(key);
-        // Clean up lock if no longer needed
-        _locks.remove(key);
+        final inFlight = _inFlightRequests.remove(key);
+        if (inFlight != null) unawaited(inFlight);
       });
 
-      _inFlightRequests[key] = future;
+      _inFlightRequests[key] = future.then<Object?>((v) => v);
       return future;
     } finally {
       lock.release();
@@ -370,13 +420,13 @@ class QueryCache {
   ///
   /// Ensures thread-safe access to cache entries.
   Future<T> withLock<T>(String key, Future<T> Function() fn) async {
-    final lock = _locks.putIfAbsent(key, () => AsyncLock());
-    return await lock.synchronized(fn);
+    final lock = _locks.putIfAbsent(key, AsyncLock.new);
+    return lock.synchronized(fn);
   }
 
   /// Current total cache size in bytes.
   int get currentSize {
-    int total = 0;
+    var total = 0;
     for (final entry in _entries.values) {
       total += entry.estimateSize();
     }
@@ -413,7 +463,7 @@ class QueryCache {
   }
 
   /// Inspects a specific cache entry.
-  CacheEntry? inspectEntry(String key) {
+  CacheEntry<Object?>? inspectEntry(String key) {
     return _entries[key];
   }
 
@@ -427,36 +477,28 @@ class QueryCache {
     final targetSize = (config.maxCacheSize * 0.9).toInt();
     final strategy = _getEvictionStrategy();
 
-    final keysToEvict = strategy.selectKeysToEvict(
+    final keysToEvict = strategy(
       _entries,
       currentSize,
       targetSize,
     );
 
     for (final key in keysToEvict) {
-      _entries.remove(key);
-      _hotCache.remove(key);
-      _entryVersions.remove(key);
-      _persistOperations.remove(key);
-      _keyTypes.remove(key);
+      _removeKeyEverywhere(key, removeFromPersistence: false);
       _metrics.recordEviction();
     }
   }
 
   EvictionStrategy _getEvictionStrategy() {
-    switch (config.evictionPolicy) {
-      case EvictionPolicy.lru:
-        return const LRUEviction();
-      case EvictionPolicy.lfu:
-        return const LFUEviction();
-      case EvictionPolicy.fifo:
-        return const FIFOEviction();
-    }
+    return switch (config.evictionPolicy) {
+      EvictionPolicy.lru => selectKeysToEvictLRU,
+      EvictionPolicy.lfu => selectKeysToEvictLFU,
+      EvictionPolicy.fifo => selectKeysToEvictFIFO,
+    };
   }
 
   int _nextEntryVersion() {
-    _versionCounter += 1;
-    return _versionCounter;
+    return _versionCounter += 1;
   }
 
   /// Updates memory metrics based on current cache size.
@@ -468,7 +510,7 @@ class QueryCache {
     if (gcInterval == Duration.zero) return;
     _gcTimer = Timer.periodic(gcInterval, (_) {
       if (!_isGcPaused) {
-      _runGarbageCollection();
+        _runGarbageCollection();
       }
     });
   }
@@ -495,6 +537,7 @@ class QueryCache {
       }
     }
 
+
     for (final key in keysToRemove) {
       final removed = _entries.remove(key);
       if (removed != null) {
@@ -515,28 +558,23 @@ class QueryCache {
 
   /// Trims the cache to release memory.
   ///
-  /// [critical] - If true, performs a more aggressive cleanup by removing all
-  /// inactive entries (referenceCount == 0), regardless of freshness.
+  /// [critical] - If true, performs a more aggressive cleanup by removing
+  /// all inactive entries (referenceCount == 0), regardless of freshness.
   /// If false (default), removes only inactive entries that are stale.
   ///
-  /// Active entries (referenceCount > 0) are never removed to prevent UI issues.
+  /// Active entries (referenceCount > 0) are never removed to prevent UI
+  /// issues.
   void trim({bool critical = false}) {
     final now = DateTime.now();
     final keysToRemove = <String>[];
 
     for (final entry in _entries.entries) {
-      // Never remove active entries
       if (entry.value.referenceCount > 0) continue;
-
       if (critical) {
-        // Critical: Remove all inactive entries
         keysToRemove.add(entry.key);
-      } else {
-        // Normal: Remove only stale inactive entries
-        if (entry.value.staleTime != Duration.zero &&
-            now.difference(entry.value.createdAt) > entry.value.staleTime) {
-          keysToRemove.add(entry.key);
-        }
+      } else if (entry.value.staleTime != Duration.zero &&
+          now.difference(entry.value.createdAt) > entry.value.staleTime) {
+        keysToRemove.add(entry.key);
       }
     }
 
@@ -550,7 +588,7 @@ class QueryCache {
     if (_enableMemoryPressure) {
       try {
         MemoryPressureHandler().removeListener(_onMemoryPressure);
-      } catch (_) {
+      } on Object catch (_) {
         // Ignore
       }
     }
@@ -566,7 +604,7 @@ class QueryCache {
     await _disposePersistenceResources();
   }
 
-  void _onMemoryPressure(bool critical) {
+  void _onMemoryPressure({required bool critical}) {
     // Handle memory pressure based on severity level:
     // - critical: true -> Level 2 (Critical): Remove all inactive entries
     // - critical: false -> Level 1 (Warning/Low): Remove only stale inactive entries
@@ -583,7 +621,8 @@ class QueryCache {
     try {
       if (!securityPlugin!.isSupported) {
         _logPersistenceError(
-          'Security plugin ${securityPlugin!.name} is not supported on this platform',
+          'Security plugin ${securityPlugin!.name} is not supported on '
+          'this platform',
           UnsupportedError('Security plugin not supported'),
         );
         return;
@@ -594,7 +633,7 @@ class QueryCache {
       _encryptionProvider = securityPlugin!.createEncryptionProvider();
       _persistenceProvider = securityPlugin!.createPersistenceProvider();
 
-      if (securityPlugin!.initializesProviders != true) {
+      if (!securityPlugin!.initializesProviders) {
         await _securityProvider!.initialize();
         await _persistenceProvider!.initialize();
       }
@@ -602,7 +641,7 @@ class QueryCache {
       _isInitialized = true;
       _startPersistenceGarbageCollection();
       await _loadPersistedEntries();
-    } catch (e, stackTrace) {
+    } on Object catch (e, stackTrace) {
       _isInitialized = false;
       _securityProvider = null;
       _encryptionProvider = null;
@@ -626,7 +665,7 @@ class QueryCache {
     if (interval == Duration.zero) return;
 
     _persistenceGcTimer = Timer.periodic(interval, (_) {
-      _runPersistenceGarbageCollection();
+      unawaited(_runPersistenceGarbageCollection());
     });
   }
 
@@ -638,7 +677,7 @@ class QueryCache {
       final allKeys = await _persistenceProvider!.getAllKeys();
       final keysToRemove = <String>[];
 
-      final entriesSnapshot = Map<String, CacheEntry>.from(_entries);
+      final entriesSnapshot = Map<String, CacheEntry<Object?>>.from(_entries);
       final now = DateTime.now();
 
       for (final key in allKeys) {
@@ -651,7 +690,7 @@ class QueryCache {
       if (keysToRemove.isNotEmpty) {
         await _persistenceProvider!.removeMultiple(keysToRemove);
       }
-    } catch (e, stackTrace) {
+    } on Object catch (e, stackTrace) {
       _logPersistenceError(
         'Failed to run persistence garbage collection',
         e,
@@ -662,14 +701,15 @@ class QueryCache {
 
   Map<String, dynamic>? _buildPersistedEntryPayload(
     String key,
-    CacheEntry entry,
+    CacheEntry<Object?> entry,
     Type? expectedType,
   ) {
     try {
       final encoded = _codecRegistry.serialize(entry.data);
       if (encoded == null) {
         _logPersistenceError(
-          'Skipping persistence for key $key: unsupported data type ${entry.data.runtimeType}',
+          'Skipping persistence for key $key: unsupported data type '
+          '${entry.data.runtimeType}',
           UnsupportedError('No serializer for ${entry.data.runtimeType}'),
         );
         return null;
@@ -694,7 +734,7 @@ class QueryCache {
       }
 
       return payload;
-    } catch (error, stackTrace) {
+    } on Object catch (error, stackTrace) {
       _logPersistenceError(
         'Failed to serialize cache entry for key $key',
         error,
@@ -717,7 +757,7 @@ class QueryCache {
       if (queryKeyTypeString != null) {
         try {
           queryKeyType = _parseTypeFromString(queryKeyTypeString);
-        } catch (e) {
+        } on Object catch (e) {
           _logPersistenceError(
             'Failed to parse queryKeyType $queryKeyTypeString for key $key',
             e,
@@ -727,7 +767,7 @@ class QueryCache {
 
       final expectedType = _keyTypes[key] ?? queryKeyType;
 
-      Object? data = _codecRegistry.deserialize(typeKey, rawData);
+      final data = _codecRegistry.deserialize(typeKey, rawData);
 
       if (data == null) {
         return null;
@@ -736,7 +776,8 @@ class QueryCache {
       if (expectedType != null) {
         if (!_isTypeCompatible(data, expectedType)) {
           _logPersistenceError(
-            'Type mismatch for key $key: expected $expectedType, got ${data.runtimeType}',
+            'Type mismatch for key $key: expected $expectedType, got '
+            '${data.runtimeType}',
             ArgumentError('Type mismatch'),
           );
         }
@@ -777,9 +818,9 @@ class QueryCache {
         expiresAt: json['expiresAt'] != null
             ? DateTime.parse(json['expiresAt'] as String)
             : null,
-        hasValue: hasValueRaw is bool ? hasValueRaw : true,
+        hasValue: hasValueRaw is! bool || hasValueRaw,
       );
-    } catch (error, stackTrace) {
+    } on Object catch (error, stackTrace) {
       _logPersistenceError(
         'Failed to deserialize cache entry for key $key',
         error,
@@ -792,7 +833,7 @@ class QueryCache {
   /// Persists a cache entry to disk.
   Future<void> _persistEntry(
     String key,
-    CacheEntry entry,
+    CacheEntry<Object?> entry,
     int version,
   ) async {
     if (!await _ensurePersistenceReady()) {
@@ -910,10 +951,10 @@ class QueryCache {
             } else {
               await _persistenceProvider!.remove(key);
             }
-          } catch (e, stackTrace) {
+          } on Object catch (e, stackTrace) {
             try {
               await _persistenceProvider!.remove(key);
-            } catch (removeError, removeStack) {
+            } on Object catch (removeError, removeStack) {
               _logPersistenceError(
                 'Failed to remove corrupted cache entry for key $key',
                 removeError,
@@ -928,7 +969,7 @@ class QueryCache {
           }
         }
       }
-    } catch (e, stackTrace) {
+    } on Object catch (e, stackTrace) {
       _logPersistenceError(
         'Failed to load persisted cache entries',
         e,
@@ -937,7 +978,7 @@ class QueryCache {
     }
   }
 
-  void _queuePersistence(String key, CacheEntry entry, int version) {
+  void _queuePersistence(String key, CacheEntry<Object?> entry, int version) {
     _enqueuePersistenceOperation(
       key,
       () => _persistEntry(key, entry, version),
@@ -955,7 +996,7 @@ class QueryCache {
 
   void _clearPersistenceAsync() {
     _enqueueGlobalPersistenceOperation(
-      () => _clearPersistence(),
+      _clearPersistence,
       'Failed to clear persisted cache entries',
     );
   }
@@ -968,19 +1009,25 @@ class QueryCache {
     final previous = _persistOperations[key];
     final base = (previous ?? Future<void>.value()).catchError((_) {});
     final operation = base.then((_) => task());
-    final handled = operation.catchError((error, stackTrace) {
-      _logPersistenceError(
-        errorMessage,
-        error,
-        stackTrace,
-      );
-    });
+    final handled = operation.catchError(
+      (Object error, StackTrace? stackTrace) {
+        _logPersistenceError(
+          errorMessage,
+          error,
+          stackTrace,
+        );
+      },
+    );
 
-    _persistOperations[key] = handled.whenComplete(() {
-      if (_persistOperations[key] == handled) {
-        _persistOperations.remove(key);
-      }
-    });
+    _persistOperations[key] = handled;
+    unawaited(
+      handled.whenComplete(() {
+        if (_persistOperations[key] == handled) {
+          final persistF = _persistOperations.remove(key);
+          if (persistF != null) unawaited(persistF);
+        }
+      }),
+    );
   }
 
   void _enqueueGlobalPersistenceOperation(
@@ -990,13 +1037,15 @@ class QueryCache {
     final previous = _globalPersistenceOperation;
     final base = (previous ?? Future<void>.value()).catchError((_) {});
     final operation = base.then((_) => task());
-    _globalPersistenceOperation = operation.catchError((error, stackTrace) {
-      _logPersistenceError(
-        errorMessage,
-        error,
-        stackTrace,
-      );
-    });
+    _globalPersistenceOperation = operation.catchError(
+      (Object error, StackTrace? stackTrace) {
+        _logPersistenceError(
+          errorMessage,
+          error,
+          stackTrace,
+        );
+      },
+    );
   }
 
   Future<bool> _ensurePersistenceReady() async {
@@ -1004,7 +1053,7 @@ class QueryCache {
     if (initFuture != null) {
       try {
         await initFuture;
-      } catch (_) {
+      } on Object catch (_) {
         return false;
       }
     }
@@ -1044,7 +1093,7 @@ class QueryCache {
       }
 
       return null;
-    } catch (_) {
+    } on Object catch (_) {
       return null;
     }
   }
@@ -1079,8 +1128,8 @@ class QueryCache {
 
   /// Extracts type information from a QueryKey if it's a TypedQueryKey.
   ///
-  /// Returns the type stored in the TypedQueryKey, or null for non-typed keys.
-  /// This method is available for future enhancements or type validation scenarios.
+  /// Returns the type stored in the TypedQueryKey, or null for non-typed
+  /// keys. Available for future enhancements or type validation scenarios.
   // ignore: unused_element
   Type? _extractTypeFromQueryKey(dynamic queryKey) {
     if (queryKey is TypedQueryKey) {
@@ -1094,7 +1143,7 @@ class QueryCache {
     if (initFuture != null) {
       try {
         await initFuture;
-      } catch (_) {}
+      } on Object catch (_) {}
     }
 
     final tasks = <Future<void>>[];

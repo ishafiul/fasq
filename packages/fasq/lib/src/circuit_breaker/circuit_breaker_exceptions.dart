@@ -4,7 +4,7 @@ library;
 /// Exception thrown when a request is made to an open circuit breaker.
 ///
 /// This exception is thrown immediately when the circuit breaker is in the
-/// [CircuitState.open] state, providing a clear signal to the calling
+/// `CircuitState.open` state, providing a clear signal to the calling
 /// application that the request was rejected without attempting execution.
 ///
 /// Example:
@@ -17,15 +17,6 @@ library;
 /// }
 /// ```
 class CircuitBreakerOpenException implements Exception {
-  /// Descriptive message explaining why the exception was thrown.
-  final String message;
-
-  /// Optional scope or identifier of the circuit that is currently open.
-  ///
-  /// This can be used to identify which endpoint or service has an open
-  /// circuit, useful for logging and debugging purposes.
-  final String? circuitScope;
-
   /// Creates a new [CircuitBreakerOpenException] instance.
   ///
   /// The [message] parameter is required and should describe why the
@@ -35,6 +26,15 @@ class CircuitBreakerOpenException implements Exception {
     this.message, {
     this.circuitScope,
   });
+
+  /// Descriptive message explaining why the exception was thrown.
+  final String message;
+
+  /// Optional scope or identifier of the circuit that is currently open.
+  ///
+  /// This can be used to identify which endpoint or service has an open
+  /// circuit, useful for logging and debugging purposes.
+  final String? circuitScope;
 
   @override
   String toString() {

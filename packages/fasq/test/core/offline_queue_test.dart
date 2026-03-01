@@ -1,5 +1,7 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
+
 import 'package:fasq/fasq.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -8,7 +10,7 @@ void main() {
     late OfflineQueueManager queueManager;
 
     setUp(() async {
-      queueManager = OfflineQueueManager.instance;
+      queueManager = OfflineQueueManager.instance();
       await queueManager.resetForTesting();
     });
 
@@ -18,8 +20,10 @@ void main() {
 
       expect(queueManager.length, equals(1));
       expect(queueManager.entries.first.key, equals('test-key'));
-      expect(queueManager.entries.first.mutationType,
-          equals('test-mutation-type'));
+      expect(
+        queueManager.entries.first.mutationType,
+        equals('test-mutation-type'),
+      );
       expect(queueManager.entries.first.variables, equals({'data': 'test'}));
     });
 
@@ -50,13 +54,13 @@ void main() {
           .enqueue('test-key', 'test-mutation-type', {'data': 'test'});
       await queueManager.remove(queueManager.entries.first.id);
 
-      await Future.delayed(Duration(milliseconds: 10));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
       expect(streamValues.length, equals(2));
       expect(streamValues[0].length, equals(1));
       expect(streamValues[1].length, equals(0));
 
-      subscription.cancel();
+      unawaited(subscription.cancel());
     });
 
     test('should create unique ids for entries', () async {
@@ -93,7 +97,7 @@ void main() {
         key: 'test-key',
         mutationType: 'test-mutation-type',
         variables: {'data': 'test'},
-        createdAt: DateTime(2023, 1, 1),
+        createdAt: DateTime(2023),
         attempts: 2,
         lastError: 'test error',
       );
@@ -126,7 +130,7 @@ void main() {
       expect(entry.key, equals('test-key'));
       expect(entry.mutationType, equals('test-mutation-type'));
       expect(entry.variables, equals({'data': 'test'}));
-      expect(entry.createdAt, equals(DateTime(2023, 1, 1)));
+      expect(entry.createdAt, equals(DateTime(2023)));
       expect(entry.attempts, equals(2));
       expect(entry.lastError, equals('test error'));
     });
@@ -137,7 +141,7 @@ void main() {
         key: 'test-key',
         mutationType: 'test-mutation-type',
         variables: {'data': 'test'},
-        createdAt: DateTime(2023, 1, 1),
+        createdAt: DateTime(2023),
         attempts: 1,
         lastError: 'old error',
       );
@@ -151,7 +155,7 @@ void main() {
       expect(updated.key, equals('test-key'));
       expect(updated.mutationType, equals('test-mutation-type'));
       expect(updated.variables, equals({'data': 'test'}));
-      expect(updated.createdAt, equals(DateTime(2023, 1, 1)));
+      expect(updated.createdAt, equals(DateTime(2023)));
       expect(updated.attempts, equals(2));
       expect(updated.lastError, equals('new error'));
     });
@@ -169,10 +173,10 @@ void main() {
     });
 
     test('should update online status', () {
-      networkStatus.setOnline(false);
+      networkStatus.setOnline(online: false);
       expect(networkStatus.isOnline, isFalse);
 
-      networkStatus.setOnline(true);
+      networkStatus.setOnline(online: true);
       expect(networkStatus.isOnline, isTrue);
     });
 
@@ -180,30 +184,32 @@ void main() {
       final streamValues = <bool>[];
       final subscription = networkStatus.stream.listen(streamValues.add);
 
-      networkStatus.setOnline(false);
-      networkStatus.setOnline(true);
+      networkStatus
+        ..setOnline(online: false)
+        ..setOnline(online: true);
 
-      await Future.delayed(Duration(milliseconds: 10));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
       expect(streamValues, equals([false, true]));
 
-      subscription.cancel();
+      unawaited(subscription.cancel());
     });
 
     test('should not emit duplicate values', () async {
       final streamValues = <bool>[];
       final subscription = networkStatus.stream.listen(streamValues.add);
 
-      networkStatus.setOnline(true); // Already true
-      networkStatus.setOnline(false);
-      networkStatus.setOnline(false); // Duplicate
-      networkStatus.setOnline(true);
+      networkStatus
+        ..setOnline(online: true) // Already true
+        ..setOnline(online: false)
+        ..setOnline(online: false) // Duplicate
+        ..setOnline(online: true);
 
-      await Future.delayed(Duration(milliseconds: 10));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
       expect(streamValues, equals([false, true]));
 
-      subscription.cancel();
+      await subscription.cancel();
     });
   });
 }

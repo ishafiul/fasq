@@ -4,18 +4,18 @@
 /// to the 'Open' state, including the circuit's scope identifier and
 /// the timestamp when the circuit opened.
 class CircuitOpenEvent {
+  /// Creates a new [CircuitOpenEvent] instance.
+  const CircuitOpenEvent({
+    required this.circuitId,
+    required this.openedAt,
+  });
+
   /// The scope identifier (e.g., hostname, endpoint) of the circuit breaker
   /// that opened.
   final String circuitId;
 
   /// The timestamp when the circuit transitioned to the 'Open' state.
   final DateTime openedAt;
-
-  /// Creates a new [CircuitOpenEvent] instance.
-  const CircuitOpenEvent({
-    required this.circuitId,
-    required this.openedAt,
-  });
 
   @override
   String toString() {

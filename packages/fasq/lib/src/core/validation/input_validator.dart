@@ -1,4 +1,4 @@
-import '../query_options.dart';
+import 'package:fasq/src/core/query_options.dart';
 
 /// Validates inputs to prevent injection attacks and malformed data.
 ///
@@ -9,7 +9,8 @@ class InputValidator {
 
   /// Validates a query key.
   ///
-  /// Query keys must contain only alphanumeric characters, colons, hyphens, and underscores.
+  /// Query keys must contain only alphanumeric characters, colons,
+  /// hyphens, and underscores.
   /// Throws [ArgumentError] if the key is invalid.
   static void validateQueryKey(String key) {
     if (key.isEmpty) {
@@ -18,12 +19,14 @@ class InputValidator {
 
     if (key.length > 255) {
       throw ArgumentError(
-          'Query key cannot exceed 255 characters. Got: ${key.length}');
+        'Query key cannot exceed 255 characters. Got: ${key.length}',
+      );
     }
 
     if (!_validKeyPattern.hasMatch(key)) {
       throw ArgumentError(
-        'Query key must contain only alphanumeric, colon, hyphen, underscore. Got: \'$key\'',
+        'Query key must contain only alphanumeric, colon, hyphen, '
+        "underscore. Got: '$key'",
       );
     }
   }
@@ -43,9 +46,9 @@ class InputValidator {
     }
 
     // Check for complex objects that might contain functions
-    if (data is Map) {
+    if (data is Map<Object?, Object?>) {
       _validateMap(data);
-    } else if (data is List) {
+    } else if (data is List<Object?>) {
       _validateList(data);
     }
 
@@ -72,7 +75,8 @@ class InputValidator {
         options.maxAge != null &&
         options.maxAge!.isNegative) {
       throw ArgumentError(
-        'maxAge for secure queries must be non-negative. Got: ${options.maxAge}',
+        'maxAge for secure queries must be non-negative. '
+        'Got: ${options.maxAge}',
       );
     }
   }
@@ -88,41 +92,45 @@ class InputValidator {
   }
 
   /// Validates a map for functions or closures.
-  static void _validateMap(Map map) {
+  static void _validateMap(Map<Object?, Object?> map) {
     for (final entry in map.entries) {
       if (entry.key is Function) {
         throw ArgumentError('Map keys cannot be functions or closures');
       }
-      if (entry.value is Function) {
+      final value = entry.value;
+      if (value is Function) {
         throw ArgumentError('Map values cannot be functions or closures');
       }
-      if (entry.value is Map) {
-        _validateMap(entry.value as Map);
+      if (value is Map<Object?, Object?>) {
+        _validateMap(value);
       }
-      if (entry.value is List) {
-        _validateList(entry.value as List);
+      if (value is List<Object?>) {
+        _validateList(value);
       }
     }
   }
 
   /// Validates a list for functions or closures.
-  static void _validateList(List list) {
+  static void _validateList(List<Object?> list) {
     for (final item in list) {
       if (item is Function) {
         throw ArgumentError('List items cannot be functions or closures');
       }
-      if (item is Map) {
+      if (item is Map<Object?, Object?>) {
         _validateMap(item);
       }
-      if (item is List) {
+      if (item is List<Object?>) {
         _validateList(item);
       }
     }
   }
 
   /// Validates that a string is not empty and within length limits.
-  static void validateString(String? value, String name,
-      {int maxLength = 1000}) {
+  static void validateString(
+    String? value,
+    String name, {
+    int maxLength = 1000,
+  }) {
     if (value == null) return;
 
     if (value.isEmpty) {
@@ -131,7 +139,8 @@ class InputValidator {
 
     if (value.length > maxLength) {
       throw ArgumentError(
-          '$name cannot exceed $maxLength characters. Got: ${value.length}');
+        '$name cannot exceed $maxLength characters. Got: ${value.length}',
+      );
     }
   }
 
@@ -149,8 +158,11 @@ class InputValidator {
   }
 
   /// Validates that a boolean value is not null when required.
-  static void validateBoolean(bool? value, String name,
-      {bool required = false}) {
+  static void validateBoolean(
+    String name, {
+    required bool? value,
+    bool required = false,
+  }) {
     if (required && value == null) {
       throw ArgumentError('$name is required but was null');
     }

@@ -1,15 +1,14 @@
 /// A hot cache entry that tracks access patterns and frequency.
 class _HotEntry<T> {
-  final T value;
-  DateTime lastAccess;
-  int accessCount;
-  final DateTime createdAt;
-
   _HotEntry({
     required this.value,
     required this.lastAccess,
     this.accessCount = 1,
   }) : createdAt = DateTime.now();
+  final T value;
+  DateTime lastAccess;
+  int accessCount;
+  final DateTime createdAt;
 
   /// Update access information
   void recordAccess() {
@@ -32,14 +31,16 @@ class _HotEntry<T> {
 /// Provides O(1) access time for hot items and automatically manages
 /// promotion and eviction based on access patterns.
 class HotCache<T> {
+  // LRU list (most recent at end)
+
+  /// Creates a hot cache with the specified maximum size.
+  HotCache({this.maxSize = 50})
+      : assert(maxSize > 0, 'maxSize must be greater than 0');
+
+  /// Maximum number of entries in the hot cache.
   final int maxSize;
   final Map<String, _HotEntry<T>> _entries = {};
-  final List<String> _accessOrder = []; // LRU list (most recent at end)
-
-  /// Create a hot cache with the specified maximum size
-  HotCache({this.maxSize = 50}) {
-    assert(maxSize > 0, 'maxSize must be greater than 0');
-  }
+  final List<String> _accessOrder = [];
 
   /// Get a value from the hot cache
   ///
@@ -130,7 +131,7 @@ class HotCache<T> {
     if (_entries.isEmpty) {
       return HotCacheOverallStats(
         totalEntries: 0,
-        averageAccessCount: 0.0,
+        averageAccessCount: 0,
         totalAccesses: 0,
         oldestEntry: null,
         newestEntry: null,
@@ -166,8 +167,9 @@ class HotCache<T> {
 
   /// Update the access order for a key (move to end of LRU list)
   void _updateAccessOrder(String key) {
-    _accessOrder.remove(key);
-    _accessOrder.add(key);
+    _accessOrder
+      ..remove(key)
+      ..add(key);
   }
 
   /// Evict the least recently used item
@@ -193,31 +195,32 @@ class HotCache<T> {
 
 /// Statistics for a specific hot cache entry
 class HotCacheStats {
-  final int accessCount;
-  final DateTime lastAccess;
-  final Duration age;
-
+  /// Creates [HotCacheStats] with the given access data.
   const HotCacheStats({
     required this.accessCount,
     required this.lastAccess,
     required this.age,
   });
 
+  /// Number of times this entry was accessed.
+  final int accessCount;
+
+  /// When this entry was last accessed.
+  final DateTime lastAccess;
+
+  /// Age of this entry since creation.
+  final Duration age;
+
   @override
   String toString() {
-    return 'HotCacheStats(accesses: $accessCount, lastAccess: $lastAccess, age: ${age.inSeconds}s)';
+    return 'HotCacheStats(accesses: $accessCount, lastAccess: $lastAccess, '
+        'age: ${age.inSeconds}s)';
   }
 }
 
 /// Overall statistics for the hot cache
 class HotCacheOverallStats {
-  final int totalEntries;
-  final double averageAccessCount;
-  final int totalAccesses;
-  final DateTime? oldestEntry;
-  final DateTime? newestEntry;
-  final int maxSize;
-
+  /// Creates [HotCacheOverallStats] with the given aggregate data.
   const HotCacheOverallStats({
     required this.totalEntries,
     required this.averageAccessCount,
@@ -227,9 +230,27 @@ class HotCacheOverallStats {
     required this.maxSize,
   });
 
-  /// Hit rate based on access patterns
+  /// Total number of entries in the hot cache.
+  final int totalEntries;
+
+  /// Average access count across all entries.
+  final double averageAccessCount;
+
+  /// Total number of accesses across all entries.
+  final int totalAccesses;
+
+  /// Timestamp of the oldest (least recently used) entry.
+  final DateTime? oldestEntry;
+
+  /// Timestamp of the newest (most recently used) entry.
+  final DateTime? newestEntry;
+
+  /// Maximum capacity of the hot cache.
+  final int maxSize;
+
+  /// Hit rate based on access patterns (0.0 to 1.0).
   double get hitRate =>
-      totalEntries > 0 ? averageAccessCount / totalEntries : 0.0;
+      totalEntries > 0 ? averageAccessCount / totalEntries : 0;
 
   /// Cache utilization percentage
   double get utilizationPercentage =>

@@ -1,8 +1,7 @@
+import 'package:fasq/src/core/network_status.dart';
+import 'package:fasq/src/core/query.dart';
+import 'package:fasq/src/core/query_options.dart';
 import 'package:meta/meta.dart';
-
-import '../core/network_status.dart';
-import '../core/query.dart';
-import '../core/query_options.dart';
 
 /// Context information captured when a query fails.
 ///
@@ -23,6 +22,66 @@ import '../core/query_options.dart';
 /// ```
 @immutable
 class FasqErrorContext {
+  /// Creates a new [FasqErrorContext] instance.
+  ///
+  /// All parameters are required. Use [FasqErrorContext.fromQueryFailure]
+  /// factory constructor
+  /// for convenient creation from a Query instance.
+  const FasqErrorContext({
+    required this.queryKey,
+    required this.retryCount,
+    required this.staleTime,
+    required this.networkStatus,
+    required this.error,
+    required this.stackTrace,
+    required this.sanitizedQueryOptions,
+  });
+
+  /// Creates a [FasqErrorContext] from a failed query.
+  ///
+  /// Extracts all relevant information from the [Query] instance and
+  /// [QueryOptions] to build a complete error context. Automatically
+  /// sanitizes query options to prevent PII leaks.
+  ///
+  /// [query] - The query that failed.
+  /// [options] - The query options used for this query.
+  /// [error] - The error that occurred.
+  /// [stackTrace] - The stack trace associated with the error.
+  factory FasqErrorContext.fromQueryFailure(
+    Query<Object?> query,
+    QueryOptions? options,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    // Convert QueryKey to List<Object>
+    // For simple string keys, this will be [key]
+    // For hierarchical keys, this could be expanded in the future
+    final queryKeyList = [query.queryKey.key];
+
+    // Get retry count (currently not tracked in Query, default to 0)
+    // TODO: Track retry count in Query class for accurate reporting
+    const retryCount = 0;
+
+    // Get stale time from options or default to zero
+    final staleTime = options?.staleTime ?? Duration.zero;
+
+    // Get network status
+    final networkStatus = NetworkStatus.instance.isOnline;
+
+    // Sanitize query options (implementation in task 42)
+    final sanitizedOptions = _sanitizeQueryOptions(options);
+
+    return FasqErrorContext(
+      queryKey: queryKeyList,
+      retryCount: retryCount,
+      staleTime: staleTime,
+      networkStatus: networkStatus,
+      error: error,
+      stackTrace: stackTrace,
+      sanitizedQueryOptions: sanitizedOptions,
+    );
+  }
+
   /// The query key that failed, represented as a list of objects.
   ///
   /// This allows for hierarchical query keys (e.g., ['users', userId]).
@@ -58,65 +117,6 @@ class FasqErrorContext {
   /// QueryOptions. Sensitive fields like Authorization headers are redacted
   /// or omitted to prevent PII leaks in error reports.
   final Map<String, dynamic> sanitizedQueryOptions;
-
-  /// Creates a new [FasqErrorContext] instance.
-  ///
-  /// All parameters are required. Use [fromQueryFailure] factory constructor
-  /// for convenient creation from a Query instance.
-  const FasqErrorContext({
-    required this.queryKey,
-    required this.retryCount,
-    required this.staleTime,
-    required this.networkStatus,
-    required this.error,
-    required this.stackTrace,
-    required this.sanitizedQueryOptions,
-  });
-
-  /// Creates a [FasqErrorContext] from a failed query.
-  ///
-  /// Extracts all relevant information from the [Query] instance and
-  /// [QueryOptions] to build a complete error context. Automatically
-  /// sanitizes query options to prevent PII leaks.
-  ///
-  /// [query] - The query that failed.
-  /// [options] - The query options used for this query.
-  /// [error] - The error that occurred.
-  /// [stackTrace] - The stack trace associated with the error.
-  factory FasqErrorContext.fromQueryFailure(
-    Query query,
-    QueryOptions? options,
-    Object error,
-    StackTrace stackTrace,
-  ) {
-    // Convert QueryKey to List<Object>
-    // For simple string keys, this will be [key]
-    // For hierarchical keys, this could be expanded in the future
-    final queryKeyList = [query.queryKey.key];
-
-    // Get retry count (currently not tracked in Query, default to 0)
-    // TODO: Track retry count in Query class for accurate reporting
-    const retryCount = 0;
-
-    // Get stale time from options or default to zero
-    final staleTime = options?.staleTime ?? Duration.zero;
-
-    // Get network status
-    final networkStatus = NetworkStatus.instance.isOnline;
-
-    // Sanitize query options (implementation in task 42)
-    final sanitizedOptions = _sanitizeQueryOptions(options);
-
-    return FasqErrorContext(
-      queryKey: queryKeyList,
-      retryCount: retryCount,
-      staleTime: staleTime,
-      networkStatus: networkStatus,
-      error: error,
-      stackTrace: stackTrace,
-      sanitizedQueryOptions: sanitizedOptions,
-    );
-  }
 
   /// Sanitizes query options to remove sensitive data.
   ///

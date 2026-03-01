@@ -13,6 +13,6 @@
 /// }
 /// ```
 class AutoRegisterSerializers {
+  /// Creates an [AutoRegisterSerializers] annotation instance.
   const AutoRegisterSerializers();
 }
-

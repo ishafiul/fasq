@@ -65,13 +65,12 @@ void main() {
     test('throws CircuitBreakerOpenException when circuit is open', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      final breakerOptions = CircuitBreakerOptions(
+      const breakerOptions = CircuitBreakerOptions(
         failureThreshold: 1,
-        resetTimeout: const Duration(seconds: 60),
       );
 
-      final breaker = registry.getOrCreate('test-scope', breakerOptions);
-      breaker.recordFailure();
+      final breaker = registry.getOrCreate('test-scope', breakerOptions)
+        ..recordFailure();
 
       expect(breaker.state, CircuitState.open);
       expect(breaker.allowRequest(), isFalse);
@@ -141,7 +140,7 @@ void main() {
     test('does not record failure for ignored exceptions', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      final breakerOptions = CircuitBreakerOptions(
+      const breakerOptions = CircuitBreakerOptions(
         ignoreExceptions: [ArgumentError],
       );
 
@@ -170,9 +169,9 @@ void main() {
     test('uses custom circuit breaker options when provided', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      final customOptions = CircuitBreakerOptions(
+      const customOptions = CircuitBreakerOptions(
         failureThreshold: 10,
-        resetTimeout: const Duration(seconds: 30),
+        resetTimeout: Duration(seconds: 30),
         successThreshold: 2,
       );
 
@@ -198,7 +197,7 @@ void main() {
     test('multiple queries with same scope share circuit breaker', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      final sharedScope = 'api.example.com';
+      const sharedScope = 'api.example.com';
 
       final query1 = client.getQuery<String>(
         'query1'.toQueryKey(),
@@ -232,9 +231,8 @@ void main() {
     test('circuit opens after threshold failures', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      final breakerOptions = CircuitBreakerOptions(
+      const breakerOptions = CircuitBreakerOptions(
         failureThreshold: 3,
-        resetTimeout: const Duration(seconds: 60),
       );
 
       final query = client.getQuery<String>(
@@ -247,7 +245,7 @@ void main() {
         ),
       );
 
-      for (int i = 0; i < 3; i++) {
+      for (var i = 0; i < 3; i++) {
         await query.fetch();
         expect(query.state.error, isA<StateError>());
       }
@@ -268,14 +266,14 @@ void main() {
     test('circuit transitions to half-open after timeout', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      final breakerOptions = CircuitBreakerOptions(
+      const breakerOptions = CircuitBreakerOptions(
         failureThreshold: 1,
-        resetTimeout: const Duration(milliseconds: 50),
+        resetTimeout: Duration(milliseconds: 50),
         // Use successThreshold > 1 so we can observe half-open state
         successThreshold: 2,
       );
 
-      bool shouldFail = true;
+      var shouldFail = true;
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
         queryFn: () async {
@@ -295,7 +293,7 @@ void main() {
       expect(breaker!.state, CircuitState.open);
 
       // Wait for reset timeout
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       // Simulate recovery
       shouldFail = false;
@@ -314,13 +312,13 @@ void main() {
     test('circuit closes after success threshold in half-open state', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      final breakerOptions = CircuitBreakerOptions(
+      const breakerOptions = CircuitBreakerOptions(
         failureThreshold: 1,
-        resetTimeout: const Duration(milliseconds: 50),
+        resetTimeout: Duration(milliseconds: 50),
         successThreshold: 2,
       );
 
-      bool shouldFail = true;
+      var shouldFail = true;
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
         queryFn: () async {
@@ -341,7 +339,7 @@ void main() {
       expect(breaker!.state, CircuitState.open);
 
       // Wait for reset timeout
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       shouldFail = false;
 
@@ -366,7 +364,7 @@ void main() {
     test('works with retry logic', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      int attemptCount = 0;
+      var attemptCount = 0;
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),
@@ -378,9 +376,8 @@ void main() {
           return 'success';
         },
         options: QueryOptions(
-          performance: PerformanceOptions(
-            maxRetries: 3,
-            initialRetryDelay: const Duration(milliseconds: 10),
+          performance: const PerformanceOptions(
+            initialRetryDelay: Duration(milliseconds: 10),
           ),
         ),
       );
@@ -407,9 +404,9 @@ void main() {
           throw StateError('Persistent error');
         },
         options: QueryOptions(
-          performance: PerformanceOptions(
+          performance: const PerformanceOptions(
             maxRetries: 2,
-            initialRetryDelay: const Duration(milliseconds: 10),
+            initialRetryDelay: Duration(milliseconds: 10),
           ),
         ),
       );
@@ -427,13 +424,10 @@ void main() {
     test('CircuitBreakerOpenException includes scope information', () async {
       final registry = CircuitBreakerRegistry();
       final client = QueryClient(circuitBreakerRegistry: registry);
-      final breakerOptions = CircuitBreakerOptions(
+      const breakerOptions = CircuitBreakerOptions(
         failureThreshold: 1,
-        resetTimeout: const Duration(seconds: 60),
       );
-
-      final breaker = registry.getOrCreate('custom-scope', breakerOptions);
-      breaker.recordFailure();
+      registry.getOrCreate('custom-scope', breakerOptions).recordFailure();
 
       final query = client.getQuery<String>(
         'test'.toQueryKey(),

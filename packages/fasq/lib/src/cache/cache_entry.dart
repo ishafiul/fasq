@@ -3,36 +3,7 @@
 /// Each cache entry stores the data along with timestamps and access counts
 /// used for staleness detection and cache eviction policies.
 class CacheEntry<T> {
-  /// The cached data.
-  final T data;
-
-  /// When this data was fetched.
-  final DateTime createdAt;
-
-  /// When this data was last accessed.
-  final DateTime lastAccessedAt;
-
-  /// How many times this data has been accessed.
-  final int accessCount;
-
-  /// How long this data stays fresh.
-  final Duration staleTime;
-
-  /// How long inactive data stays in cache.
-  final Duration cacheTime;
-
-  /// Reference count for active queries using this data.
-  final int referenceCount;
-
-  /// Whether this entry contains sensitive data.
-  final bool isSecure;
-
-  /// When this secure entry expires (enforced TTL).
-  final DateTime? expiresAt;
-
-  /// Whether this entry represents a cached value (even if the value is null).
-  final bool hasValue;
-
+  /// Creates a [CacheEntry] with the given data and metadata.
   const CacheEntry({
     required this.data,
     required this.createdAt,
@@ -72,6 +43,36 @@ class CacheEntry<T> {
       hasValue: hasValue,
     );
   }
+
+  /// The cached data.
+  final T data;
+
+  /// When this data was fetched.
+  final DateTime createdAt;
+
+  /// When this data was last accessed.
+  final DateTime lastAccessedAt;
+
+  /// How many times this data has been accessed.
+  final int accessCount;
+
+  /// How long this data stays fresh.
+  final Duration staleTime;
+
+  /// How long inactive data stays in cache.
+  final Duration cacheTime;
+
+  /// Reference count for active queries using this data.
+  final int referenceCount;
+
+  /// Whether this entry contains sensitive data.
+  final bool isSecure;
+
+  /// When this secure entry expires (enforced TTL).
+  final DateTime? expiresAt;
+
+  /// Whether this entry represents a cached value (even if the value is null).
+  final bool hasValue;
 
   /// The age of this cache entry.
   Duration get age => DateTime.now().difference(createdAt);
@@ -114,7 +115,7 @@ class CacheEntry<T> {
     if (value is bool) return 1;
 
     if (value is List) {
-      int size = 8;
+      var size = 8;
       for (final item in value) {
         size += _estimateDataSize(item);
       }
@@ -122,7 +123,7 @@ class CacheEntry<T> {
     }
 
     if (value is Map) {
-      int size = 16;
+      var size = 16;
       for (final entry in value.entries) {
         size += _estimateDataSize(entry.key);
         size += _estimateDataSize(entry.value);

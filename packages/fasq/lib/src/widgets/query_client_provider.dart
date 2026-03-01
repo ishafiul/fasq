@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:fasq/src/cache/cache_config.dart';
+import 'package:fasq/src/core/query_client.dart';
+import 'package:fasq/src/persistence/persistence_options.dart';
 import 'package:flutter/widgets.dart';
-import '../core/query_client.dart';
-import '../cache/cache_config.dart';
-import '../persistence/persistence_options.dart';
 
 /// Provider widget for QueryClient configuration.
 ///
@@ -39,6 +39,18 @@ import '../persistence/persistence_options.dart';
 /// )
 /// ```
 class QueryClientProvider extends StatefulWidget {
+  /// Creates a provider that exposes a [QueryClient] to descendants.
+  const QueryClientProvider({
+    required this.child,
+    super.key,
+    this.config,
+    this.persistenceOptions,
+    this.client,
+  }) : assert(
+          client == null || (config == null && persistenceOptions == null),
+          'Provide either a client or configuration values, not both.',
+        );
+
   /// Cache configuration for the QueryClient.
   final CacheConfig? config;
 
@@ -52,17 +64,6 @@ class QueryClientProvider extends StatefulWidget {
 
   /// The widget below this widget in the tree.
   final Widget child;
-
-  const QueryClientProvider({
-    super.key,
-    this.config,
-    this.persistenceOptions,
-    this.client,
-    required this.child,
-  }) : assert(
-          client == null || (config == null && persistenceOptions == null),
-          'Provide either a client or configuration values, not both.',
-        );
 
   @override
   State<QueryClientProvider> createState() => _QueryClientProviderState();
@@ -107,12 +108,11 @@ class _QueryClientProviderState extends State<QueryClientProvider> {
 
 /// Inherited widget that provides QueryClient to the widget tree.
 class _QueryClientInheritedWidget extends InheritedWidget {
-  final QueryClient client;
-
   const _QueryClientInheritedWidget({
     required this.client,
     required super.child,
   });
+  final QueryClient client;
 
   @override
   bool updateShouldNotify(_QueryClientInheritedWidget oldWidget) {

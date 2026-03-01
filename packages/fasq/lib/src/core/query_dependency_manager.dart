@@ -69,9 +69,7 @@ class QueryDependencyManager {
     // Remove as parent (orphan all children)
     final children = _parentToChildren.remove(key);
     if (children != null) {
-      for (final child in children) {
-        _childToParent.remove(child);
-      }
+      children.forEach(_childToParent.remove);
     }
   }
 
@@ -113,9 +111,7 @@ class QueryDependencyManager {
     if (children == null) return;
 
     // Create a copy to avoid modification during iteration
-    for (final childKey in children.toList()) {
-      onChild(childKey);
-    }
+    children.toList().forEach(onChild);
   }
 
   /// Notifies all descendant queries (deep) when a parent is disposed.
@@ -125,10 +121,7 @@ class QueryDependencyManager {
     String parentKey,
     void Function(String) onDescendant,
   ) {
-    final descendants = getAllDescendants(parentKey);
-    for (final key in descendants) {
-      onDescendant(key);
-    }
+    getAllDescendants(parentKey).forEach(onDescendant);
   }
 
   /// Checks whether a query has any registered dependents.

@@ -8,7 +8,7 @@ void main() {
 
   test('enabled=false keeps query idle and prevents fetch', () async {
     final client = QueryClient();
-    int calls = 0;
+    var calls = 0;
     final query = client.getQuery<String>(
       'enabled:false'.toQueryKey(),
       queryFn: () async {
@@ -16,9 +16,7 @@ void main() {
         return 'data';
       },
       options: QueryOptions(enabled: false),
-    );
-
-    query.addListener();
+    )..addListener();
     await query.fetch();
 
     expect(query.state.isIdle, true);
@@ -27,7 +25,7 @@ void main() {
 
   test('toggling enabled to true allows fetch', () async {
     final client = QueryClient();
-    int calls = 0;
+    var calls = 0;
     var enabled = false;
     final queryKey = 'toggle'.toQueryKey();
     final q = client.getQuery<String>(
@@ -37,8 +35,7 @@ void main() {
         return 'ok';
       },
       options: QueryOptions(enabled: enabled),
-    );
-    q.addListener();
+    )..addListener();
 
     expect(q.state.isIdle, true);
 
@@ -51,8 +48,7 @@ void main() {
         return 'ok';
       },
       options: QueryOptions(enabled: enabled),
-    );
-    q2.addListener();
+    )..addListener();
     await q2.fetch();
 
     expect(q2.state.isSuccess, true);

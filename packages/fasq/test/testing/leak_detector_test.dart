@@ -41,7 +41,7 @@ void main() {
         expect(detector.getLeakedObjects(), contains('test-object'));
       });
 
-      test('verifyAllTrackedObjectsGc returns true when object is GC\'d',
+      test("verifyAllTrackedObjectsGc returns true when object is GC'd",
           () async {
         final detector = LeakDetector();
 
@@ -52,12 +52,14 @@ void main() {
         // Make the object unreachable
         trackedObject = null;
 
-        // Wait for GC (this may not always work in tests, but we can verify the logic)
+        // Wait for GC (this may not always work in tests,
+        // but we can verify the logic)
         final allGc = await detector.verifyAllTrackedObjectsGc(
           timeout: const Duration(milliseconds: 500),
         );
 
-        // The result depends on whether GC actually ran, but the method should complete
+        // The result depends on whether GC actually ran,
+        //but the method should complete
         expect(allGc, isA<bool>());
       });
 
@@ -66,8 +68,9 @@ void main() {
         final object1 = Object();
         final object2 = Object();
 
-        detector.trackForGc(object1, debugLabel: 'object-1');
-        detector.trackForGc(object2, debugLabel: 'object-2');
+        detector
+          ..trackForGc(object1, debugLabel: 'object-1')
+          ..trackForGc(object2, debugLabel: 'object-2');
 
         final leaked = detector.getLeakedObjects();
         expect(leaked.length, 2);
@@ -109,13 +112,12 @@ void main() {
       test('does not throw when all queries are properly disposed', () {
         final detector = LeakDetector();
         final client = QueryClient();
-        final query = client.getQuery<String>(
+        client.getQuery<String>(
           'test-key'.toQueryKey(),
           queryFn: () async => 'data',
-        );
-
-        query.addListener();
-        query.removeListener();
+        )
+          ..addListener()
+          ..removeListener();
 
         // Wait for disposal delay
         // Note: In real tests, you might need to wait for the disposal timer
@@ -125,12 +127,12 @@ void main() {
       test('throws Exception when queries are leaked', () {
         final detector = LeakDetector();
         final client = QueryClient();
-        final query = client.getQuery<String>(
-          'leaked-query'.toQueryKey(),
-          queryFn: () async => 'data',
-        );
-
-        query.addListener(); // Add listener but don't remove it
+        client
+            .getQuery<String>(
+              'leaked-query'.toQueryKey(),
+              queryFn: () async => 'data',
+            )
+            .addListener(); // Add listener but don't remove it
 
         expect(
           () => detector.expectNoLeakedQueries(client),
@@ -141,12 +143,12 @@ void main() {
       test('error message includes query key and debug info', () {
         final detector = LeakDetector();
         final client = QueryClient();
-        final query = client.getQuery<String>(
-          'leaked-query'.toQueryKey(),
-          queryFn: () async => 'data',
-        );
-
-        query.addListener();
+        client
+            .getQuery<String>(
+              'leaked-query'.toQueryKey(),
+              queryFn: () async => 'data',
+            )
+            .addListener();
 
         try {
           detector.expectNoLeakedQueries(client);
@@ -161,12 +163,12 @@ void main() {
       test('allows specified queries in allowedLeakKeys', () {
         final detector = LeakDetector();
         final client = QueryClient();
-        final query = client.getQuery<String>(
-          'allowed-query'.toQueryKey(),
-          queryFn: () async => 'data',
-        );
-
-        query.addListener();
+        client
+            .getQuery<String>(
+              'allowed-query'.toQueryKey(),
+              queryFn: () async => 'data',
+            )
+            .addListener();
 
         expect(
           () => detector.expectNoLeakedQueries(

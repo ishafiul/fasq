@@ -1,24 +1,23 @@
 import 'dart:async';
 
+import 'package:fasq/src/cache/cache_entry.dart';
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/cache/query_cache.dart';
+import 'package:fasq/src/circuit_breaker/circuit_breaker.dart';
+import 'package:fasq/src/circuit_breaker/circuit_breaker_exceptions.dart';
+import 'package:fasq/src/circuit_breaker/circuit_breaker_options.dart';
+import 'package:fasq/src/circuit_breaker/circuit_breaker_registry.dart';
+import 'package:fasq/src/core/cancellation_token.dart';
+import 'package:fasq/src/core/query_client.dart';
+import 'package:fasq/src/core/query_dependency_manager.dart';
+import 'package:fasq/src/core/query_key.dart';
+import 'package:fasq/src/core/query_options.dart';
+import 'package:fasq/src/core/query_snapshot.dart';
+import 'package:fasq/src/core/query_state.dart';
+import 'package:fasq/src/core/query_status.dart';
+import 'package:fasq/src/core/utils/fasq_time.dart';
+import 'package:fasq/src/error/error_context.dart';
 import 'package:flutter/foundation.dart';
-
-import '../cache/cache_entry.dart';
-import '../cache/cache_metrics.dart';
-import '../cache/query_cache.dart';
-import '../circuit_breaker/circuit_breaker.dart';
-import '../circuit_breaker/circuit_breaker_exceptions.dart';
-import '../circuit_breaker/circuit_breaker_options.dart';
-import '../circuit_breaker/circuit_breaker_registry.dart';
-import '../error/error_context.dart';
-import 'cancellation_token.dart';
-import 'query_client.dart';
-import 'query_dependency_manager.dart';
-import 'query_key.dart';
-import 'query_options.dart';
-import 'query_snapshot.dart';
-import 'query_state.dart';
-import 'query_status.dart';
-import 'utils/fasq_time.dart';
 
 /// Debug information for a Query instance (debug mode only).
 ///
@@ -28,6 +27,15 @@ import 'utils/fasq_time.dart';
 /// This class is only available in debug builds. All fields are nullable
 /// to handle cases where debug information is not available.
 class QueryDebugInfo {
+  /// Creates a new [QueryDebugInfo] instance.
+  ///
+  /// [creationStack] - Stack trace from Query creation (may be null).
+  /// [referenceHolders] - Map of active reference holders (may be empty).
+  const QueryDebugInfo({
+    required this.referenceHolders,
+    this.creationStack,
+  });
+
   /// Stack trace captured when the Query was created.
   ///
   /// Null if the Query was created in a release build or if stack trace
@@ -40,15 +48,6 @@ class QueryDebugInfo {
   /// Values are stack traces captured when listeners were added.
   /// Empty map if no listeners are currently active.
   final Map<Object, StackTrace> referenceHolders;
-
-  /// Creates a new [QueryDebugInfo] instance.
-  ///
-  /// [creationStack] - Stack trace from Query creation (may be null).
-  /// [referenceHolders] - Map of active reference holders (may be empty).
-  const QueryDebugInfo({
-    this.creationStack,
-    required this.referenceHolders,
-  });
 
   @override
   String toString() {
@@ -64,7 +63,7 @@ class QueryDebugInfo {
 /// async operation. They support reference counting for automatic cleanup
 /// and emit state changes through a stream for reactive updates.
 ///
-/// Queries are typically not created directly. Instead, use [QueryBuilder]
+/// Queries are typically not created directly. Instead, use `QueryBuilder`
 /// widget or access them through [QueryClient].
 ///
 /// Example:
@@ -81,6 +80,36 @@ class QueryDebugInfo {
 /// await query.fetch();
 /// ```
 class Query<T> {
+  /// Creates a query that manages an async operation and its lifecycle state.
+  ///
+  /// Provide either [queryFn] or [queryFnWithToken]. If [initialEntry] is
+  /// provided, state is initialized from that cached entry.
+  Query({
+    required this.queryKey,
+    this.queryFn,
+    this.queryFnWithToken,
+    this.options,
+    this.cache,
+    this.client,
+    this.circuitBreakerRegistry,
+    this.dependencyManager,
+    this.onDispose,
+    CacheEntry<T>? initialEntry,
+  })  : assert(
+          queryFn != null || queryFnWithToken != null,
+          'Either queryFn or queryFnWithToken must be provided',
+        ),
+        key = queryKey.key,
+        _currentState = QueryState<T>.idle(),
+        _debugCreationStack = kDebugMode ? StackTrace.current : null,
+        _debugHolders = kDebugMode ? <Object, StackTrace>{} : null,
+        _debugHolderOrder = kDebugMode ? <Object>[] : null {
+    _controller = StreamController<QueryState<T>>.broadcast();
+
+    // Set initial state based on cache snapshot and staleness
+    _currentState = _createInitialState(initialEntry);
+  }
+
   /// Unique identifier for this query.
   final QueryKey queryKey;
 
@@ -147,7 +176,8 @@ class Query<T> {
   /// to avoid performance overhead.
   final StackTrace? _debugCreationStack;
 
-  /// Map tracking reference holders and their subscription stack traces (debug mode only).
+  /// Map tracking reference holders and their subscription stack
+  ///  traces (debug mode only).
   ///
   /// Keys are owner identifiers (provided via ownerId or auto-generated).
   /// Values are stack traces captured when the listener was added.
@@ -155,39 +185,15 @@ class Query<T> {
   /// listeners are keeping a Query alive. It is always null in release builds.
   final Map<Object, StackTrace>? _debugHolders;
 
-  /// List of owner IDs in the order they were added (for proper removal tracking).
+  /// List of owner IDs in the order they were added
+  /// (for proper removal tracking).
   ///
   /// Used to determine which holder to remove when removeListener is called
   /// without a specific ownerId. Only populated in debug mode.
   final List<Object>? _debugHolderOrder;
 
-  Query({
-    required this.queryKey,
-    this.queryFn,
-    this.queryFnWithToken,
-    this.options,
-    this.cache,
-    this.client,
-    this.circuitBreakerRegistry,
-    this.dependencyManager,
-    this.onDispose,
-    CacheEntry<T>? initialEntry,
-  })  : assert(
-          queryFn != null || queryFnWithToken != null,
-          'Either queryFn or queryFnWithToken must be provided',
-        ),
-        key = queryKey.key,
-        _currentState = QueryState<T>.idle(),
-        _debugCreationStack = kDebugMode ? StackTrace.current : null,
-        _debugHolders = kDebugMode ? <Object, StackTrace>{} : null,
-        _debugHolderOrder = kDebugMode ? <Object>[] : null {
-    _controller = StreamController<QueryState<T>>.broadcast();
-
-    // Set initial state based on cache snapshot and staleness
-    _currentState = _createInitialState(initialEntry);
-  }
-
-  /// Creates the initial state, checking cache staleness if cached data is provided
+  /// Creates the initial state, checking cache staleness if cached
+  ///  data is provided
   QueryState<T> _createInitialState(CacheEntry<T>? initialEntry) {
     if (initialEntry != null) {
       return QueryState<T>.success(
@@ -215,7 +221,8 @@ class Query<T> {
   ///
   /// Tracked subscriptions are automatically cancelled when query is disposed.
   StreamSubscription<QueryState<T>> subscribe(
-      void Function(QueryState<T>) listener) {
+    void Function(QueryState<T>) listener,
+  ) {
     final sub = _controller.stream.listen(listener);
     _subscriptions.add(sub);
     return sub;
@@ -237,7 +244,8 @@ class Query<T> {
   /// Returns null in release builds. Used for leak detection and debugging.
   StackTrace? get debugCreationStack => _debugCreationStack;
 
-  /// Map of reference holders and their subscription stack traces (debug mode only).
+  /// Map of reference holders and their subscription stack traces
+  /// (debug mode only).
   ///
   /// Returns null in release builds. Keys are owner identifiers, values are
   /// stack traces captured when listeners were added. Used for leak detection.
@@ -311,7 +319,7 @@ class Query<T> {
           if (transformed != null) {
             return transformed;
           }
-        } catch (_) {
+        } on Object catch (_) {
           // Fallback to main thread execution on failure
         }
       }
@@ -323,7 +331,7 @@ class Query<T> {
         return data;
       }
       return result as T;
-    } catch (_) {
+    } on Object catch (_) {
       return data;
     }
   }
@@ -333,11 +341,11 @@ class Query<T> {
   /// Increments the reference count and triggers auto-fetch if this is
   /// the first subscriber and the query has no data yet.
   ///
-  /// [ownerId] - Optional identifier for the object holding this reference.
+  /// `ownerId` - Optional identifier for the object holding this reference.
   /// If not provided, a unique identifier will be generated. Used in debug
   /// mode to track which listeners are keeping the query alive.
   ///
-  /// Called automatically by [QueryBuilder] widgets.
+  /// Called automatically by `QueryBuilder` widgets.
   void addListener([Object? ownerId]) {
     if (_isDisposed) return;
 
@@ -352,21 +360,24 @@ class Query<T> {
     }
 
     if (_referenceCount == 1 && !state.hasValue) {
-      fetch().catchError((_) {
-        // Error is handled by state update and onError callback
-      });
+      unawaited(
+        fetch().catchError((_) {
+          // Error is handled by state update and onError callback
+        }),
+      );
     }
   }
 
   /// Removes a subscriber from this query.
   ///
-  /// Decrements the reference count and schedules disposal if count reaches zero.
+  /// Decrements the reference count and schedules disposal
+  ///  if count reaches zero.
   ///
-  /// [ownerId] - Optional identifier for the specific listener to remove.
+  /// `ownerId` - Optional identifier for the specific listener to remove.
   /// If not provided, removes the most recently added listener. Used in debug
   /// mode to track which listeners are being removed.
   ///
-  /// Called automatically by [QueryBuilder] widgets on disposal.
+  /// Called automatically by `QueryBuilder` widgets on disposal.
   void removeListener([Object? ownerId]) {
     if (_isDisposed) return;
 
@@ -379,7 +390,8 @@ class Query<T> {
         if (_debugHolderOrder!.isNotEmpty) {
           final holderIdToRemove = ownerId ?? _debugHolderOrder!.last;
           _debugHolders!.remove(holderIdToRemove);
-          // Remove from order list (removes first occurrence if ownerId provided,
+          // Remove from order list (removes first occurrence if ownerId
+          // provided,
           // or last if not provided)
           if (ownerId != null) {
             _debugHolderOrder!.remove(holderIdToRemove);
@@ -429,12 +441,13 @@ class Query<T> {
 
         if (cachedEntry != null && cachedEntry.isFresh && !forceRefetch) {
           final previous = _currentState;
-          _updateState(QueryState.success(
-            cachedEntry.data,
-            dataUpdatedAt: cachedEntry.createdAt,
-            isStale: false,
-            hasValue: cachedEntry.hasValue,
-          ));
+          _updateState(
+            QueryState.success(
+              cachedEntry.data,
+              dataUpdatedAt: cachedEntry.createdAt,
+              hasValue: cachedEntry.hasValue,
+            ),
+          );
           _notifySuccess(previous);
           return;
         }
@@ -444,13 +457,15 @@ class Query<T> {
 
         if (shouldBackgroundRefetch) {
           final previous = _currentState;
-          _updateState(QueryState.success(
-            cachedEntry.data,
-            dataUpdatedAt: cachedEntry.createdAt,
-            isFetching: true,
-            isStale: !forceRefetch,
-            hasValue: cachedEntry.hasValue,
-          ));
+          _updateState(
+            QueryState.success(
+              cachedEntry.data,
+              dataUpdatedAt: cachedEntry.createdAt,
+              isFetching: true,
+              isStale: !forceRefetch,
+              hasValue: cachedEntry.hasValue,
+            ),
+          );
           _notifySuccess(previous);
 
           await _fetchAndCache(
@@ -462,10 +477,12 @@ class Query<T> {
       }
 
       final previous = _currentState;
-      _updateState(_currentState.copyWith(
-        status: QueryStatus.loading,
-        isFetching: true,
-      ));
+      _updateState(
+        _currentState.copyWith(
+          status: QueryStatus.loading,
+          isFetching: true,
+        ),
+      );
       _notifyLoading(previous);
 
       await _fetchAndCache(isBackgroundRefetch: false, token: token);
@@ -488,12 +505,14 @@ class Query<T> {
     if (cache != null) {
       try {
         final previous = _currentState;
-        _updateState(_currentState.copyWith(
-          isFetching: true,
-          status: _currentState.status == QueryStatus.idle
-              ? QueryStatus.loading
-              : _currentState.status,
-        ));
+        _updateState(
+          _currentState.copyWith(
+            isFetching: true,
+            status: _currentState.status == QueryStatus.idle
+                ? QueryStatus.loading
+                : _currentState.status,
+          ),
+        );
         if (isBackgroundRefetch || previous.status == QueryStatus.idle) {
           _notifyLoading(previous);
         }
@@ -510,7 +529,7 @@ class Query<T> {
           _lastFetchDuration = FasqTime.now.difference(_lastFetchStart!);
           _fetchHistory.add(_lastFetchDuration!);
 
-          if (options?.performance?.enableMetrics != false) {
+          if (options?.performance?.enableMetrics ?? true) {
             cache!.metrics.recordFetchTime(_lastFetchDuration!);
           }
 
@@ -522,13 +541,12 @@ class Query<T> {
         if (!_isDisposed) {
           final previous = _currentState;
           final now = FasqTime.now;
-          _updateState(QueryState.success(
-            data,
-            dataUpdatedAt: now,
-            isFetching: false,
-            isStale: false,
-            hasValue: true,
-          ));
+          _updateState(
+            QueryState.success(
+              data,
+              dataUpdatedAt: now,
+            ),
+          );
           cache!.set<T>(
             key,
             data,
@@ -539,7 +557,7 @@ class Query<T> {
           );
 
           // Record query execution for throughput tracking
-          if (options?.performance?.enableMetrics != false) {
+          if (options?.performance?.enableMetrics ?? true) {
             cache!.recordQueryExecution(key);
           }
 
@@ -557,11 +575,13 @@ class Query<T> {
             _updateState(QueryState.error(error, stackTrace));
             _notifyError(previous);
           } else {
-            _updateState(_currentState.copyWith(
-              isFetching: false,
-              error: error,
-              stackTrace: stackTrace,
-            ));
+            _updateState(
+              _currentState.copyWith(
+                isFetching: false,
+                error: error,
+                stackTrace: stackTrace,
+              ),
+            );
           }
           options?.onError?.call(error);
 
@@ -579,12 +599,14 @@ class Query<T> {
     } else {
       try {
         final previous = _currentState;
-        _updateState(_currentState.copyWith(
-          isFetching: true,
-          status: _currentState.status == QueryStatus.idle
-              ? QueryStatus.loading
-              : _currentState.status,
-        ));
+        _updateState(
+          _currentState.copyWith(
+            isFetching: true,
+            status: _currentState.status == QueryStatus.idle
+                ? QueryStatus.loading
+                : _currentState.status,
+          ),
+        );
         if (previous.status == QueryStatus.idle) {
           _notifyLoading(previous);
         }
@@ -605,12 +627,12 @@ class Query<T> {
 
         if (!_isDisposed) {
           final previous = _currentState;
-          _updateState(QueryState.success(
-            data,
-            dataUpdatedAt: FasqTime.now,
-            isStale: false,
-            hasValue: true,
-          ));
+          _updateState(
+            QueryState.success(
+              data,
+              dataUpdatedAt: FasqTime.now,
+            ),
+          );
           options?.onSuccess?.call();
           _notifySuccess(previous);
         }
@@ -646,8 +668,6 @@ class Query<T> {
     _updateState(
       QueryState.success(
         data,
-        isStale: false,
-        hasValue: true,
       ),
     );
   }
@@ -720,6 +740,10 @@ class Query<T> {
     _currentFetchToken = null;
   }
 
+  /// Disposes this query and releases all resources.
+  ///
+  /// Cancels in-flight work, stops child queries, cancels subscriptions,
+  /// closes the state stream, and invokes [onDispose] when provided.
   void dispose() {
     if (_isDisposed) return;
 
@@ -734,7 +758,7 @@ class Query<T> {
     _cancelChildQueries();
 
     for (final sub in _subscriptions) {
-      sub.cancel();
+      unawaited(sub.cancel());
     }
     _subscriptions.clear();
 
@@ -743,7 +767,7 @@ class Query<T> {
     // by the QueryCache garbage collector. This allows the cached data to be
     // reused when a new Query is created with the same key.
 
-    _controller.close();
+    unawaited(_controller.close());
     onDispose?.call();
   }
 
@@ -789,8 +813,8 @@ class Query<T> {
       if (retries <= 0) {
         result = await _runWithTimeout(fn);
       } else {
-        int attempt = 0;
-        Duration delay =
+        var attempt = 0;
+        var delay =
             performance?.initialRetryDelay ?? const Duration(seconds: 1);
         final backoff = performance?.retryBackoffMultiplier ?? 2.0;
 
@@ -803,7 +827,7 @@ class Query<T> {
             if (attempt > retries) {
               rethrow;
             }
-            await Future.delayed(delay);
+            await Future<void>.delayed(delay);
             final nextDelayMicros = (delay.inMicroseconds * backoff).round();
             delay = Duration(
               microseconds: nextDelayMicros <= 0 ? 1 : nextDelayMicros,

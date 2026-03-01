@@ -1,6 +1,6 @@
-import 'security_provider.dart';
-import 'encryption_provider.dart';
-import 'persistence_provider.dart';
+import 'package:fasq/src/security/encryption_provider.dart';
+import 'package:fasq/src/security/persistence_provider.dart';
+import 'package:fasq/src/security/security_provider.dart';
 
 /// Abstract interface for security plugins.
 ///

@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq/src/performance/isolate_pool.dart';
 import 'package:fasq/src/performance/isolate_task.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('IsolatePool', () {
@@ -54,12 +54,12 @@ int _sumReducer(List<int> values) {
 }
 
 Future<int> _delayedSquare(int value) async {
-  await Future.delayed(const Duration(milliseconds: 20));
+  await Future<void>.delayed(const Duration(milliseconds: 20));
   return value * value;
 }
 
 Future<int> _delayedIdentity(int value) async {
-  await Future.delayed(const Duration(milliseconds: 10));
+  await Future<void>.delayed(const Duration(milliseconds: 10));
   return value;
 }
 

@@ -4,6 +4,13 @@
 /// the timestamp of the last failure, which are used to determine when
 /// the circuit breaker should transition between states.
 class CircuitStats {
+  /// Creates a new [CircuitStats] instance with default values.
+  CircuitStats({
+    this.failureCount = 0,
+    this.successCount = 0,
+    this.lastFailureTimestamp,
+  });
+
   /// Number of consecutive failures that have occurred.
   int failureCount;
 
@@ -12,13 +19,6 @@ class CircuitStats {
 
   /// Timestamp of the last failure, or null if no failures have occurred.
   DateTime? lastFailureTimestamp;
-
-  /// Creates a new [CircuitStats] instance with default values.
-  CircuitStats({
-    this.failureCount = 0,
-    this.successCount = 0,
-    this.lastFailureTimestamp,
-  });
 
   /// Resets all statistics to their initial default values.
   ///

@@ -1,4 +1,4 @@
-import 'encryption_provider.dart';
+import 'package:fasq/src/security/encryption_provider.dart';
 
 /// Abstract interface for encrypted data persistence operations.
 ///
@@ -64,10 +64,17 @@ abstract class PersistenceProvider {
   /// [keys] List of cache keys to remove
   Future<void> removeMultiple(List<String> keys);
 
+  /// Releases resources held by the persistence provider.
   Future<void> dispose();
 
+  /// Whether this provider supports encryption key rotation in-place.
   bool get supportsEncryptionKeyRotation;
 
+  /// Re-encrypts all persisted entries from [oldKey] to [newKey].
+  ///
+  /// [encryptionProvider] is used to decrypt existing values and encrypt with
+  /// the new key. [onProgress], when provided, receives progress updates as
+  /// `(current, total)`.
   Future<void> rotateEncryptionKey(
     String oldKey,
     String newKey,

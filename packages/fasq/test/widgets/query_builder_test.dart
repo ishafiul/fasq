@@ -18,7 +18,7 @@ void main() {
           home: QueryBuilder<String>(
             queryKey: 'test'.toQueryKey(),
             queryFn: () async {
-              await Future.delayed(Duration(milliseconds: 50));
+              await Future<void>.delayed(const Duration(milliseconds: 50));
               return 'test data';
             },
             builder: (context, state) {
@@ -39,7 +39,7 @@ void main() {
           home: QueryBuilder<String>(
             queryKey: 'test'.toQueryKey(),
             queryFn: () async {
-              await Future.delayed(Duration(milliseconds: 100));
+              await Future<void>.delayed(const Duration(milliseconds: 100));
               return 'data';
             },
             builder: (context, state) {
@@ -62,7 +62,7 @@ void main() {
           home: QueryBuilder<String>(
             queryKey: 'test'.toQueryKey(),
             queryFn: () async {
-              await Future.delayed(Duration(milliseconds: 10));
+              await Future<void>.delayed(const Duration(milliseconds: 10));
               return 'success data';
             },
             builder: (context, state) {
@@ -85,7 +85,7 @@ void main() {
           home: QueryBuilder<String>(
             queryKey: 'test'.toQueryKey(),
             queryFn: () async {
-              await Future.delayed(Duration(milliseconds: 10));
+              await Future<void>.delayed(const Duration(milliseconds: 10));
               throw Exception('test error');
             },
             builder: (context, state) {
@@ -201,7 +201,7 @@ void main() {
           home: QueryBuilder<int>(
             queryKey: 'counter'.toQueryKey(),
             queryFn: () async {
-              await Future.delayed(Duration(milliseconds: 50));
+              await Future<void>.delayed(const Duration(milliseconds: 50));
               return 42;
             },
             builder: (context, state) {

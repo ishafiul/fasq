@@ -22,11 +22,11 @@ import 'dart:async';
 /// }
 /// ```
 class CancelledException implements Exception {
-  /// A message describing why the operation was cancelled.
-  final String message;
-
   /// Creates a [CancelledException] with the given [message].
   const CancelledException([this.message = 'Operation was cancelled']);
+
+  /// A message describing why the operation was cancelled.
+  final String message;
 
   @override
   String toString() => 'CancelledException: $message';
@@ -157,7 +157,7 @@ class CancellationToken {
     for (final listener in _listeners) {
       try {
         listener();
-      } catch (_) {
+      } on Object catch (_) {
         // Ignore errors from listeners to ensure all are called
       }
     }

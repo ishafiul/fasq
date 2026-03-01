@@ -15,21 +15,6 @@
 /// );
 /// ```
 class ThroughputMetrics {
-  /// Number of requests per minute within the window.
-  final double requestsPerMinute;
-
-  /// Number of requests per second within the window.
-  final double requestsPerSecond;
-
-  /// Total number of requests within the window.
-  final int totalRequests;
-
-  /// Start time of the measurement window.
-  final DateTime windowStart;
-
-  /// End time of the measurement window.
-  final DateTime windowEnd;
-
   /// Creates a new [ThroughputMetrics] instance.
   ///
   /// [requestsPerMinute] The calculated requests per minute rate.
@@ -44,18 +29,6 @@ class ThroughputMetrics {
     required this.windowStart,
     required this.windowEnd,
   });
-
-  /// Converts this instance to a JSON-serializable map.
-  ///
-  /// Returns a map containing all throughput metrics with ISO8601-formatted
-  /// timestamps for the window boundaries.
-  Map<String, dynamic> toJson() => {
-        'requestsPerMinute': requestsPerMinute,
-        'requestsPerSecond': requestsPerSecond,
-        'totalRequests': totalRequests,
-        'windowStart': windowStart.toIso8601String(),
-        'windowEnd': windowEnd.toIso8601String(),
-      };
 
   /// Creates a [ThroughputMetrics] instance from a JSON map.
   ///
@@ -74,4 +47,31 @@ class ThroughputMetrics {
       windowEnd: DateTime.parse(json['windowEnd'] as String),
     );
   }
+
+  /// Number of requests per minute within the window.
+  final double requestsPerMinute;
+
+  /// Number of requests per second within the window.
+  final double requestsPerSecond;
+
+  /// Total number of requests within the window.
+  final int totalRequests;
+
+  /// Start time of the measurement window.
+  final DateTime windowStart;
+
+  /// End time of the measurement window.
+  final DateTime windowEnd;
+
+  /// Converts this instance to a JSON-serializable map.
+  ///
+  /// Returns a map containing all throughput metrics with ISO8601-formatted
+  /// timestamps for the window boundaries.
+  Map<String, dynamic> toJson() => {
+        'requestsPerMinute': requestsPerMinute,
+        'requestsPerSecond': requestsPerSecond,
+        'totalRequests': totalRequests,
+        'windowStart': windowStart.toIso8601String(),
+        'windowEnd': windowEnd.toIso8601String(),
+      };
 }

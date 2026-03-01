@@ -1,7 +1,4 @@
 import 'package:fasq/fasq.dart';
-import 'package:fasq/src/error/error_context.dart';
-import 'package:fasq/src/error/error_reporter.dart';
-import 'package:fasq/src/logger/fasq_logger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -22,7 +19,7 @@ void main() {
       final error = Exception('Test query failure');
       final queryKey = 'failing-query'.toQueryKey();
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         queryKey,
@@ -32,12 +29,12 @@ void main() {
       // Trigger the query fetch which will fail
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected to throw
       }
 
       // Wait for async error handling to complete
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       // Verify reporter was called
       expect(reporter.reportedContexts.length, 1);
@@ -50,7 +47,10 @@ void main() {
       expect(reportedContext.error.toString(), contains('Test query failure'));
       expect(reportedContext.stackTrace, isNotNull);
       expect(reportedContext.retryCount, 0);
-      expect(reportedContext.sanitizedQueryOptions, isA<Map<String, dynamic>>());
+      expect(
+        reportedContext.sanitizedQueryOptions,
+        isA<Map<String, dynamic>>(),
+      );
     });
 
     test('error context includes sanitized query options', () async {
@@ -59,16 +59,11 @@ void main() {
       final options = QueryOptions(
         staleTime: const Duration(minutes: 5),
         cacheTime: const Duration(minutes: 10),
-        enabled: true,
         refetchOnMount: true,
-        isSecure: false,
-        performance: PerformanceOptions(
-          maxRetries: 3,
-          enableMetrics: true,
-        ),
+        performance: const PerformanceOptions(),
       );
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'options-test'.toQueryKey(),
@@ -78,11 +73,11 @@ void main() {
 
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       expect(reporter.reportedContexts.length, 1);
 
@@ -94,7 +89,10 @@ void main() {
       expect(sanitized['refetchOnMount'], true);
       expect(sanitized['isSecure'], false);
       expect(sanitized['staleTime'], const Duration(minutes: 5).inMilliseconds);
-      expect(sanitized['cacheTime'], const Duration(minutes: 10).inMilliseconds);
+      expect(
+        sanitized['cacheTime'],
+        const Duration(minutes: 10).inMilliseconds,
+      );
 
       // Verify performance options are sanitized
       final performance = sanitized['performance'] as Map<String, dynamic>;
@@ -114,9 +112,10 @@ void main() {
       final reporter3 = _MockErrorReporter();
       final error = Exception('Multi-reporter test');
 
-      client.addErrorReporter(reporter1);
-      client.addErrorReporter(reporter2);
-      client.addErrorReporter(reporter3);
+      client
+        ..addErrorReporter(reporter1.callback)
+        ..addErrorReporter(reporter2.callback)
+        ..addErrorReporter(reporter3.callback);
 
       final query = client.getQuery<String>(
         'multi-reporter-test'.toQueryKey(),
@@ -125,11 +124,11 @@ void main() {
 
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       // All reporters should have received the error
       expect(reporter1.reportedContexts.length, 1);
@@ -154,9 +153,10 @@ void main() {
       final reporter3 = _MockErrorReporter();
       final error = Exception('Reporter failure test');
 
-      client.addErrorReporter(workingReporter);
-      client.addErrorReporter(failingReporter);
-      client.addErrorReporter(reporter3);
+      client
+        ..addErrorReporter(workingReporter.callback)
+        ..addErrorReporter(failingReporter.callback)
+        ..addErrorReporter(reporter3.callback);
 
       final query = client.getQuery<String>(
         'reporter-failure-test'.toQueryKey(),
@@ -165,11 +165,11 @@ void main() {
 
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       // Working reporters should still have received the error
       expect(workingReporter.reportedContexts.length, 1);
@@ -179,8 +179,10 @@ void main() {
       expect(failingReporter.attemptedReports, 1);
 
       // Verify the test didn't crash (implicitly verified by reaching here)
-      expect(workingReporter.reportedContexts.first.queryKey,
-          ['reporter-failure-test']);
+      expect(
+        workingReporter.reportedContexts.first.queryKey,
+        ['reporter-failure-test'],
+      );
     });
 
     test('reporter errors are logged via FasqLogger when available', () async {
@@ -189,9 +191,10 @@ void main() {
       final workingReporter = _MockErrorReporter();
       final error = Exception('Logger test');
 
-      client.addObserver(logger);
-      client.addErrorReporter(failingReporter);
-      client.addErrorReporter(workingReporter);
+      client
+        ..addObserver(logger)
+        ..addErrorReporter(failingReporter.callback)
+        ..addErrorReporter(workingReporter.callback);
 
       final query = client.getQuery<String>(
         'logger-test'.toQueryKey(),
@@ -200,11 +203,11 @@ void main() {
 
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       // Working reporter should have received the error
       expect(workingReporter.reportedContexts.length, 1);
@@ -222,7 +225,7 @@ void main() {
       final reporter = _MockErrorReporter();
       final error = Exception('Network status test');
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'network-status-test'.toQueryKey(),
@@ -231,11 +234,11 @@ void main() {
 
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       expect(reporter.reportedContexts.length, 1);
 
@@ -249,7 +252,7 @@ void main() {
       final reporter = _MockErrorReporter();
       final error = Exception('Retry count test');
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'retry-count-test'.toQueryKey(),
@@ -258,11 +261,11 @@ void main() {
 
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       expect(reporter.reportedContexts.length, 1);
 
@@ -278,11 +281,12 @@ void main() {
       final reporter2 = _MockErrorReporter();
       final error = Exception('Remove reporter test');
 
-      client.addErrorReporter(reporter1);
-      client.addErrorReporter(reporter2);
+      client
+        ..addErrorReporter(reporter1.callback)
+        ..addErrorReporter(reporter2.callback)
 
-      // Remove reporter2 before triggering error
-      client.removeErrorReporter(reporter2);
+        // Remove reporter2 before triggering error
+        ..removeErrorReporter(reporter2.callback);
 
       final query = client.getQuery<String>(
         'remove-reporter-test'.toQueryKey(),
@@ -291,11 +295,11 @@ void main() {
 
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       // Only reporter1 should have received the error
       expect(reporter1.reportedContexts.length, 1);
@@ -306,7 +310,7 @@ void main() {
       final reporter = _MockErrorReporter();
       final error = Exception('Stack trace test');
 
-      client.addErrorReporter(reporter);
+      client.addErrorReporter(reporter.callback);
 
       final query = client.getQuery<String>(
         'stack-trace-test'.toQueryKey(),
@@ -315,11 +319,11 @@ void main() {
 
       try {
         await query.fetch();
-      } catch (_) {
+      } on Object catch (_) {
         // Expected
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       expect(reporter.reportedContexts.length, 1);
 
@@ -334,23 +338,22 @@ void main() {
 }
 
 /// Mock implementation of FasqErrorReporter for testing.
-class _MockErrorReporter implements FasqErrorReporter {
+class _MockErrorReporter {
   final List<FasqErrorContext> reportedContexts = [];
+  late final FasqErrorReporter callback = report;
 
-  @override
   void report(FasqErrorContext context) {
     reportedContexts.add(context);
   }
 }
 
 /// Mock error reporter that throws an exception when report is called.
-class _FailingErrorReporter implements FasqErrorReporter {
+class _FailingErrorReporter {
   int attemptedReports = 0;
+  late final FasqErrorReporter callback = report;
 
-  @override
   void report(FasqErrorContext context) {
     attemptedReports++;
     throw Exception('Reporter failed intentionally for testing');
   }
 }
-
