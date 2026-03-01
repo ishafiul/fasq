@@ -95,8 +95,11 @@ class PerformanceMonitor {
   PerformanceReport _generateRecordingReport() {
     final finalSnapshot =
         _recordingData['finalSnapshot'] as Map<String, dynamic>;
-    final finalCacheMetrics =
-        finalSnapshot['cacheMetrics'] as Map<String, dynamic>;
+    final raw = finalSnapshot['cacheReport'] ?? finalSnapshot['cacheMetrics'];
+    if (raw == null) {
+      throw StateError('Snapshot missing cacheReport/cacheMetrics');
+    }
+    final finalCacheMetrics = raw as Map<String, dynamic>;
 
     // Use final metrics as base
     return PerformanceReport(

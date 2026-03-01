@@ -1,20 +1,73 @@
+import 'dart:collection';
+
 import 'package:fasq/src/performance/throughput_metrics.dart';
+
+class _ThroughputRing {
+  _ThroughputRing({required this.bucketCount})
+      : assert(bucketCount > 0, 'bucketCount must be positive'),
+        counts = List<int>.filled(bucketCount, 0),
+        seconds = List<int>.filled(bucketCount, -1);
+
+  final int bucketCount;
+  final List<int> counts;
+  final List<int> seconds;
+
+  void record(DateTime now) {
+    final s = now.millisecondsSinceEpoch ~/ 1000;
+    final idx = s % bucketCount;
+    if (seconds[idx] != s) {
+      seconds[idx] = s;
+      counts[idx] = 0;
+    }
+    counts[idx]++;
+  }
+
+  /// O(bucketCount) per call; only counts buckets whose
+  /// second is in [start..end].
+  /// Window is second-granularity ([Duration.inSeconds] truncates).
+  int sumLast(Duration window, DateTime now) {
+    final end = now.millisecondsSinceEpoch ~/ 1000;
+    final windowSecs = window.inSeconds;
+    if (windowSecs <= 0) return 0;
+    final start = end - windowSecs + 1;
+    var total = 0;
+    for (var i = 0; i < bucketCount; i++) {
+      final sec = seconds[i];
+      if (sec >= start && sec <= end) {
+        total += counts[i];
+      }
+    }
+    return total;
+  }
+}
 
 /// Metrics for monitoring cache performance.
 ///
 /// Tracks cache hits, misses, timing, memory usage, and other statistics
 /// useful for performance tuning and debugging.
 class CacheMetrics {
+  /// Creates cache metrics for tracking hits, misses, latency, and memory.
+  ///
+  /// If `now` is provided, it is used as the UTC clock source for
+  /// time-dependent metrics, which is useful for deterministic tests.
+  CacheMetrics({DateTime Function()? now})
+      : _nowFn = now ?? (() => DateTime.now().toUtc());
+
+  final DateTime Function() _nowFn;
+
   int _hits = 0;
   int _misses = 0;
   int _evictions = 0;
   int _gcRemovals = 0;
 
-  // New timing metrics
-  final List<Duration> _fetchTimes = [];
-  final List<Duration> _cacheLookupTimes = [];
+  static const int _maxTimingSamples = 1000;
+
+  final Queue<Duration> _fetchTimes = Queue<Duration>();
+  final Queue<Duration> _cacheLookupTimes = Queue<Duration>();
   int _totalFetches = 0;
   int _totalLookups = 0;
+  bool _p95FetchTimeDirty = true;
+  Duration? _p95FetchTimeCached;
 
   // Memory tracking
   int _peakMemoryBytes = 0;
@@ -24,8 +77,18 @@ class CacheMetrics {
   int _activeSubscriptions = 0;
   int _peakSubscriptions = 0;
 
-  // Throughput tracking - store timestamps per query key
-  final Map<String, List<DateTime>> _queryExecutionTimestamps = {};
+  static const int _maxQueryKeysTracked = 10000;
+  static const int _throughputWindowSeconds = 900;
+  static const Duration _evictionInterval = Duration(minutes: 5);
+
+  /// TTL for throughput key metadata (longer than ring window so inactive keys
+  /// remain reportable briefly after traffic stops).
+  static const Duration _throughputKeyTtl = Duration(minutes: 30);
+
+  final Map<String, _ThroughputRing> _queryThroughputRings = {};
+  final Map<String, DateTime> _queryLastSeen = {};
+  DateTime _lastEviction = DateTime.fromMillisecondsSinceEpoch(0).toUtc();
+  int _throughputKeyDrops = 0;
 
   /// Total number of cache hits (data found in cache).
   int get hits => _hits;
@@ -64,9 +127,15 @@ class CacheMetrics {
   /// 95th percentile fetch time
   Duration get p95FetchTime {
     if (_fetchTimes.isEmpty) return Duration.zero;
+    if (!_p95FetchTimeDirty && _p95FetchTimeCached != null) {
+      return _p95FetchTimeCached!;
+    }
     final sortedTimes = List<Duration>.from(_fetchTimes)..sort();
-    final index = (sortedTimes.length * 0.95).floor();
-    return sortedTimes[index];
+    final i = ((sortedTimes.length - 1) * 0.95).floor();
+    final value = sortedTimes[i.clamp(0, sortedTimes.length - 1)];
+    _p95FetchTimeCached = value;
+    _p95FetchTimeDirty = false;
+    return value;
   }
 
   /// Average cache lookup time
@@ -93,6 +162,12 @@ class CacheMetrics {
   /// Peak number of subscriptions
   int get peakSubscriptions => _peakSubscriptions;
 
+  /// Number of query keys dropped because throughput tracking was at capacity.
+  int get throughputKeyDrops => _throughputKeyDrops;
+
+  /// Number of query keys currently tracked for throughput.
+  int get trackedQueryKeys => _queryThroughputRings.length;
+
   /// Records a cache hit.
   void recordHit() {
     _hits++;
@@ -110,103 +185,133 @@ class CacheMetrics {
 
   /// Records entries removed by garbage collection.
   void recordGcRemoval(int count) {
-    _gcRemovals += count;
+    final sanitizedCount = count < 0 ? 0 : count;
+    _gcRemovals += sanitizedCount;
   }
 
   /// Records a fetch operation timing
   void recordFetchTime(Duration duration) {
-    _fetchTimes.add(duration);
+    _fetchTimes.addLast(duration);
     _totalFetches++;
-
-    // Keep only last 1000 fetch times to prevent memory growth
-    if (_fetchTimes.length > 1000) {
-      _fetchTimes.removeAt(0);
+    if (_fetchTimes.length > _maxTimingSamples) {
+      _fetchTimes.removeFirst();
     }
+    _p95FetchTimeDirty = true;
   }
 
   /// Records a cache lookup timing
   void recordLookupTime(Duration duration) {
-    _cacheLookupTimes.add(duration);
+    _cacheLookupTimes.addLast(duration);
     _totalLookups++;
-
-    // Keep only last 1000 lookup times to prevent memory growth
-    if (_cacheLookupTimes.length > 1000) {
-      _cacheLookupTimes.removeAt(0);
+    if (_cacheLookupTimes.length > _maxTimingSamples) {
+      _cacheLookupTimes.removeFirst();
     }
   }
 
   /// Records memory usage
   void recordMemoryUsage(int bytes) {
-    _currentMemoryBytes = bytes;
-    if (bytes > _peakMemoryBytes) {
-      _peakMemoryBytes = bytes;
+    final sanitizedBytes = bytes < 0 ? 0 : bytes;
+    _currentMemoryBytes = sanitizedBytes;
+    if (sanitizedBytes > _peakMemoryBytes) {
+      _peakMemoryBytes = sanitizedBytes;
     }
   }
 
   /// Records subscription count change
   void recordSubscriptionChange(int delta) {
     _activeSubscriptions += delta;
+    if (_activeSubscriptions < 0) _activeSubscriptions = 0;
     if (_activeSubscriptions > _peakSubscriptions) {
       _peakSubscriptions = _activeSubscriptions;
     }
   }
 
+  DateTime _now() => _nowFn();
+
+  void _evictStaleKeys(DateTime now) {
+    final cutoff = now.subtract(_throughputKeyTtl);
+    final keysToRemove = <String>[];
+    _queryLastSeen.forEach((k, ts) {
+      if (ts.isBefore(cutoff)) keysToRemove.add(k);
+    });
+    for (final k in keysToRemove) {
+      _queryLastSeen.remove(k);
+      _queryThroughputRings.remove(k);
+    }
+  }
+
+  bool _maybeEvict(DateTime now) {
+    if (now.difference(_lastEviction) < _evictionInterval) return false;
+    _lastEviction = now;
+    _evictStaleKeys(now);
+    return true;
+  }
+
   /// Records a query execution for throughput tracking.
   ///
-  /// Adds the current timestamp to the list of executions for the given
-  /// [queryKey]. This is used to calculate requests per minute and requests
-  /// per second.
+  /// When at capacity: evict TTL-stale keys first; if still full, drop the
+  /// new key and increment [throughputKeyDrops] (prefer existing keys).
   void recordQueryExecution(String queryKey) {
-    final now = DateTime.now();
-    _queryExecutionTimestamps.putIfAbsent(queryKey, () => []).add(now);
+    final now = _now();
+    final evicted = _maybeEvict(now);
+    if (_queryThroughputRings.length >= _maxQueryKeysTracked &&
+        !_queryThroughputRings.containsKey(queryKey)) {
+      if (!evicted) _evictStaleKeys(now);
+      if (_queryThroughputRings.length >= _maxQueryKeysTracked) {
+        _throughputKeyDrops++;
+        return;
+      }
+    }
+    _queryThroughputRings
+        .putIfAbsent(
+          queryKey,
+          () => _ThroughputRing(bucketCount: _throughputWindowSeconds),
+        )
+        .record(now);
+    _queryLastSeen[queryKey] = now;
+  }
 
-    // Prune old timestamps (older than 15 minutes) to prevent unbounded growth
-    final cutoff = now.subtract(const Duration(minutes: 15));
-    _queryExecutionTimestamps[queryKey]!
-        .removeWhere((ts) => ts.isBefore(cutoff));
+  static Duration _clampWindow(Duration window) {
+    const max = Duration(seconds: _throughputWindowSeconds);
+    if (window <= Duration.zero) return Duration.zero;
+    return window > max ? max : window;
   }
 
   /// Calculates throughput metrics for a given query key within a rolling
   /// window.
   ///
-  /// Returns a [ThroughputMetrics] instance with requests per minute (RPM),
-  /// requests per second (RPS), total requests in the window, and window
-  /// boundaries. If no executions are found for the query key, returns null.
+  /// [window] is clamped to at most [_throughputWindowSeconds] (15 minutes);
+  /// the returned [ThroughputMetrics.windowStart] and
+  /// [ThroughputMetrics.windowEnd] reflect the effective window used. Window
+  /// and rates are second-granularity to match
+  /// bucket counts. Returns null if no executions in that window.
   ///
-  /// [queryKey] The query key to calculate throughput for.
-  /// [window] The rolling window duration. Defaults to 1 minute.
+  /// O(bucketCount) per call; fine for debug/inspection — avoid calling
+  /// in hot paths (e.g. every UI frame).
   ThroughputMetrics? calculateThroughput(
     String queryKey, {
     Duration window = const Duration(minutes: 1),
   }) {
-    final timestamps = _queryExecutionTimestamps[queryKey];
-    if (timestamps == null || timestamps.isEmpty) {
-      return null;
-    }
+    final ring = _queryThroughputRings[queryKey];
+    if (ring == null) return null;
 
-    final now = DateTime.now();
-    final windowStart = now.subtract(window);
+    final now = _now();
+    final effectiveWindow = _clampWindow(window);
+    if (effectiveWindow == Duration.zero) return null;
 
-    // Filter timestamps within the window
-    final timestampsInWindow =
-        timestamps.where((ts) => !ts.isBefore(windowStart)).toList();
+    final requestsInWindow = ring.sumLast(effectiveWindow, now);
+    if (requestsInWindow == 0) return null;
 
-    if (timestampsInWindow.isEmpty) {
-      return null;
-    }
-
-    final requestsInWindow = timestampsInWindow.length;
-    final windowMinutes = window.inMinutes > 0 ? window.inMinutes : 1;
-    final windowSeconds = window.inSeconds > 0 ? window.inSeconds : 1;
-
-    final requestsPerMinute = requestsInWindow / windowMinutes;
-    final requestsPerSecond = requestsInWindow / windowSeconds;
+    final seconds = effectiveWindow.inSeconds.toDouble();
+    final minutes = seconds / 60.0;
+    final requestsPerMinute = minutes > 0 ? requestsInWindow / minutes : 0.0;
+    final requestsPerSecond = seconds > 0 ? requestsInWindow / seconds : 0.0;
 
     return ThroughputMetrics(
       requestsPerMinute: requestsPerMinute,
       requestsPerSecond: requestsPerSecond,
       totalRequests: requestsInWindow,
-      windowStart: windowStart,
+      windowStart: now.subtract(effectiveWindow),
       windowEnd: now,
     );
   }
@@ -225,7 +330,12 @@ class CacheMetrics {
     _currentMemoryBytes = 0;
     _activeSubscriptions = 0;
     _peakSubscriptions = 0;
-    _queryExecutionTimestamps.clear();
+    _queryThroughputRings.clear();
+    _queryLastSeen.clear();
+    _lastEviction = DateTime.fromMillisecondsSinceEpoch(0).toUtc();
+    _throughputKeyDrops = 0;
+    _p95FetchTimeDirty = true;
+    _p95FetchTimeCached = null;
   }
 
   /// Get detailed performance report
@@ -369,29 +479,42 @@ class PerformanceReport {
 }
 
 /// Snapshot of performance state at a specific point in time.
+///
+/// Forward-compatible: readers should ignore unknown fields when parsing.
 class PerformanceSnapshot {
   /// Creates a [PerformanceSnapshot] with the given state.
-  const PerformanceSnapshot({
+  ///
+  /// [cacheReport] may be provided when deserializing; otherwise it is derived
+  /// from [cacheMetrics]. Use [report] for the full cache report (preserved
+  /// across JSON round-trip).
+  PerformanceSnapshot({
     required this.timestamp,
     required this.cacheMetrics,
     required this.queryMetrics,
     required this.totalQueries,
     required this.activeQueries,
     required this.memoryUsageBytes,
-  });
+    PerformanceReport? cacheReport,
+  }) : _cacheReport = cacheReport ?? cacheMetrics.getReport();
 
   /// Creates a [PerformanceSnapshot] instance from a JSON map.
   ///
   /// The given map contains serialized performance snapshot data. Returns a new
-  /// [PerformanceSnapshot] with data from it. The cache
-  /// metrics are reconstructed from the cache report data.
+  /// [PerformanceSnapshot] with data from it. Cache report is restored from
+  /// JSON; [PerformanceSnapshot.report] reflects the full stored state. Accepts
+  /// both `cacheReport` (canonical) and `cacheMetrics` (legacy) keys.
+  /// `schemaVersion`, if present, is informational only and may be used for
+  /// future migrations when fields change.
   ///
   /// Throws [FormatException] if the JSON structure is invalid or required
   /// fields are missing.
   factory PerformanceSnapshot.fromJson(Map<String, dynamic> json) {
-    final cacheReport = PerformanceReport.fromJson(
-      json['cacheMetrics'] as Map<String, dynamic>,
-    );
+    final raw = json['cacheReport'] ?? json['cacheMetrics'];
+    if (raw == null) {
+      throw const FormatException(
+          'Missing cacheReport or cacheMetrics in JSON');
+    }
+    final cacheReport = PerformanceReport.fromJson(raw as Map<String, dynamic>);
     final queryMetricsMap = (json['queryMetrics'] as Map<String, dynamic>).map(
       (key, value) => MapEntry(
         key,
@@ -409,8 +532,11 @@ class PerformanceSnapshot {
       totalQueries: json['totalQueries'] as int,
       activeQueries: json['activeQueries'] as int,
       memoryUsageBytes: json['memoryUsageBytes'] as int,
+      cacheReport: cacheReport,
     );
   }
+
+  final PerformanceReport _cacheReport;
 
   /// Time at which the snapshot was taken.
   final DateTime timestamp;
@@ -430,26 +556,29 @@ class PerformanceSnapshot {
   /// Memory usage in bytes at snapshot time.
   final int memoryUsageBytes;
 
-  /// Get overall performance report
-  PerformanceReport get report => cacheMetrics.getReport();
+  /// Overall performance report (hits, timings, memory). Preserved across
+  /// JSON round-trip; use this instead of [CacheMetrics.getReport] when
+  /// working with deserialized snapshots.
+  PerformanceReport get report => _cacheReport;
 
   /// Get query-specific metrics
   QueryMetrics? getQueryMetrics(String key) => queryMetrics[key];
 
   /// Converts this instance to a JSON-serializable map.
   ///
-  /// Returns a map containing the snapshot timestamp, cache metrics report,
-  /// query metrics map, and overall statistics. All nested objects are
-  /// recursively serialized to JSON.
+  /// `schemaVersion` is written for future migrations;
+  /// [PerformanceSnapshot.fromJson] accepts legacy shapes (e.g.
+  /// `cacheMetrics`) and does not yet branch on version.
+  /// Forward-compatible: readers should ignore unknown fields.
   Map<String, dynamic> toJson() {
     return {
       'timestamp': timestamp.toIso8601String(),
-      'cacheMetrics': cacheMetrics.getReport().toJson(),
-      'queryMetrics':
-          queryMetrics.map((key, value) => MapEntry(key, value.toJson())),
+      'cacheReport': _cacheReport.toJson(),
+      'queryMetrics': queryMetrics.map((k, v) => MapEntry(k, v.toJson())),
       'totalQueries': totalQueries,
       'activeQueries': activeQueries,
       'memoryUsageBytes': memoryUsageBytes,
+      'schemaVersion': 1,
     };
   }
 
@@ -583,7 +712,10 @@ class CacheInfo {
   final int maxCacheSize;
 
   /// Cache usage as a percentage (0.0 to 1.0).
-  double get usagePercentage => sizeBytes / maxCacheSize;
+  double get usagePercentage {
+    if (maxCacheSize <= 0) return 0;
+    return (sizeBytes / maxCacheSize).clamp(0.0, 1.0);
+  }
 
   @override
   String toString() {
