@@ -1,28 +1,32 @@
-import '../cache/cache_metrics.dart';
-import '../cache/query_cache.dart';
-import '../core/query.dart';
+import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/cache/query_cache.dart';
+import 'package:fasq/src/core/query.dart';
 
 /// Centralized performance monitoring service.
 ///
 /// Provides comprehensive performance tracking and reporting capabilities
 /// for the entire query system.
 class PerformanceMonitor {
-  final QueryCache cache;
-  final Map<String, Query> queries;
-
-  bool _isRecording = false;
-  DateTime? _recordingStartTime;
-  final Map<String, dynamic> _recordingData = {};
-
-  /// Create a performance monitor
+  /// Create a performance monitor.
   PerformanceMonitor({
     required this.cache,
     required this.queries,
   });
 
+  /// Query cache used for collecting cache-level metrics.
+  final QueryCache cache;
+
+  /// Registered query instances keyed by query key string.
+  final Map<String, Query<Object?>> queries;
+
+  bool _isRecording = false;
+  DateTime? _recordingStartTime;
+  final Map<String, dynamic> _recordingData = {};
+
   /// Get global performance snapshot
-  PerformanceSnapshot getSnapshot(
-      {Duration throughputWindow = const Duration(minutes: 1)}) {
+  PerformanceSnapshot getSnapshot({
+    Duration throughputWindow = const Duration(minutes: 1),
+  }) {
     final queryMetrics = <String, QueryMetrics>{};
 
     // Collect metrics from all queries
@@ -109,7 +113,8 @@ class PerformanceMonitor {
       p95FetchTime:
           Duration(milliseconds: finalCacheMetrics['p95FetchTimeMs'] as int),
       avgLookupTime: Duration(
-          microseconds: finalCacheMetrics['avgLookupTimeMicros'] as int),
+        microseconds: finalCacheMetrics['avgLookupTimeMicros'] as int,
+      ),
       peakMemoryBytes: finalCacheMetrics['peakMemoryBytes'] as int,
       currentMemoryBytes: finalCacheMetrics['currentMemoryBytes'] as int,
       activeSubscriptions: finalCacheMetrics['activeSubscriptions'] as int,
@@ -126,7 +131,7 @@ class PerformanceMonitor {
 
     // Add recording data if available
     if (_recordingData.isNotEmpty) {
-      data['recording'] = Map.from(_recordingData);
+      data['recording'] = Map<String, dynamic>.from(_recordingData);
     }
 
     // Add system information
@@ -180,13 +185,7 @@ class PerformanceMonitor {
 
 /// Quick performance summary for monitoring dashboards
 class PerformanceSummary {
-  final double hitRate;
-  final Duration averageFetchTime;
-  final int memoryUsage;
-  final int activeQueries;
-  final int totalQueries;
-  final bool isHealthy;
-
+  /// Creates a quick performance summary.
   const PerformanceSummary({
     required this.hitRate,
     required this.averageFetchTime,
@@ -195,6 +194,24 @@ class PerformanceSummary {
     required this.totalQueries,
     required this.isHealthy,
   });
+
+  /// Cache hit rate in the `0.0..1.0` range.
+  final double hitRate;
+
+  /// Average fetch duration across observed queries.
+  final Duration averageFetchTime;
+
+  /// Current memory usage in bytes.
+  final int memoryUsage;
+
+  /// Number of active queries.
+  final int activeQueries;
+
+  /// Total number of known queries.
+  final int totalQueries;
+
+  /// Whether the system currently meets health criteria.
+  final bool isHealthy;
 
   /// Memory usage in MB
   double get memoryUsageMB => memoryUsage / (1024 * 1024);
