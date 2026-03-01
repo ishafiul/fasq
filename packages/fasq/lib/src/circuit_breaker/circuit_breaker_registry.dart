@@ -1,11 +1,14 @@
-import 'circuit_breaker.dart';
-import 'circuit_breaker_options.dart';
-import 'circuit_open_event.dart';
+import 'package:fasq/src/circuit_breaker/circuit_breaker.dart';
+import 'package:fasq/src/circuit_breaker/circuit_breaker_options.dart';
+import 'package:fasq/src/circuit_breaker/circuit_open_event.dart';
 
-/// Registry for managing multiple circuit breaker instances with per-endpoint isolation.
+/// Registry for managing multiple circuit breaker instances with
+///  per-endpoint isolation.
 ///
-/// This registry ensures that circuit breakers are isolated by scope key (e.g., hostname,
-/// endpoint), preventing failures in one service from affecting others. Each scope
+/// This registry ensures that circuit breakers are isolated
+///  by scope key (e.g., hostname,
+/// endpoint), preventing failures in one service from
+///  affecting others. Each scope
 /// maintains its own independent circuit breaker state.
 class CircuitBreakerRegistry {
   /// Internal storage for circuit breaker instances, keyed by scope identifier.
@@ -17,7 +20,8 @@ class CircuitBreakerRegistry {
   /// Retrieves an existing circuit breaker for the given [scopeKey], or creates
   /// a new one using the provided [options] if none exists.
   ///
-  /// The [scopeKey] uniquely identifies the service or endpoint (e.g., hostname,
+  /// The [scopeKey] uniquely identifies the service or endpoint
+  ///  (e.g., hostname,
   /// URL prefix). The [options] parameter is used only when creating a new
   /// circuit breaker instance.
   ///

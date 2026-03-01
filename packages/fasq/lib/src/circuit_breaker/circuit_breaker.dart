@@ -1,9 +1,10 @@
-import '../core/utils/fasq_time.dart';
-import 'circuit_breaker_options.dart';
-import 'circuit_state.dart';
-import 'circuit_stats.dart';
+import 'package:fasq/src/circuit_breaker/circuit_breaker_options.dart';
+import 'package:fasq/src/circuit_breaker/circuit_state.dart';
+import 'package:fasq/src/circuit_breaker/circuit_stats.dart';
+import 'package:fasq/src/core/utils/fasq_time.dart';
 
-/// A circuit breaker that prevents repeated execution of operations likely to fail.
+/// A circuit breaker that prevents repeated execution of
+///  operations likely to fail.
 ///
 /// The circuit breaker operates in three states:
 /// - [CircuitState.closed]: Normal operation, allowing requests through
@@ -13,34 +14,6 @@ import 'circuit_stats.dart';
 /// State transitions are managed based on failure counts and timeouts,
 /// helping preserve system resources during backend outages.
 class CircuitBreaker {
-  /// Configuration options for this circuit breaker.
-  final CircuitBreakerOptions options;
-
-  /// Current state of the circuit breaker.
-  CircuitState _state;
-
-  /// Statistics tracked for state transition decisions.
-  final CircuitStats _stats;
-
-  /// Timestamp when the circuit can transition from Open to Half-Open.
-  ///
-  /// Set when the circuit opens. When the current time exceeds this timestamp,
-  /// the circuit can transition to Half-Open state.
-  DateTime? _resetTimeout;
-
-  /// Optional callback invoked when the circuit transitions to 'Open' state.
-  ///
-  /// The callback receives the circuit identifier (scope key) and the timestamp
-  /// when the circuit opened. This is typically set by the [CircuitBreakerRegistry]
-  /// when creating circuit breaker instances.
-  final void Function(String circuitId, DateTime openedAt)? onCircuitOpen;
-
-  /// The circuit identifier (scope key) for this circuit breaker.
-  ///
-  /// This is set by the [CircuitBreakerRegistry] when creating the circuit
-  /// breaker instance. It is used when invoking the [onCircuitOpen] callback.
-  final String? circuitId;
-
   /// Creates a new [CircuitBreaker] instance.
   ///
   /// The circuit breaker starts in the [CircuitState.closed] state with
@@ -58,6 +31,34 @@ class CircuitBreaker {
   })  : options = options ?? const CircuitBreakerOptions(),
         _state = CircuitState.closed,
         _stats = CircuitStats();
+
+  /// Configuration options for this circuit breaker.
+  final CircuitBreakerOptions options;
+
+  /// Current state of the circuit breaker.
+  CircuitState _state;
+
+  /// Statistics tracked for state transition decisions.
+  final CircuitStats _stats;
+
+  /// Timestamp when the circuit can transition from Open to Half-Open.
+  ///
+  /// Set when the circuit opens. When the current time exceeds this timestamp,
+  /// the circuit can transition to Half-Open state.
+  DateTime? _resetTimeout;
+
+  /// Optional callback invoked when the circuit transitions to 'Open' state.
+  ///
+  /// The callback receives the circuit identifier (scope key) and the
+  /// timestamp when the circuit opened. This is typically set by the
+  /// `CircuitBreakerRegistry` when creating circuit breaker instances.
+  final void Function(String circuitId, DateTime openedAt)? onCircuitOpen;
+
+  /// The circuit identifier (scope key) for this circuit breaker.
+  ///
+  /// This is set by the `CircuitBreakerRegistry` when creating the circuit
+  /// breaker instance. It is used when invoking the [onCircuitOpen] callback.
+  final String? circuitId;
 
   /// The current state of the circuit breaker.
   ///
@@ -159,7 +160,8 @@ class CircuitBreaker {
 
     if (_state == CircuitState.halfOpen) {
       // Allow requests if we need more successes to close the circuit
-      // We allow the first probe request when entering half-open (successCount == 0)
+      // We allow the first probe request when entering
+      // half-open (successCount == 0)
       if (_stats.successCount < options.successThreshold) {
         return true;
       }
@@ -172,7 +174,8 @@ class CircuitBreaker {
   /// Resets the circuit breaker to its initial state.
   ///
   /// This method resets the circuit breaker to [CircuitState.closed] and
-  /// clears all statistics (failure count, success count, last failure timestamp).
+  /// clears all statistics (failure count, success count,
+  ///  last failure timestamp).
   /// The reset timeout is also cleared.
   ///
   /// This is useful for manual intervention or when resetting a circuit breaker

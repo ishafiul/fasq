@@ -54,34 +54,34 @@ void main() {
       expect(decoded['totalQueries'], 0);
       expect(decoded['activeQueries'], 0);
       expect(decoded['memoryUsageBytes'], 1024 * 1024);
-      expect(decoded['cacheMetrics'], isA<Map>());
+      expect(decoded['cacheReport'], isA<Map>());
       expect(decoded['queryMetrics'], isA<Map>());
     });
 
     test('export generates valid JSON for snapshot with multiple queries',
         () async {
-      final cacheMetrics = CacheMetrics();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordHit();
-      cacheMetrics.recordMiss();
-      cacheMetrics.recordMemoryUsage(2 * 1024 * 1024);
+      final cacheMetrics = CacheMetrics()
+        ..recordHit()
+        ..recordHit()
+        ..recordMiss()
+        ..recordMemoryUsage(2 * 1024 * 1024);
 
       final queryMetrics = <String, QueryMetrics>{
-        'query1': QueryMetrics(
+        'query1': const QueryMetrics(
           fetchHistory: [
-            const Duration(milliseconds: 100),
-            const Duration(milliseconds: 150),
+            Duration(milliseconds: 100),
+            Duration(milliseconds: 150),
           ],
-          lastFetchDuration: const Duration(milliseconds: 150),
+          lastFetchDuration: Duration(milliseconds: 150),
           referenceCount: 1,
         ),
-        'query2': QueryMetrics(
+        'query2': const QueryMetrics(
           fetchHistory: [
-            const Duration(milliseconds: 200),
-            const Duration(milliseconds: 180),
-            const Duration(milliseconds: 220),
+            Duration(milliseconds: 200),
+            Duration(milliseconds: 180),
+            Duration(milliseconds: 220),
           ],
-          lastFetchDuration: const Duration(milliseconds: 220),
+          lastFetchDuration: Duration(milliseconds: 220),
           referenceCount: 2,
         ),
       };
@@ -118,7 +118,7 @@ void main() {
     test('export handles query metrics with no fetch history', () async {
       final cacheMetrics = CacheMetrics();
       final queryMetrics = <String, QueryMetrics>{
-        'query1': QueryMetrics(
+        'query1': const QueryMetrics(
           fetchHistory: [],
           referenceCount: 0,
         ),
@@ -167,13 +167,12 @@ void main() {
       );
 
       final jsonMap = snapshot.toJson();
-      final cacheMetricsData = jsonMap['cacheMetrics'] as Map<String, dynamic>;
+      final cacheMetricsData = jsonMap['cacheReport'] as Map<String, dynamic>;
 
-      expect(cacheMetricsData['hitRate'], isA<double>());
-      expect(cacheMetricsData['hits'], 2);
-      expect(cacheMetricsData['misses'], 1);
-      expect(cacheMetricsData['totalRequests'], 3);
-      expect(cacheMetricsData['evictions'], 1);
+      expect(cacheMetricsData['hitRate'], closeTo(2 / 3, 0.01));
+      expect(cacheMetricsData['totalQueries'], 3);
+      expect(cacheMetricsData['totalFetches'], 2);
+      expect(cacheMetricsData['totalLookups'], 1);
       expect(cacheMetricsData['avgFetchTimeMs'], isA<int>());
       expect(cacheMetricsData['p95FetchTimeMs'], isA<int>());
       expect(cacheMetricsData['avgLookupTimeMicros'], isA<int>());
