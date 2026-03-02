@@ -1,5 +1,5 @@
 import 'package:fasq/fasq.dart';
-import 'package:fasq/src/testing/leak_detector.dart';
+import 'package:fasq/src/diagnostics/leak_detector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

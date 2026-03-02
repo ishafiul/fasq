@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:fasq/src/core/mutation.dart';
-import 'package:fasq/src/core/mutation_options.dart';
-import 'package:fasq/src/core/mutation_snapshot.dart';
-import 'package:fasq/src/core/mutation_state.dart';
-import 'package:fasq/src/core/query_client.dart';
+import 'package:fasq/src/client/query_client.dart';
+import 'package:fasq/src/mutation/mutation.dart';
+import 'package:fasq/src/mutation/mutation_options.dart';
+import 'package:fasq/src/mutation/mutation_snapshot.dart';
+import 'package:fasq/src/mutation/mutation_state.dart';
 import 'package:flutter/widgets.dart';
 
 /// A widget that builds UI from the state of a mutation.

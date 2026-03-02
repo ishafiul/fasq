@@ -1,7 +1,7 @@
 import 'package:fasq/src/circuit_breaker/circuit_breaker_options.dart';
 import 'package:fasq/src/circuit_breaker/circuit_state.dart';
 import 'package:fasq/src/circuit_breaker/circuit_stats.dart';
-import 'package:fasq/src/core/utils/fasq_time.dart';
+import 'package:fasq/src/internal/time/fasq_time.dart';
 
 /// A circuit breaker that prevents repeated execution of
 ///  operations likely to fail.

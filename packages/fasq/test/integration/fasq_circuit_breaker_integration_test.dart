@@ -1,5 +1,5 @@
 import 'package:fasq/fasq.dart';
-import 'package:fasq/src/core/utils/fasq_time.dart';
+import 'package:fasq/src/internal/time/fasq_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
