@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:fasq/src/core/cancellation_token.dart';
-import 'package:fasq/src/core/query.dart';
-import 'package:fasq/src/core/query_client.dart';
-import 'package:fasq/src/core/query_key.dart';
-import 'package:fasq/src/core/query_options.dart';
-import 'package:fasq/src/core/query_state.dart';
+import 'package:fasq/src/client/query_client.dart';
+import 'package:fasq/src/query/cancellation/cancellation_token.dart';
+import 'package:fasq/src/query/keys/query_key.dart';
+import 'package:fasq/src/query/query.dart';
+import 'package:fasq/src/query/query_options.dart';
+import 'package:fasq/src/query/query_state.dart';
 import 'package:flutter/widgets.dart';
 
 /// A widget that executes an async operation and builds UI based on its state.

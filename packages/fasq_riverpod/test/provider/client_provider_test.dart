@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:fasq_riverpod/fasq_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Client Provider', () {
@@ -132,9 +132,12 @@ void main() {
       // In a real test, we'd verify the observer received notifications
     });
 
-    test('fasqClientProvider adds error reporters from fasqErrorReportersProvider',
+    test(
+        'fasqClientProvider adds error reporters from fasqErrorReportersProvider',
         () {
-      final mockReporter = _MockErrorReporter();
+      void mockReporter(FasqErrorContext errorContext) {
+        // Mock implementation
+      }
 
       final container = ProviderContainer(
         overrides: [
@@ -203,21 +206,18 @@ class _MockQueryClientObserver extends QueryClientObserver {
   void onQuerySettled(QuerySnapshot snapshot, QueryMeta? meta, context) {}
 
   @override
-  void onMutationLoading(MutationSnapshot snapshot, MutationMeta? meta, context) {}
+  void onMutationLoading(
+      MutationSnapshot snapshot, MutationMeta? meta, context) {}
 
   @override
-  void onMutationSuccess(MutationSnapshot snapshot, MutationMeta? meta, context) {}
+  void onMutationSuccess(
+      MutationSnapshot snapshot, MutationMeta? meta, context) {}
 
   @override
-  void onMutationError(MutationSnapshot snapshot, MutationMeta? meta, context) {}
+  void onMutationError(
+      MutationSnapshot snapshot, MutationMeta? meta, context) {}
 
   @override
-  void onMutationSettled(MutationSnapshot snapshot, MutationMeta? meta, context) {}
-}
-
-class _MockErrorReporter implements FasqErrorReporter {
-  @override
-  void report(FasqErrorContext context) {
-    // Mock implementation
-  }
+  void onMutationSettled(
+      MutationSnapshot snapshot, MutationMeta? meta, context) {}
 }

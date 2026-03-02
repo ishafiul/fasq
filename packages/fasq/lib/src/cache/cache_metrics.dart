@@ -1,6 +1,6 @@
 import 'dart:collection';
 
-import 'package:fasq/src/performance/throughput_metrics.dart';
+import 'package:fasq/src/observability/performance/throughput_metrics.dart';
 
 class _ThroughputRing {
   _ThroughputRing({required this.bucketCount})

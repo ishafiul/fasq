@@ -1,6 +1,6 @@
 import 'package:fasq/src/cache/query_cache.dart';
-import 'package:fasq/src/core/query_client.dart';
-import 'package:fasq/src/core/query_options.dart';
+import 'package:fasq/src/client/query_client.dart';
+import 'package:fasq/src/query/query_options.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

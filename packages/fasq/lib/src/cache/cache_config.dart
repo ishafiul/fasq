@@ -1,4 +1,4 @@
-import 'package:fasq/src/cache/eviction_policy.dart';
+import 'package:fasq/src/cache/eviction/eviction_policy.dart';
 
 /// Global performance configuration for the cache system.
 ///

@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
-import 'package:fasq/src/cache/async_lock.dart';
 import 'package:fasq/src/cache/cache_config.dart';
 import 'package:fasq/src/cache/cache_entry.dart';
 import 'package:fasq/src/cache/cache_metrics.dart';
+import 'package:fasq/src/cache/eviction/eviction_policy.dart';
 import 'package:fasq/src/cache/eviction/eviction_strategy.dart';
 import 'package:fasq/src/cache/eviction/fifo_eviction.dart'
     show selectKeysToEvictFIFO;
@@ -13,13 +13,13 @@ import 'package:fasq/src/cache/eviction/lfu_eviction.dart'
     show selectKeysToEvictLFU;
 import 'package:fasq/src/cache/eviction/lru_eviction.dart'
     show selectKeysToEvictLRU;
-import 'package:fasq/src/cache/eviction_policy.dart';
 import 'package:fasq/src/cache/hot_cache.dart';
-import 'package:fasq/src/core/typed_query_key.dart';
-import 'package:fasq/src/core/validation/input_validator.dart';
-import 'package:fasq/src/memory/index.dart'; // Add import
+import 'package:fasq/src/cache/internal/async_lock.dart';
+import 'package:fasq/src/internal/validation/input_validator.dart';
+import 'package:fasq/src/memory/memory_pressure_handler.dart';
 import 'package:fasq/src/persistence/cache_data_codec.dart';
 import 'package:fasq/src/persistence/persistence_options.dart';
+import 'package:fasq/src/query/keys/typed_query_key.dart';
 import 'package:fasq/src/security/encryption_provider.dart';
 import 'package:fasq/src/security/persistence_provider.dart';
 import 'package:fasq/src/security/security_plugin.dart';
@@ -112,7 +112,6 @@ class QueryCache {
 
     final hotEntry = _hotCache.get(key);
     if (hotEntry != null) {
-
       if (hotEntry.isSecure && hotEntry.isExpired) {
         _hotCache.remove(key);
         _metrics.recordMiss();
@@ -536,7 +535,6 @@ class QueryCache {
         keysToRemove.add(entry.key);
       }
     }
-
 
     for (final key in keysToRemove) {
       final removed = _entries.remove(key);

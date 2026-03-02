@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:fasq/src/cache/cache_config.dart';
-import 'package:fasq/src/core/query_client.dart';
+import 'package:fasq/src/client/query_client.dart';
 import 'package:fasq/src/persistence/persistence_options.dart';
 import 'package:flutter/widgets.dart';
 
