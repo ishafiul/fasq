@@ -3,8 +3,6 @@ import 'package:fasq/fasq.dart';
 import 'dart:async';
 import '../../widgets/example_scaffold.dart';
 import '../../services/models.dart';
-import 'package:fasq/src/core/offline_queue.dart';
-import 'package:fasq/src/core/network_status.dart';
 
 class OfflineMutationScreen extends StatefulWidget {
   const OfflineMutationScreen({super.key});
