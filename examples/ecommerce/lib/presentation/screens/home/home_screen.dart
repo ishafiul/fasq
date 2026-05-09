@@ -273,10 +273,7 @@ class _HorizontalProductSection extends StatelessWidget {
         // Section Header
         Padding(
           padding: EdgeInsets.symmetric(horizontal: spacing.sm),
-          child: Text(
-            title,
-            style: typography.titleMedium.toTextStyle(color: palette.textPrimary),
-          ),
+          child: Text(title, style: typography.titleMedium.toTextStyle(color: palette.textPrimary)),
         ),
         SizedBox(height: spacing.sm),
         SizedBox(
@@ -290,6 +287,7 @@ class _HorizontalProductSection extends StatelessWidget {
 
               return ShimmerLoading(
                 isLoading: isLoading,
+                loadingChild: const _HorizontalProductSkeletonItem(),
                 child: Padding(
                   padding: EdgeInsets.only(right: spacing.sm),
                   child: SizedBox(
@@ -306,6 +304,70 @@ class _HorizontalProductSection extends StatelessWidget {
         ),
         SizedBox(height: spacing.md),
       ],
+    );
+  }
+}
+
+class _HorizontalProductSkeletonItem extends StatelessWidget {
+  const _HorizontalProductSkeletonItem();
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final radius = context.radius;
+    final palette = context.palette;
+
+    Widget line(double widthFactor) {
+      return FractionallySizedBox(
+        widthFactor: widthFactor,
+        child: Container(
+          height: 10,
+          decoration: BoxDecoration(color: palette.weak.withValues(alpha: 0.55), borderRadius: radius.all(radius.xs)),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(right: spacing.sm),
+      child: SizedBox(
+        width: 320,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: palette.surface,
+            borderRadius: radius.all(radius.md),
+            border: Border.all(color: palette.border),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(spacing.sm),
+            child: Row(
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: palette.weak.withValues(alpha: 0.4),
+                    borderRadius: radius.all(radius.sm),
+                  ),
+                ),
+                SizedBox(width: spacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      line(0.8),
+                      SizedBox(height: spacing.xs),
+                      line(0.6),
+                      SizedBox(height: spacing.xs),
+                      line(0.5),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

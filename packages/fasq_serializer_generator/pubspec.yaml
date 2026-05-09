@@ -5,15 +5,17 @@ repository: https://github.com/ishafiul/fasq
 issue_tracker: https://github.com/ishafiul/fasq/issues
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.11.0 <4.0.0"
+
+resolution: workspace
 
 dependencies:
-  build: ^4.0.0
-  source_gen: ^4.1.0
-  analyzer: ^8.1.1
-  path: ^1.9.0
+  build: ^4.0.6
+  source_gen: ^4.2.3
+  analyzer: ^10.0.1
+  path: ^1.9.1
   fasq: ^0.4.2+1
 
 dev_dependencies:
-  dart_style:
-  test:
+  dart_style: ^3.1.7
+  test: ">=1.30.0 <1.31.0"

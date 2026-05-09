@@ -12,6 +12,12 @@ import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 
+int _toMemCacheDimension(BuildContext context, double logicalSize) {
+  final safeLogicalSize = logicalSize.isFinite && logicalSize > 0 ? logicalSize : 1;
+  final physicalSize = (safeLogicalSize * MediaQuery.devicePixelRatioOf(context)).round();
+  return physicalSize > 0 ? physicalSize : 1;
+}
+
 /// A horizontal scrollable section displaying product categories.
 class CategorySection extends StatelessWidget {
   const CategorySection({super.key, this.onCategoryTap});
@@ -130,6 +136,7 @@ class _CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final categoryName = category?.name;
     final imageUrl = category?.imageUrl;
+    final memCacheSize = _toMemCacheDimension(context, 40);
 
     return Padding(
       padding: EdgeInsets.only(right: spacing.sm),
@@ -155,6 +162,8 @@ class _CategoryCard extends StatelessWidget {
                     width: 40,
                     height: 40,
                     fit: BoxFit.cover,
+                    memCacheWidth: memCacheSize,
+                    memCacheHeight: memCacheSize,
                     placeholder: (context, url) => Container(
                       width: 40,
                       height: 40,
@@ -218,28 +227,15 @@ class _SeeAllButton extends StatelessWidget {
       borderRadius: radius.all(radius.md),
       child: Container(
         width: 80,
-        decoration: BoxDecoration(
-          color: palette.brand,
-          borderRadius: radius.all(radius.md),
-        ),
+        decoration: BoxDecoration(color: palette.brand, borderRadius: radius.all(radius.md)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.arrow_forward,
-              color: palette.surface,
-              size: 24,
-            ),
+            Icon(Icons.arrow_forward, color: palette.surface, size: 24),
             SizedBox(height: spacing.xs),
             Text(
               'See All',
-              style: typography.bodySmall
-                  .toTextStyle(
-                    color: palette.surface,
-                  )
-                  .copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: typography.bodySmall.toTextStyle(color: palette.surface).copyWith(fontWeight: FontWeight.w600),
               textAlign: TextAlign.center,
             ),
           ],

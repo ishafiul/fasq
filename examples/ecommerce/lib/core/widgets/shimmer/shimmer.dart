@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ecommerce/core/colors.dart';
 import 'package:flutter/material.dart';
 
@@ -47,14 +49,14 @@ class Shimmer extends StatefulWidget {
 class ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
   late AnimationController _shimmerController;
   LinearGradient? _defaultGradient;
+  int _activeLoadingCount = 0;
 
   @override
   void initState() {
     super.initState();
 
-    // Create animation controller that repeats continuously
-    _shimmerController = AnimationController.unbounded(vsync: this)
-      ..repeat(min: -0.5, max: 1.5, period: const Duration(milliseconds: 1000));
+    // Keep the controller idle until at least one loading shimmer registers.
+    _shimmerController = AnimationController.unbounded(vsync: this, value: -0.5);
   }
 
   @override
@@ -73,6 +75,8 @@ class ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
         stops: const [0.0, 0.5, 1.0],
       );
     }
+
+    _updateAnimationState();
   }
 
   @override
@@ -111,7 +115,7 @@ class ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
   /// Gets the size of the shimmer widget.
   ///
   /// Throws if the widget hasn't been laid out yet.
-  Size get size => (context.findRenderObject() as RenderBox).size;
+  Size get size => (context.findRenderObject() as RenderBox?)?.size ?? Size.zero;
 
   /// Gets the offset of a descendant widget relative to this shimmer widget.
   Offset getDescendantOffset({required RenderBox descendant, Offset offset = Offset.zero}) {
@@ -124,6 +128,34 @@ class ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
   ///
   /// Child widgets can listen to this to update when the shimmer animation changes.
   Listenable get shimmerChanges => _shimmerController;
+
+  /// Registers one active shimmer loading widget.
+  void registerLoading() {
+    _activeLoadingCount++;
+    _updateAnimationState();
+  }
+
+  /// Unregisters one active shimmer loading widget.
+  void unregisterLoading() {
+    if (_activeLoadingCount == 0) return;
+    _activeLoadingCount--;
+    _updateAnimationState();
+  }
+
+  void _updateAnimationState() {
+    final tickerMode = TickerMode.valuesOf(context);
+    final shouldAnimate = _activeLoadingCount > 0 && tickerMode.enabled;
+    if (shouldAnimate) {
+      if (!_shimmerController.isAnimating) {
+        unawaited(_shimmerController.repeat(min: -0.5, max: 1.5, period: const Duration(milliseconds: 1000)));
+      }
+      return;
+    }
+
+    if (_shimmerController.isAnimating) {
+      _shimmerController.stop(canceled: false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

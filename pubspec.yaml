@@ -3,8 +3,54 @@ description: A monorepo workspace for Flutter Query packages
 publish_to: none
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.11.0 <4.0.0"
+
+workspace:
+  - examples/fasq_example
+  - examples/ecommerce
+  - packages/fasq_analysis
+  - packages/fasq
+  - packages/fasq/example
+  - packages/fasq_security
+  - packages/fasq_bloc
+  - packages/fasq_bloc/example
+  - packages/fasq_hooks
+  - packages/fasq_hooks/example
+  - packages/fasq_riverpod
+  - packages/fasq_riverpod/example
+  - packages/fasq_serializer_generator
 
 dev_dependencies:
-  melos: ^6.3.0
+  melos: ^7.7.0
 
+melos:
+  command:
+    bootstrap:
+      environment:
+        sdk: ">=3.11.0 <4.0.0"
+        flutter: ">=3.41.0"
+
+    version:
+      branch: main
+      message: "chore(release): publish packages"
+
+  scripts:
+    analyze:
+      run: melos exec -- flutter analyze
+      description: Run flutter analyze in all packages
+
+    format:
+      run: melos exec -- dart format .
+      description: Format all packages
+
+    test:
+      run: melos exec -- flutter test
+      description: Run tests in all packages
+
+    clean:
+      run: melos exec -- flutter clean
+      description: Clean all packages
+
+    get:
+      run: melos exec -- flutter pub get
+      description: Get dependencies for all packages
