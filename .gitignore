@@ -63,7 +63,6 @@ dev-debug.log
 .env
 # Editor directories and files
 .idea
-.vscode
 *.suo
 *.ntvs*
 *.njsproj
