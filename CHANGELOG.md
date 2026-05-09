@@ -3,6 +3,154 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2026-05-10
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`fasq` - `v0.5.0`](#fasq---v050)
+ - [`fasq_bloc` - `v0.4.0`](#fasq_bloc---v040)
+ - [`fasq_hooks` - `v0.4.0`](#fasq_hooks---v040)
+ - [`fasq_riverpod` - `v0.4.0`](#fasq_riverpod---v040)
+ - [`fasq_security` - `v0.3.0`](#fasq_security---v030)
+
+Packages with other changes:
+
+ - [`fasq_serializer_generator` - `v0.1.2`](#fasq_serializer_generator---v012)
+
+---
+
+#### `fasq` - `v0.5.0`
+
+ - **REFACTOR**: Improve query and mutation handling in widgets (#56).
+ - **REFACTOR**: Update LeakDetector to throw Exception instead of TestFailure.
+ - **REFACTOR**: fasq core files path and folder structure  (#59).
+ - **REFACTOR**(performance): simplify isolate pool initialization (#24).
+ - **FIX**: security (#9).
+ - **FIX**(query_cache): Enhance cache entry management and eviction logic (#57).
+ - **FIX**: comprehensive fixes for reference counting and loading state (#21).
+ - **FIX**: wait for persistence initialization before creating queries (#41).
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FIX**: resolve cache type safety issue by reconstructing CacheEntry instead of casting (#27).
+ - **FIX**: enhance infinite query options and state management (#25).
+ - **FIX**: improve cache staleness handling and query state management (#22).
+ - **FIX**: prevent negative reference count in Query and InfiniteQuery (#18).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **FIX**: resolve critical issues and improve code quality (#15).
+ - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: Error Tracking System for Production Diagnostics (#52).
+ - **FEAT**: harden persistence across cache layers (#36).
+ - **FEAT**: prefetching (#8).
+ - **FEAT**: allow typed meta messages (#34).
+ - **FEAT**: refine global query effects (#33).
+ - **FEAT**: add context-aware query observers (#32).
+ - **FEAT**: allow injecting manual query client (#31).
+ - **FEAT**: update SEO and metadata handling.
+ - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: Built-in Logging for Query and Mutation Lifecycle Events (#48).
+ - **FEAT**: dependent queries (#4).
+ - **FEAT**(circuit-breaker): Implement circuit breaker pattern for query protection (#45).
+ - **FEAT**: offline mutation queue (#5).
+ - **FEAT**: infinite queries (#3).
+ - **FEAT**: clear cache when query is disposed to ensure fresh data on revisit (#20).
+ - **FEAT**: implement parallel queries across all adapters (#6).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **FEAT**: Leak Detection (#51).
+ - **FEAT**: Memory Management with Pressure Handling & Leak Detection (#50).
+ - **FEAT**: implement comprehensive performance optimization system (#13).
+ - **FEAT**: integrate SecurityPlugin with QueryCache (#12).
+ - **FEAT**: complete updateEncryptionKey implementation with real persistence (#10).
+ - **FEAT**(fasq): add performance metrics, optimize IsolatePool, and improve lifecycle (#49).
+ - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
+ - **DOCS**: sync readme versions (#35).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+
+#### `fasq_bloc` - `v0.4.0`
+
+ - **REFACTOR**: convert cubits to abstract base classes (#26).
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **FIX**: security (#9).
+ - **FEAT**(fasq_bloc): Major Refactor - Composition, Lifecycle Hooks, and Feature Parity (#53).
+ - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: update SEO and metadata handling.
+ - **FEAT**: example app (#23).
+ - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: prefetching (#8).
+ - **FEAT**: implement parallel queries across all adapters (#6).
+ - **FEAT**: offline mutation queue (#5).
+ - **FEAT**: dependent queries (#4).
+ - **FEAT**: infinite queries (#3).
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+
+#### `fasq_hooks` - `v0.4.0`
+
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **FIX**: security (#9).
+ - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: update SEO and metadata handling.
+ - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: prefetching (#8).
+ - **FEAT**: implement parallel queries across all adapters (#6).
+ - **FEAT**: dependent queries (#4).
+ - **FEAT**: infinite queries (#3).
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+
+#### `fasq_riverpod` - `v0.4.0`
+
+ - **REFACTOR**: fasq core files path and folder structure  (#59).
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **FIX**: security (#9).
+ - **FEAT**: Riverpod Update (#54).
+ - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: update SEO and metadata handling.
+ - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: prefetching (#8).
+ - **FEAT**: implement parallel queries across all adapters (#6).
+ - **FEAT**: offline mutation queue (#5).
+ - **FEAT**: dependent queries (#4).
+ - **FEAT**: infinite queries (#3).
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+
+#### `fasq_security` - `v0.3.0`
+
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **FEAT**: enhance CacheDatabase schema setup (#39).
+ - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: harden persistence across cache layers (#36).
+ - **FEAT**: example app (#23).
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **DOCS**: sync readme versions (#35).
+ - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+
+#### `fasq_serializer_generator` - `v0.1.2`
+
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
+
 ## 2026-01-13
 
 ### Changes

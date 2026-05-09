@@ -1,3 +1,26 @@
+## 0.4.0
+
+> Note: This release has breaking changes.
+
+ - **REFACTOR**: convert cubits to abstract base classes (#26).
+ - **FIX**: ensure query cache cleanup and proper disposal.
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **FIX**: security (#9).
+ - **FEAT**(fasq_bloc): Major Refactor - Composition, Lifecycle Hooks, and Feature Parity (#53).
+ - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: update SEO and metadata handling.
+ - **FEAT**: example app (#23).
+ - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: prefetching (#8).
+ - **FEAT**: implement parallel queries across all adapters (#6).
+ - **FEAT**: offline mutation queue (#5).
+ - **FEAT**: dependent queries (#4).
+ - **FEAT**: infinite queries (#3).
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+
 ## 0.3.1+1
 
  - Update a dependency to the latest release.

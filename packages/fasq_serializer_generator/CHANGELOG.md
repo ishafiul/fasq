@@ -1,3 +1,9 @@
+## 0.1.2
+
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+
 ## 0.1.1+7
 
  - Update a dependency to the latest release.

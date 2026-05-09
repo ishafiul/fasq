@@ -1,3 +1,20 @@
+## 0.3.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **FEAT**: enhance CacheDatabase schema setup (#39).
+ - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: harden persistence across cache layers (#36).
+ - **FEAT**: example app (#23).
+ - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
+ - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **DOCS**: sync readme versions (#35).
+ - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+
 ## 0.2.0+3
 
  - Update a dependency to the latest release.
