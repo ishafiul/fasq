@@ -41,6 +41,12 @@ enum ProductTagType {
   }
 }
 
+int _toMemCacheDimension(BuildContext context, double logicalSize) {
+  final safeLogicalSize = logicalSize.isFinite && logicalSize > 0 ? logicalSize : 1;
+  final physicalSize = (safeLogicalSize * MediaQuery.devicePixelRatioOf(context)).round();
+  return physicalSize > 0 ? physicalSize : 1;
+}
+
 /// A card widget that displays product information following Ant Design mobile patterns.
 ///
 /// Features:
@@ -96,9 +102,7 @@ class ProductCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: radius.all(radius.md),
-        border: Border.all(
-          color: palette.border,
-        ),
+        border: Border.all(color: palette.border),
       ),
       bodyStyle: const BoxDecoration(),
       bodyMainAxisSize: MainAxisSize.max,
@@ -121,24 +125,14 @@ class ProductCard extends StatelessWidget {
               Text(
                 productName,
                 style: typography.bodyMedium
-                    .toTextStyle(
-                      color: palette.textPrimary,
-                    )
+                    .toTextStyle(color: palette.textPrimary)
                     .copyWith(fontWeight: FontWeight.w500),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const Rating(
-                value: 3.5,
-                readOnly: true,
-                starSize: 14,
-              ),
+              const Rating(value: 3.5, readOnly: true, starSize: 14),
               const SizedBox(height: 2),
-              _PriceSection(
-                hasDiscount: hasDiscount,
-                discountedPrice: discountedPrice,
-                originalPrice: originalPrice,
-              ),
+              _PriceSection(hasDiscount: hasDiscount, discountedPrice: discountedPrice, originalPrice: originalPrice),
               if (showAddToCart) ...[
                 SizedBox(height: spacing.xs / 2),
                 GestureDetector(
@@ -176,44 +170,47 @@ class _ProductImage extends StatelessWidget {
     return ClipRRect(
       borderRadius: radius.top(radius.md),
       child: SizedBox.expand(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Image
-            if (imageUrl != null && imageUrl!.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: imageUrl!,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const _ImagePlaceholder(),
-                errorWidget: (context, url, error) => const _ImageError(),
-              )
-            else
-              const _ImagePlaceholder(),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final memCacheWidth = _toMemCacheDimension(context, constraints.maxWidth);
+            final memCacheHeight = _toMemCacheDimension(context, constraints.maxHeight);
 
-            // Discount Badge
-            if (hasDiscount)
-              Positioned(
-                top: 6,
-                left: 6,
-                child: core.Badge(
-                  color: palette.danger,
-                  content: Text(
-                    '-${discountPercentage!.toInt()}%',
-                    style: typography.labelSmall.toTextStyle(
-                      color: ColorUtils.onColor(palette.danger),
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                // Image
+                if (imageUrl != null && imageUrl!.isNotEmpty)
+                  CachedNetworkImage(
+                    imageUrl: imageUrl!,
+                    fit: BoxFit.cover,
+                    memCacheWidth: memCacheWidth,
+                    memCacheHeight: memCacheHeight,
+                    placeholder: (context, url) => const _ImagePlaceholder(),
+                    errorWidget: (context, url, error) => const _ImageError(),
+                  )
+                else
+                  const _ImagePlaceholder(),
+
+                // Discount Badge
+                if (hasDiscount)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: core.Badge(
+                      color: palette.danger,
+                      content: Text(
+                        '-${discountPercentage!.toInt()}%',
+                        style: typography.labelSmall.toTextStyle(color: ColorUtils.onColor(palette.danger)),
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-            // Tag Badge (e.g., "NEW", "HOT")
-            if (tags.isNotEmpty && !hasDiscount)
-              Positioned(
-                top: 6,
-                left: 6,
-                child: _ProductTag(tag: tags.first.toUpperCase()),
-              ),
-          ],
+                // Tag Badge (e.g., "NEW", "HOT")
+                if (tags.isNotEmpty && !hasDiscount)
+                  Positioned(top: 6, left: 6, child: _ProductTag(tag: tags.first.toUpperCase())),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -228,9 +225,7 @@ class _ImagePlaceholder extends StatelessWidget {
     final palette = context.palette;
     return ColoredBox(
       color: palette.surface,
-      child: Center(
-        child: CircularProgressSpinner(color: palette.brand, size: 24, strokeWidth: 2),
-      ),
+      child: Center(child: CircularProgressSpinner(color: palette.brand, size: 24, strokeWidth: 2)),
     );
   }
 }
@@ -244,19 +239,13 @@ class _ImageError extends StatelessWidget {
     final spacing = context.spacing;
     return ColoredBox(
       color: palette.surface,
-      child: Icon(
-        Icons.image_not_supported_outlined,
-        color: palette.weak,
-        size: spacing.lg,
-      ),
+      child: Icon(Icons.image_not_supported_outlined, color: palette.weak, size: spacing.lg),
     );
   }
 }
 
 class _ProductTag extends StatelessWidget {
-  const _ProductTag({
-    required this.tag,
-  });
+  const _ProductTag({required this.tag});
 
   final String tag;
 
@@ -283,20 +272,12 @@ class _ProductTag extends StatelessWidget {
         customColor = null;
     }
 
-    return Tag(
-      color: tagColor,
-      customColor: customColor,
-      child: Text(tag),
-    );
+    return Tag(color: tagColor, customColor: customColor, child: Text(tag));
   }
 }
 
 class _PriceSection extends StatelessWidget {
-  const _PriceSection({
-    required this.hasDiscount,
-    required this.discountedPrice,
-    required this.originalPrice,
-  });
+  const _PriceSection({required this.hasDiscount, required this.discountedPrice, required this.originalPrice});
 
   final bool hasDiscount;
   final double discountedPrice;
@@ -313,9 +294,7 @@ class _PriceSection extends StatelessWidget {
           Flexible(
             child: Text(
               '\$${discountedPrice.toStringAsFixed(2)}',
-              style: typography.bodySmall.toTextStyle(color: palette.textPrimary).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: typography.bodySmall.toTextStyle(color: palette.textPrimary).copyWith(fontWeight: FontWeight.w600),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -324,10 +303,9 @@ class _PriceSection extends StatelessWidget {
           Flexible(
             child: Text(
               '\$${originalPrice.toStringAsFixed(2)}',
-              style: typography.bodyMedium.toTextStyle(color: palette.textSecondary).copyWith(
-                    decoration: TextDecoration.lineThrough,
-                    decorationColor: palette.textSecondary,
-                  ),
+              style: typography.bodyMedium
+                  .toTextStyle(color: palette.textSecondary)
+                  .copyWith(decoration: TextDecoration.lineThrough, decorationColor: palette.textSecondary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -338,9 +316,7 @@ class _PriceSection extends StatelessWidget {
 
     return Text(
       '\$${originalPrice.toStringAsFixed(2)}',
-      style: typography.bodyMedium.toTextStyle(color: palette.textPrimary).copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+      style: typography.bodyMedium.toTextStyle(color: palette.textPrimary).copyWith(fontWeight: FontWeight.w600),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -402,9 +378,7 @@ class ProductCardHorizontal extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: radius.all(radius.md),
-        border: Border.all(
-          color: palette.border,
-        ),
+        border: Border.all(color: palette.border),
       ),
       bodyStyle: const BoxDecoration(),
       children: [
@@ -426,18 +400,12 @@ class ProductCardHorizontal extends StatelessWidget {
                   Text(
                     productName,
                     style: typography.bodyMedium
-                        .toTextStyle(
-                          color: palette.textPrimary,
-                        )
+                        .toTextStyle(color: palette.textPrimary)
                         .copyWith(fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const Rating(
-                    value: 3.5,
-                    readOnly: true,
-                    starSize: 14,
-                  ),
+                  const Rating(value: 3.5, readOnly: true, starSize: 14),
                   _PriceSectionHorizontal(
                     hasDiscount: hasDiscount,
                     discountedPrice: discountedPrice,
@@ -478,14 +446,12 @@ class _ProductImageHorizontal extends StatelessWidget {
     final radius = context.radius;
     final palette = context.palette;
     final typography = context.typography;
+    final memCacheSize = _toMemCacheDimension(context, 120);
 
     return Container(
       width: 120,
       height: 120,
-      decoration: BoxDecoration(
-        borderRadius: radius.all(radius.sm),
-        color: palette.weak.withValues(alpha: 0.08),
-      ),
+      decoration: BoxDecoration(borderRadius: radius.all(radius.sm), color: palette.weak.withValues(alpha: 0.08)),
       child: ClipRRect(
         borderRadius: radius.all(radius.sm),
         child: Stack(
@@ -495,6 +461,8 @@ class _ProductImageHorizontal extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: imageUrl!,
                 fit: BoxFit.cover,
+                memCacheWidth: memCacheSize,
+                memCacheHeight: memCacheSize,
                 placeholder: (context, url) => const _ImagePlaceholder(),
                 errorWidget: (context, url, error) => const _ImageError(),
               )
@@ -508,18 +476,12 @@ class _ProductImageHorizontal extends StatelessWidget {
                   color: palette.danger,
                   content: Text(
                     '-${discountPercentage!.toInt()}%',
-                    style: typography.labelSmall.toTextStyle(
-                      color: ColorUtils.onColor(palette.danger),
-                    ),
+                    style: typography.labelSmall.toTextStyle(color: ColorUtils.onColor(palette.danger)),
                   ),
                 ),
               ),
             if (tags.isNotEmpty && !hasDiscount)
-              Positioned(
-                top: 8,
-                left: 8,
-                child: _ProductTag(tag: tags.first.toUpperCase()),
-              ),
+              Positioned(top: 8, left: 8, child: _ProductTag(tag: tags.first.toUpperCase())),
           ],
         ),
       ),
@@ -554,24 +516,15 @@ class _PriceSectionHorizontal extends StatelessWidget {
               Text(
                 '\$${discountedPrice.toStringAsFixed(2)}',
                 style: typography.bodySmall
-                    .toTextStyle(
-                      color: palette.textPrimary,
-                    )
-                    .copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    .toTextStyle(color: palette.textPrimary)
+                    .copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(width: 6),
               Text(
                 '\$${originalPrice.toStringAsFixed(2)}',
                 style: typography.bodyMedium
-                    .toTextStyle(
-                      color: palette.textSecondary,
-                    )
-                    .copyWith(
-                      decoration: TextDecoration.lineThrough,
-                      decorationColor: palette.textSecondary,
-                    ),
+                    .toTextStyle(color: palette.textSecondary)
+                    .copyWith(decoration: TextDecoration.lineThrough, decorationColor: palette.textSecondary),
               ),
             ],
           ),
@@ -581,21 +534,13 @@ class _PriceSectionHorizontal extends StatelessWidget {
 
     return Text(
       '\$${originalPrice.toStringAsFixed(2)}',
-      style: typography.bodyMedium
-          .toTextStyle(
-            color: palette.textPrimary,
-          )
-          .copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+      style: typography.bodyMedium.toTextStyle(color: palette.textPrimary).copyWith(fontWeight: FontWeight.w600),
     );
   }
 }
 
 class _ProductCartStepper extends StatelessWidget {
-  const _ProductCartStepper({
-    required this.product,
-  });
+  const _ProductCartStepper({required this.product});
 
   final ProductResponse? product;
 
@@ -627,31 +572,25 @@ class _ProductCartStepper extends StatelessWidget {
         return QueryBuilder<CartResponse>(
           queryKey: QueryKeys.cart,
           queryFn: () => locator.get<CartService>().getCart(),
-          options: QueryOptions(
-            staleTime: const Duration(seconds: 30),
-            cacheTime: const Duration(minutes: 5),
-          ),
+          options: QueryOptions(staleTime: const Duration(seconds: 30), cacheTime: const Duration(minutes: 5)),
           builder: (context, cartState) {
             final cartItems = cartState.data?.items ?? [];
             final productItems = cartItems.where((item) => item.product.id == product!.id).toList();
 
-            final currentQuantity = productItems.fold<int>(
-              0,
-              (sum, item) {
-                final quantity = item.item.quantity;
-                final qty = quantity is int ? quantity : quantity.toInt();
-                return sum + qty;
-              },
-            );
+            final currentQuantity = productItems.fold<int>(0, (sum, item) {
+              final quantity = item.item.quantity;
+              final qty = quantity is int ? quantity : quantity.toInt();
+              return sum + qty;
+            });
 
             if (currentQuantity == 0) {
               return MutationBuilder<CartResponse, CartAddItemRequest>(
                 mutationFn: (request) => locator.get<CartService>().addItem(
-                      productId: request.productId,
-                      variantId: request.variantId,
-                      quantity: request.quantity,
-                      priceAtAdd: request.priceAtAdd,
-                    ),
+                  productId: request.productId,
+                  variantId: request.variantId,
+                  quantity: request.quantity,
+                  priceAtAdd: request.priceAtAdd,
+                ),
                 options: MutationOptions(
                   meta: const MutationMeta(
                     successMessage: 'Item added to cart',
@@ -714,11 +653,7 @@ class _ProductCartStepper extends StatelessWidget {
                           child: ColoredBox(
                             color: context.palette.background.withValues(alpha: 0.7),
                             child: Center(
-                              child: CircularProgressSpinner(
-                                color: context.palette.brand,
-                                size: 20,
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressSpinner(color: context.palette.brand, size: 20, strokeWidth: 2),
                             ),
                           ),
                         ),
@@ -734,10 +669,8 @@ class _ProductCartStepper extends StatelessWidget {
             final maxQuantity = variant.inventoryQuantity.toInt();
 
             return MutationBuilder<CartResponse, CartUpdateItemRequest>(
-              mutationFn: (request) => locator.get<CartService>().updateItem(
-                    id: request.id,
-                    quantity: request.quantity,
-                  ),
+              mutationFn: (request) =>
+                  locator.get<CartService>().updateItem(id: request.id, quantity: request.quantity),
               options: MutationOptions(
                 onSuccess: (data) {
                   final queryClient = context.queryClient;
@@ -768,10 +701,7 @@ class _ProductCartStepper extends StatelessWidget {
                             queryClient.setQueryData(QueryKeys.cart, updatedCart);
                           }
                         } else if (value != currentQuantity) {
-                          final request = CartUpdateItemRequest(
-                            id: itemId,
-                            quantity: value.toInt(),
-                          );
+                          final request = CartUpdateItemRequest(id: itemId, quantity: value.toInt());
                           await mutate(request);
                         }
                       },
@@ -781,11 +711,7 @@ class _ProductCartStepper extends StatelessWidget {
                         child: ColoredBox(
                           color: context.palette.background.withValues(alpha: 0.7),
                           child: Center(
-                            child: CircularProgressSpinner(
-                              color: context.palette.brand,
-                              size: 20,
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressSpinner(color: context.palette.brand, size: 20, strokeWidth: 2),
                           ),
                         ),
                       ),

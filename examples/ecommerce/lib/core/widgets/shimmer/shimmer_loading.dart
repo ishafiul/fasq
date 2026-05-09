@@ -34,12 +34,7 @@ class ShimmerLoading extends StatefulWidget {
   /// [isLoading] determines whether to show shimmer effect or actual content.
   /// [child] is the widget that will be wrapped with shimmer effect.
   /// [height] is an optional height constraint. If provided, wraps the child with a SizedBox.
-  const ShimmerLoading({
-    super.key,
-    required this.isLoading,
-    required this.child,
-    this.height,
-  });
+  const ShimmerLoading({super.key, required this.isLoading, required this.child, this.height, this.loadingChild});
 
   /// Whether to show the shimmer loading effect.
   final bool isLoading;
@@ -50,65 +45,81 @@ class ShimmerLoading extends StatefulWidget {
   /// Optional height constraint. If provided, wraps the child with a SizedBox.
   final double? height;
 
+  /// Optional lightweight placeholder rendered while loading.
+  ///
+  /// Use this to avoid animating heavy widget trees (images, gradients, clips)
+  /// during shimmer.
+  final Widget? loadingChild;
+
   @override
   State<ShimmerLoading> createState() => _ShimmerLoadingState();
 }
 
 class _ShimmerLoadingState extends State<ShimmerLoading> {
-  Listenable? _shimmerChanges;
+  ShimmerState? _shimmer;
+  bool _isRegistered = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_shimmerChanges != null) {
-      _shimmerChanges!.removeListener(_onShimmerChange);
+    final nextShimmer = Shimmer.of(context);
+    if (!identical(_shimmer, nextShimmer)) {
+      _setRegistered(false);
+      _shimmer = nextShimmer;
     }
-    _shimmerChanges = Shimmer.of(context)?.shimmerChanges;
-    if (_shimmerChanges != null) {
-      _shimmerChanges!.addListener(_onShimmerChange);
+    _syncRegistration();
+  }
+
+  @override
+  void didUpdateWidget(covariant ShimmerLoading oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isLoading != widget.isLoading) {
+      _syncRegistration();
     }
   }
 
   @override
   void dispose() {
-    _shimmerChanges?.removeListener(_onShimmerChange);
+    _setRegistered(false);
     super.dispose();
   }
 
-  void _onShimmerChange() {
-    if (widget.isLoading) {
-      setState(() {
-        // Update the shimmer painting when animation changes
-      });
-    }
+  void _syncRegistration() {
+    _setRegistered(widget.isLoading && _shimmer != null);
   }
 
-  Widget _buildChild() {
-    final child = widget.height != null
-        ? Container(
-            color: Colors.transparent,
-            height: widget.height,
-            child: widget.child,
-          )
-        : widget.child;
+  void _setRegistered(bool shouldRegister) {
+    if (shouldRegister == _isRegistered) return;
+    if (shouldRegister) {
+      _shimmer?.registerLoading();
+      _isRegistered = true;
+      return;
+    }
+    _shimmer?.unregisterLoading();
+    _isRegistered = false;
+  }
 
-    return child;
+  Widget _withHeight(Widget child) {
+    if (widget.height == null) return child;
+    return SizedBox(height: widget.height, child: child);
   }
 
   @override
   Widget build(BuildContext context) {
-    final child = _buildChild();
+    final child = _withHeight(widget.child);
 
     // If not loading, show the actual content
     if (!widget.isLoading) {
       return child;
     }
 
+    final loadingChild = _withHeight(widget.loadingChild ?? widget.child);
+
     // Get the shimmer widget from ancestor
-    final shimmer = Shimmer.of(context);
+    final shimmer = _shimmer ?? Shimmer.of(context);
     if (shimmer == null) {
       // If no shimmer ancestor found, just show the child
-      return child;
+      return loadingChild;
     }
 
     // Wait for shimmer to be laid out
@@ -116,24 +127,30 @@ class _ShimmerLoadingState extends State<ShimmerLoading> {
       return const SizedBox();
     }
 
-    final shimmerSize = shimmer.size;
-    final gradient = shimmer.gradient;
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) {
-      return const SizedBox();
-    }
+    // Rebuild only the shader layer on each tick, not the whole child subtree.
+    return AnimatedBuilder(
+      animation: shimmer.shimmerChanges,
+      child: loadingChild,
+      builder: (context, child) {
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox == null) {
+          return child ?? const SizedBox();
+        }
 
-    final offsetWithinShimmer = shimmer.getDescendantOffset(descendant: renderBox);
+        final shimmerSize = shimmer.size;
+        final gradient = shimmer.gradient;
+        final offsetWithinShimmer = shimmer.getDescendantOffset(descendant: renderBox);
 
-    // Apply shimmer effect using ShaderMask
-    return ShaderMask(
-      blendMode: BlendMode.srcATop,
-      shaderCallback: (bounds) {
-        return gradient.createShader(
-          Rect.fromLTWH(-offsetWithinShimmer.dx, -offsetWithinShimmer.dy, shimmerSize.width, shimmerSize.height),
+        return ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) {
+            return gradient.createShader(
+              Rect.fromLTWH(-offsetWithinShimmer.dx, -offsetWithinShimmer.dy, shimmerSize.width, shimmerSize.height),
+            );
+          },
+          child: child,
         );
       },
-      child: child,
     );
   }
 }

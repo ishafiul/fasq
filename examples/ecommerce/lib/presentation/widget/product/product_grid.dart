@@ -1,4 +1,5 @@
 import 'package:ecommerce/api/models/product_response.dart';
+import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/widgets/shimmer/shimmer_loading.dart';
 import 'package:ecommerce/presentation/widget/product/product_card.dart';
@@ -55,6 +56,7 @@ class ProductGrid extends StatelessWidget {
 
         return ShimmerLoading(
           isLoading: isLoading,
+          loadingChild: const _ProductGridSkeletonCard(),
           child: ProductCard(
             product: product,
             onTap: isLoading ? null : () => onProductTap?.call(product),
@@ -63,6 +65,59 @@ class ProductGrid extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ProductGridSkeletonCard extends StatelessWidget {
+  const _ProductGridSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final radius = context.radius;
+    final palette = context.palette;
+
+    Widget line(double widthFactor) {
+      return FractionallySizedBox(
+        widthFactor: widthFactor,
+        child: Container(
+          height: 10,
+          decoration: BoxDecoration(color: palette.weak.withValues(alpha: 0.55), borderRadius: radius.all(radius.xs)),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: radius.all(radius.md),
+        border: Border.all(color: palette.border),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(spacing.xs),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: palette.weak.withValues(alpha: 0.4),
+                  borderRadius: radius.top(radius.md),
+                ),
+              ),
+            ),
+            SizedBox(height: spacing.xs),
+            line(0.8),
+            SizedBox(height: spacing.xs / 2),
+            line(0.6),
+            const Spacer(),
+            line(0.4),
+          ],
+        ),
+      ),
     );
   }
 }
