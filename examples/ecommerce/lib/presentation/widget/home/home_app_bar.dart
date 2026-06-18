@@ -47,7 +47,10 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           SizedBox(width: spacing.sm),
           // Cart Icon
-          const CartIconButton(),
+          Padding(
+            padding: EdgeInsets.only(right: spacing.xs),
+            child: const CartIconButton(),
+          ),
           // Profile Icon
           IconButton(
             onPressed: () {

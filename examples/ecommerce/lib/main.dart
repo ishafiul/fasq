@@ -22,6 +22,7 @@ class MyApp extends StatelessWidget {
     return FasqProvider(
       runtime: fasqRuntime,
       child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
         routerConfig: locator.router.config(),
         title: 'E-commerce App',
         theme: locator.lightTheme,

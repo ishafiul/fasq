@@ -24,10 +24,7 @@ import 'package:flutter/material.dart';
 
 @RoutePage()
 class ProductDetailScreen extends StatefulWidget {
-  const ProductDetailScreen({
-    super.key,
-    required this.id,
-  });
+  const ProductDetailScreen({super.key, required this.id});
 
   final String id;
 
@@ -59,22 +56,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
-                const SliverAppBar(
-                  title: Text('Product Details'),
+                SliverAppBar(
+                  title: const Text('Product Details'),
                   floating: true,
                   snap: true,
                   actions: [
-                    CartIconButton(),
+                    Padding(
+                      padding: EdgeInsets.only(right: context.spacing.xs),
+                      child: const CartIconButton(),
+                    ),
                   ],
                 ),
-                SliverToBoxAdapter(
-                  child: ProductImageCarousel(
-                    id: widget.id,
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: context.spacing.sm),
-                ),
+                SliverToBoxAdapter(child: ProductImageCarousel(id: widget.id)),
+                SliverToBoxAdapter(child: SizedBox(height: context.spacing.sm)),
                 SliverPersistentHeader(
                   delegate: _SliverAppBarDelegate(
                     TabBar(
@@ -95,16 +89,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             },
             body: TabBarView(
               children: [
-                _ProductTab(
-                  id: widget.id,
-                  onVariantSelected: _handleVariantSelected,
-                ),
-                ProductDetailsTab(
-                  productId: widget.id,
-                ),
-                ProductReviewsTab(
-                  productId: widget.id,
-                ),
+                _ProductTab(id: widget.id, onVariantSelected: _handleVariantSelected),
+                ProductDetailsTab(productId: widget.id),
+                ProductReviewsTab(productId: widget.id),
               ],
             ),
           ),
@@ -132,11 +119,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(child: _tabBar),
@@ -153,10 +136,7 @@ class _ProductTab extends StatelessWidget {
   final String id;
   final ValueChanged<Variants?>? onVariantSelected;
 
-  const _ProductTab({
-    required this.id,
-    this.onVariantSelected,
-  });
+  const _ProductTab({required this.id, this.onVariantSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -167,20 +147,11 @@ class _ProductTab extends StatelessWidget {
         SliverPadding(
           padding: EdgeInsets.all(spacing.sm),
           sliver: SliverList(
-            delegate: SliverChildListDelegate(
-              [
-                AppCard(
-                  children: [
-                    ProductInfoSection(id: id),
-                  ],
-                ),
-                SizedBox(height: spacing.md),
-                VariantsSection(
-                  productId: id,
-                  onVariantSelected: onVariantSelected,
-                ),
-              ],
-            ),
+            delegate: SliverChildListDelegate([
+              AppCard(children: [ProductInfoSection(id: id)]),
+              SizedBox(height: spacing.md),
+              VariantsSection(productId: id, onVariantSelected: onVariantSelected),
+            ]),
           ),
         ),
       ],
@@ -263,10 +234,7 @@ class _AddToCartButtonState extends State<_AddToCartButton> {
             priceAtAdd: request.priceAtAdd,
           ),
           options: MutationOptions(
-            meta: const MutationMeta(
-              successMessage: 'Item added to cart',
-              errorMessage: 'Failed to add item to cart',
-            ),
+            meta: const MutationMeta(successMessage: 'Item added to cart', errorMessage: 'Failed to add item to cart'),
             onSuccess: (data) {
               final queryClient = context.queryClient;
               if (queryClient != null) {

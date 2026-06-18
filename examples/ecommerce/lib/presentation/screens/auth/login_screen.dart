@@ -5,6 +5,7 @@ import 'package:ecommerce/api/models/auth_verify_otp_response.dart';
 import 'package:ecommerce/core/colors.dart';
 import 'package:ecommerce/core/const.dart';
 import 'package:ecommerce/core/get_it.dart';
+import 'package:ecommerce/core/query_keys.dart';
 import 'package:ecommerce/core/router/app_router.dart';
 import 'package:ecommerce/core/router/app_router.gr.dart';
 import 'package:ecommerce/core/services/auth_service.dart';
@@ -93,10 +94,7 @@ class _LoginAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: Text('Sign in',
-          style: context.typography.titleSmall.toTextStyle().copyWith(
-                fontWeight: FontWeight.w600,
-              )),
+      title: Text('Sign in', style: context.typography.titleSmall.toTextStyle().copyWith(fontWeight: FontWeight.w600)),
       centerTitle: true,
       elevation: 0,
       leading: currentStep == _AuthStep.otp
@@ -125,9 +123,7 @@ class _LoginHeader extends StatelessWidget {
       children: [
         Text(
           currentStep == _AuthStep.email ? 'Welcome back' : 'Verify your email',
-          style: typography.titleMedium.toTextStyle(color: palette.textPrimary).copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: typography.titleMedium.toTextStyle(color: palette.textPrimary).copyWith(fontWeight: FontWeight.w600),
         ),
         SizedBox(height: context.spacing.xs / 2),
         Text(
@@ -268,7 +264,9 @@ class _RequestOtpButton extends StatelessWidget {
       options: MutationOptions(
         onSuccess: (result) async {
           if (result.accessToken != null) {
-            context.queryClient?.invalidateQuery(const TypedQueryKey<bool>('isLoggedIn', bool));
+            final queryClient = context.queryClient;
+            queryClient?.setQueryData(QueryKeys.isLoggedIn, true);
+            queryClient?.invalidateQuery(QueryKeys.isLoggedIn);
             await showSnackBar(context: context, type: SnackBarType.info, message: result.message, withIcon: true);
             await locator.router.replace(const HomeRoute());
           } else {
@@ -320,7 +318,9 @@ class _VerifyOtpButton extends StatelessWidget {
         meta: const MutationMeta(successMessage: 'Successfully signed in', errorMessage: 'Unable to verify otp'),
         onSuccess: (result) async {
           if (result.success) {
-            context.queryClient?.invalidateQuery(const TypedQueryKey<bool>('isLoggedIn', bool));
+            final queryClient = context.queryClient;
+            queryClient?.setQueryData(QueryKeys.isLoggedIn, true);
+            queryClient?.invalidateQuery(QueryKeys.isLoggedIn);
             await context.router.replace(const HomeRoute());
           }
         },

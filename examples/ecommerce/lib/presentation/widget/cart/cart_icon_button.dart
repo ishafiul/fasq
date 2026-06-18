@@ -26,10 +26,7 @@ class CartIconButton extends StatelessWidget {
         return QueryBuilder(
           queryKey: QueryKeys.cart,
           queryFn: () => locator.get<CartService>().getCart(),
-          options: QueryOptions(
-            staleTime: const Duration(seconds: 30),
-            cacheTime: const Duration(minutes: 5),
-          ),
+          options: QueryOptions(staleTime: const Duration(seconds: 30), cacheTime: const Duration(minutes: 5)),
           builder: (context, cartState) {
             if (cartState.isLoading || cartState.hasError) {
               return const SizedBox.shrink();
@@ -38,37 +35,43 @@ class CartIconButton extends StatelessWidget {
             final cartResponse = cartState.data;
             final items = cartResponse?.items ?? [];
             final itemCount = items.length;
+            final palette = context.palette;
 
             if (itemCount == 0) {
-              return const SizedBox.shrink();
+              return _CartIconAction(palette: palette);
             }
 
             final badgeText = itemCount > 99 ? '99+' : itemCount.toString();
-            final palette = context.palette;
             final typography = context.typography;
 
             return core.Badge(
               color: palette.danger,
               content: Text(
                 badgeText,
-                style: typography.labelSmall.toTextStyle(
-                  color: ColorUtils.onColor(palette.danger),
-                ),
+                style: typography.labelSmall.toTextStyle(color: ColorUtils.onColor(palette.danger)),
               ),
-              child: IconButton(
-                onPressed: () {
-                  context.router.push(const CartRoute());
-                },
-                icon: Icon(
-                  Icons.shopping_cart_outlined,
-                  color: palette.textPrimary,
-                ),
-                tooltip: 'Shopping Cart',
-              ),
+              child: _CartIconAction(palette: palette),
             );
           },
         );
       },
+    );
+  }
+}
+
+class _CartIconAction extends StatelessWidget {
+  const _CartIconAction({required this.palette});
+
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () {
+        context.router.push(const CartRoute());
+      },
+      icon: Icon(Icons.shopping_cart_outlined, color: palette.textPrimary),
+      tooltip: 'Shopping Cart',
     );
   }
 }
