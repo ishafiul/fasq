@@ -1,4 +1,5 @@
 const meta = {
+  'flutter-server-state-management': 'Flutter Server State Management',
   pagination: 'Pagination',
   // 'infinite-scroll': 'Infinite Scroll',
   // 'optimistic-updates': 'Optimistic Updates',
