@@ -31,6 +31,7 @@ export 'src/mutation/mutation_status.dart';
 export 'src/mutation/network_status.dart';
 export 'src/mutation/offline_queue.dart';
 export 'src/mutation/sync_engine/kahn_dag.dart';
+export 'src/mutation/sync_engine/mutation_contracts.dart';
 export 'src/observability/error/error_context.dart';
 export 'src/observability/error/error_reporter.dart';
 export 'src/observability/logging/fasq_logger.dart';
