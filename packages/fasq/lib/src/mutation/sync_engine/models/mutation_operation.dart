@@ -150,7 +150,7 @@ class MutationOperation {
       operationId: OperationId(operationId),
       mutationKey: MutationKey.fromJson(_asObjectMap(mutationKey)),
       variables: variables,
-      createdAt: DateTime.parse(createdAt),
+      createdAt: _parseCreatedAt(createdAt),
       idempotencyKey: IdempotencyKey(idempotencyKey),
       lineageId: LineageId(lineageId),
       authPolicy: parsedAuthPolicy,
@@ -216,6 +216,16 @@ class MutationOperation {
     throw InvalidMutationPayloadException('Unknown auth policy: $value');
   }
 
+  static DateTime _parseCreatedAt(String value) {
+    try {
+      return DateTime.parse(value);
+    } on FormatException {
+      throw const InvalidMutationPayloadException(
+        'Invalid mutation operation timestamp',
+      );
+    }
+  }
+
   static List<T> _decodeList<T>(
     Object? value,
     String fieldName,
@@ -243,11 +253,6 @@ class MutationOperation {
     }
     final result = <String, Object?>{};
     for (final entry in value.entries) {
-      if (entry.key is! String) {
-        throw const InvalidMutationPayloadException(
-          'JSON object keys must be strings',
-        );
-      }
       final key = entry.key;
       if (key is! String) {
         throw const InvalidMutationPayloadException(

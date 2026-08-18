@@ -114,6 +114,25 @@ void main() {
         throwsA(isA<InvalidMutationPayloadException>()),
       );
     });
+
+    test('rejects invalid operation timestamps as contract errors', () {
+      final operation = MutationOperation(
+        operationId: OperationId('operation-1'),
+        mutationKey: MutationKey(namespace: 'todos', name: 'create'),
+        variables: const <String, Object?>{},
+        createdAt: DateTime.utc(2026, 8, 19),
+        idempotencyKey: IdempotencyKey('idempotency-1'),
+        lineageId: LineageId('lineage-1'),
+        authPolicy: AuthPolicy.none,
+        state: MutationOperationState.pending,
+      );
+      final invalidPayload = operation.toJson()..['createdAt'] = 'not-a-date';
+
+      expect(
+        () => MutationOperation.fromJson(invalidPayload),
+        throwsA(isA<InvalidMutationPayloadException>()),
+      );
+    });
   });
 
   group('MutationCodecRegistry', () {
@@ -176,6 +195,21 @@ void main() {
         ),
         throwsA(isA<UnknownMutationKeyException>()),
       );
+      expect(
+        () => registry.decode(
+          MutationKey(namespace: 'todos', name: 'create', version: 2),
+          'Todo',
+        ),
+        throwsA(isA<UnknownMutationKeyException>()),
+      );
+      expect(
+        () => MutationKey.fromJson(const <String, Object?>{
+          'namespace': 'todos',
+          'name': 'create',
+          'version': 1.5,
+        }),
+        throwsA(isA<InvalidMutationPayloadException>()),
+      );
     });
 
     test('rejects duplicate registrations', () {
@@ -214,10 +248,20 @@ void main() {
         },
       ),
       authPolicy: AuthPolicy.required,
-      execute: (value) async => 'created:$value',
+      mutationFn: (value) async => 'created:$value',
     );
 
     expect(registry.authPolicyFor(key), AuthPolicy.required);
+    expect(
+      registry.readinessFor(key),
+      MutationRegistrationReadiness.ready,
+    );
+    expect(
+      registry.readinessFor(
+        MutationKey(namespace: 'todos', name: 'missing'),
+      ),
+      MutationRegistrationReadiness.missing,
+    );
     expect(await registry.execute(key, 'todo'), 'created:todo');
     expect(registry.registeredKeys, contains(key));
   });

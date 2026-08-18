@@ -81,6 +81,9 @@ class MutationCodecRegistry {
 }
 
 /// Runtime-only registration of a typed codec and async executor.
+///
+/// Registered function must be same logical function used for immediate
+/// mutation execution. It is not a second offline-only executor.
 class MutationRegistrationRegistry {
   final Map<MutationKey, _RegisteredMutation<Object?, Object?>> _registrations =
       {};
@@ -89,7 +92,7 @@ class MutationRegistrationRegistry {
   void register<TData, TVariables>({
     required MutationKey key,
     required MutationCodec<TVariables> codec,
-    required Future<TData> Function(TVariables variables) execute,
+    required Future<TData> Function(TVariables variables) mutationFn,
     AuthPolicy authPolicy = AuthPolicy.none,
   }) {
     if (_registrations.containsKey(key)) {
@@ -98,13 +101,20 @@ class MutationRegistrationRegistry {
     _registrations[key] = _RegisteredMutation<TData, TVariables>(
       key: key,
       codec: codec,
-      executeTyped: execute,
+      mutationFn: mutationFn,
       authPolicy: authPolicy,
     );
   }
 
   /// Returns whether an executor is registered for [key].
   bool contains(MutationKey key) => _registrations.containsKey(key);
+
+  /// Returns runtime registration readiness for [key].
+  MutationRegistrationReadiness readinessFor(MutationKey key) {
+    return contains(key)
+        ? MutationRegistrationReadiness.ready
+        : MutationRegistrationReadiness.missing;
+  }
 
   /// Encodes variables using the runtime registration for [key].
   Object? encodeVariables(MutationKey key, Object? variables) {
@@ -160,13 +170,13 @@ class _RegisteredMutation<TData, TVariables> {
   const _RegisteredMutation({
     required this.key,
     required this.codec,
-    required this.executeTyped,
+    required this.mutationFn,
     required this.authPolicy,
   });
 
   final MutationKey key;
   final MutationCodec<TVariables> codec;
-  final Future<TData> Function(TVariables variables) executeTyped;
+  final Future<TData> Function(TVariables variables) mutationFn;
   final AuthPolicy authPolicy;
 
   Object? encode(Object? variables) {
@@ -188,6 +198,15 @@ class _RegisteredMutation<TData, TVariables> {
         'expected $TVariables',
       );
     }
-    return executeTyped(variables);
+    return mutationFn(variables);
   }
+}
+
+/// Runtime readiness of a mutation codec and executor registration.
+enum MutationRegistrationReadiness {
+  /// No codec and executor are registered for the key.
+  missing,
+
+  /// Codec and executor are available for runtime use.
+  ready,
 }
