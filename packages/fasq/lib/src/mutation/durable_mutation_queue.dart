@@ -91,6 +91,17 @@ class DurableMutationQueue {
         current.history.any((entry) => entry.operationId == operationId);
   }
 
+  /// Whether [idempotencyKey] is retained in active or dead-letter data.
+  bool hasRetainedIdempotencyKey(IdempotencyKey idempotencyKey) {
+    final current = _store.snapshot;
+    return current.active.any(
+          (item) => item.idempotencyKey == idempotencyKey,
+        ) ||
+        current.deadLetters.any(
+          (entry) => entry.operation.idempotencyKey == idempotencyKey,
+        );
+  }
+
   /// Registers the existing immediate mutation function for durable replay.
   ///
   /// This is the only executor registration point. Replay never accepts a
@@ -164,6 +175,10 @@ class DurableMutationQueue {
     String? rateLimitBucket,
   }) async {
     _requireOpen();
+    if (state != MutationOperationState.pending &&
+        state != MutationOperationState.retryScheduled) {
+      throw InvalidMutationEnqueueStateException(state);
+    }
     final encodedVariables = _registrations.encodeVariables(key, variables);
     final operation = MutationOperation(
       operationId: operationId ?? OperationId(_idGenerator()),
@@ -286,4 +301,11 @@ class DuplicateMutationOperationException extends MutationContractException {
   /// Creates a duplicate-identity failure.
   DuplicateMutationOperationException(String operationId)
     : super('Mutation operation identity is already retained: $operationId');
+}
+
+/// Raised when callers try to enqueue a non-replayable operation state.
+class InvalidMutationEnqueueStateException extends MutationContractException {
+  /// Creates an invalid enqueue-state failure.
+  InvalidMutationEnqueueStateException(MutationOperationState state)
+    : super('Mutation enqueue state is not replayable: ${state.name}');
 }

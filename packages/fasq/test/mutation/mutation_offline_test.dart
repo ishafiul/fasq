@@ -161,6 +161,71 @@ void main() {
       },
     );
 
+    test(
+      'replays non-JSON results through the configured result encoder',
+      () async {
+        final replayQueue = DurableMutationQueue(store: _MemoryOutboxStore());
+        final replayMutation = Mutation<DateTime, String>(
+          mutationFn: (data) async => DateTime.utc(2026, 8, data.length),
+          options: MutationOptions(
+            queueWhenOffline: true,
+            resultEncoder: (value) => value.toIso8601String(),
+            durableQueue: DurableMutationQueueOptions(
+              queue: replayQueue,
+              mutationKey: MutationKey(namespace: 'tests', name: 'date-result'),
+              codec: _stringCodec,
+            ),
+          ),
+        );
+
+        NetworkStatus.instance.setOnline(online: false);
+        await replayMutation.mutate('offline');
+        NetworkStatus.instance.setOnline(online: true);
+
+        final report = await replayQueue.replay();
+
+        expect(report.didExecute, isTrue);
+        expect(replayQueue.snapshot.active, isEmpty);
+        expect(
+          replayQueue.snapshot.history.single.resultProjection,
+          '2026-08-07T00:00:00.000Z',
+        );
+
+        replayMutation.dispose();
+        await replayQueue.close();
+      },
+    );
+
+    test('reuses one registration for shared queue and mutation key', () async {
+      final sharedQueue = DurableMutationQueue(store: _MemoryOutboxStore());
+      final options = MutationOptions<String, String>(
+        queueWhenOffline: true,
+        durableQueue: DurableMutationQueueOptions(
+          queue: sharedQueue,
+          mutationKey: MutationKey(namespace: 'tests', name: 'shared'),
+          codec: _stringCodec,
+        ),
+      );
+
+      final first = Mutation<String, String>(
+        mutationFn: (data) async => 'first:$data',
+        options: options,
+      );
+      final second = Mutation<String, String>(
+        mutationFn: (data) async => 'second:$data',
+        options: options,
+      );
+
+      expect(
+        sharedQueue.hasRegistration(options.durableQueue!.mutationKey),
+        isTrue,
+      );
+
+      first.dispose();
+      second.dispose();
+      await sharedQueue.close();
+    });
+
     test('should handle errors when online', () async {
       final errorQueue = DurableMutationQueue(store: _MemoryOutboxStore());
       final errorMutation = Mutation<String, String>(

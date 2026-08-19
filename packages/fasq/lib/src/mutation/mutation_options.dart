@@ -44,6 +44,7 @@ class MutationOptions<T, TVariables> {
     this.onMutate,
     this.queueWhenOffline = false,
     this.durableQueue,
+    this.resultEncoder,
     this.maxRetries,
     this.onQueued,
     this.priority = 0,
@@ -70,6 +71,9 @@ class MutationOptions<T, TVariables> {
   /// This must be provided when [queueWhenOffline] is true. It is ignored for
   /// online-only mutations and does not change immediate execution behavior.
   final DurableMutationQueueOptions<TVariables>? durableQueue;
+
+  /// Encodes mutation results for durable replay history.
+  final Object? Function(T data)? resultEncoder;
 
   /// Stable logical identity for this mutation, if durable queueing is enabled.
   MutationKey? get mutationKey => durableQueue?.mutationKey;

@@ -194,6 +194,27 @@ void main() {
     await queue.close();
   });
 
+  test('rejects non-replayable enqueue states', () async {
+    final queue = DurableMutationQueue(store: _MemoryOutboxStore());
+    queue.register<Map<String, Object?>, Map<String, Object?>>(
+      key: key,
+      codec: _mapCodec,
+      mutationFn: (variables) async => variables,
+    );
+    await queue.open();
+
+    expect(
+      () => queue.enqueue(
+        key: key,
+        variables: <String, Object?>{},
+        state: MutationOperationState.succeeded,
+      ),
+      throwsA(isA<InvalidMutationEnqueueStateException>()),
+    );
+    expect(queue.snapshot.active, isEmpty);
+    await queue.close();
+  });
+
   test(
     'keeps processQueue as an explicit replay compatibility alias',
     () async {

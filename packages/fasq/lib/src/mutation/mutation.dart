@@ -16,12 +16,14 @@ class Mutation<T, TVariables> {
     _controller = StreamController<MutationState<T>>.broadcast();
     options?.validateDurableConfiguration();
     final durableQueue = options?.durableQueue;
-    if (durableQueue != null) {
+    if (durableQueue != null &&
+        !durableQueue.queue.hasRegistration(durableQueue.mutationKey)) {
       durableQueue.queue.register<T, TVariables>(
         key: durableQueue.mutationKey,
         codec: durableQueue.codec,
         mutationFn: mutationFn,
         authPolicy: durableQueue.authPolicy,
+        resultEncoder: options?.resultEncoder,
       );
     }
   }

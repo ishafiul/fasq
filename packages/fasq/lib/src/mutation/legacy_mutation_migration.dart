@@ -16,6 +16,9 @@ abstract interface class LegacyMutationRegistration {
   /// Registers the existing immediate executor with [queue].
   void register(DurableMutationQueue queue);
 
+  /// Validates a legacy node without writing to the durable queue.
+  void validate(OfflineMutationNode node);
+
   /// Translates and enqueues [node] into [queue].
   Future<DurableEnqueueAcknowledgement> enqueue(
     DurableMutationQueue queue,
@@ -78,10 +81,40 @@ class TypedLegacyMutationRegistration<TData, TVariables>
   }
 
   @override
+  void validate(OfflineMutationNode node) {
+    try {
+      codec.decode(node.variables);
+      _resolveAuthScope(node);
+      if (maxAge <= Duration.zero) {
+        throw const InvalidMutationPayloadException(
+          'Legacy mutation retention policy is invalid',
+        );
+      }
+      OperationId(node.id);
+      IdempotencyKey(node.idempotencyKey);
+      LineageId('legacy:${node.id}');
+      for (final parentId in node.dependsOnIds) {
+        OperationId(parentId);
+      }
+    } on LegacyMutationMigrationException {
+      rethrow;
+    } on Object catch (_, stackTrace) {
+      Error.throwWithStackTrace(
+        LegacyMutationMigrationException(
+          node.id,
+          'Legacy mutation payload or identity is invalid',
+        ),
+        stackTrace,
+      );
+    }
+  }
+
+  @override
   Future<DurableEnqueueAcknowledgement> enqueue(
     DurableMutationQueue queue,
     OfflineMutationNode node,
   ) async {
+    validate(node);
     final variables = codec.decode(node.variables);
     final state = switch (node.status) {
       OfflineMutationStatus.pending => MutationOperationState.pending,
@@ -92,13 +125,7 @@ class TypedLegacyMutationRegistration<TData, TVariables>
         'Only pending or retryScheduled nodes can be migrated safely',
       ),
     };
-    final resolvedAuthScope = authScopeResolver?.call(node) ?? authScope;
-    if ((authPolicy == AuthPolicy.required) != (resolvedAuthScope != null)) {
-      throw LegacyMutationMigrationException(
-        node.id,
-        'Required auth scope is not available for legacy work',
-      );
-    }
+    final resolvedAuthScope = _resolveAuthScope(node);
 
     return queue.enqueue<TVariables>(
       key: key,
@@ -120,6 +147,17 @@ class TypedLegacyMutationRegistration<TData, TVariables>
       maxAge: maxAge,
       nextRunAt: node.nextRunAt,
     );
+  }
+
+  AuthScope? _resolveAuthScope(OfflineMutationNode node) {
+    final resolved = authScopeResolver?.call(node) ?? authScope;
+    if ((authPolicy == AuthPolicy.required) != (resolved != null)) {
+      throw LegacyMutationMigrationException(
+        node.id,
+        'Required auth scope is not available for legacy work',
+      );
+    }
+    return resolved;
   }
 }
 
@@ -155,6 +193,12 @@ class LegacyMutationQueueMigrator {
 
     await destination.open();
     final sourceIds = nodes.map((node) => node.id).toSet();
+    if (sourceIds.length != nodes.length) {
+      throw LegacyMutationMigrationException(
+        'unknown',
+        'Legacy queue contains duplicate operation identities',
+      );
+    }
     for (final node in nodes) {
       if (node.status != OfflineMutationStatus.pending &&
           node.status != OfflineMutationStatus.retryScheduled) {
@@ -164,14 +208,28 @@ class LegacyMutationQueueMigrator {
         );
       }
       for (final parentId in node.dependsOnIds) {
+        final parentOperationId = _parseOperationId(node.id, parentId);
         if (!sourceIds.contains(parentId) &&
-            !destination.hasRetainedOperation(OperationId(parentId))) {
+            !destination.hasRetainedOperation(parentOperationId)) {
           throw LegacyMutationMigrationException(
             node.id,
             'Dependency $parentId is not present in legacy or durable storage',
           );
         }
       }
+    }
+
+    for (final node in nodes) {
+      final operationId = _parseOperationId(node.id, node.id);
+      final idempotencyKey = _parseIdempotencyKey(node.id, node.idempotencyKey);
+      if (destination.hasRetainedOperation(operationId)) continue;
+      if (destination.hasRetainedIdempotencyKey(idempotencyKey)) {
+        throw LegacyMutationMigrationException(
+          node.id,
+          'Legacy idempotency identity is already retained durably',
+        );
+      }
+      registrations[node.mutationType]!.validate(node);
     }
 
     for (final node in nodes) {
@@ -185,7 +243,7 @@ class LegacyMutationQueueMigrator {
     final alreadyPresent = <OperationId>[];
     for (final node in nodes) {
       final registration = registrations[node.mutationType]!;
-      final operationId = OperationId(node.id);
+      final operationId = _parseOperationId(node.id, node.id);
       if (destination.hasRetainedOperation(operationId)) {
         alreadyPresent.add(operationId);
         if (removeSourceAfterCommit) await source.remove(node.id);
@@ -196,9 +254,12 @@ class LegacyMutationQueueMigrator {
         migrated.add(acknowledgement.operationId);
       } on LegacyMutationMigrationException {
         rethrow;
-      } on Object catch (error, stackTrace) {
+      } on Object catch (_, stackTrace) {
         Error.throwWithStackTrace(
-          LegacyMutationMigrationException(node.id, error.toString()),
+          LegacyMutationMigrationException(
+            node.id,
+            'Legacy mutation could not be durably imported',
+          ),
           stackTrace,
         );
       }
@@ -209,6 +270,34 @@ class LegacyMutationQueueMigrator {
       alreadyPresentOperationIds: alreadyPresent,
       untouchedDeadLetterCount: source.deadLetters.length,
     );
+  }
+
+  OperationId _parseOperationId(String nodeId, String value) {
+    try {
+      return OperationId(value);
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        LegacyMutationMigrationException(
+          nodeId,
+          'Legacy operation identity is invalid',
+        ),
+        stackTrace,
+      );
+    }
+  }
+
+  IdempotencyKey _parseIdempotencyKey(String nodeId, String value) {
+    try {
+      return IdempotencyKey(value);
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        LegacyMutationMigrationException(
+          nodeId,
+          'Legacy idempotency identity is invalid',
+        ),
+        stackTrace,
+      );
+    }
   }
 }
 

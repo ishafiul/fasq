@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fasq/fasq.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -130,6 +132,59 @@ void main() {
     );
     expect(legacyQueue.entries, hasLength(1));
     expect(durableQueue.snapshot.active, isEmpty);
+  });
+
+  test('preflights all nodes before importing any legacy records', () async {
+    final key = MutationKey(namespace: 'legacy', name: 'create');
+    final durableQueue = DurableMutationQueue(store: _MemoryOutboxStore());
+    final migrator = LegacyMutationQueueMigrator(
+      registrations: {
+        'legacy-create':
+            TypedLegacyMutationRegistration<String, Map<String, Object?>>(
+              mutationType: 'legacy-create',
+              key: key,
+              codec: _mapCodec,
+              mutationFn: (variables) async => 'created:${variables['title']}',
+            ),
+      },
+    );
+    final validNode = OfflineMutationNode(
+      id: 'valid-operation',
+      key: 'legacy-key',
+      mutationType: 'legacy-create',
+      variables: <String, Object?>{'title': 'valid'},
+      createdAt: DateTime.utc(2026, 8, 20),
+      idempotencyKey: 'valid-idempotency',
+    );
+    final invalidNode = OfflineMutationNode(
+      id: '',
+      key: 'legacy-key',
+      mutationType: 'legacy-create',
+      variables: <String, Object?>{'title': 'invalid'},
+      createdAt: DateTime.utc(2026, 8, 20),
+      idempotencyKey: 'invalid-idempotency',
+    );
+    final queueFile = await legacyQueue.resolveQueueStorageFileForTesting();
+    await queueFile.writeAsString(
+      jsonEncode({
+        'schemaVersion': 2,
+        'nodes': [validNode.toJson(), invalidNode.toJson()],
+      }),
+      flush: true,
+    );
+    legacyQueue.clearInMemoryOnly();
+
+    expect(
+      () => migrator.migrate(
+        source: legacyQueue,
+        destination: durableQueue,
+      ),
+      throwsA(isA<LegacyMutationMigrationException>()),
+    );
+    expect(durableQueue.snapshot.active, isEmpty);
+
+    await legacyQueue.load();
+    expect(legacyQueue.entries, hasLength(2));
   });
 }
 
