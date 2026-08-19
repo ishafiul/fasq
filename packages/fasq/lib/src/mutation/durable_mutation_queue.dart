@@ -78,6 +78,19 @@ class DurableMutationQueue {
   /// Current durable store generation.
   int get generation => _store.generation;
 
+  /// Whether [key] has a runtime codec and executor registration.
+  bool hasRegistration(MutationKey key) => _registrations.contains(key);
+
+  /// Whether [operationId] is retained in active, dead-letter, or history data.
+  bool hasRetainedOperation(OperationId operationId) {
+    final current = _store.snapshot;
+    return current.active.any((item) => item.operationId == operationId) ||
+        current.deadLetters.any(
+          (entry) => entry.operation.operationId == operationId,
+        ) ||
+        current.history.any((entry) => entry.operationId == operationId);
+  }
+
   /// Registers the existing immediate mutation function for durable replay.
   ///
   /// This is the only executor registration point. Replay never accepts a
@@ -143,8 +156,11 @@ class DurableMutationQueue {
     List<MutationDependency> dependencies = const <MutationDependency>[],
     List<MutationProjectionDescriptor> projections =
         const <MutationProjectionDescriptor>[],
+    MutationOperationState state = MutationOperationState.pending,
+    int attemptCount = 0,
     int maxAttempts = 5,
     Duration maxAge = const Duration(days: 30),
+    DateTime? nextRunAt,
     String? rateLimitBucket,
   }) async {
     _requireOpen();
@@ -158,12 +174,14 @@ class DurableMutationQueue {
       lineageId: lineageId ?? LineageId(_idGenerator()),
       authPolicy: _registrations.authPolicyFor(key),
       authScope: authScope,
-      state: MutationOperationState.pending,
+      state: state,
       priority: priority,
       dependencies: dependencies,
       projections: projections,
+      attemptCount: attemptCount,
       maxAttempts: maxAttempts,
       maxAge: maxAge,
+      nextRunAt: nextRunAt,
       rateLimitBucket: rateLimitBucket,
     );
 
