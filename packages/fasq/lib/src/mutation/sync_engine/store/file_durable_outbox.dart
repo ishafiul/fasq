@@ -239,10 +239,15 @@ class FileDurableOutbox implements DurableOutboxStore {
     _directoryPath,
     'outbox.json.tmp.$_ownerToken',
   );
+  late final String _backupTemporaryPath = p.join(
+    _directoryPath,
+    'outbox.json.bak.tmp.$_ownerToken',
+  );
 
   OutboxSnapshot _snapshot = OutboxSnapshot();
   int _generation = 0;
   bool _isOpen = false;
+  bool _ownsLock = false;
   Future<void> _tail = Future<void>.value();
 
   /// Whether this backend currently owns the store.
@@ -258,8 +263,10 @@ class FileDurableOutbox implements DurableOutboxStore {
   Future<OutboxSnapshot> open() {
     return _serialized(() async {
       if (_isOpen) return _snapshot;
+      if (_ownsLock) throw const OutboxOwnershipException();
       await fileSystem.ensureDirectory(_directoryPath);
       await fileSystem.acquireLock(_lockPath);
+      _ownsLock = true;
       try {
         final hasStore =
             await fileSystem.exists(_storePath) ||
@@ -280,8 +287,12 @@ class FileDurableOutbox implements DurableOutboxStore {
         }
         _isOpen = true;
         return _snapshot;
-      } on Exception {
-        await fileSystem.releaseLock(_lockPath);
+      } on Object {
+        try {
+          await _releaseLock();
+        } on Object {
+          // Preserve the original failure while retaining ownership state.
+        }
         rethrow;
       }
     });
@@ -315,9 +326,12 @@ class FileDurableOutbox implements DurableOutboxStore {
   @override
   Future<void> close() {
     return _serialized(() async {
-      if (!_isOpen) return;
+      if (!_ownsLock) {
+        _isOpen = false;
+        return;
+      }
+      await _releaseLock();
       _isOpen = false;
-      await fileSystem.releaseLock(_lockPath);
     });
   }
 
@@ -331,9 +345,7 @@ class FileDurableOutbox implements DurableOutboxStore {
         return await _readSource(_storePath);
       } on OutboxMigrationRequiredException {
         rethrow;
-      } on DurableOutboxException {
-        await _preserveEvidence(_storePath);
-      } on Exception {
+      } on OutboxCorruptException {
         await _preserveEvidence(_storePath);
       }
     }
@@ -345,10 +357,7 @@ class FileDurableOutbox implements DurableOutboxStore {
       return loaded;
     } on OutboxMigrationRequiredException {
       rethrow;
-    } on DurableOutboxException {
-      await _preserveEvidence(_backupPath);
-      throw const OutboxCorruptException();
-    } on Exception {
+    } on OutboxCorruptException {
       await _preserveEvidence(_backupPath);
       throw const OutboxCorruptException();
     }
@@ -360,7 +369,7 @@ class FileDurableOutbox implements DurableOutboxStore {
     if (envelope.schemaVersion > currentOutboxSchemaVersion) {
       throw const OutboxMigrationRequiredException();
     }
-    final encrypted = base64Decode(envelope.payload);
+    final encrypted = _decodeEncryptedPayload(envelope.payload);
     if (_checksum(encrypted) != envelope.checksum) {
       throw const OutboxCorruptException();
     }
@@ -374,18 +383,27 @@ class FileDurableOutbox implements DurableOutboxStore {
       );
       if (migration.isEmpty) throw const OutboxMigrationRequiredException();
       final selected = migration.first;
-      if (selected.toVersion <= version) {
+      if (selected.toVersion != version + 1 ||
+          selected.toVersion > currentOutboxSchemaVersion) {
         throw const OutboxMigrationRequiredException();
       }
-      final migratedPayload = selected.migrate(payload);
-      payload
-        ..clear()
-        ..addAll(migratedPayload);
+      try {
+        final migratedPayload = selected.migrate(
+          Map<String, Object?>.from(payload),
+        );
+        jsonEncode(migratedPayload);
+        payload
+          ..clear()
+          ..addAll(migratedPayload);
+      } on OutboxMigrationRequiredException {
+        rethrow;
+      } on Object {
+        throw const OutboxMigrationRequiredException();
+      }
       version = selected.toVersion;
       migrated = true;
     }
-    final snapshot = OutboxSnapshot.fromJson(payload);
-    securityPolicy.validate(snapshot.toJson());
+    final snapshot = _decodeSnapshot(payload, wasMigrated: migrated);
     return _LoadedOutbox(
       snapshot: snapshot,
       generation: envelope.generation,
@@ -410,7 +428,9 @@ class FileDurableOutbox implements DurableOutboxStore {
     capacity.validate(next, bytes.length);
     await fileSystem.write(_temporaryPath, bytes);
     if (await fileSystem.exists(_storePath)) {
-      await fileSystem.copy(_storePath, _backupPath);
+      final previousPrimary = await fileSystem.read(_storePath);
+      await fileSystem.write(_backupTemporaryPath, previousPrimary);
+      await fileSystem.rename(_backupTemporaryPath, _backupPath);
     }
     await fileSystem.rename(_temporaryPath, _storePath);
   }
@@ -425,8 +445,45 @@ class FileDurableOutbox implements DurableOutboxStore {
     try {
       final evidence = '$path.corrupt.${_now().microsecondsSinceEpoch}';
       await fileSystem.copy(path, evidence);
-    } on Exception {
+    } on Object {
       // The original source remains untouched even if evidence export fails.
+    }
+  }
+
+  Future<void> _releaseLock() async {
+    if (!_ownsLock) return;
+    await fileSystem.releaseLock(_lockPath);
+    _ownsLock = false;
+  }
+
+  List<int> _decodeEncryptedPayload(String value) {
+    try {
+      return base64Decode(value);
+    } on Object {
+      throw const OutboxCorruptException();
+    }
+  }
+
+  OutboxSnapshot _decodeSnapshot(
+    Map<String, Object?> payload, {
+    required bool wasMigrated,
+  }) {
+    try {
+      final snapshot = OutboxSnapshot.fromJson(payload);
+      securityPolicy.validate(snapshot.toJson());
+      return snapshot;
+    } on OutboxCorruptException {
+      if (wasMigrated) {
+        throw const OutboxMigrationRequiredException();
+      }
+      rethrow;
+    } on DurableOutboxException {
+      rethrow;
+    } on Exception {
+      if (wasMigrated) {
+        throw const OutboxMigrationRequiredException();
+      }
+      throw const OutboxCorruptException();
     }
   }
 

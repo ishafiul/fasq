@@ -2,17 +2,39 @@ import 'package:fasq/src/mutation/sync_engine/store/outbox_errors.dart';
 
 /// Names that are never allowed in durable mutation payloads.
 const Set<String> defaultOutboxSensitiveFieldNames = <String>{
+  'api_key',
+  'apikey',
   'access_token',
   'accesstoken',
+  'auth_header',
+  'auth_token',
+  'authorization',
+  'authorization_header',
+  'bearer_token',
+  'cookie',
+  'cookie_header',
   'client_secret',
   'clientsecret',
   'credential',
   'credentials',
+  'encryption_key',
+  'id_token',
+  'jwt',
   'password',
+  'private_key',
+  'privatekey',
   'refresh_token',
   'refreshtoken',
   'secret',
+  'secret_key',
+  'session_token',
+  'sessiontoken',
+  'signing_key',
+  'ssh_key',
   'token',
+  'x_api_key',
+  'x_auth_token',
+  'oauth_token',
 };
 
 /// Validates data before it crosses the durable persistence boundary.
@@ -34,8 +56,10 @@ class OutboxSecurityPolicy {
     if (value is Map<Object?, Object?>) {
       for (final entry in value.entries) {
         if (entry.key is String &&
-            sensitiveFieldNames.contains(
-              (entry.key! as String).toLowerCase().replaceAll('-', '_'),
+            sensitiveFieldNames.any(
+              (fieldName) =>
+                  _normalizeFieldName(fieldName) ==
+                  _normalizeFieldName(entry.key! as String),
             )) {
           throw const OutboxCredentialRejectedException();
         }
@@ -47,4 +71,8 @@ class OutboxSecurityPolicy {
       value.forEach(_validate);
     }
   }
+}
+
+String _normalizeFieldName(String value) {
+  return value.toLowerCase().replaceAll(RegExp('[-_]'), '');
 }

@@ -1,5 +1,6 @@
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_json.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
 import 'package:fasq/src/mutation/sync_engine/store/outbox_errors.dart';
 
@@ -80,6 +81,24 @@ class OutboxHistoryEntry {
     this.resultProjection,
   });
 
+  /// Creates a history entry after validating and freezing its projection.
+  factory OutboxHistoryEntry.validated({
+    required OperationId operationId,
+    required MutationOperationState state,
+    required DateTime completedAt,
+    Object? resultProjection,
+  }) {
+    return OutboxHistoryEntry(
+      operationId: operationId,
+      state: state,
+      completedAt: completedAt,
+      resultProjection: _immutableJsonValue(
+        resultProjection,
+        'resultProjection',
+      ),
+    );
+  }
+
   /// Recreates a history entry from validated JSON.
   factory OutboxHistoryEntry.fromJson(Map<String, Object?> json) {
     final operationId = json['operationId'];
@@ -94,12 +113,18 @@ class OutboxHistoryEntry {
     } on Exception {
       throw const OutboxCorruptException();
     }
-    return OutboxHistoryEntry(
-      operationId: OperationId(operationId),
-      state: parsedState,
-      completedAt: _date(completedAt),
-      resultProjection: json['resultProjection'],
-    );
+    try {
+      return OutboxHistoryEntry.validated(
+        operationId: OperationId(operationId),
+        state: parsedState,
+        completedAt: _date(completedAt),
+        resultProjection: json['resultProjection'],
+      );
+    } on OutboxCorruptException {
+      rethrow;
+    } on Exception {
+      throw const OutboxCorruptException();
+    }
   }
 
   /// Completed operation identity.
@@ -131,28 +156,34 @@ class OutboxSnapshot {
     List<OutboxDeadLetter> deadLetters = const <OutboxDeadLetter>[],
     List<OutboxHistoryEntry> history = const <OutboxHistoryEntry>[],
     Map<String, Object?> metadata = const <String, Object?>{},
-  }) : active = List.unmodifiable(active),
-       deadLetters = List.unmodifiable(deadLetters),
-       history = List.unmodifiable(history),
-       metadata = Map.unmodifiable(metadata);
+  }) : active = List.unmodifiable(active.map(_copyOperation)),
+       deadLetters = List.unmodifiable(deadLetters.map(_copyDeadLetter)),
+       history = List.unmodifiable(history.map(_copyHistoryEntry)),
+       metadata = _immutableJsonMap(metadata, 'metadata');
 
   /// Recreates a snapshot from validated JSON.
   factory OutboxSnapshot.fromJson(Map<String, Object?> json) {
-    return OutboxSnapshot(
-      active: _decodeList(
-        json['active'],
-        MutationOperation.fromJson,
-      ),
-      deadLetters: _decodeList(
-        json['deadLetters'],
-        OutboxDeadLetter.fromJson,
-      ),
-      history: _decodeList(
-        json['history'],
-        OutboxHistoryEntry.fromJson,
-      ),
-      metadata: _metadata(json['metadata']),
-    );
+    try {
+      return OutboxSnapshot(
+        active: _decodeList(
+          json['active'],
+          MutationOperation.fromJson,
+        ),
+        deadLetters: _decodeList(
+          json['deadLetters'],
+          OutboxDeadLetter.fromJson,
+        ),
+        history: _decodeList(
+          json['history'],
+          OutboxHistoryEntry.fromJson,
+        ),
+        metadata: _metadata(json['metadata']),
+      );
+    } on OutboxCorruptException {
+      rethrow;
+    } on Exception {
+      throw const OutboxCorruptException();
+    }
   }
 
   /// Active work eligible for replay or waiting on dependencies.
@@ -212,6 +243,70 @@ Map<String, Object?> _metadata(Object? value) {
   if (value == null) return const <String, Object?>{};
   if (value is! Map<Object?, Object?>) throw const OutboxCorruptException();
   return _objectMap(value);
+}
+
+MutationOperation _copyOperation(MutationOperation operation) {
+  return MutationOperation(
+    operationId: operation.operationId,
+    mutationKey: operation.mutationKey,
+    variables: _immutableJsonValue(operation.variables, 'variables'),
+    createdAt: operation.createdAt,
+    idempotencyKey: operation.idempotencyKey,
+    lineageId: operation.lineageId,
+    authPolicy: operation.authPolicy,
+    state: operation.state,
+    authScope: operation.authScope,
+    dependencies: List.unmodifiable(operation.dependencies),
+    projections: List.unmodifiable(operation.projections),
+  );
+}
+
+OutboxDeadLetter _copyDeadLetter(OutboxDeadLetter deadLetter) {
+  return OutboxDeadLetter(
+    operation: _copyOperation(deadLetter.operation),
+    category: deadLetter.category,
+    messageKey: deadLetter.messageKey,
+    retryable: deadLetter.retryable,
+    repairable: deadLetter.repairable,
+    failedAt: deadLetter.failedAt,
+  );
+}
+
+OutboxHistoryEntry _copyHistoryEntry(OutboxHistoryEntry entry) {
+  return OutboxHistoryEntry.validated(
+    operationId: entry.operationId,
+    state: entry.state,
+    completedAt: entry.completedAt,
+    resultProjection: entry.resultProjection,
+  );
+}
+
+Map<String, Object?> _immutableJsonMap(
+  Map<Object?, Object?> value,
+  String path,
+) {
+  final result = <String, Object?>{};
+  for (final entry in value.entries) {
+    final key = entry.key;
+    if (key is! String) {
+      throw InvalidMutationPayloadException('$path has a non-string key');
+    }
+    result[key] = _immutableJsonValue(entry.value, '$path.$key');
+  }
+  return Map.unmodifiable(result);
+}
+
+Object? _immutableJsonValue(Object? value, [String path = 'value']) {
+  validateJsonValue(value, path);
+  if (value is List<Object?>) {
+    return List<Object?>.unmodifiable(
+      value.map((item) => _immutableJsonValue(item, path)),
+    );
+  }
+  if (value is Map<Object?, Object?>) {
+    return _immutableJsonMap(value, path);
+  }
+  return value;
 }
 
 Map<String, Object?> _objectMap(Map<Object?, Object?> value) {
