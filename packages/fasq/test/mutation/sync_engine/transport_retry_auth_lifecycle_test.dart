@@ -84,6 +84,24 @@ void main() {
         ),
         AuthExecutionDecision.blocked,
       );
+      expect(
+        gate.evaluate(operation, const AuthSessionSnapshot.signedOut()),
+        AuthExecutionDecision.quarantined,
+      );
+      expect(
+        gate.evaluate(
+          operation,
+          AuthSessionSnapshot(
+            status: AuthSessionStatus.reauthenticationRequired,
+            scope: AuthScope(
+              principalId: 'user-2',
+              tenantId: 'tenant-1',
+              authRealm: 'primary',
+            ),
+          ),
+        ),
+        AuthExecutionDecision.blocked,
+      );
     });
 
     test('rejects invalid authentication state combinations', () {
@@ -193,6 +211,35 @@ void main() {
   });
 
   group('Lifecycle bridge', () {
+    test(
+      'assumes auth readiness when no auth provider is configured',
+      () async {
+        final readiness = ReplayReadinessBarrier(
+          initial: const ReplayReadiness(
+            storeReady: true,
+            registrationsReady: true,
+            encryptionReady: true,
+            connectivityReady: true,
+          ),
+        );
+        var replayCalls = 0;
+        final controller = ReplayLifecycleController(
+          readiness: readiness,
+          replay: () async {
+            replayCalls++;
+            return _emptyReplayResult();
+          },
+        );
+
+        await controller.onStartup().timeout(const Duration(seconds: 1));
+
+        expect(readiness.current.authReady, isTrue);
+        expect(replayCalls, 1);
+        await controller.dispose();
+        await readiness.dispose();
+      },
+    );
+
     test('coalesces concurrent lifecycle requests into one replay', () async {
       final readiness = ReplayReadinessBarrier(
         initial: const ReplayReadiness(
@@ -307,6 +354,8 @@ void main() {
         },
       );
 
+      await Future<void>.delayed(Duration.zero);
+      expect(readiness.current.authReady, isFalse);
       auth.update(AuthSessionSnapshot.ready(scope));
       await replayStarted.future;
       expect(replayCalls, 1);

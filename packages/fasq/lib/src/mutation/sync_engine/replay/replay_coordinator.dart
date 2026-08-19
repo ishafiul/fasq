@@ -155,6 +155,7 @@ class DurableReplayCoordinator {
   bool _isOpen = false;
   List<OperationId> _recoveredUnknownOutcomeIds = const <OperationId>[];
   Map<String, DateTime> _rateLimitPauses = const <String, DateTime>{};
+  String? _lastServedRateLimitBucket;
 
   /// Opens the store and converts leftover running work into safe dead letters.
   Future<void> open() {
@@ -177,9 +178,17 @@ class DurableReplayCoordinator {
   }
 
   /// Replays all currently admissible work in deterministic order.
-  Future<ReplayRunResult> replay() {
+  ///
+  /// When [cancellationToken] is omitted, cancellation remains internal to
+  /// this replay request. A supplied token lets the caller stop future work
+  /// and lets cooperative adapters observe cancellation for active work.
+  Future<ReplayRunResult> replay({
+    ReplayCancellationToken? cancellationToken,
+  }) {
     return _serialized(() async {
       _requireOpen();
+      final replayCancellationToken =
+          cancellationToken ?? ReplayCancellationToken();
       final executed = <OperationId>[];
       final failed = <OperationId>[];
       final scheduledRetries = <OperationId>[];
@@ -191,6 +200,7 @@ class DurableReplayCoordinator {
       await _applySchedulingLimits();
       await _clearDiagnostics();
       while (true) {
+        if (replayCancellationToken.isCancelled) break;
         final selection = _select(_store.snapshot);
         for (final diagnostic in selection.diagnostics) {
           _recordDiagnostic(blocked, diagnostic);
@@ -207,6 +217,7 @@ class DurableReplayCoordinator {
         final started = await _start(next);
         if (started == null) continue;
         final operation = started.operation;
+        _lastServedRateLimitBucket = operation.rateLimitBucket;
         executed.add(operation.operationId);
 
         final context = MutationExecutionContext(
@@ -215,7 +226,7 @@ class DurableReplayCoordinator {
           authPolicy: operation.authPolicy,
           authScope: operation.authScope,
           attempt: operation.attemptCount,
-          cancellationToken: ReplayCancellationToken(),
+          cancellationToken: replayCancellationToken,
         );
         MutationExecutionResult execution;
         try {
@@ -471,8 +482,12 @@ class DurableReplayCoordinator {
         )
         .toList(growable: false);
 
-    final resolution = const KahnDagSorter<MutationOperation>(
-      readyNodeComparator: _compareReadyNodes,
+    final resolution = KahnDagSorter<MutationOperation>(
+      readyNodeComparator: (left, right) => _compareReadyNodes(
+        left,
+        right,
+        preferredBucket: _lastServedRateLimitBucket,
+      ),
     ).resolve(candidates);
     final diagnostics = <ReplayDiagnostic>[...directDiagnostics.values];
     for (final blockedNode in resolution.blockedNodes) {
@@ -841,9 +856,13 @@ class DurableReplayCoordinator {
   }
 
   MutationOperationState _pauseStateFor(MutationAdapterFailure failure) {
-    return failure.category == MutationFailureCategory.authentication
-        ? MutationOperationState.authBlocked
-        : MutationOperationState.paused;
+    return switch (failure.category) {
+      MutationFailureCategory.authentication =>
+        MutationOperationState.authBlocked,
+      MutationFailureCategory.authorization =>
+        MutationOperationState.authorizationBlocked,
+      _ => MutationOperationState.paused,
+    };
   }
 
   Map<String, DateTime> _readRateLimitPauses(Map<String, Object?> metadata) {
@@ -1102,8 +1121,16 @@ List<ReplayDiagnostic> _deduplicateDiagnostics(
 
 int _compareReadyNodes(
   SyncDagNode<MutationOperation> left,
-  SyncDagNode<MutationOperation> right,
-) {
+  SyncDagNode<MutationOperation> right, {
+  String? preferredBucket,
+}) {
+  if (preferredBucket != null) {
+    final leftIsPreferred = left.payload.rateLimitBucket == preferredBucket;
+    final rightIsPreferred = right.payload.rateLimitBucket == preferredBucket;
+    if (leftIsPreferred != rightIsPreferred) {
+      return leftIsPreferred ? 1 : -1;
+    }
+  }
   final priority = right.payload.priority.compareTo(left.payload.priority);
   if (priority != 0) return priority;
   final createdAt = left.payload.createdAt.compareTo(right.payload.createdAt);

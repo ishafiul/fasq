@@ -20,6 +20,10 @@ enum MutationOperationState {
   /// Operation waits for authentication readiness or reauthentication.
   authBlocked,
 
+  /// Operation was denied by the current authorization policy and needs
+  /// explicit repair or user action before it can run again.
+  authorizationBlocked,
+
   /// Operation is retained for its original scope after identity change.
   quarantined,
 
