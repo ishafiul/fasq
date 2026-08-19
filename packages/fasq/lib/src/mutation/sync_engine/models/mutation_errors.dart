@@ -27,6 +27,12 @@ enum MutationFailureCategory {
   /// Runtime executor could not be invoked.
   executor,
 
+  /// A dependency or prerequisite prevented execution.
+  dependency,
+
+  /// Execution was cancelled before a safe outcome was known.
+  cancellation,
+
   /// Durable storage operation failed.
   storage,
 
