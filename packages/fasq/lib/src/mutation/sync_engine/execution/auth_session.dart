@@ -104,15 +104,22 @@ class AuthScopeGate {
     }
     final expectedScope = operation.authScope;
     final currentScope = session.scope;
+    if (session.status == AuthSessionStatus.signedOut) {
+      return expectedScope == null
+          ? AuthExecutionDecision.blocked
+          : AuthExecutionDecision.quarantined;
+    }
     if (session.status == AuthSessionStatus.revoked) {
       return AuthExecutionDecision.quarantined;
     }
-    if (session.status != AuthSessionStatus.ready ||
-        expectedScope == null ||
-        currentScope != expectedScope) {
-      return currentScope == null || currentScope == expectedScope
-          ? AuthExecutionDecision.blocked
-          : AuthExecutionDecision.quarantined;
+    if (session.status != AuthSessionStatus.ready) {
+      return AuthExecutionDecision.blocked;
+    }
+    if (expectedScope == null || currentScope == null) {
+      return AuthExecutionDecision.blocked;
+    }
+    if (currentScope != expectedScope) {
+      return AuthExecutionDecision.quarantined;
     }
     return AuthExecutionDecision.allowed;
   }

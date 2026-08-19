@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
+import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
@@ -122,6 +123,195 @@ void main() {
           'child-operation',
           'independent-operation',
         ]),
+      );
+      await coordinator.close();
+    },
+  );
+
+  test('pre-execution cancellation does not invoke an executor', () async {
+    final store = _newStore(directory);
+    final registrations = MutationRegistrationRegistry();
+    final key = MutationKey(namespace: 'test', name: 'cancelled');
+    var invocations = 0;
+    registrations.register<Map<String, Object?>, Map<String, Object?>>(
+      key: key,
+      codec: _mapCodec,
+      mutationFn: (_) async {
+        invocations++;
+        return <String, Object?>{};
+      },
+    );
+
+    await store.open();
+    await store.transact(
+      (current) => current.copyWith(
+        active: [_operation('cancelled', key: key)],
+      ),
+    );
+    final coordinator = DurableReplayCoordinator(
+      store: store,
+      registrations: registrations,
+    );
+    await coordinator.open();
+    final cancellationToken = ReplayCancellationToken()..cancel();
+
+    final report = await coordinator.replay(
+      cancellationToken: cancellationToken,
+    );
+
+    expect(invocations, 0);
+    expect(report.executedOperationIds, isEmpty);
+    expect(store.snapshot.active.single.state, MutationOperationState.pending);
+    await coordinator.close();
+  });
+
+  test(
+    'supplied cancellation reaches context and safely pauses in-flight work',
+    () async {
+      final store = _newStore(directory);
+      final registrations = MutationRegistrationRegistry();
+      final key = MutationKey(namespace: 'test', name: 'cooperativeCancel');
+      final adapter = _BlockingExecutionAdapter();
+      var invocations = 0;
+      registrations.register<Map<String, Object?>, Map<String, Object?>>(
+        key: key,
+        codec: _mapCodec,
+        mutationFn: (_) async {
+          invocations++;
+          return <String, Object?>{};
+        },
+      );
+
+      await store.open();
+      await store.transact(
+        (current) => current.copyWith(
+          active: [_operation('cooperative-cancel', key: key)],
+        ),
+      );
+      final coordinator = DurableReplayCoordinator(
+        store: store,
+        registrations: registrations,
+        executionAdapter: adapter,
+      );
+      await coordinator.open();
+      final cancellationToken = ReplayCancellationToken();
+      final replay = coordinator.replay(
+        cancellationToken: cancellationToken,
+      );
+
+      final context = await adapter.contextSeen.future;
+      expect(identical(context.cancellationToken, cancellationToken), isTrue);
+      cancellationToken.cancel();
+      adapter.release();
+
+      final report = await replay;
+
+      expect(invocations, 0);
+      expect(report.failedOperationIds.map((id) => id.value), [
+        'cooperative-cancel',
+      ]);
+      expect(
+        store.snapshot.active.single.state,
+        MutationOperationState.paused,
+      );
+      await coordinator.close();
+    },
+  );
+
+  test(
+    'rotates ready rate-limit buckets between otherwise equal work',
+    () async {
+      final store = _newStore(directory);
+      final registrations = MutationRegistrationRegistry();
+      final key = MutationKey(namespace: 'test', name: 'fairness');
+      final executed = <String>[];
+      registrations.register<Map<String, Object?>, Map<String, Object?>>(
+        key: key,
+        codec: _mapCodec,
+        mutationFn: (variables) async {
+          executed.add(variables['id']! as String);
+          return <String, Object?>{};
+        },
+      );
+
+      await store.open();
+      await store.transact(
+        (current) => current.copyWith(
+          active: [
+            _operation(
+              'a-1',
+              key: key,
+              variables: {'id': 'a-1'},
+              rateLimitBucket: 'a',
+            ),
+            _operation(
+              'a-2',
+              key: key,
+              variables: {'id': 'a-2'},
+              rateLimitBucket: 'a',
+            ),
+            _operation(
+              'b-1',
+              key: key,
+              variables: {'id': 'b-1'},
+              rateLimitBucket: 'b',
+            ),
+          ],
+        ),
+      );
+      final coordinator = DurableReplayCoordinator(
+        store: store,
+        registrations: registrations,
+      );
+      await coordinator.open();
+
+      await coordinator.replay();
+
+      expect(executed, ['a-1', 'b-1', 'a-2']);
+      await coordinator.close();
+    },
+  );
+
+  test(
+    'persists authorization denial as non-replayable repair state',
+    () async {
+      final store = _newStore(directory);
+      final registrations = MutationRegistrationRegistry();
+      final key = MutationKey(namespace: 'test', name: 'forbidden');
+      var adapterCalls = 0;
+      final adapter = _AuthorizationBlockingAdapter(
+        onExecute: () => adapterCalls++,
+      );
+      registrations.register<Map<String, Object?>, Map<String, Object?>>(
+        key: key,
+        codec: _mapCodec,
+        mutationFn: (_) async => <String, Object?>{},
+      );
+
+      await store.open();
+      await store.transact(
+        (current) => current.copyWith(
+          active: [_operation('forbidden', key: key)],
+        ),
+      );
+      final coordinator = DurableReplayCoordinator(
+        store: store,
+        registrations: registrations,
+        executionAdapter: adapter,
+      );
+      await coordinator.open();
+
+      await coordinator.replay();
+      expect(
+        store.snapshot.active.single.state,
+        MutationOperationState.authorizationBlocked,
+      );
+      await coordinator.replay();
+
+      expect(adapterCalls, 1);
+      expect(
+        store.snapshot.active.single.state,
+        MutationOperationState.authorizationBlocked,
       );
       await coordinator.close();
     },
@@ -726,6 +916,7 @@ MutationOperation _operation(
   required MutationKey key,
   Object? variables = const <String, Object?>{},
   List<MutationDependency> dependencies = const <MutationDependency>[],
+  String? rateLimitBucket,
   MutationOperationState state = MutationOperationState.pending,
   int priority = 0,
   Duration maxAge = const Duration(days: 3650),
@@ -742,6 +933,7 @@ MutationOperation _operation(
     priority: priority,
     maxAge: maxAge,
     dependencies: dependencies,
+    rateLimitBucket: rateLimitBucket,
   );
 }
 
@@ -758,4 +950,42 @@ class _FakeOutboxEncryption implements OutboxEncryption {
   @override
   Future<List<int>> decrypt(List<int> ciphertext) async =>
       ciphertext.map((byte) => byte ^ 0xAA).toList(growable: false);
+}
+
+class _BlockingExecutionAdapter implements MutationExecutionAdapter {
+  final contextSeen = Completer<MutationExecutionContext>();
+  final _release = Completer<void>();
+
+  @override
+  Future<MutationExecutionResult> execute(
+    MutationExecutionContext context,
+    Future<Object?> Function() executor,
+  ) async {
+    contextSeen.complete(context);
+    await _release.future;
+    return const DirectMutationExecutionAdapter().execute(context, executor);
+  }
+
+  void release() => _release.complete();
+}
+
+class _AuthorizationBlockingAdapter implements MutationExecutionAdapter {
+  _AuthorizationBlockingAdapter({required this.onExecute});
+
+  final void Function() onExecute;
+
+  @override
+  Future<MutationExecutionResult> execute(
+    MutationExecutionContext context,
+    Future<Object?> Function() executor,
+  ) async {
+    onExecute();
+    return const MutationExecutionFailure(
+      MutationAdapterFailure(
+        category: MutationFailureCategory.authorization,
+        messageKey: 'sync.replay.authorization_denied',
+        disposition: MutationFailureDisposition.pause,
+      ),
+    );
+  }
 }

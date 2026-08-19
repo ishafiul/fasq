@@ -155,9 +155,12 @@ class ReplayLifecycleController {
       _onConnectivityChanged,
     );
     _readiness.update(connectivityReady: resolvedNetworkStatus.isOnline);
-    if (authSessionProvider != null) {
-      _authSubscription = authSessionProvider.changes.listen(_onAuthChanged);
-      unawaited(_resolveInitialAuth(authSessionProvider));
+    final provider = authSessionProvider;
+    if (provider == null) {
+      _readiness.update(authReady: true);
+    } else {
+      _authSubscription = provider.changes.listen(_onAuthChanged);
+      unawaited(_resolveInitialAuth(provider));
     }
   }
 
