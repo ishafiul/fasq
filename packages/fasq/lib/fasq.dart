@@ -23,6 +23,7 @@ export 'src/client/query_client.dart';
 export 'src/client/query_client_observer.dart';
 export 'src/memory/memory_pressure_handler.dart';
 export 'src/mutation/mutation.dart';
+export 'src/mutation/durable_mutation_queue.dart';
 export 'src/mutation/mutation_meta.dart';
 export 'src/mutation/mutation_options.dart';
 export 'src/mutation/mutation_snapshot.dart';

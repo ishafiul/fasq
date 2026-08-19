@@ -1,4 +1,39 @@
+import 'package:fasq/src/mutation/durable_mutation_queue.dart';
 import 'package:fasq/src/mutation/mutation_meta.dart';
+import 'package:fasq/src/mutation/sync_engine/mutation_contracts.dart';
+import 'package:meta/meta.dart';
+
+/// Configuration required to persist and replay a mutation after restart.
+///
+/// The key identifies the logical mutation definition. The codec keeps the
+/// queued variables JSON-safe and reconstructs their typed value before the
+/// registered mutation executor runs.
+@immutable
+class DurableMutationQueueOptions<TVariables> {
+  /// Creates durable queue configuration for a mutation.
+  const DurableMutationQueueOptions({
+    required this.queue,
+    required this.mutationKey,
+    required this.codec,
+    this.authPolicy = AuthPolicy.none,
+    this.authScope,
+  });
+
+  /// Durable queue used to persist and replay this mutation.
+  final DurableMutationQueue queue;
+
+  /// Stable, versioned identity for the logical mutation definition.
+  final MutationKey mutationKey;
+
+  /// Typed codec for the persisted mutation variables.
+  final MutationCodec<TVariables> codec;
+
+  /// Authentication requirement captured with each queued operation.
+  final AuthPolicy authPolicy;
+
+  /// Exact non-secret identity captured with each authenticated operation.
+  final AuthScope? authScope;
+}
 
 /// Configuration options for mutation behavior and lifecycle callbacks.
 class MutationOptions<T, TVariables> {
@@ -8,11 +43,15 @@ class MutationOptions<T, TVariables> {
     this.onError,
     this.onMutate,
     this.queueWhenOffline = false,
+    this.durableQueue,
     this.maxRetries,
     this.onQueued,
     this.priority = 0,
     this.meta,
-  });
+  }) : assert(
+         !queueWhenOffline || durableQueue != null,
+         'queueWhenOffline requires durableQueue configuration',
+       );
 
   /// Called when the mutation succeeds.
   final void Function(T data)? onSuccess;
@@ -25,6 +64,33 @@ class MutationOptions<T, TVariables> {
 
   /// Whether to queue this mutation when offline.
   final bool queueWhenOffline;
+
+  /// Stable identity, typed codec, and auth policy for durable queueing.
+  ///
+  /// This must be provided when [queueWhenOffline] is true. It is ignored for
+  /// online-only mutations and does not change immediate execution behavior.
+  final DurableMutationQueueOptions<TVariables>? durableQueue;
+
+  /// Stable logical identity for this mutation, if durable queueing is enabled.
+  MutationKey? get mutationKey => durableQueue?.mutationKey;
+
+  /// Typed variable codec, if durable queueing is enabled.
+  MutationCodec<TVariables>? get codec => durableQueue?.codec;
+
+  /// Authentication policy for queued operations.
+  AuthPolicy get authPolicy => durableQueue?.authPolicy ?? AuthPolicy.none;
+
+  /// Validates the durable queue contract at a runtime integration boundary.
+  ///
+  /// The constructor assertion catches invalid configuration in debug builds;
+  /// this method keeps the same rejection behavior when assertions are off.
+  void validateDurableConfiguration() {
+    if (queueWhenOffline && durableQueue == null) {
+      throw ArgumentError(
+        'queueWhenOffline requires durableQueue configuration',
+      );
+    }
+  }
 
   /// Maximum retry attempts for failed mutations.
   final int? maxRetries;
