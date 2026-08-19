@@ -8,15 +8,22 @@ void main() {
 
   group('Mutation with Offline Queue', () {
     late Mutation<String, String> mutation;
+    late DurableMutationQueue durableQueue;
 
     setUp(() {
+      durableQueue = DurableMutationQueue(store: _MemoryOutboxStore());
       mutation = Mutation<String, String>(
         mutationFn: (data) async {
           await Future<void>.delayed(const Duration(milliseconds: 10));
           return 'Processed: $data';
         },
-        options: const MutationOptions(
+        options: MutationOptions(
           queueWhenOffline: true,
+          durableQueue: DurableMutationQueueOptions(
+            queue: durableQueue,
+            mutationKey: _mutationKey,
+            codec: _stringCodec,
+          ),
         ),
       );
     });
@@ -24,7 +31,7 @@ void main() {
     tearDown(() {
       mutation.dispose();
       NetworkStatus.instance.setOnline(online: true);
-      unawaited(OfflineQueueManager.instance().clear());
+      unawaited(durableQueue.close());
     });
 
     test('should execute immediately when online', () async {
@@ -55,7 +62,7 @@ void main() {
 
       expect(states.length, equals(1));
       expect(states.first.isQueued, isTrue);
-      expect(OfflineQueueManager.instance().length, equals(1));
+      expect(durableQueue.snapshot.active, hasLength(1));
 
       await subscription.cancel();
     });
@@ -79,7 +86,6 @@ void main() {
       expect(states.length, greaterThanOrEqualTo(2));
       expect(states.first.isLoading, isTrue);
       expect(states.last.isSuccess, isTrue);
-      expect(OfflineQueueManager.instance().length, equals(0));
 
       await subscription.cancel();
       mutationNoQueue.dispose();
@@ -87,12 +93,20 @@ void main() {
 
     test('should call onQueued callback when queued', () async {
       String? queuedData;
+      final callbackQueue = DurableMutationQueue(
+        store: _MemoryOutboxStore(),
+      );
       final mutationWithCallback = Mutation<String, String>(
         mutationFn: (data) async {
           return 'Processed: $data';
         },
         options: MutationOptions(
           queueWhenOffline: true,
+          durableQueue: DurableMutationQueueOptions(
+            queue: callbackQueue,
+            mutationKey: _mutationKey,
+            codec: _stringCodec,
+          ),
           onQueued: (data) {
             queuedData = data;
           },
@@ -106,15 +120,125 @@ void main() {
       expect(queuedData, equals('test data'));
 
       mutationWithCallback.dispose();
+      await callbackQueue.close();
+    });
+
+    test(
+      'replays queued work through the registered mutation function',
+      () async {
+        var calls = 0;
+        final replayQueue = DurableMutationQueue(store: _MemoryOutboxStore());
+        final replayMutation = Mutation<String, String>(
+          mutationFn: (data) async {
+            calls++;
+            return 'Replayed: $data';
+          },
+          options: MutationOptions(
+            queueWhenOffline: true,
+            durableQueue: DurableMutationQueueOptions(
+              queue: replayQueue,
+              mutationKey: MutationKey(namespace: 'tests', name: 'replay'),
+              codec: _stringCodec,
+            ),
+          ),
+        );
+
+        NetworkStatus.instance.setOnline(online: false);
+        await replayMutation.mutate('after restart');
+        NetworkStatus.instance.setOnline(online: true);
+        final report = await replayQueue.replay();
+
+        expect(calls, 1);
+        expect(report.executedOperationIds, hasLength(1));
+        expect(replayQueue.snapshot.active, isEmpty);
+        expect(
+          replayQueue.snapshot.history.single.state,
+          MutationOperationState.succeeded,
+        );
+
+        replayMutation.dispose();
+        await replayQueue.close();
+      },
+    );
+
+    test(
+      'replays non-JSON results through the configured result encoder',
+      () async {
+        final replayQueue = DurableMutationQueue(store: _MemoryOutboxStore());
+        final replayMutation = Mutation<DateTime, String>(
+          mutationFn: (data) async => DateTime.utc(2026, 8, data.length),
+          options: MutationOptions(
+            queueWhenOffline: true,
+            resultEncoder: (value) => value.toIso8601String(),
+            durableQueue: DurableMutationQueueOptions(
+              queue: replayQueue,
+              mutationKey: MutationKey(namespace: 'tests', name: 'date-result'),
+              codec: _stringCodec,
+            ),
+          ),
+        );
+
+        NetworkStatus.instance.setOnline(online: false);
+        await replayMutation.mutate('offline');
+        NetworkStatus.instance.setOnline(online: true);
+
+        final report = await replayQueue.replay();
+
+        expect(report.didExecute, isTrue);
+        expect(replayQueue.snapshot.active, isEmpty);
+        expect(
+          replayQueue.snapshot.history.single.resultProjection,
+          '2026-08-07T00:00:00.000Z',
+        );
+
+        replayMutation.dispose();
+        await replayQueue.close();
+      },
+    );
+
+    test('reuses one registration for shared queue and mutation key', () async {
+      final sharedQueue = DurableMutationQueue(store: _MemoryOutboxStore());
+      final options = MutationOptions<String, String>(
+        queueWhenOffline: true,
+        durableQueue: DurableMutationQueueOptions(
+          queue: sharedQueue,
+          mutationKey: MutationKey(namespace: 'tests', name: 'shared'),
+          codec: _stringCodec,
+        ),
+      );
+
+      final first = Mutation<String, String>(
+        mutationFn: (data) async => 'first:$data',
+        options: options,
+      );
+      final second = Mutation<String, String>(
+        mutationFn: (data) async => 'second:$data',
+        options: options,
+      );
+
+      expect(
+        sharedQueue.hasRegistration(options.durableQueue!.mutationKey),
+        isTrue,
+      );
+
+      first.dispose();
+      second.dispose();
+      await sharedQueue.close();
     });
 
     test('should handle errors when online', () async {
+      final errorQueue = DurableMutationQueue(store: _MemoryOutboxStore());
       final errorMutation = Mutation<String, String>(
         mutationFn: (data) async {
           throw Exception('Test error');
         },
-        options: const MutationOptions(
+        options: MutationOptions(
           queueWhenOffline: true,
+          durableQueue: DurableMutationQueueOptions(
+            queue: errorQueue,
+            mutationKey: _mutationKey,
+            codec: _stringCodec,
+          ),
         ),
       );
 
@@ -133,6 +257,7 @@ void main() {
 
       await subscription.cancel();
       errorMutation.dispose();
+      await errorQueue.close();
     });
 
     test('should reset state correctly', () async {
@@ -148,4 +273,53 @@ void main() {
       expect(mutation.state.isIdle, isTrue);
     });
   });
+}
+
+final _mutationKey = MutationKey(namespace: 'tests', name: 'text');
+
+final _stringCodec = JsonMutationCodec<String>(
+  encoder: (value) => value,
+  decoder: (payload) {
+    if (payload is! String) {
+      throw const InvalidMutationPayloadException('Expected a string');
+    }
+    return payload;
+  },
+);
+
+class _MemoryOutboxStore implements DurableOutboxStore {
+  OutboxSnapshot _snapshot = OutboxSnapshot();
+  int _generation = 0;
+  bool _isOpen = false;
+
+  @override
+  Future<OutboxSnapshot> open() async {
+    _isOpen = true;
+    return _snapshot;
+  }
+
+  @override
+  OutboxSnapshot get snapshot => _snapshot;
+
+  @override
+  int get generation => _generation;
+
+  @override
+  Future<OutboxSnapshot> transact(
+    DurableOutboxTransaction transaction, {
+    int? expectedGeneration,
+  }) async {
+    if (!_isOpen) throw StateError('store is closed');
+    if (expectedGeneration != null && expectedGeneration != _generation) {
+      throw const OutboxGenerationConflictException();
+    }
+    _snapshot = transaction(_snapshot);
+    _generation++;
+    return _snapshot;
+  }
+
+  @override
+  Future<void> close() async {
+    _isOpen = false;
+  }
 }

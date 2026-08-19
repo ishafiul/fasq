@@ -5,7 +5,6 @@ import 'package:fasq/src/mutation/mutation_options.dart';
 import 'package:fasq/src/mutation/mutation_snapshot.dart';
 import 'package:fasq/src/mutation/mutation_state.dart';
 import 'package:fasq/src/mutation/network_status.dart';
-import 'package:fasq/src/mutation/offline_queue.dart';
 
 /// Executes and tracks a mutation with optional offline queueing.
 class Mutation<T, TVariables> {
@@ -15,6 +14,18 @@ class Mutation<T, TVariables> {
     this.options,
   }) {
     _controller = StreamController<MutationState<T>>.broadcast();
+    options?.validateDurableConfiguration();
+    final durableQueue = options?.durableQueue;
+    if (durableQueue != null &&
+        !durableQueue.queue.hasRegistration(durableQueue.mutationKey)) {
+      durableQueue.queue.register<T, TVariables>(
+        key: durableQueue.mutationKey,
+        codec: durableQueue.codec,
+        mutationFn: mutationFn,
+        authPolicy: durableQueue.authPolicy,
+        resultEncoder: options?.resultEncoder,
+      );
+    }
   }
 
   /// Function that performs the mutation work.
@@ -50,19 +61,31 @@ class Mutation<T, TVariables> {
     final shouldQueue = isOffline && (options?.queueWhenOffline ?? false);
 
     if (shouldQueue) {
-      final queueManager = OfflineQueueManager.instance();
-      final mutationType = _getMutationType();
-
-      await queueManager.enqueue(
-        'mutation_${DateTime.now().millisecondsSinceEpoch}',
-        mutationType,
-        variables,
-        priority: options?.priority ?? 0,
-      );
-
-      _updateState(const MutationState.queued());
-      options?.onQueued?.call(variables);
-      return;
+      final durableQueue = options?.durableQueue;
+      if (durableQueue == null) {
+        throw StateError(
+          'queueWhenOffline requires durable queue configuration',
+        );
+      }
+      try {
+        await durableQueue.queue.open();
+        await durableQueue.queue.enqueue(
+          key: durableQueue.mutationKey,
+          variables: variables,
+          authScope: durableQueue.authScope,
+          priority: options?.priority ?? 0,
+          maxAttempts: options?.maxRetries ?? 5,
+        );
+        _updateState(const MutationState.queued());
+        options?.onQueued?.call(variables);
+        return;
+      } on Object catch (error, stackTrace) {
+        if (!_isDisposed) {
+          _updateState(MutationState.error(error, stackTrace));
+          options?.onError?.call(error);
+        }
+        rethrow;
+      }
     }
 
     _lastVariables = variables;
@@ -102,12 +125,6 @@ class Mutation<T, TVariables> {
         }
       }
     }
-  }
-
-  String _getMutationType() {
-    // Generate a unique mutation type based on the mutation function
-    // In a real app, you'd want to register these explicitly
-    return 'mutation_${mutationFn.hashCode}';
   }
 
   /// Resets this mutation to the idle state.
