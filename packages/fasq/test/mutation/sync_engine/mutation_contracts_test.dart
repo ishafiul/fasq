@@ -233,6 +233,56 @@ void main() {
     });
   });
 
+  group('MutationRegistrationRegistry result contracts', () {
+    test('encodes executor results with a registered result encoder', () async {
+      final registry = MutationRegistrationRegistry();
+      final key = MutationKey(namespace: 'todos', name: 'create');
+      registry.register<String, String>(
+        key: key,
+        codec: JsonMutationCodec<String>(
+          encoder: (value) => value,
+          decoder: (payload) {
+            if (payload is! String) {
+              throw const InvalidMutationPayloadException('Expected string');
+            }
+            return payload;
+          },
+        ),
+        mutationFn: (value) async => 'created:$value',
+        resultEncoder: (value) => <String, Object?>{'result': value},
+      );
+
+      expect(
+        await registry.execute(key, 'todo'),
+        <String, Object?>{'result': 'created:todo'},
+      );
+    });
+
+    test('rejects executor results that cannot be JSON encoded', () async {
+      final registry = MutationRegistrationRegistry();
+      final key = MutationKey(namespace: 'todos', name: 'create');
+      registry.register<String, String>(
+        key: key,
+        codec: JsonMutationCodec<String>(
+          encoder: (value) => value,
+          decoder: (payload) {
+            if (payload is! String) {
+              throw const InvalidMutationPayloadException('Expected string');
+            }
+            return payload;
+          },
+        ),
+        mutationFn: (value) async => 'created:$value',
+        resultEncoder: (_) => DateTime.utc(2026, 8, 19),
+      );
+
+      expect(
+        () => registry.execute(key, 'todo'),
+        throwsA(isA<InvalidMutationResultException>()),
+      );
+    });
+  });
+
   test('registers an executor without persisting the closure', () async {
     final registry = MutationRegistrationRegistry();
     final key = MutationKey(namespace: 'todos', name: 'create');

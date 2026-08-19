@@ -94,6 +94,7 @@ class MutationRegistrationRegistry {
     required MutationCodec<TVariables> codec,
     required Future<TData> Function(TVariables variables) mutationFn,
     AuthPolicy authPolicy = AuthPolicy.none,
+    Object? Function(TData data)? resultEncoder,
   }) {
     if (_registrations.containsKey(key)) {
       throw DuplicateMutationRegistrationException(key.key);
@@ -103,6 +104,7 @@ class MutationRegistrationRegistry {
       codec: codec,
       mutationFn: mutationFn,
       authPolicy: authPolicy,
+      resultEncoder: resultEncoder,
     );
   }
 
@@ -172,12 +174,14 @@ class _RegisteredMutation<TData, TVariables> {
     required this.codec,
     required this.mutationFn,
     required this.authPolicy,
+    required this.resultEncoder,
   });
 
   final MutationKey key;
   final MutationCodec<TVariables> codec;
   final Future<TData> Function(TVariables variables) mutationFn;
   final AuthPolicy authPolicy;
+  final Object? Function(TData data)? resultEncoder;
 
   Object? encode(Object? variables) {
     if (variables is! TVariables) {
@@ -198,7 +202,15 @@ class _RegisteredMutation<TData, TVariables> {
         'expected $TVariables',
       );
     }
-    return mutationFn(variables);
+    final result = await mutationFn(variables);
+    try {
+      final encoder = resultEncoder;
+      final encoded = encoder == null ? result : encoder(result);
+      validateJsonValue(encoded, 'mutation result');
+      return encoded;
+    } on Object {
+      throw const InvalidMutationResultException();
+    }
   }
 }
 

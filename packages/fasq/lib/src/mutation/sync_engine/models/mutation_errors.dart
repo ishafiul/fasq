@@ -78,6 +78,13 @@ class InvalidMutationPayloadException extends MutationContractException {
   const InvalidMutationPayloadException(super.message);
 }
 
+/// Raised when an executor result cannot be durably encoded.
+class InvalidMutationResultException extends MutationContractException {
+  /// Creates an invalid-result exception.
+  const InvalidMutationResultException()
+    : super('Mutation result could not be encoded safely');
+}
+
 /// Raised when a persisted key has no registered codec or executor.
 class UnknownMutationKeyException extends MutationContractException {
   /// Creates an unknown-key exception.
