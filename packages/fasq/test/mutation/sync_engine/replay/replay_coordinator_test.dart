@@ -728,6 +728,7 @@ MutationOperation _operation(
   List<MutationDependency> dependencies = const <MutationDependency>[],
   MutationOperationState state = MutationOperationState.pending,
   int priority = 0,
+  Duration maxAge = const Duration(days: 3650),
 }) {
   return MutationOperation(
     operationId: OperationId(id),
@@ -739,6 +740,7 @@ MutationOperation _operation(
     authPolicy: AuthPolicy.none,
     state: state,
     priority: priority,
+    maxAge: maxAge,
     dependencies: dependencies,
   );
 }

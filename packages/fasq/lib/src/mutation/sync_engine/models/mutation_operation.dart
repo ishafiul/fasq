@@ -17,6 +17,12 @@ enum MutationOperationState {
   /// Operation is paused by lifecycle or policy.
   paused,
 
+  /// Operation waits for authentication readiness or reauthentication.
+  authBlocked,
+
+  /// Operation is retained for its original scope after identity change.
+  quarantined,
+
   /// Operation cannot run until a dependency or repair is resolved.
   blocked,
 
@@ -65,6 +71,12 @@ class MutationOperation {
     List<MutationDependency> dependencies = const <MutationDependency>[],
     List<MutationProjectionDescriptor> projections =
         const <MutationProjectionDescriptor>[],
+    int attemptCount = 0,
+    int maxAttempts = 5,
+    Duration maxAge = const Duration(days: 30),
+    DateTime? nextRunAt,
+    String? rateLimitBucket,
+    DateTime? lastAttemptAt,
   }) {
     if ((authPolicy == AuthPolicy.required) != (authScope != null)) {
       throw ArgumentError.value(
@@ -72,6 +84,19 @@ class MutationOperation {
         'authScope',
         'must be present only for required auth policy',
       );
+    }
+    if (attemptCount < 0) {
+      throw ArgumentError.value(
+        attemptCount,
+        'attemptCount',
+        'must not be negative',
+      );
+    }
+    if (maxAttempts < 1) {
+      throw ArgumentError.value(maxAttempts, 'maxAttempts', 'must be positive');
+    }
+    if (maxAge <= Duration.zero) {
+      throw ArgumentError.value(maxAge, 'maxAge', 'must be positive');
     }
     validateJsonValue(variables, 'variables');
     return MutationOperation._(
@@ -87,6 +112,12 @@ class MutationOperation {
       authScope: authScope,
       dependencies: List.unmodifiable(dependencies),
       projections: List.unmodifiable(projections),
+      attemptCount: attemptCount,
+      maxAttempts: maxAttempts,
+      maxAge: maxAge,
+      nextRunAt: nextRunAt,
+      rateLimitBucket: rateLimitBucket,
+      lastAttemptAt: lastAttemptAt,
     );
   }
 
@@ -102,6 +133,12 @@ class MutationOperation {
     required this.priority,
     required this.dependencies,
     required this.projections,
+    required this.attemptCount,
+    required this.maxAttempts,
+    required this.maxAge,
+    required this.nextRunAt,
+    required this.rateLimitBucket,
+    required this.lastAttemptAt,
     this.authScope,
   });
 
@@ -116,6 +153,12 @@ class MutationOperation {
     final authPolicy = json['authPolicy'];
     final state = json['state'];
     final priority = json['priority'];
+    final attemptCount = json['attemptCount'];
+    final maxAttempts = json['maxAttempts'];
+    final maxAgeMs = json['maxAgeMs'];
+    final nextRunAt = json['nextRunAt'];
+    final rateLimitBucket = json['rateLimitBucket'];
+    final lastAttemptAt = json['lastAttemptAt'];
     if (operationId is! String ||
         mutationKey is! Map<Object?, Object?> ||
         createdAt is! String ||
@@ -123,7 +166,13 @@ class MutationOperation {
         lineageId is! String ||
         authPolicy is! String ||
         state is! String ||
-        (priority != null && priority is! int)) {
+        (priority != null && priority is! int) ||
+        (attemptCount != null && attemptCount is! int) ||
+        (maxAttempts != null && maxAttempts is! int) ||
+        (maxAgeMs != null && maxAgeMs is! int) ||
+        (nextRunAt != null && nextRunAt is! String) ||
+        (rateLimitBucket != null && rateLimitBucket is! String) ||
+        (lastAttemptAt != null && lastAttemptAt is! String)) {
       throw const InvalidMutationPayloadException(
         'Invalid mutation operation payload',
       );
@@ -161,6 +210,15 @@ class MutationOperation {
       authPolicy: parsedAuthPolicy,
       state: parseMutationOperationState(state),
       priority: priority as int? ?? 0,
+      attemptCount: attemptCount as int? ?? 0,
+      maxAttempts: maxAttempts as int? ?? 5,
+      maxAge: Duration(
+        milliseconds:
+            maxAgeMs as int? ?? const Duration(days: 30).inMilliseconds,
+      ),
+      nextRunAt: _parseOptionalDate(nextRunAt as String?),
+      rateLimitBucket: rateLimitBucket as String?,
+      lastAttemptAt: _parseOptionalDate(lastAttemptAt as String?),
       authScope: parsedScope,
       dependencies: dependencies,
       projections: projections,
@@ -203,11 +261,35 @@ class MutationOperation {
   /// Deterministic scheduling priority. Higher values run first.
   final int priority;
 
+  /// Number of executor invocations already started.
+  final int attemptCount;
+
+  /// Maximum executor invocations allowed for this operation.
+  final int maxAttempts;
+
+  /// Maximum age measured from [createdAt].
+  final Duration maxAge;
+
+  /// Absolute time at which delayed work may run again.
+  final DateTime? nextRunAt;
+
+  /// Stable adapter-defined fairness bucket.
+  final String? rateLimitBucket;
+
+  /// Timestamp of the most recent executor invocation.
+  final DateTime? lastAttemptAt;
+
   /// Returns this operation with selected durable fields replaced.
   MutationOperation copyWith({
     Object? variables = _unset,
     MutationOperationState? state,
     int? priority,
+    int? attemptCount,
+    int? maxAttempts,
+    Duration? maxAge,
+    Object? nextRunAt = _unset,
+    Object? rateLimitBucket = _unset,
+    Object? lastAttemptAt = _unset,
   }) {
     return MutationOperation(
       operationId: operationId,
@@ -219,6 +301,18 @@ class MutationOperation {
       authPolicy: authPolicy,
       state: state ?? this.state,
       priority: priority ?? this.priority,
+      attemptCount: attemptCount ?? this.attemptCount,
+      maxAttempts: maxAttempts ?? this.maxAttempts,
+      maxAge: maxAge ?? this.maxAge,
+      nextRunAt: identical(nextRunAt, _unset)
+          ? this.nextRunAt
+          : nextRunAt as DateTime?,
+      rateLimitBucket: identical(rateLimitBucket, _unset)
+          ? this.rateLimitBucket
+          : rateLimitBucket as String?,
+      lastAttemptAt: identical(lastAttemptAt, _unset)
+          ? this.lastAttemptAt
+          : lastAttemptAt as DateTime?,
       authScope: authScope,
       dependencies: dependencies,
       projections: projections,
@@ -239,6 +333,12 @@ class MutationOperation {
     'projections': projections.map((item) => item.toJson()).toList(),
     'state': state.name,
     'priority': priority,
+    'attemptCount': attemptCount,
+    'maxAttempts': maxAttempts,
+    'maxAgeMs': maxAge.inMilliseconds,
+    'nextRunAt': nextRunAt?.toIso8601String(),
+    'rateLimitBucket': rateLimitBucket,
+    'lastAttemptAt': lastAttemptAt?.toIso8601String(),
   };
 
   static AuthPolicy _parseAuthPolicy(String value) {
@@ -249,6 +349,17 @@ class MutationOperation {
   }
 
   static DateTime _parseCreatedAt(String value) {
+    try {
+      return DateTime.parse(value);
+    } on FormatException {
+      throw const InvalidMutationPayloadException(
+        'Invalid mutation operation timestamp',
+      );
+    }
+  }
+
+  static DateTime? _parseOptionalDate(String? value) {
+    if (value == null) return null;
     try {
       return DateTime.parse(value);
     } on FormatException {

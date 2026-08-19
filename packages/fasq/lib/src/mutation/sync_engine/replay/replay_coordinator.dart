@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
+import 'package:fasq/src/mutation/sync_engine/execution/auth_session.dart';
+import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
 import 'package:fasq/src/mutation/sync_engine/kahn_dag.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
+import 'package:fasq/src/mutation/sync_engine/replay/retry_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/store/durable_outbox.dart';
 import 'package:fasq/src/mutation/sync_engine/store/outbox_models.dart';
 
@@ -83,12 +86,16 @@ class ReplayRunResult {
     required List<OperationId> failedOperationIds,
     required List<OperationId> recoveredUnknownOutcomeIds,
     required List<ReplayDiagnostic> blockedOperations,
+    List<OperationId> scheduledRetryOperationIds = const <OperationId>[],
   }) : executedOperationIds = List.unmodifiable(executedOperationIds),
        failedOperationIds = List.unmodifiable(failedOperationIds),
        recoveredUnknownOutcomeIds = List.unmodifiable(
          recoveredUnknownOutcomeIds,
        ),
-       blockedOperations = List.unmodifiable(blockedOperations);
+       blockedOperations = List.unmodifiable(blockedOperations),
+       scheduledRetryOperationIds = List.unmodifiable(
+         scheduledRetryOperationIds,
+       );
 
   /// Operations whose registered executor was invoked.
   final List<OperationId> executedOperationIds;
@@ -101,6 +108,9 @@ class ReplayRunResult {
 
   /// Operations left blocked with durable diagnostics.
   final List<ReplayDiagnostic> blockedOperations;
+
+  /// Operations that failed safely and were scheduled for later replay.
+  final List<OperationId> scheduledRetryOperationIds;
 
   /// Whether this request invoked at least one executor.
   bool get didExecute => executedOperationIds.isNotEmpty;
@@ -117,18 +127,34 @@ class DurableReplayCoordinator {
     required DurableOutboxStore store,
     required MutationRegistrationRegistry registrations,
     DateTime Function()? now,
+    MutationExecutionAdapter? executionAdapter,
+    RetryPolicy retryPolicy = const RetryPolicy(),
+    AuthSessionProvider? authSessionProvider,
+    bool Function()? isOnline,
   }) : _store = store,
        _registrations = registrations,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _executionAdapter =
+           executionAdapter ?? const DirectMutationExecutionAdapter(),
+       _retryPolicy = retryPolicy,
+       _authSessionProvider = authSessionProvider,
+       _isOnline = isOnline;
 
   static const _diagnosticsMetadataKey = 'replayDiagnostics';
+  static const _rateLimitPausesMetadataKey = 'rateLimitPauses';
 
   final DurableOutboxStore _store;
   final MutationRegistrationRegistry _registrations;
   final DateTime Function() _now;
+  final MutationExecutionAdapter _executionAdapter;
+  final RetryPolicy _retryPolicy;
+  final AuthSessionProvider? _authSessionProvider;
+  final bool Function()? _isOnline;
+  final AuthScopeGate _authScopeGate = const AuthScopeGate();
   Future<void> _tail = Future<void>.value();
   bool _isOpen = false;
   List<OperationId> _recoveredUnknownOutcomeIds = const <OperationId>[];
+  Map<String, DateTime> _rateLimitPauses = const <String, DateTime>{};
 
   /// Opens the store and converts leftover running work into safe dead letters.
   Future<void> open() {
@@ -136,6 +162,7 @@ class DurableReplayCoordinator {
       if (_isOpen) return;
       await _store.open();
       try {
+        _rateLimitPauses = _readRateLimitPauses(_store.snapshot.metadata);
         _recoveredUnknownOutcomeIds = await _recoverInterrupted();
         _isOpen = true;
       } on Object {
@@ -155,10 +182,13 @@ class DurableReplayCoordinator {
       _requireOpen();
       final executed = <OperationId>[];
       final failed = <OperationId>[];
+      final scheduledRetries = <OperationId>[];
       final blocked = <String, ReplayDiagnostic>{};
       final recovered = List<OperationId>.from(_recoveredUnknownOutcomeIds);
       _recoveredUnknownOutcomeIds = const <OperationId>[];
 
+      await _applyReadinessGates();
+      await _applySchedulingLimits();
       await _clearDiagnostics();
       while (true) {
         final selection = _select(_store.snapshot);
@@ -179,22 +209,42 @@ class DurableReplayCoordinator {
         final operation = started.operation;
         executed.add(operation.operationId);
 
-        Object? result;
+        final context = MutationExecutionContext(
+          operationId: operation.operationId,
+          idempotencyKey: operation.idempotencyKey,
+          authPolicy: operation.authPolicy,
+          authScope: operation.authScope,
+          attempt: operation.attemptCount,
+          cancellationToken: ReplayCancellationToken(),
+        );
+        MutationExecutionResult execution;
         try {
-          result = await _registrations.execute(
-            operation.mutationKey,
-            operation.variables,
+          execution = await _executionAdapter.execute(
+            context,
+            () => _registrations.execute(
+              operation.mutationKey,
+              operation.variables,
+            ),
           );
         } on Object catch (error) {
-          failed.add(operation.operationId);
-          await _completeFailure(
-            started,
-            error,
-            unknownOutcome: !_isDeterministicFailure(error),
+          execution = MutationExecutionFailure(
+            _classifyAdapterError(error),
           );
+        }
+        if (execution case MutationExecutionSuccess(:final value)) {
+          await _completeSuccess(started, value);
           continue;
         }
-        await _completeSuccess(started, result);
+        if (execution case MutationExecutionFailure(:final failure)) {
+          failed.add(operation.operationId);
+          final action = await _completeFailure(
+            started,
+            failure,
+          );
+          if (action == RetryPlanAction.retry) {
+            scheduledRetries.add(operation.operationId);
+          }
+        }
       }
 
       return ReplayRunResult(
@@ -202,6 +252,7 @@ class DurableReplayCoordinator {
         failedOperationIds: List.unmodifiable(failed),
         recoveredUnknownOutcomeIds: List.unmodifiable(recovered),
         blockedOperations: List.unmodifiable(blocked.values),
+        scheduledRetryOperationIds: List.unmodifiable(scheduledRetries),
       );
     });
   }
@@ -268,10 +319,10 @@ class DurableReplayCoordinator {
   }
 
   _ReplaySelection _select(OutboxSnapshot snapshot) {
-    final pending = snapshot.active
-        .where((operation) => operation.state == MutationOperationState.pending)
+    final replayable = snapshot.active
+        .where(_isReplayable)
         .toList(growable: false);
-    if (pending.isEmpty) {
+    if (replayable.isEmpty) {
       return const _ReplaySelection(
         generation: 0,
         orderedNodes: <SyncDagNode<MutationOperation>>[],
@@ -279,6 +330,7 @@ class DurableReplayCoordinator {
       );
     }
 
+    final pending = replayable.where(_isDue).toList(growable: false);
     final pendingIds = pending
         .map((operation) => operation.operationId.value)
         .toSet();
@@ -455,7 +507,7 @@ class DurableReplayCoordinator {
     final expectedGeneration = _store.generation;
     final snapshot = _store.snapshot;
     final current = _findActive(snapshot, operation.operationId.value);
-    if (current == null || current.state != MutationOperationState.pending) {
+    if (current == null || !_isReplayable(current)) {
       return null;
     }
     final projection = _resolveDependencies(current, snapshot);
@@ -473,6 +525,9 @@ class DurableReplayCoordinator {
     final started = current.copyWith(
       variables: projection.variables,
       state: MutationOperationState.running,
+      attemptCount: current.attemptCount + 1,
+      lastAttemptAt: _now(),
+      nextRunAt: null,
     );
     final committed = await _store.transact(
       (latest) {
@@ -480,8 +535,7 @@ class DurableReplayCoordinator {
           latest,
           operation.operationId.value,
         );
-        if (latestOperation == null ||
-            latestOperation.state != MutationOperationState.pending) {
+        if (latestOperation == null || !_isReplayable(latestOperation)) {
           return latest;
         }
         return latest.copyWith(
@@ -516,10 +570,12 @@ class DurableReplayCoordinator {
     } on Object {
       await _completeFailure(
         started,
-        const InvalidMutationPayloadException(
-          'Mutation result cannot be persisted safely',
+        const MutationAdapterFailure(
+          category: MutationFailureCategory.payload,
+          messageKey: 'sync.replay.invalid_result',
+          disposition: MutationFailureDisposition.unknownOutcome,
+          outcomeKnowledge: MutationOutcomeKnowledge.unknown,
         ),
-        unknownOutcome: true,
       );
       return;
     }
@@ -540,15 +596,59 @@ class DurableReplayCoordinator {
     );
   }
 
-  Future<void> _completeFailure(
+  Future<RetryPlanAction> _completeFailure(
     _StartedOperation started,
-    Object error, {
-    bool unknownOutcome = false,
-  }) async {
+    MutationAdapterFailure failure,
+  ) async {
     final operation = started.operation;
-    final category = unknownOutcome
-        ? MutationFailureCategory.unknown
-        : _failureCategory(error);
+    final plan = _retryPolicy.plan(
+      operation: operation,
+      failure: failure,
+      now: _now(),
+    );
+    if (plan.action == RetryPlanAction.retry ||
+        plan.action == RetryPlanAction.pause) {
+      await _store.transact(
+        (current) {
+          final active = _findActive(current, operation.operationId.value);
+          if (active == null ||
+              active.state != MutationOperationState.running) {
+            throw StateError(
+              'Replay failure lost operation ${operation.operationId.value}',
+            );
+          }
+          final nextState = plan.action == RetryPlanAction.retry
+              ? MutationOperationState.retryScheduled
+              : _pauseStateFor(failure);
+          final metadata = Map<String, Object?>.from(current.metadata);
+          final bucket = failure.rateLimitBucket;
+          final nextRunAt = plan.nextRunAt;
+          if (bucket != null && nextRunAt != null) {
+            final pauses = _readRateLimitPauses(metadata)..[bucket] = nextRunAt;
+            metadata[_rateLimitPausesMetadataKey] = _encodeRateLimitPauses(
+              pauses,
+            );
+            _rateLimitPauses = pauses;
+          }
+          return current.copyWith(
+            active: _replaceActive(
+              current.active,
+              operation.copyWith(
+                state: nextState,
+                nextRunAt: plan.nextRunAt,
+                rateLimitBucket:
+                    failure.rateLimitBucket ?? operation.rateLimitBucket,
+              ),
+            ),
+            metadata: metadata,
+          );
+        },
+        expectedGeneration: started.generation,
+      );
+      return plan.action;
+    }
+
+    final unknownOutcome = plan.action == RetryPlanAction.unknownOutcome;
     final state = unknownOutcome
         ? MutationOperationState.unknownOutcome
         : MutationOperationState.failedTerminal;
@@ -560,19 +660,24 @@ class DurableReplayCoordinator {
             'Replay failure lost operation ${operation.operationId.value}',
           );
         }
-        final failedOperation = operation.copyWith(state: state);
+        final failedOperation = operation.copyWith(
+          state: state,
+          nextRunAt: null,
+        );
         return current.copyWith(
           active: _removeActive(current.active, operation.operationId),
           deadLetters: [
             ...current.deadLetters,
             OutboxDeadLetter(
               operation: failedOperation,
-              category: category,
+              category: unknownOutcome
+                  ? MutationFailureCategory.unknown
+                  : failure.category,
               messageKey: unknownOutcome
                   ? 'sync.replay.unknown_outcome'
-                  : _messageKeyForFailure(category),
+                  : plan.messageKey,
               retryable: false,
-              repairable: true,
+              repairable: failure.repairable,
               failedAt: _now(),
             ),
           ],
@@ -588,6 +693,7 @@ class DurableReplayCoordinator {
       },
       expectedGeneration: started.generation,
     );
+    return plan.action;
   }
 
   Future<void> _clearDiagnostics() async {
@@ -600,6 +706,167 @@ class DurableReplayCoordinator {
       expectedGeneration: _store.generation,
     );
   }
+
+  Future<void> _applyReadinessGates() async {
+    final session = _authSessionProvider == null
+        ? null
+        : await _authSessionProvider.currentSession();
+    final isOnline = _isOnline?.call() ?? true;
+    final snapshot = _store.snapshot;
+    final changed = <MutationOperation>[];
+    for (final operation in snapshot.active) {
+      if (!_isReplayable(operation) &&
+          operation.state != MutationOperationState.paused &&
+          operation.state != MutationOperationState.authBlocked &&
+          operation.state != MutationOperationState.quarantined) {
+        continue;
+      }
+      var nextState = operation.state;
+      if (!isOnline) {
+        nextState = MutationOperationState.paused;
+      } else if (operation.authPolicy == AuthPolicy.required &&
+          session == null) {
+        nextState = MutationOperationState.authBlocked;
+      } else if (session != null) {
+        final decision = _authScopeGate.evaluate(operation, session);
+        nextState = switch (decision) {
+          AuthExecutionDecision.allowed =>
+            _isReplayable(operation)
+                ? operation.state
+                : MutationOperationState.pending,
+          AuthExecutionDecision.blocked => MutationOperationState.authBlocked,
+          AuthExecutionDecision.quarantined =>
+            MutationOperationState.quarantined,
+        };
+      } else if (operation.state == MutationOperationState.paused) {
+        nextState = MutationOperationState.pending;
+      }
+      if (nextState != operation.state) {
+        changed.add(operation.copyWith(state: nextState));
+      }
+    }
+    if (changed.isEmpty) return;
+    final replacements = {
+      for (final operation in changed) operation.operationId.value: operation,
+    };
+    await _store.transact(
+      (current) => current.copyWith(
+        active: [
+          for (final operation in current.active)
+            replacements[operation.operationId.value] ?? operation,
+        ],
+      ),
+      expectedGeneration: _store.generation,
+    );
+  }
+
+  Future<void> _applySchedulingLimits() async {
+    final now = _now();
+    final reasonByOperationId = <String, String>{};
+    for (final operation in _store.snapshot.active) {
+      if (operation.state == MutationOperationState.running) continue;
+      if (operation.attemptCount >= operation.maxAttempts) {
+        reasonByOperationId[operation.operationId.value] =
+            'sync.replay.max_attempts';
+      } else if (!now.isBefore(operation.createdAt.add(operation.maxAge))) {
+        reasonByOperationId[operation.operationId.value] =
+            'sync.replay.max_age';
+      }
+    }
+    if (reasonByOperationId.isEmpty) return;
+
+    await _store.transact(
+      (current) {
+        final limited = <MutationOperation>[];
+        final active = <MutationOperation>[];
+        for (final operation in current.active) {
+          if (reasonByOperationId.containsKey(operation.operationId.value)) {
+            limited.add(operation);
+          } else {
+            active.add(operation);
+          }
+        }
+        if (limited.isEmpty) return current;
+        return current.copyWith(
+          active: active,
+          deadLetters: [
+            ...current.deadLetters,
+            for (final operation in limited)
+              OutboxDeadLetter(
+                operation: operation.copyWith(
+                  state: MutationOperationState.failedTerminal,
+                  nextRunAt: null,
+                ),
+                category: MutationFailureCategory.unknown,
+                messageKey: operation.attemptCount >= operation.maxAttempts
+                    ? 'sync.replay.max_attempts'
+                    : 'sync.replay.max_age',
+                retryable: false,
+                repairable: true,
+                failedAt: now,
+              ),
+          ],
+          history: [
+            ...current.history,
+            for (final operation in limited)
+              OutboxHistoryEntry.validated(
+                operationId: operation.operationId,
+                state: MutationOperationState.failedTerminal,
+                completedAt: now,
+              ),
+          ],
+        );
+      },
+      expectedGeneration: _store.generation,
+    );
+  }
+
+  bool _isReplayable(MutationOperation operation) {
+    return operation.state == MutationOperationState.pending ||
+        operation.state == MutationOperationState.retryScheduled;
+  }
+
+  bool _isDue(MutationOperation operation) {
+    final nextRunAt = operation.nextRunAt;
+    if (nextRunAt != null && nextRunAt.isAfter(_now())) return false;
+    final bucket = operation.rateLimitBucket;
+    final pausedUntil = bucket == null ? null : _rateLimitPauses[bucket];
+    return pausedUntil == null || !pausedUntil.isAfter(_now());
+  }
+
+  MutationAdapterFailure _classifyAdapterError(Object error) {
+    return error is MutationAdapterException
+        ? error.failure
+        : const DefaultMutationFailureClassifier().classify(error);
+  }
+
+  MutationOperationState _pauseStateFor(MutationAdapterFailure failure) {
+    return failure.category == MutationFailureCategory.authentication
+        ? MutationOperationState.authBlocked
+        : MutationOperationState.paused;
+  }
+
+  Map<String, DateTime> _readRateLimitPauses(Map<String, Object?> metadata) {
+    final raw = metadata[_rateLimitPausesMetadataKey];
+    if (raw is! Map<Object?, Object?>) return <String, DateTime>{};
+    final result = <String, DateTime>{};
+    for (final entry in raw.entries) {
+      if (entry.key is! String || entry.value is! String) continue;
+      try {
+        result[entry.key! as String] = DateTime.parse(entry.value! as String);
+      } on FormatException {
+        // Invalid scheduler metadata is ignored; operation records remain safe.
+      }
+    }
+    return result;
+  }
+
+  Map<String, Object?> _encodeRateLimitPauses(
+    Map<String, DateTime> pauses,
+  ) => {
+    for (final entry in pauses.entries)
+      entry.key: entry.value.toIso8601String(),
+  };
 
   Future<void> _persistDiagnostics(_ReplaySelection selection) async {
     if (selection.diagnostics.isEmpty) return;
@@ -852,25 +1119,6 @@ String _messageKeyFor(SyncDagBlockReason reason) {
     SyncDagBlockReason.cycle => 'sync.replay.cycle',
     SyncDagBlockReason.selfDependency => 'sync.replay.self_dependency',
   };
-}
-
-MutationFailureCategory _failureCategory(Object error) {
-  if (error is InvalidMutationPayloadException) {
-    return MutationFailureCategory.payload;
-  }
-  if (error is UnknownMutationKeyException) {
-    return MutationFailureCategory.executor;
-  }
-  return MutationFailureCategory.unknown;
-}
-
-bool _isDeterministicFailure(Object error) {
-  return error is InvalidMutationPayloadException ||
-      error is UnknownMutationKeyException;
-}
-
-String _messageKeyForFailure(MutationFailureCategory category) {
-  return 'sync.replay.failure.${category.name}';
 }
 
 MutationOperation? _findActive(OutboxSnapshot snapshot, String operationId) {
