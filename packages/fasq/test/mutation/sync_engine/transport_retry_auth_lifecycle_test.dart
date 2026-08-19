@@ -78,11 +78,29 @@ void main() {
       expect(
         gate.evaluate(
           operation,
-          const AuthSessionSnapshot(
+          AuthSessionSnapshot(
             status: AuthSessionStatus.reauthenticationRequired,
           ),
         ),
         AuthExecutionDecision.blocked,
+      );
+    });
+
+    test('rejects invalid authentication state combinations', () {
+      expect(
+        () => AuthSessionSnapshot(status: AuthSessionStatus.ready),
+        throwsArgumentError,
+      );
+      expect(
+        () => AuthSessionSnapshot(
+          status: AuthSessionStatus.signedOut,
+          scope: AuthScope(
+            principalId: 'user-1',
+            tenantId: 'tenant-1',
+            authRealm: 'primary',
+          ),
+        ),
+        throwsArgumentError,
       );
     });
   });
@@ -231,6 +249,135 @@ void main() {
       await controller.dispose();
       await readiness.dispose();
     });
+
+    test('defers replay requests until readiness is complete', () async {
+      final readiness = ReplayReadinessBarrier();
+      var replayCalls = 0;
+      final controller = ReplayLifecycleController(
+        readiness: readiness,
+        replay: () async {
+          replayCalls++;
+          return _emptyReplayResult();
+        },
+      );
+
+      final pending = controller.onStartup();
+      expect(replayCalls, 0);
+      readiness.update(
+        storeReady: true,
+        registrationsReady: true,
+        encryptionReady: true,
+        connectivityReady: true,
+        authReady: true,
+      );
+
+      await pending;
+      expect(replayCalls, 1);
+      await controller.dispose();
+      await readiness.dispose();
+    });
+
+    test('auth changes automatically request replay', () async {
+      final scope = AuthScope(
+        principalId: 'user-1',
+        tenantId: 'tenant-1',
+        authRealm: 'primary',
+      );
+      final readiness = ReplayReadinessBarrier(
+        initial: const ReplayReadiness(
+          storeReady: true,
+          registrationsReady: true,
+          encryptionReady: true,
+          connectivityReady: true,
+        ),
+      );
+      final auth = InMemoryAuthSessionProvider(
+        initial: const AuthSessionSnapshot.unknown(),
+      );
+      final replayStarted = Completer<void>();
+      final replayRelease = Completer<ReplayRunResult>();
+      var replayCalls = 0;
+      final controller = ReplayLifecycleController(
+        readiness: readiness,
+        authSessionProvider: auth,
+        replay: () {
+          replayCalls++;
+          replayStarted.complete();
+          return replayRelease.future;
+        },
+      );
+
+      auth.update(AuthSessionSnapshot.ready(scope));
+      await replayStarted.future;
+      expect(replayCalls, 1);
+      replayRelease.complete(_emptyReplayResult());
+      await Future<void>.delayed(Duration.zero);
+      await controller.dispose();
+      await auth.dispose();
+      await readiness.dispose();
+    });
+
+    test('connectivity changes automatically request replay', () async {
+      final network = NetworkStatus.instance..setOnline(online: false);
+      final readiness = ReplayReadinessBarrier(
+        initial: const ReplayReadiness(
+          storeReady: true,
+          registrationsReady: true,
+          encryptionReady: true,
+          authReady: true,
+        ),
+      );
+      final replayStarted = Completer<void>();
+      final controller = ReplayLifecycleController(
+        readiness: readiness,
+        replay: () async {
+          replayStarted.complete();
+          return _emptyReplayResult();
+        },
+      );
+
+      try {
+        network.setOnline(online: true);
+        await replayStarted.future;
+      } finally {
+        network.setOnline(online: true);
+        await controller.dispose();
+        await readiness.dispose();
+      }
+    });
+
+    test('uses injected delay for deterministic debounce', () async {
+      final readiness = ReplayReadinessBarrier(
+        initial: const ReplayReadiness(
+          storeReady: true,
+          registrationsReady: true,
+          encryptionReady: true,
+          connectivityReady: true,
+          authReady: true,
+        ),
+      );
+      final delayRelease = Completer<void>();
+      var replayCalls = 0;
+      final controller = ReplayLifecycleController(
+        readiness: readiness,
+        debounce: const Duration(seconds: 5),
+        delay: (_) => delayRelease.future,
+        replay: () async {
+          replayCalls++;
+          return _emptyReplayResult();
+        },
+      );
+
+      final first = controller.onStartup();
+      final second = controller.onForeground();
+      expect(identical(first, second), isTrue);
+      expect(replayCalls, 0);
+      delayRelease.complete();
+      await Future.wait([first, second]);
+      expect(replayCalls, 1);
+      await controller.dispose();
+      await readiness.dispose();
+    });
   });
 
   group('Replay coordinator integration', () {
@@ -289,6 +436,139 @@ void main() {
       },
     );
 
+    test('defers dependents while a parent waits for retry', () async {
+      var currentTime = DateTime.utc(2026, 1, 1, 0, 0, 1);
+      final store = _MemoryOutbox();
+      final parentKey = MutationKey(namespace: 'test', name: 'parent');
+      final childKey = MutationKey(namespace: 'test', name: 'child');
+      final independentKey = MutationKey(
+        namespace: 'test',
+        name: 'independent',
+      );
+      final executed = <String>[];
+      final registrations = MutationRegistrationRegistry()
+        ..register<Map<String, Object?>, Map<String, Object?>>(
+          key: parentKey,
+          codec: _mapCodec,
+          mutationFn: (_) async {
+            executed.add('parent');
+            return <String, Object?>{};
+          },
+        )
+        ..register<Map<String, Object?>, Map<String, Object?>>(
+          key: childKey,
+          codec: _mapCodec,
+          mutationFn: (_) async {
+            executed.add('child');
+            return <String, Object?>{};
+          },
+        )
+        ..register<Map<String, Object?>, Map<String, Object?>>(
+          key: independentKey,
+          codec: _mapCodec,
+          mutationFn: (_) async {
+            executed.add('independent');
+            return <String, Object?>{};
+          },
+        );
+      await store.transact(
+        (current) => current.copyWith(
+          active: [
+            _operation(
+              null,
+              operationId: 'parent',
+              mutationKey: parentKey,
+              state: MutationOperationState.retryScheduled,
+              attemptCount: 1,
+              nextRunAt: currentTime.add(const Duration(seconds: 10)),
+            ),
+            _operation(
+              null,
+              operationId: 'child',
+              mutationKey: childKey,
+              dependencies: [
+                MutationDependency(parentOperationId: OperationId('parent')),
+              ],
+            ),
+            _operation(
+              null,
+              operationId: 'independent',
+              mutationKey: independentKey,
+            ),
+          ],
+        ),
+      );
+      final coordinator = DurableReplayCoordinator(
+        store: store,
+        registrations: registrations,
+        now: () => currentTime,
+      );
+
+      await coordinator.open();
+      final firstReport = await coordinator.replay();
+
+      expect(executed, ['independent']);
+      expect(firstReport.blockedOperations, isEmpty);
+      expect(
+        store.snapshot.active
+            .singleWhere((operation) => operation.operationId.value == 'child')
+            .state,
+        MutationOperationState.pending,
+      );
+
+      currentTime = currentTime.add(const Duration(seconds: 10));
+      final secondReport = await coordinator.replay();
+
+      expect(executed, ['independent', 'parent', 'child']);
+      expect(secondReport.blockedOperations, isEmpty);
+      expect(store.snapshot.active, isEmpty);
+      await coordinator.close();
+    });
+
+    test('dead-letters work before it executes after max age', () async {
+      final store = _MemoryOutbox();
+      final key = MutationKey(namespace: 'test', name: 'expired');
+      var invocations = 0;
+      final registrations = MutationRegistrationRegistry()
+        ..register<Map<String, Object?>, Map<String, Object?>>(
+          key: key,
+          codec: _mapCodec,
+          mutationFn: (_) async {
+            invocations++;
+            return <String, Object?>{};
+          },
+        );
+      await store.transact(
+        (current) => current.copyWith(
+          active: [
+            _operation(
+              null,
+              mutationKey: key,
+              createdAt: DateTime.utc(2026),
+              maxAge: const Duration(hours: 1),
+            ),
+          ],
+        ),
+      );
+      final coordinator = DurableReplayCoordinator(
+        store: store,
+        registrations: registrations,
+        now: () => DateTime.utc(2026, 1, 1, 2),
+      );
+
+      await coordinator.open();
+      final report = await coordinator.replay();
+
+      expect(invocations, 0);
+      expect(report.executedOperationIds, isEmpty);
+      expect(store.snapshot.active, isEmpty);
+      expect(
+        store.snapshot.deadLetters.single.messageKey,
+        'sync.replay.max_age',
+      );
+      await coordinator.close();
+    });
+
     test('blocks authenticated work until exact scope becomes ready', () async {
       final scope = AuthScope(
         principalId: 'user-1',
@@ -314,7 +594,7 @@ void main() {
         ),
       );
       final auth = InMemoryAuthSessionProvider(
-        initial: const AuthSessionSnapshot(
+        initial: AuthSessionSnapshot(
           status: AuthSessionStatus.reauthenticationRequired,
         ),
       );
@@ -322,6 +602,7 @@ void main() {
         store: store,
         registrations: registrations,
         authSessionProvider: auth,
+        now: () => DateTime.utc(2026, 1, 1, 0, 0, 1),
       );
 
       await coordinator.open();
@@ -344,30 +625,37 @@ void main() {
 
 MutationOperation _operation(
   AuthScope? scope, {
+  String operationId = 'operation',
   DateTime? createdAt,
   int attemptCount = 0,
   int maxAttempts = 5,
+  Duration maxAge = const Duration(days: 30),
   DateTime? nextRunAt,
   String? rateLimitBucket,
   DateTime? lastAttemptAt,
   MutationKey? mutationKey,
+  MutationOperationState state = MutationOperationState.pending,
+  Map<String, Object?> variables = const <String, Object?>{},
+  List<MutationDependency> dependencies = const <MutationDependency>[],
 }) {
   return MutationOperation(
-    operationId: OperationId('operation'),
+    operationId: OperationId(operationId),
     mutationKey:
         mutationKey ?? MutationKey(namespace: 'test', name: 'operation'),
-    variables: const <String, Object?>{},
+    variables: variables,
     createdAt: createdAt ?? DateTime.utc(2026),
     idempotencyKey: IdempotencyKey('idempotency'),
     lineageId: LineageId('lineage'),
     authPolicy: scope == null ? AuthPolicy.none : AuthPolicy.required,
     authScope: scope,
-    state: MutationOperationState.pending,
+    state: state,
     attemptCount: attemptCount,
     maxAttempts: maxAttempts,
+    maxAge: maxAge,
     nextRunAt: nextRunAt,
     rateLimitBucket: rateLimitBucket,
     lastAttemptAt: lastAttemptAt,
+    dependencies: dependencies,
   );
 }
 

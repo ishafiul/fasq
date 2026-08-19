@@ -24,7 +24,33 @@ enum AuthSessionStatus {
 /// Non-secret current authentication state.
 class AuthSessionSnapshot {
   /// Creates an authentication snapshot.
-  const AuthSessionSnapshot({required this.status, this.scope});
+  factory AuthSessionSnapshot({
+    required AuthSessionStatus status,
+    AuthScope? scope,
+  }) {
+    if (status == AuthSessionStatus.ready && scope == null) {
+      throw ArgumentError.value(
+        scope,
+        'scope',
+        'must be present for a ready session',
+      );
+    }
+    if (status == AuthSessionStatus.signedOut && scope != null) {
+      throw ArgumentError.value(
+        scope,
+        'scope',
+        'must be absent for a signed-out session',
+      );
+    }
+    return AuthSessionSnapshot._(status: status, scope: scope);
+  }
+
+  const AuthSessionSnapshot._({required this.status, this.scope});
+
+  /// Creates an authentication state whose readiness is not known yet.
+  const AuthSessionSnapshot.unknown()
+    : status = AuthSessionStatus.unknown,
+      scope = null;
 
   /// Creates a ready session for [scope].
   const AuthSessionSnapshot.ready(this.scope)
@@ -96,11 +122,7 @@ class AuthScopeGate {
 class InMemoryAuthSessionProvider implements AuthSessionProvider {
   /// Creates a provider with an unknown initial session.
   InMemoryAuthSessionProvider({AuthSessionSnapshot? initial})
-    : _current =
-          initial ??
-          const AuthSessionSnapshot(
-            status: AuthSessionStatus.unknown,
-          );
+    : _current = initial ?? const AuthSessionSnapshot.unknown();
 
   final StreamController<AuthSessionSnapshot> _controller =
       StreamController<AuthSessionSnapshot>.broadcast();

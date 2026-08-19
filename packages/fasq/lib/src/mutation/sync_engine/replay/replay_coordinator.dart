@@ -188,6 +188,7 @@ class DurableReplayCoordinator {
       _recoveredUnknownOutcomeIds = const <OperationId>[];
 
       await _applyReadinessGates();
+      await _applySchedulingLimits();
       await _clearDiagnostics();
       while (true) {
         final selection = _select(_store.snapshot);
@@ -330,7 +331,7 @@ class DurableReplayCoordinator {
     }
 
     final pending = replayable.where(_isDue).toList(growable: false);
-    final pendingIds = replayable
+    final pendingIds = pending
         .map((operation) => operation.operationId.value)
         .toSet();
     final directDiagnostics = <String, ReplayDiagnostic>{};
@@ -755,6 +756,67 @@ class DurableReplayCoordinator {
             replacements[operation.operationId.value] ?? operation,
         ],
       ),
+      expectedGeneration: _store.generation,
+    );
+  }
+
+  Future<void> _applySchedulingLimits() async {
+    final now = _now();
+    final reasonByOperationId = <String, String>{};
+    for (final operation in _store.snapshot.active) {
+      if (operation.state == MutationOperationState.running) continue;
+      if (operation.attemptCount >= operation.maxAttempts) {
+        reasonByOperationId[operation.operationId.value] =
+            'sync.replay.max_attempts';
+      } else if (!now.isBefore(operation.createdAt.add(operation.maxAge))) {
+        reasonByOperationId[operation.operationId.value] =
+            'sync.replay.max_age';
+      }
+    }
+    if (reasonByOperationId.isEmpty) return;
+
+    await _store.transact(
+      (current) {
+        final limited = <MutationOperation>[];
+        final active = <MutationOperation>[];
+        for (final operation in current.active) {
+          if (reasonByOperationId.containsKey(operation.operationId.value)) {
+            limited.add(operation);
+          } else {
+            active.add(operation);
+          }
+        }
+        if (limited.isEmpty) return current;
+        return current.copyWith(
+          active: active,
+          deadLetters: [
+            ...current.deadLetters,
+            for (final operation in limited)
+              OutboxDeadLetter(
+                operation: operation.copyWith(
+                  state: MutationOperationState.failedTerminal,
+                  nextRunAt: null,
+                ),
+                category: MutationFailureCategory.unknown,
+                messageKey: operation.attemptCount >= operation.maxAttempts
+                    ? 'sync.replay.max_attempts'
+                    : 'sync.replay.max_age',
+                retryable: false,
+                repairable: true,
+                failedAt: now,
+              ),
+          ],
+          history: [
+            ...current.history,
+            for (final operation in limited)
+              OutboxHistoryEntry.validated(
+                operationId: operation.operationId,
+                state: MutationOperationState.failedTerminal,
+                completedAt: now,
+              ),
+          ],
+        );
+      },
       expectedGeneration: _store.generation,
     );
   }

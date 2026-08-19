@@ -3,6 +3,8 @@
 
 import 'dart:async';
 
+import 'package:fasq/src/mutation/network_status.dart';
+import 'package:fasq/src/mutation/sync_engine/execution/auth_session.dart';
 import 'package:fasq/src/mutation/sync_engine/replay/replay_coordinator.dart';
 
 /// Source of a replay request.
@@ -46,7 +48,7 @@ class ReplayReadiness {
   /// Whether connectivity permits network work.
   final bool connectivityReady;
 
-  /// Whether current authentication scope is known and usable.
+  /// Whether the current authentication state has been resolved.
   final bool authReady;
 
   /// Whether every required readiness condition is met.
@@ -134,21 +136,44 @@ class ReplayLifecycleController {
   ReplayLifecycleController({
     required ReplayReadinessBarrier readiness,
     required Future<ReplayRunResult> Function() replay,
+    AuthSessionProvider? authSessionProvider,
+    NetworkStatus? networkStatus,
     this.backgroundAdapter,
     Duration debounce = Duration.zero,
     DateTime Function()? now,
+    Future<void> Function(Duration duration)? delay,
+    void Function(Object error, StackTrace stackTrace)? onReplayError,
   }) : _readiness = readiness,
        _replay = replay,
        _debounce = debounce,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _delay = delay ?? _defaultReplayDelay,
+       _onReplayError = onReplayError {
+    _readinessSubscription = _readiness.changes.listen(_onReadinessChanged);
+    final resolvedNetworkStatus = networkStatus ?? NetworkStatus.instance;
+    _networkSubscription = resolvedNetworkStatus.stream.listen(
+      _onConnectivityChanged,
+    );
+    _readiness.update(connectivityReady: resolvedNetworkStatus.isOnline);
+    if (authSessionProvider != null) {
+      _authSubscription = authSessionProvider.changes.listen(_onAuthChanged);
+      unawaited(_resolveInitialAuth(authSessionProvider));
+    }
+  }
 
   final ReplayReadinessBarrier _readiness;
   final Future<ReplayRunResult> Function() _replay;
   final Duration _debounce;
   final DateTime Function() _now;
-  Timer? _debounceTimer;
+  final Future<void> Function(Duration duration) _delay;
+  final void Function(Object error, StackTrace stackTrace)? _onReplayError;
+  StreamSubscription<ReplayReadiness>? _readinessSubscription;
+  StreamSubscription<bool>? _networkSubscription;
+  StreamSubscription<AuthSessionSnapshot>? _authSubscription;
   Future<ReplayRunResult?>? _inFlight;
   Completer<ReplayRunResult?>? _debouncedRequest;
+  Completer<ReplayRunResult?>? _readinessRequest;
+  ReplayLifecycleTrigger? _pendingTrigger;
   bool _isClosed = false;
 
   /// Optional platform background wake-up adapter.
@@ -161,7 +186,8 @@ class ReplayLifecycleController {
       return _requestBackgroundWakeUp();
     }
     if (!_readiness.current.isReady) {
-      return Future<ReplayRunResult?>.value();
+      _pendingTrigger ??= trigger;
+      return (_readinessRequest ??= Completer<ReplayRunResult?>()).future;
     }
     final inFlight = _inFlight;
     if (inFlight != null) return inFlight;
@@ -171,15 +197,7 @@ class ReplayLifecycleController {
     if (pending != null) return pending.future;
     final completer = Completer<ReplayRunResult?>();
     _debouncedRequest = completer;
-    _debounceTimer = Timer(_debounce, () async {
-      _debounceTimer = null;
-      _debouncedRequest = null;
-      try {
-        completer.complete(await _runReplay());
-      } on Object catch (error, stackTrace) {
-        completer.completeError(error, stackTrace);
-      }
-    });
+    unawaited(_runDebouncedReplay(completer));
     return completer.future;
   }
 
@@ -195,13 +213,25 @@ class ReplayLifecycleController {
   Future<ReplayRunResult?> onForeground() =>
       request(ReplayLifecycleTrigger.foreground);
 
+  /// Convenience authentication trigger.
+  Future<ReplayRunResult?> onAuthentication() =>
+      request(ReplayLifecycleTrigger.authentication);
+
   /// Cancels pending debounce work and rejects future requests.
   Future<void> dispose() async {
     _isClosed = true;
-    _debounceTimer?.cancel();
     final pending = _debouncedRequest;
     _debouncedRequest = null;
     if (pending != null && !pending.isCompleted) pending.complete(null);
+    final readinessRequest = _readinessRequest;
+    _readinessRequest = null;
+    _pendingTrigger = null;
+    if (readinessRequest != null && !readinessRequest.isCompleted) {
+      readinessRequest.complete(null);
+    }
+    await _readinessSubscription?.cancel();
+    await _networkSubscription?.cancel();
+    await _authSubscription?.cancel();
   }
 
   Future<ReplayRunResult?> _runReplay() {
@@ -210,9 +240,13 @@ class ReplayLifecycleController {
     final future = _replay().then<ReplayRunResult?>((result) => result);
     _inFlight = future;
     unawaited(
-      future.whenComplete(() {
-        if (identical(_inFlight, future)) _inFlight = null;
-      }),
+      future.then<void>(
+        (_) => _clearInFlight(future),
+        onError: (Object error, StackTrace stackTrace) {
+          _clearInFlight(future);
+          _reportReplayError(error, stackTrace);
+        },
+      ),
     );
     return future;
   }
@@ -223,4 +257,93 @@ class ReplayLifecycleController {
     await adapter.requestWakeUp(BackgroundReplayRequest(requestedAt: _now()));
     return null;
   }
+
+  Future<void> _runDebouncedReplay(
+    Completer<ReplayRunResult?> completer,
+  ) async {
+    await _delay(_debounce);
+    if (_isClosed || !identical(_debouncedRequest, completer)) return;
+    _debouncedRequest = null;
+    try {
+      completer.complete(await _runReplay());
+    } on Object catch (error, stackTrace) {
+      completer.completeError(error, stackTrace);
+    }
+  }
+
+  void _onReadinessChanged(ReplayReadiness readiness) {
+    if (!readiness.isReady) return;
+    final pending = _readinessRequest;
+    if (pending != null) {
+      _readinessRequest = null;
+      final trigger = _pendingTrigger ?? ReplayLifecycleTrigger.startup;
+      _pendingTrigger = null;
+      _completePendingRequest(pending, trigger);
+      return;
+    }
+    _scheduleAutomaticReplay(ReplayLifecycleTrigger.startup);
+  }
+
+  void _onConnectivityChanged(bool isOnline) {
+    _readiness.update(connectivityReady: isOnline);
+    if (isOnline) {
+      _scheduleAutomaticReplay(ReplayLifecycleTrigger.reconnect);
+    }
+  }
+
+  void _onAuthChanged(AuthSessionSnapshot session) {
+    _readiness.update(
+      authReady: session.status != AuthSessionStatus.unknown,
+    );
+    if (session.status != AuthSessionStatus.unknown) {
+      _scheduleAutomaticReplay(ReplayLifecycleTrigger.authentication);
+    }
+  }
+
+  Future<void> _resolveInitialAuth(AuthSessionProvider provider) async {
+    try {
+      _onAuthChanged(await provider.currentSession());
+    } on Object catch (error, stackTrace) {
+      _reportReplayError(error, stackTrace);
+    }
+  }
+
+  void _scheduleAutomaticReplay(ReplayLifecycleTrigger trigger) {
+    unawaited(
+      request(trigger).then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stackTrace) {
+          _reportReplayError(error, stackTrace);
+        },
+      ),
+    );
+  }
+
+  void _completePendingRequest(
+    Completer<ReplayRunResult?> completer,
+    ReplayLifecycleTrigger trigger,
+  ) {
+    unawaited(
+      request(trigger).then<void>(
+        completer.complete,
+        onError: completer.completeError,
+      ),
+    );
+  }
+
+  void _clearInFlight(Future<ReplayRunResult?> future) {
+    if (identical(_inFlight, future)) _inFlight = null;
+  }
+
+  void _reportReplayError(Object error, StackTrace stackTrace) {
+    try {
+      _onReplayError?.call(error, stackTrace);
+    } on Object {
+      // Error observers must not create a second unhandled replay failure.
+    }
+  }
 }
+
+Future<void> _defaultReplayDelay(Duration duration) => Future<void>.delayed(
+  duration,
+);
