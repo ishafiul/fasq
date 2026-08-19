@@ -255,6 +255,7 @@ MutationOperation _copyOperation(MutationOperation operation) {
     lineageId: operation.lineageId,
     authPolicy: operation.authPolicy,
     state: operation.state,
+    priority: operation.priority,
     authScope: operation.authScope,
     dependencies: List.unmodifiable(operation.dependencies),
     projections: List.unmodifiable(operation.projections),

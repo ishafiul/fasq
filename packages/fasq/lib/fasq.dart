@@ -32,6 +32,7 @@ export 'src/mutation/network_status.dart';
 export 'src/mutation/offline_queue.dart';
 export 'src/mutation/sync_engine/kahn_dag.dart';
 export 'src/mutation/sync_engine/mutation_contracts.dart';
+export 'src/mutation/sync_engine/replay/replay_coordinator.dart';
 export 'src/mutation/sync_engine/store/durable_outbox.dart';
 export 'src/mutation/sync_engine/store/file_durable_outbox.dart';
 export 'src/mutation/sync_engine/store/outbox_envelope.dart';

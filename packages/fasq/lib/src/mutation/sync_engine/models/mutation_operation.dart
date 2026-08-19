@@ -60,6 +60,7 @@ class MutationOperation {
     required LineageId lineageId,
     required AuthPolicy authPolicy,
     required MutationOperationState state,
+    int priority = 0,
     AuthScope? authScope,
     List<MutationDependency> dependencies = const <MutationDependency>[],
     List<MutationProjectionDescriptor> projections =
@@ -82,6 +83,7 @@ class MutationOperation {
       lineageId: lineageId,
       authPolicy: authPolicy,
       state: state,
+      priority: priority,
       authScope: authScope,
       dependencies: List.unmodifiable(dependencies),
       projections: List.unmodifiable(projections),
@@ -97,6 +99,7 @@ class MutationOperation {
     required this.lineageId,
     required this.authPolicy,
     required this.state,
+    required this.priority,
     required this.dependencies,
     required this.projections,
     this.authScope,
@@ -112,13 +115,15 @@ class MutationOperation {
     final lineageId = json['lineageId'];
     final authPolicy = json['authPolicy'];
     final state = json['state'];
+    final priority = json['priority'];
     if (operationId is! String ||
         mutationKey is! Map<Object?, Object?> ||
         createdAt is! String ||
         idempotencyKey is! String ||
         lineageId is! String ||
         authPolicy is! String ||
-        state is! String) {
+        state is! String ||
+        (priority != null && priority is! int)) {
       throw const InvalidMutationPayloadException(
         'Invalid mutation operation payload',
       );
@@ -155,6 +160,7 @@ class MutationOperation {
       lineageId: LineageId(lineageId),
       authPolicy: parsedAuthPolicy,
       state: parseMutationOperationState(state),
+      priority: priority as int? ?? 0,
       authScope: parsedScope,
       dependencies: dependencies,
       projections: projections,
@@ -194,6 +200,31 @@ class MutationOperation {
   /// Current durable lifecycle state.
   final MutationOperationState state;
 
+  /// Deterministic scheduling priority. Higher values run first.
+  final int priority;
+
+  /// Returns this operation with selected durable fields replaced.
+  MutationOperation copyWith({
+    Object? variables = _unset,
+    MutationOperationState? state,
+    int? priority,
+  }) {
+    return MutationOperation(
+      operationId: operationId,
+      mutationKey: mutationKey,
+      variables: identical(variables, _unset) ? this.variables : variables,
+      createdAt: createdAt,
+      idempotencyKey: idempotencyKey,
+      lineageId: lineageId,
+      authPolicy: authPolicy,
+      state: state ?? this.state,
+      priority: priority ?? this.priority,
+      authScope: authScope,
+      dependencies: dependencies,
+      projections: projections,
+    );
+  }
+
   /// Serializes this operation into a JSON-safe map.
   Map<String, Object?> toJson() => {
     'operationId': operationId.value,
@@ -207,6 +238,7 @@ class MutationOperation {
     'dependencies': dependencies.map((item) => item.toJson()).toList(),
     'projections': projections.map((item) => item.toJson()).toList(),
     'state': state.name,
+    'priority': priority,
   };
 
   static AuthPolicy _parseAuthPolicy(String value) {
@@ -263,4 +295,10 @@ class MutationOperation {
     }
     return result;
   }
+}
+
+const _unset = _Unset();
+
+class _Unset {
+  const _Unset();
 }
