@@ -235,16 +235,10 @@ class DurableMutationQueue {
   Future<ReplayRunResult> replay({
     ReplayCancellationToken? cancellationToken,
   }) async {
-    final beforeHistory = _store.snapshot.history
-        .map((entry) => entry.operationId)
-        .toSet();
-    final beforeDeadLetters = _store.snapshot.deadLetters
-        .map((entry) => entry.operation.operationId)
-        .toSet();
     final result = await _coordinator.replay(
       cancellationToken: cancellationToken,
     );
-    await _syncProjectionOutcomes(beforeHistory, beforeDeadLetters);
+    await _syncProjectionOutcomes();
     return result;
   }
 
@@ -418,29 +412,45 @@ class DurableMutationQueue {
     }
   }
 
-  Future<void> _syncProjectionOutcomes(
-    Set<OperationId> beforeHistory,
-    Set<OperationId> beforeDeadLetters,
-  ) async {
+  Future<void> _syncProjectionOutcomes() async {
     final current = _store.snapshot;
     for (final entry in current.history) {
       if (entry.state != MutationOperationState.succeeded ||
-          beforeHistory.contains(entry.operationId)) {
+          !_needsProjectionReconciliation(entry.operationId)) {
         continue;
       }
       await completeProjection(entry.operationId, entry.resultProjection);
     }
     for (final entry in current.deadLetters) {
-      if (beforeDeadLetters.contains(entry.operation.operationId)) continue;
+      final operationId = entry.operation.operationId;
+      if (!_needsProjectionReconciliation(operationId)) {
+        continue;
+      }
       if (entry.category == MutationFailureCategory.conflict) {
         await markProjectionConflict(
-          entry.operation.operationId,
+          operationId,
           conflictEvidence: entry.conflictEvidence,
         );
       } else {
-        await failProjection(entry.operation.operationId);
+        await failProjection(operationId);
       }
     }
+  }
+
+  bool _needsProjectionReconciliation(
+    OperationId operationId,
+  ) {
+    final coordinator = _projectionCoordinator;
+    if (coordinator == null) return false;
+    for (final overlay in coordinator.state.overlays) {
+      if (overlay.operationId != operationId) continue;
+      if (overlay.state == ProjectionOverlayState.resolved) return false;
+      if (overlay.state == ProjectionOverlayState.conflicted) {
+        return false;
+      }
+      return true;
+    }
+    return false;
   }
 
   static Map<String, Object?> _stringMap(Map<Object?, Object?> value) {

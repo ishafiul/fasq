@@ -49,7 +49,7 @@ class ProjectionPlan {
   ProjectionPlan mapKeys(String from, String to) => ProjectionPlan._(
     id,
     version,
-    queryKeys.map((key) => key.replaceAll(from, to)).toList(),
+    queryKeys.map((key) => remapQueryKeyIdentifier(key, from, to)).toList(),
   );
 
   Map<String, Object?> toJson() => {
@@ -522,54 +522,100 @@ class ProjectionCoordinator {
         const ProjectionFailure(null, null, 'projection.id_mapping_failed'),
       );
     }
+    final changedKeys = <String>{};
     final remap = (Object? value) => _replace(value, temporaryId, serverId);
     final bases = <String, Object?>{};
     for (final entry in _state.remoteBases.entries) {
-      bases[_replace(entry.key, temporaryId, serverId) as String] = remap(
-        entry.value,
+      final remappedKey = remapQueryKeyIdentifier(
+        entry.key,
+        temporaryId,
+        serverId,
       );
+      bases[remappedKey] = remap(entry.value);
+      if (entry.key != remappedKey ||
+          _containsIdentifier(entry.value, temporaryId)) {
+        changedKeys
+          ..add(entry.key)
+          ..add(remappedKey);
+      }
     }
-    final overlays = _state.overlays
-        .map(
-          (overlay) => ProjectionOverlay(
-            operationId: overlay.operationId,
-            lineageId: overlay.lineageId,
-            plan: overlay.plan.mapKeys(temporaryId, serverId),
-            patches: overlay.patches.map(
-              (key, value) => MapEntry(
-                _replace(key, temporaryId, serverId) as String,
-                remap(value),
-              ),
-            ),
-            references: _stringMap(
-              remap(overlay.references) as Map<Object?, Object?>,
-            ),
-            temporaryIds: overlay.temporaryIds.map(
-              (key, value) => MapEntry(
-                key,
-                value == temporaryId ? serverId : value,
-              ),
-            ),
-            conflictEvidence: overlay.conflictEvidence == null
-                ? null
-                : _stringMap(
-                    remap(overlay.conflictEvidence) as Map<Object?, Object?>,
-                  ),
-            sequence: overlay.sequence,
-            state: overlay.state,
+    final overlays = _state.overlays.map(
+      (overlay) {
+        final remappedPlan = overlay.plan.mapKeys(temporaryId, serverId);
+        final remappedPatches = overlay.patches.map(
+          (key, value) => MapEntry(
+            remapQueryKeyIdentifier(key, temporaryId, serverId),
+            remap(value),
           ),
-        )
-        .toList();
+        );
+        final remappedReferences = _stringMap(
+          remap(overlay.references) as Map<Object?, Object?>,
+        );
+        final remappedTemporaryIds = overlay.temporaryIds.map(
+          (key, value) => MapEntry(
+            key,
+            value == temporaryId ? serverId : value,
+          ),
+        );
+        final remappedEvidence = overlay.conflictEvidence == null
+            ? null
+            : _stringMap(
+                remap(overlay.conflictEvidence) as Map<Object?, Object?>,
+              );
+        final overlayChanged =
+            overlay.plan.queryKeys.any(
+              (key) =>
+                  key != remapQueryKeyIdentifier(key, temporaryId, serverId),
+            ) ||
+            overlay.patches.keys.any(
+              (key) =>
+                  key != remapQueryKeyIdentifier(key, temporaryId, serverId),
+            ) ||
+            _containsIdentifier(overlay.patches, temporaryId) ||
+            _containsIdentifier(overlay.references, temporaryId) ||
+            overlay.temporaryIds.values.contains(temporaryId) ||
+            _containsIdentifier(overlay.conflictEvidence, temporaryId);
+        if (overlayChanged) {
+          changedKeys
+            ..addAll(overlay.plan.queryKeys)
+            ..addAll(remappedPlan.queryKeys)
+            ..addAll(overlay.patches.keys)
+            ..addAll(remappedPatches.keys);
+        }
+        return ProjectionOverlay(
+          operationId: overlay.operationId,
+          lineageId: overlay.lineageId,
+          plan: remappedPlan,
+          patches: remappedPatches,
+          references: remappedReferences,
+          temporaryIds: remappedTemporaryIds,
+          conflictEvidence: remappedEvidence,
+          sequence: overlay.sequence,
+          state: overlay.state,
+        );
+      },
+    ).toList();
+    final revisions = _state.revisions.map(
+      (key, value) => MapEntry(
+        remapQueryKeyIdentifier(key, temporaryId, serverId),
+        value,
+      ),
+    );
+    for (final key in _state.revisions.keys) {
+      final remappedKey = remapQueryKeyIdentifier(key, temporaryId, serverId);
+      if (key != remappedKey) {
+        changedKeys
+          ..add(key)
+          ..add(remappedKey);
+      }
+    }
     _state = ProjectionState(
       remoteBases: bases,
-      revisions: _state.revisions.map(
-        (key, value) =>
-            MapEntry(_replace(key, temporaryId, serverId) as String, value),
-      ),
+      revisions: revisions,
       overlays: overlays,
       idMappings: {..._state.idMappings, temporaryId: serverId},
     );
-    return ProjectionOutcome(_state, [...bases.keys]);
+    return ProjectionOutcome(_state, changedKeys.toList());
   }
 
   int _indexOf(OperationId id) =>
@@ -657,16 +703,29 @@ Map<String, Object?> _objectMap(Object? value) {
 }
 
 Object? _replace(Object? value, String from, String to) {
-  if (value is String) return value.replaceAll(from, to);
+  if (value is String) return value == from ? to : value;
   if (value is List<Object?>)
     return value.map((item) => _replace(item, from, to)).toList();
   if (value is Map<Object?, Object?>) {
     return value.map(
       (key, item) => MapEntry(
-        (key as String).replaceAll(from, to),
+        key,
         _replace(item, from, to),
       ),
     );
   }
   return value;
+}
+
+bool _containsIdentifier(Object? value, String identifier) {
+  if (value is String) return value == identifier;
+  if (value is List<Object?>) {
+    return value.any((item) => _containsIdentifier(item, identifier));
+  }
+  if (value is Map<Object?, Object?>) {
+    return value.values.any(
+      (item) => _containsIdentifier(item, identifier),
+    );
+  }
+  return false;
 }

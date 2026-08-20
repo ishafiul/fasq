@@ -353,8 +353,10 @@ class MutationProjectionDescriptor {
   /// Returns this descriptor with references to one identifier remapped.
   MutationProjectionDescriptor mapKeys(String from, String to) =>
       MutationProjectionDescriptor(
-        id: id.replaceAll(from, to),
-        queryKeys: queryKeys.map((key) => key.replaceAll(from, to)).toList(),
+        id: id,
+        queryKeys: queryKeys
+            .map((key) => remapQueryKeyIdentifier(key, from, to))
+            .toList(),
       );
 
   /// Serializes this descriptor into a JSON-safe map.
@@ -366,6 +368,23 @@ class MutationProjectionDescriptor {
       'Projection query keys must be strings',
     );
   }
+}
+
+/// Remaps one exact identifier segment in a serialized query key.
+///
+/// Query keys are opaque to the mutation payload, so only their established
+/// `:` or `/`-delimited identifier segments are eligible for remapping.
+String remapQueryKeyIdentifier(String queryKey, String from, String to) {
+  if (from.isEmpty || to.isEmpty || queryKey == from) {
+    return queryKey == from && to.isNotEmpty ? to : queryKey;
+  }
+  final segment = RegExp(
+    '(^|[:/])${RegExp.escape(from)}(?=[:/]|\$)',
+  );
+  return queryKey.replaceAllMapped(
+    segment,
+    (match) => '${match.group(1) ?? ''}$to',
+  );
 }
 
 String _requireValue(String value) {
