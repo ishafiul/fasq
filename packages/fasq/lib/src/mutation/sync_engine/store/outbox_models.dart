@@ -7,14 +7,17 @@ import 'package:fasq/src/mutation/sync_engine/store/outbox_errors.dart';
 /// One terminal operation retained for repair and inspection.
 class OutboxDeadLetter {
   /// Creates a dead-letter record.
-  const OutboxDeadLetter({
+  OutboxDeadLetter({
     required this.operation,
     required this.category,
     required this.messageKey,
     required this.retryable,
     required this.repairable,
     required this.failedAt,
-  });
+    Map<String, Object?>? conflictEvidence,
+  }) : conflictEvidence = conflictEvidence == null
+           ? null
+           : _immutableJsonMap(conflictEvidence, 'conflictEvidence');
 
   /// Recreates a dead-letter record from validated JSON.
   factory OutboxDeadLetter.fromJson(Map<String, Object?> json) {
@@ -32,6 +35,14 @@ class OutboxDeadLetter {
       (value) => value.name == category,
     );
     if (parsedCategory.isEmpty) throw const OutboxCorruptException();
+    final rawConflictEvidence = json['conflictEvidence'];
+    if (rawConflictEvidence != null &&
+        rawConflictEvidence is! Map<Object?, Object?>) {
+      throw const OutboxCorruptException();
+    }
+    final parsedConflictEvidence = rawConflictEvidence == null
+        ? null
+        : _objectMap(rawConflictEvidence as Map<Object?, Object?>);
     return OutboxDeadLetter(
       operation: MutationOperation.fromJson(_objectMap(operation)),
       category: parsedCategory.first,
@@ -39,6 +50,7 @@ class OutboxDeadLetter {
       retryable: json['retryable'] == true,
       repairable: json['repairable'] == true,
       failedAt: _date(failedAt),
+      conflictEvidence: parsedConflictEvidence,
     );
   }
 
@@ -60,6 +72,9 @@ class OutboxDeadLetter {
   /// Time at which the operation entered dead-letter storage.
   final DateTime failedAt;
 
+  /// Durable, sanitized evidence for a conflict failure, when available.
+  final Map<String, Object?>? conflictEvidence;
+
   /// Serializes the record without raw exception details.
   Map<String, Object?> toJson() => {
     'operation': operation.toJson(),
@@ -68,6 +83,7 @@ class OutboxDeadLetter {
     'retryable': retryable,
     'repairable': repairable,
     'failedAt': failedAt.toIso8601String(),
+    'conflictEvidence': conflictEvidence,
   };
 }
 
@@ -254,6 +270,8 @@ MutationOperation _copyOperation(MutationOperation operation) {
     idempotencyKey: operation.idempotencyKey,
     lineageId: operation.lineageId,
     authPolicy: operation.authPolicy,
+    conflictPolicy: operation.conflictPolicy,
+    conflictPrecondition: operation.conflictPrecondition,
     state: operation.state,
     priority: operation.priority,
     attemptCount: operation.attemptCount,
@@ -276,6 +294,7 @@ OutboxDeadLetter _copyDeadLetter(OutboxDeadLetter deadLetter) {
     retryable: deadLetter.retryable,
     repairable: deadLetter.repairable,
     failedAt: deadLetter.failedAt,
+    conflictEvidence: deadLetter.conflictEvidence,
   );
 }
 

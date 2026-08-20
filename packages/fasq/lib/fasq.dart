@@ -35,6 +35,8 @@ export 'src/mutation/offline_queue.dart';
 export 'src/mutation/sync_engine/kahn_dag.dart';
 export 'src/mutation/sync_engine/lifecycle/replay_lifecycle.dart';
 export 'src/mutation/sync_engine/mutation_contracts.dart';
+export 'src/mutation/sync_engine/conflict/conflict.dart';
+export 'src/mutation/sync_engine/projection/projection.dart';
 export 'src/mutation/sync_engine/replay/replay_coordinator.dart';
 export 'src/mutation/sync_engine/replay/retry_policy.dart';
 export 'src/mutation/sync_engine/store/durable_outbox.dart';
