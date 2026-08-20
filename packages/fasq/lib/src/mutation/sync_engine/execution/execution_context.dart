@@ -15,6 +15,15 @@ enum MutationOutcomeKnowledge {
   unknown,
 }
 
+/// Whether an execution adapter invoked its executor before cancellation.
+enum MutationExecutionPhase {
+  /// Cancellation happened before executor invocation.
+  notStarted,
+
+  /// Executor invocation began before cancellation was observed.
+  started,
+}
+
 /// Scheduler action requested by a normalized adapter failure.
 enum MutationFailureDisposition {
   /// Retry after the scheduler applies retry and rate-limit policy.
@@ -41,6 +50,7 @@ class MutationAdapterFailure {
     this.retryAfter,
     this.rateLimitBucket,
     this.idempotencySafe = false,
+    this.executionPhase = MutationExecutionPhase.notStarted,
     this.repairable = true,
     this.conflictKind = ConflictKind.unknown,
     this.observedPrecondition,
@@ -57,6 +67,7 @@ class MutationAdapterFailure {
       retryAfter = null,
       rateLimitBucket = null,
       idempotencySafe = false,
+      executionPhase = MutationExecutionPhase.notStarted,
       repairable = true,
       conflictKind = ConflictKind.unknown,
       observedPrecondition = null,
@@ -83,6 +94,9 @@ class MutationAdapterFailure {
 
   /// Whether replay with the same idempotency key is safe after ambiguity.
   final bool idempotencySafe;
+
+  /// Whether executor invocation began before this failure was observed.
+  final MutationExecutionPhase executionPhase;
 
   /// Whether explicit repair is allowed.
   final bool repairable;
@@ -229,13 +243,36 @@ class DirectMutationExecutionAdapter implements MutationExecutionAdapter {
     MutationExecutionContext context,
     Future<Object?> Function() executor,
   ) async {
+    var executionPhase = MutationExecutionPhase.notStarted;
     try {
       context.cancellationToken.throwIfCancelled();
+      executionPhase = MutationExecutionPhase.started;
       final value = await executor();
       context.cancellationToken.throwIfCancelled();
       return MutationExecutionSuccess(value);
     } on Object catch (error) {
-      return MutationExecutionFailure(classifier.classify(error));
+      final failure = classifier.classify(error);
+      if (executionPhase == MutationExecutionPhase.started &&
+          failure.category == MutationFailureCategory.cancellation &&
+          !failure.idempotencySafe) {
+        return MutationExecutionFailure(
+          MutationAdapterFailure(
+            category: failure.category,
+            messageKey: 'sync.replay.unknown_outcome',
+            disposition: MutationFailureDisposition.unknownOutcome,
+            outcomeKnowledge: MutationOutcomeKnowledge.unknown,
+            retryAfter: failure.retryAfter,
+            rateLimitBucket: failure.rateLimitBucket,
+            executionPhase: MutationExecutionPhase.started,
+            repairable: failure.repairable,
+            conflictKind: failure.conflictKind,
+            observedPrecondition: failure.observedPrecondition,
+            latestServerSnapshot: failure.latestServerSnapshot,
+            projectionImpact: failure.projectionImpact,
+          ),
+        );
+      }
+      return MutationExecutionFailure(failure);
     }
   }
 }

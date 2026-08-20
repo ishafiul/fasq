@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
 import 'package:fasq/src/mutation/sync_engine/conflict/conflict_models.dart';
+import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/auth_session.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
 import 'package:fasq/src/mutation/sync_engine/kahn_dag.dart';
@@ -199,6 +200,7 @@ class DurableReplayCoordinator {
 
       await _applyReadinessGates();
       await _applySchedulingLimits();
+      await _unblockReadyOperations();
       await _clearDiagnostics();
       while (true) {
         if (replayCancellationToken.isCancelled) break;
@@ -316,6 +318,8 @@ class DurableReplayCoordinator {
               operationId: operation.operationId,
               state: MutationOperationState.unknownOutcome,
               completedAt: _now(),
+              idempotencyKey: operation.idempotencyKey,
+              authScope: operation.authScope,
             ),
           );
         }
@@ -583,6 +587,7 @@ class DurableReplayCoordinator {
         operationId: operation.operationId,
         state: MutationOperationState.succeeded,
         completedAt: _now(),
+        idempotencyKey: operation.idempotencyKey,
         authScope: operation.authScope,
         resultProjection: result,
       );
@@ -600,15 +605,21 @@ class DurableReplayCoordinator {
     }
     await _store.transact(
       (current) {
-        final active = _findActive(current, operation.operationId.value);
-        if (active == null || active.state != MutationOperationState.running) {
+        final currentActive = _findActive(
+          current,
+          operation.operationId.value,
+        );
+        if (currentActive == null ||
+            currentActive.state != MutationOperationState.running) {
           throw StateError(
             'Replay completion lost operation ${operation.operationId.value}',
           );
         }
+        final nextActive = _removeActive(current.active, operation.operationId);
+        final updatedHistory = [...current.history, history];
         return current.copyWith(
-          active: _removeActive(current.active, operation.operationId),
-          history: [...current.history, history],
+          active: _unblockDependents(nextActive, updatedHistory),
+          history: updatedHistory,
         );
       },
       expectedGeneration: started.generation,
@@ -695,7 +706,7 @@ class DurableReplayCoordinator {
               messageKey: unknownOutcome
                   ? 'sync.replay.unknown_outcome'
                   : plan.messageKey,
-              retryable: false,
+              retryable: _isRetryableTerminal(failure, plan.action),
               repairable: failure.repairable,
               failedAt: _now(),
               conflictEvidence:
@@ -725,6 +736,7 @@ class DurableReplayCoordinator {
               operationId: operation.operationId,
               state: state,
               completedAt: _now(),
+              idempotencyKey: operation.idempotencyKey,
               authScope: operation.authScope,
             ),
           ],
@@ -738,6 +750,11 @@ class DurableReplayCoordinator {
   Future<void> _clearDiagnostics() async {
     final snapshot = _store.snapshot;
     if (!snapshot.metadata.containsKey(_diagnosticsMetadataKey)) return;
+    if (snapshot.active.any(
+      (operation) => operation.state == MutationOperationState.blocked,
+    )) {
+      return;
+    }
     final metadata = Map<String, Object?>.from(snapshot.metadata)
       ..remove(_diagnosticsMetadataKey);
     await _store.transact(
@@ -840,7 +857,7 @@ class DurableReplayCoordinator {
                 messageKey: operation.attemptCount >= operation.maxAttempts
                     ? 'sync.replay.max_attempts'
                     : 'sync.replay.max_age',
-                retryable: false,
+                retryable: _isRetryableSchedulingLimit(operation),
                 repairable: true,
                 failedAt: now,
               ),
@@ -852,6 +869,8 @@ class DurableReplayCoordinator {
                 operationId: operation.operationId,
                 state: MutationOperationState.failedTerminal,
                 completedAt: now,
+                idempotencyKey: operation.idempotencyKey,
+                authScope: operation.authScope,
               ),
           ],
         );
@@ -863,6 +882,75 @@ class DurableReplayCoordinator {
   bool _isReplayable(MutationOperation operation) {
     return operation.state == MutationOperationState.pending ||
         operation.state == MutationOperationState.retryScheduled;
+  }
+
+  Future<void> _unblockReadyOperations() async {
+    final snapshot = _store.snapshot;
+    final readyIds = snapshot.active
+        .where(
+          (operation) =>
+              operation.state == MutationOperationState.blocked &&
+              operation.dependencies.isNotEmpty &&
+              _allDependenciesSucceeded(operation, snapshot),
+        )
+        .map((operation) => operation.operationId.value)
+        .toSet();
+    if (readyIds.isEmpty) return;
+
+    await _store.transact(
+      (current) => current.copyWith(
+        active: [
+          for (final operation in current.active)
+            readyIds.contains(operation.operationId.value)
+                ? operation.copyWith(state: MutationOperationState.pending)
+                : operation,
+        ],
+      ),
+      expectedGeneration: _store.generation,
+    );
+  }
+
+  List<MutationOperation> _unblockDependents(
+    List<MutationOperation> active,
+    List<OutboxHistoryEntry> history,
+  ) {
+    final snapshot = OutboxSnapshot(active: active, history: history);
+    return [
+      for (final operation in active)
+        operation.state == MutationOperationState.blocked &&
+                operation.dependencies.isNotEmpty &&
+                _allDependenciesSucceeded(operation, snapshot)
+            ? operation.copyWith(state: MutationOperationState.pending)
+            : operation,
+    ];
+  }
+
+  bool _allDependenciesSucceeded(
+    MutationOperation operation,
+    OutboxSnapshot snapshot,
+  ) {
+    return operation.dependencies.every((dependency) {
+      final parent = _findHistory(
+        snapshot,
+        dependency.parentOperationId.value,
+      );
+      return parent?.state == MutationOperationState.succeeded;
+    });
+  }
+
+  bool _isRetryableTerminal(
+    MutationAdapterFailure failure,
+    RetryPlanAction action,
+  ) {
+    return action == RetryPlanAction.terminal &&
+        failure.disposition == MutationFailureDisposition.retry &&
+        failure.outcomeKnowledge == MutationOutcomeKnowledge.known &&
+        failure.category != MutationFailureCategory.conflict;
+  }
+
+  bool _isRetryableSchedulingLimit(MutationOperation operation) {
+    return operation.state == MutationOperationState.retryScheduled &&
+        operation.conflictPolicy == ConflictPolicy.none;
   }
 
   bool _isDue(MutationOperation operation) {

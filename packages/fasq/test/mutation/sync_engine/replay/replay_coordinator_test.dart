@@ -408,6 +408,218 @@ void main() {
     },
   );
 
+  test('unblocks repaired descendants after replacement succeeds', () async {
+    final store = _newStore(directory);
+    final registrations = MutationRegistrationRegistry();
+    final parentKey = MutationKey(namespace: 'test', name: 'repairedParent');
+    final childKey = MutationKey(namespace: 'test', name: 'repairedChild');
+    final executed = <String>[];
+    registrations
+      ..register<Map<String, Object?>, Map<String, Object?>>(
+        key: parentKey,
+        codec: _mapCodec,
+        mutationFn: (_) async {
+          executed.add('parent');
+          return <String, Object?>{'id': 'replacement-id'};
+        },
+      )
+      ..register<Map<String, Object?>, Map<String, Object?>>(
+        key: childKey,
+        codec: _mapCodec,
+        mutationFn: (_) async {
+          executed.add('child');
+          return <String, Object?>{};
+        },
+      );
+
+    await store.open();
+    await store.transact(
+      (current) => current.copyWith(
+        active: [
+          _operation('replacement', key: parentKey),
+          _operation(
+            'child',
+            key: childKey,
+            state: MutationOperationState.blocked,
+            dependencies: [
+              MutationDependency(
+                parentOperationId: OperationId('replacement'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    final coordinator = DurableReplayCoordinator(
+      store: store,
+      registrations: registrations,
+    );
+    await coordinator.open();
+    final report = await coordinator.replay();
+
+    expect(executed, ['parent', 'child']);
+    expect(report.executedOperationIds.map((id) => id.value), [
+      'replacement',
+      'child',
+    ]);
+    expect(store.snapshot.active, isEmpty);
+    await coordinator.close();
+  });
+
+  test('retains auth scope on interrupted and limited history', () async {
+    final scope = _scope('user-1');
+    final key = MutationKey(namespace: 'test', name: 'scopedRecovery');
+    final registrations = MutationRegistrationRegistry();
+    registrations.register<Map<String, Object?>, Map<String, Object?>>(
+      key: key,
+      codec: _mapCodec,
+      mutationFn: (_) async => <String, Object?>{},
+    );
+
+    final recoveryStore = _newStore(directory);
+    await recoveryStore.open();
+    await recoveryStore.transact(
+      (current) => current.copyWith(
+        active: [
+          _operation(
+            'running-scoped',
+            key: key,
+            state: MutationOperationState.running,
+            scope: scope,
+          ),
+        ],
+      ),
+    );
+    await recoveryStore.close();
+
+    final recoveredStore = _newStore(directory);
+    final recoveredCoordinator = DurableReplayCoordinator(
+      store: recoveredStore,
+      registrations: registrations,
+    );
+    await recoveredCoordinator.open();
+    expect(recoveredStore.snapshot.history.single.authScope, scope);
+    await recoveredCoordinator.close();
+
+    final limitedStore = _newStore(directory);
+    await limitedStore.open();
+    await limitedStore.transact(
+      (current) => current.copyWith(
+        active: [
+          _operation(
+            'limited-scoped',
+            key: key,
+            state: MutationOperationState.retryScheduled,
+            scope: scope,
+            attemptCount: 1,
+            maxAttempts: 1,
+          ),
+        ],
+      ),
+    );
+    final limitedCoordinator = DurableReplayCoordinator(
+      store: limitedStore,
+      registrations: registrations,
+    );
+    await limitedCoordinator.open();
+    await limitedCoordinator.replay();
+    expect(
+      limitedStore.snapshot.history
+          .firstWhere(
+            (entry) => entry.operationId.value == 'limited-scoped',
+          )
+          .authScope,
+      scope,
+    );
+    await limitedCoordinator.close();
+  });
+
+  test(
+    'marks safe terminal retries retryable but keeps conflicts closed',
+    () async {
+      final store = _newStore(directory);
+      final registrations = MutationRegistrationRegistry();
+      final retryableKey = MutationKey(
+        namespace: 'test',
+        name: 'retryableTerminal',
+      );
+      final conflictKey = MutationKey(
+        namespace: 'test',
+        name: 'conflictTerminal',
+      );
+      registrations
+        ..register<Map<String, Object?>, Map<String, Object?>>(
+          key: retryableKey,
+          codec: _mapCodec,
+          mutationFn: (_) async => throw const MutationAdapterException(
+            MutationAdapterFailure(
+              category: MutationFailureCategory.connectivity,
+              messageKey: 'sync.network.unavailable',
+              disposition: MutationFailureDisposition.retry,
+              idempotencySafe: true,
+            ),
+          ),
+        )
+        ..register<Map<String, Object?>, Map<String, Object?>>(
+          key: conflictKey,
+          codec: _mapCodec,
+          mutationFn: (_) async => throw const MutationAdapterException(
+            MutationAdapterFailure(
+              category: MutationFailureCategory.conflict,
+              messageKey: 'sync.conflict.stale',
+              disposition: MutationFailureDisposition.retry,
+              idempotencySafe: true,
+            ),
+          ),
+        );
+
+      await store.open();
+      await store.transact(
+        (current) => current.copyWith(
+          active: [
+            _operation(
+              'retryable-terminal',
+              key: retryableKey,
+              maxAttempts: 1,
+            ),
+            _operation(
+              'conflict-terminal',
+              key: conflictKey,
+              maxAttempts: 1,
+            ),
+          ],
+        ),
+      );
+      final coordinator = DurableReplayCoordinator(
+        store: store,
+        registrations: registrations,
+      );
+      await coordinator.open();
+      await coordinator.replay();
+
+      expect(
+        store.snapshot.deadLetters
+            .singleWhere(
+              (entry) =>
+                  entry.operation.operationId.value == 'retryable-terminal',
+            )
+            .retryable,
+        isTrue,
+      );
+      expect(
+        store.snapshot.deadLetters
+            .singleWhere(
+              (entry) =>
+                  entry.operation.operationId.value == 'conflict-terminal',
+            )
+            .retryable,
+        isFalse,
+      );
+      await coordinator.close();
+    },
+  );
+
   test('persists missing, cycle, and registration diagnostics', () async {
     final store = _newStore(directory);
     final registrations = MutationRegistrationRegistry();
@@ -917,8 +1129,11 @@ MutationOperation _operation(
   Object? variables = const <String, Object?>{},
   List<MutationDependency> dependencies = const <MutationDependency>[],
   String? rateLimitBucket,
+  AuthScope? scope,
   MutationOperationState state = MutationOperationState.pending,
   int priority = 0,
+  int attemptCount = 0,
+  int maxAttempts = 5,
   Duration maxAge = const Duration(days: 3650),
 }) {
   return MutationOperation(
@@ -928,14 +1143,23 @@ MutationOperation _operation(
     createdAt: DateTime.utc(2026),
     idempotencyKey: IdempotencyKey('idempotency-$id'),
     lineageId: LineageId('lineage-$id'),
-    authPolicy: AuthPolicy.none,
+    authPolicy: scope == null ? AuthPolicy.none : AuthPolicy.required,
+    authScope: scope,
     state: state,
     priority: priority,
     maxAge: maxAge,
+    attemptCount: attemptCount,
+    maxAttempts: maxAttempts,
     dependencies: dependencies,
     rateLimitBucket: rateLimitBucket,
   );
 }
+
+AuthScope _scope(String principalId) => AuthScope(
+  principalId: principalId,
+  tenantId: 'tenant-1',
+  authRealm: 'test',
+);
 
 class _FakeOutboxEncryption implements OutboxEncryption {
   const _FakeOutboxEncryption();

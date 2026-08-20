@@ -299,7 +299,7 @@ class DurableMutationQueue {
         current.history.any((entry) => entry.operationId == operationId);
   }
 
-  /// Whether [idempotencyKey] is retained in active or dead-letter data.
+  /// Whether [idempotencyKey] is retained in active, dead-letter, or history data.
   bool hasRetainedIdempotencyKey(IdempotencyKey idempotencyKey) {
     final current = _store.snapshot;
     return current.active.any(
@@ -307,6 +307,9 @@ class DurableMutationQueue {
         ) ||
         current.deadLetters.any(
           (entry) => entry.operation.idempotencyKey == idempotencyKey,
+        ) ||
+        current.history.any(
+          (entry) => entry.idempotencyKey == idempotencyKey,
         );
   }
 
@@ -335,6 +338,7 @@ class DurableMutationQueue {
     if (_isOpen) return;
     try {
       await _coordinator.open();
+      await _backfillHistoryIdempotencyKeys(_retainedIdempotencyKeys());
       _restoreProjectionState();
       await _refreshObservationScope();
       _isOpen = true;
@@ -457,10 +461,12 @@ class DurableMutationQueue {
   Future<ReplayRunResult> replay({
     ReplayCancellationToken? cancellationToken,
   }) async {
+    final retainedIdentities = _retainedIdempotencyKeys();
     try {
       final result = await _coordinator.replay(
         cancellationToken: cancellationToken,
       );
+      await _backfillHistoryIdempotencyKeys(retainedIdentities);
       await _syncProjectionOutcomes();
       return result;
     } finally {
@@ -579,9 +585,64 @@ class DurableMutationQueue {
     Future<RepairActionResult> Function() action,
   ) async {
     _requireOpen();
+    final retainedIdentities = _retainedIdempotencyKeys();
     final result = await action();
+    await _backfillHistoryIdempotencyKeys(retainedIdentities);
     _publishObservation();
     return result;
+  }
+
+  Map<OperationId, IdempotencyKey> _retainedIdempotencyKeys() {
+    final current = _store.snapshot;
+    return <OperationId, IdempotencyKey>{
+      for (final operation in current.active)
+        operation.operationId: operation.idempotencyKey,
+      for (final deadLetter in current.deadLetters)
+        deadLetter.operation.operationId: deadLetter.operation.idempotencyKey,
+      for (final entry in current.history)
+        if (entry.idempotencyKey case final idempotencyKey?)
+          entry.operationId: idempotencyKey,
+    };
+  }
+
+  Future<void> _backfillHistoryIdempotencyKeys(
+    Map<OperationId, IdempotencyKey> retainedIdentities,
+  ) async {
+    if (retainedIdentities.isEmpty) return;
+    final current = _store.snapshot;
+    final hasBackfillableHistory = current.history.any(
+      (entry) =>
+          entry.idempotencyKey == null &&
+          retainedIdentities.containsKey(entry.operationId),
+    );
+    if (!hasBackfillableHistory) return;
+
+    await _commit((latest) {
+      return latest.copyWith(
+        history: latest.history
+            .map((entry) {
+              if (entry.idempotencyKey != null) return entry;
+              final idempotencyKey = retainedIdentities[entry.operationId];
+              if (idempotencyKey == null) return entry;
+              return _historyWithIdempotencyKey(entry, idempotencyKey);
+            })
+            .toList(growable: false),
+      );
+    });
+  }
+
+  static OutboxHistoryEntry _historyWithIdempotencyKey(
+    OutboxHistoryEntry entry,
+    IdempotencyKey idempotencyKey,
+  ) {
+    return OutboxHistoryEntry.validated(
+      operationId: entry.operationId,
+      state: entry.state,
+      completedAt: entry.completedAt,
+      idempotencyKey: idempotencyKey,
+      authScope: entry.authScope,
+      resultProjection: entry.resultProjection,
+    );
   }
 
   void _requireOpen() {
@@ -725,7 +786,9 @@ class DurableMutationQueue {
               existing.idempotencyKey.value == idempotencyKey,
         );
     final duplicateHistory = snapshot.history.any(
-      (entry) => entry.operationId.value == operationId,
+      (entry) =>
+          entry.operationId.value == operationId ||
+          entry.idempotencyKey?.value == idempotencyKey,
     );
     if (duplicateOperation || duplicateHistory) {
       throw DuplicateMutationOperationException(operationId);

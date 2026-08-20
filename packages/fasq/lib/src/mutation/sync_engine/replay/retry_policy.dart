@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
 
 /// Final action selected by [RetryPolicy].
@@ -62,9 +63,14 @@ class RetryPolicy {
     required DateTime now,
     double Function()? randomUnit,
   }) {
+    final unsafeInFlightCancellation =
+        failure.category == MutationFailureCategory.cancellation &&
+        failure.executionPhase == MutationExecutionPhase.started &&
+        !failure.idempotencySafe;
     if (failure.disposition == MutationFailureDisposition.unknownOutcome ||
         (failure.outcomeKnowledge == MutationOutcomeKnowledge.unknown &&
-            !failure.idempotencySafe)) {
+            !failure.idempotencySafe) ||
+        unsafeInFlightCancellation) {
       return const RetryPlan(
         action: RetryPlanAction.unknownOutcome,
         messageKey: 'sync.replay.unknown_outcome',

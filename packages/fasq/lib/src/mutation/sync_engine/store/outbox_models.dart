@@ -155,6 +155,7 @@ class OutboxHistoryEntry {
     required this.operationId,
     required this.state,
     required this.completedAt,
+    this.idempotencyKey,
     this.authScope,
     this.resultProjection,
   });
@@ -164,6 +165,7 @@ class OutboxHistoryEntry {
     required OperationId operationId,
     required MutationOperationState state,
     required DateTime completedAt,
+    IdempotencyKey? idempotencyKey,
     AuthScope? authScope,
     Object? resultProjection,
   }) {
@@ -171,6 +173,7 @@ class OutboxHistoryEntry {
       operationId: operationId,
       state: state,
       completedAt: completedAt,
+      idempotencyKey: idempotencyKey,
       authScope: authScope,
       resultProjection: _immutableJsonValue(
         resultProjection,
@@ -184,9 +187,19 @@ class OutboxHistoryEntry {
     final operationId = json['operationId'];
     final state = json['state'];
     final completedAt = json['completedAt'];
+    final idempotencyKey = json['idempotencyKey'];
     final authScope = json['authScope'];
     if (operationId is! String || state is! String || completedAt is! String) {
       throw const OutboxCorruptException();
+    }
+    IdempotencyKey? parsedIdempotencyKey;
+    if (idempotencyKey != null) {
+      if (idempotencyKey is! String) throw const OutboxCorruptException();
+      try {
+        parsedIdempotencyKey = IdempotencyKey(idempotencyKey);
+      } on Exception {
+        throw const OutboxCorruptException();
+      }
     }
     MutationOperationState parsedState;
     try {
@@ -199,6 +212,7 @@ class OutboxHistoryEntry {
         operationId: OperationId(operationId),
         state: parsedState,
         completedAt: _date(completedAt),
+        idempotencyKey: parsedIdempotencyKey,
         authScope: _parseAuthScope(authScope),
         resultProjection: json['resultProjection'],
       );
@@ -211,6 +225,11 @@ class OutboxHistoryEntry {
 
   /// Completed operation identity.
   final OperationId operationId;
+
+  /// Stable retry and duplicate-prevention identity.
+  ///
+  /// Nullable only for history written by versions before this field existed.
+  final IdempotencyKey? idempotencyKey;
 
   /// Final state recorded in the completion ledger.
   final MutationOperationState state;
@@ -227,6 +246,7 @@ class OutboxHistoryEntry {
   /// Serializes the history entry.
   Map<String, Object?> toJson() => {
     'operationId': operationId.value,
+    'idempotencyKey': idempotencyKey?.value,
     'state': state.name,
     'completedAt': completedAt.toIso8601String(),
     'authScope': authScope?.toJson(),
@@ -463,6 +483,7 @@ OutboxHistoryEntry _copyHistoryEntry(OutboxHistoryEntry entry) {
     operationId: entry.operationId,
     state: entry.state,
     completedAt: entry.completedAt,
+    idempotencyKey: entry.idempotencyKey,
     authScope: entry.authScope,
     resultProjection: entry.resultProjection,
   );

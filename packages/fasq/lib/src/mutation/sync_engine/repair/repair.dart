@@ -481,6 +481,7 @@ class DurableRepairService {
           operationId: original.operationId,
           state: MutationOperationState.discarded,
           completedAt: _now().toUtc(),
+          idempotencyKey: original.idempotencyKey,
           authScope: original.authScope,
         ),
       ];

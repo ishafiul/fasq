@@ -97,6 +97,26 @@ void main() {
     );
   });
 
+  test('round trips history idempotency keys and accepts legacy history', () {
+    final entry = OutboxHistoryEntry.validated(
+      operationId: OperationId('operation'),
+      idempotencyKey: IdempotencyKey('idempotency'),
+      state: MutationOperationState.succeeded,
+      completedAt: DateTime.utc(2026),
+    );
+    final decoded = OutboxHistoryEntry.fromJson(entry.toJson());
+
+    expect(decoded.idempotencyKey, IdempotencyKey('idempotency'));
+    expect(
+      OutboxHistoryEntry.fromJson({
+        'operationId': 'legacy-operation',
+        'state': MutationOperationState.succeeded.name,
+        'completedAt': DateTime.utc(2026).toIso8601String(),
+      }).idempotencyKey,
+      isNull,
+    );
+  });
+
   test(
     'rejects invalid history projections and metadata at model boundary',
     () {

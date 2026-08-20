@@ -49,6 +49,58 @@ void main() {
       );
     });
 
+    test('pauses cancellation observed before executor invocation', () async {
+      final token = ReplayCancellationToken()..cancel();
+      final context = _executionContext(token);
+      var executorCalls = 0;
+
+      final result = await const DirectMutationExecutionAdapter().execute(
+        context,
+        () async {
+          executorCalls++;
+          return null;
+        },
+      );
+
+      final failure = (result as MutationExecutionFailure).failure;
+      expect(executorCalls, 0);
+      expect(failure.category, MutationFailureCategory.cancellation);
+      expect(failure.disposition, MutationFailureDisposition.pause);
+      expect(failure.outcomeKnowledge, MutationOutcomeKnowledge.known);
+      expect(failure.executionPhase, MutationExecutionPhase.notStarted);
+    });
+
+    test(
+      'preserves unknown outcome for cancellation after executor starts',
+      () async {
+        final token = ReplayCancellationToken();
+        final executorStarted = Completer<void>();
+        final releaseExecutor = Completer<void>();
+        final execution = const DirectMutationExecutionAdapter().execute(
+          _executionContext(token),
+          () async {
+            executorStarted.complete();
+            await releaseExecutor.future;
+            return null;
+          },
+        );
+
+        await executorStarted.future;
+        token.cancel();
+        releaseExecutor.complete();
+
+        final result = await execution;
+        final failure = (result as MutationExecutionFailure).failure;
+        expect(failure.category, MutationFailureCategory.cancellation);
+        expect(
+          failure.disposition,
+          MutationFailureDisposition.unknownOutcome,
+        );
+        expect(failure.outcomeKnowledge, MutationOutcomeKnowledge.unknown);
+        expect(failure.executionPhase, MutationExecutionPhase.started);
+      },
+    );
+
     test('requires exact auth scope before authenticated execution', () {
       const gate = AuthScopeGate();
       final expected = AuthScope(
@@ -188,6 +240,41 @@ void main() {
             .action,
         RetryPlanAction.unknownOutcome,
       );
+    });
+
+    test('plans unknown outcome for unsafe in-flight cancellation', () {
+      final plan = const RetryPolicy().plan(
+        operation: _operation(null),
+        failure: const MutationAdapterFailure(
+          category: MutationFailureCategory.cancellation,
+          messageKey: 'sync.replay.cancelled',
+          disposition: MutationFailureDisposition.pause,
+          executionPhase: MutationExecutionPhase.started,
+        ),
+        now: DateTime.utc(2026),
+        randomUnit: () => 0,
+      );
+
+      expect(plan.action, RetryPlanAction.unknownOutcome);
+      expect(plan.messageKey, 'sync.replay.unknown_outcome');
+    });
+
+    test('allows safe in-flight cancellation classification', () {
+      final plan = const RetryPolicy().plan(
+        operation: _operation(null),
+        failure: const MutationAdapterFailure(
+          category: MutationFailureCategory.cancellation,
+          messageKey: 'sync.replay.cancelled',
+          disposition: MutationFailureDisposition.pause,
+          executionPhase: MutationExecutionPhase.started,
+          idempotencySafe: true,
+        ),
+        now: DateTime.utc(2026),
+        randomUnit: () => 0,
+      );
+
+      expect(plan.action, RetryPlanAction.pause);
+      expect(plan.messageKey, 'sync.replay.cancelled');
     });
 
     test('persists retry metadata in operation contract', () {
@@ -712,6 +799,17 @@ const _mapCodec = JsonMutationCodec<Map<String, Object?>>(
   encoder: _encodeMap,
   decoder: _decodeMap,
 );
+
+MutationExecutionContext _executionContext(ReplayCancellationToken token) {
+  return MutationExecutionContext(
+    operationId: OperationId('operation'),
+    idempotencyKey: IdempotencyKey('idempotency'),
+    authPolicy: AuthPolicy.none,
+    authScope: null,
+    attempt: 1,
+    cancellationToken: token,
+  );
+}
 
 Map<String, Object?> _encodeMap(Map<String, Object?> value) => value;
 

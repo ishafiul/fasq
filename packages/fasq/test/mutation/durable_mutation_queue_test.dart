@@ -194,6 +194,53 @@ void main() {
     await queue.close();
   });
 
+  test(
+    'rejects a completed idempotency key after queue restart',
+    () async {
+      final store = _MemoryOutboxStore();
+      final firstQueue = DurableMutationQueue(store: store);
+      firstQueue.register<Map<String, Object?>, Map<String, Object?>>(
+        key: key,
+        codec: _mapCodec,
+        mutationFn: (variables) async => variables,
+      );
+      await firstQueue.open();
+      await firstQueue.enqueue(
+        key: key,
+        variables: <String, Object?>{'title': 'completed'},
+        operationId: OperationId('completed-operation'),
+        idempotencyKey: IdempotencyKey('retained-idempotency'),
+        lineageId: LineageId('completed-lineage'),
+      );
+      await firstQueue.replay();
+      expect(
+        firstQueue.snapshot.history.single.idempotencyKey,
+        IdempotencyKey('retained-idempotency'),
+      );
+      await firstQueue.close();
+
+      final secondQueue = DurableMutationQueue(store: store);
+      secondQueue.register<Map<String, Object?>, Map<String, Object?>>(
+        key: key,
+        codec: _mapCodec,
+        mutationFn: (variables) async => variables,
+      );
+      await secondQueue.open();
+
+      expect(
+        () => secondQueue.enqueue(
+          key: key,
+          variables: <String, Object?>{'title': 'duplicate'},
+          operationId: OperationId('new-operation'),
+          idempotencyKey: IdempotencyKey('retained-idempotency'),
+          lineageId: LineageId('new-lineage'),
+        ),
+        throwsA(isA<DuplicateMutationOperationException>()),
+      );
+      await secondQueue.close();
+    },
+  );
+
   test('rejects non-replayable enqueue states', () async {
     final queue = DurableMutationQueue(store: _MemoryOutboxStore());
     queue.register<Map<String, Object?>, Map<String, Object?>>(
