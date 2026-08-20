@@ -48,6 +48,7 @@ class DurableMutationQueue {
       registrations: resolvedRegistrations,
       now: resolvedNow,
       idGenerator: idGenerator ?? _newUuid,
+      authSessionProvider: authSessionProvider,
       coordinator: DurableReplayCoordinator(
         store: store,
         registrations: resolvedRegistrations,
@@ -73,6 +74,7 @@ class DurableMutationQueue {
     required MutationRegistrationRegistry registrations,
     required DateTime Function() now,
     required String Function() idGenerator,
+    AuthSessionProvider? authSessionProvider,
     required DurableReplayCoordinator coordinator,
     ProjectionCoordinator? projectionCoordinator,
     void Function(String queryKey, Object? value)? projectionSink,
@@ -81,6 +83,7 @@ class DurableMutationQueue {
        _registrations = registrations,
        _now = now,
        _idGenerator = idGenerator,
+       _authSessionProvider = authSessionProvider,
        _coordinator = coordinator,
        _projectionCoordinator = projectionCoordinator,
        _projectionSink = projectionSink,
@@ -95,11 +98,14 @@ class DurableMutationQueue {
   final MutationRegistrationRegistry _registrations;
   final DateTime Function() _now;
   final String Function() _idGenerator;
+  final AuthSessionProvider? _authSessionProvider;
   final DurableReplayCoordinator _coordinator;
   final ProjectionCoordinator? _projectionCoordinator;
   final void Function(String queryKey, Object? value)? _projectionSink;
   final DurableRepairService _repairService;
   final StreamController<OutboxSnapshot> _observationChanges;
+  StreamSubscription<AuthSessionSnapshot>? _observationAuthSubscription;
+  AuthScope? _observationAuthScope;
   bool _isOpen = false;
 
   /// Whether the queue currently owns an open durable store.
@@ -116,7 +122,9 @@ class DurableMutationQueue {
 
   /// Current public-safe observation snapshot.
   DurableQueueObservation get observation =>
-      DurableObservation.fromSnapshot(_store.snapshot).queueObservation();
+      DurableObservation.fromSnapshot(_store.snapshot).queueObservation(
+        filter: _boundObservationFilter(),
+      );
 
   /// Looks up one retained operation without exposing variables or errors.
   DurableOperationObservation? observeOperation(
@@ -125,9 +133,11 @@ class DurableMutationQueue {
   }) {
     return DurableObservation.fromSnapshot(_store.snapshot).getOperation(
       operationId,
-      filter: DurableOperationFilter(
-        authScope: authScope,
-        includeUnauthenticated: authScope == null,
+      filter: _boundObservationFilter(
+        requested: DurableOperationFilter(
+          authScope: authScope,
+          includeUnauthenticated: true,
+        ),
       ),
     );
   }
@@ -137,7 +147,7 @@ class DurableMutationQueue {
     DurableOperationFilter? filter,
   }) {
     return DurableObservation.fromSnapshot(_store.snapshot).listOperations(
-      filter ?? const DurableObservationFilter(),
+      _boundObservationFilter(requested: filter),
     );
   }
 
@@ -145,9 +155,11 @@ class DurableMutationQueue {
   DurableQueueAggregateState aggregateState({AuthScope? authScope}) {
     return DurableObservation.fromSnapshot(_store.snapshot)
         .queueObservation(
-          filter: DurableOperationFilter(
-            authScope: authScope,
-            includeUnauthenticated: authScope == null,
+          filter: _boundObservationFilter(
+            requested: DurableOperationFilter(
+              authScope: authScope,
+              includeUnauthenticated: true,
+            ),
           ),
         )
         .aggregateState;
@@ -218,7 +230,9 @@ class DurableMutationQueue {
   }) {
     return DurableObservation.fromSnapshot(_store.snapshot).getOperationHistory(
       operationId,
-      authScope: authScope,
+      authScope: authScope ?? _observationAuthScope,
+      scopeBound: true,
+      includeUnauthenticated: true,
     );
   }
 
@@ -230,7 +244,7 @@ class DurableMutationQueue {
   Stream<DurableQueueObservation> watch({
     DurableOperationFilter? filter,
   }) {
-    final resolvedFilter = filter ?? const DurableObservationFilter();
+    final requestedFilter = filter;
     late final StreamController<DurableQueueObservation> controller;
     StreamSubscription<OutboxSnapshot>? subscription;
     controller = StreamController<DurableQueueObservation>.broadcast(
@@ -238,13 +252,19 @@ class DurableMutationQueue {
       onListen: () {
         subscription = _observationChanges.stream.listen((snapshot) {
           controller.add(
-            buildQueueObservation(snapshot, filter: resolvedFilter),
+            buildQueueObservation(
+              snapshot,
+              filter: _boundObservationFilter(requested: requestedFilter),
+            ),
           );
         });
         scheduleMicrotask(() {
           if (controller.isClosed) return;
           controller.add(
-            buildQueueObservation(_store.snapshot, filter: resolvedFilter),
+            buildQueueObservation(
+              _store.snapshot,
+              filter: _boundObservationFilter(requested: requestedFilter),
+            ),
           );
         });
       },
@@ -254,6 +274,16 @@ class DurableMutationQueue {
       },
     );
     return controller.stream;
+  }
+
+  DurableOperationFilter _boundObservationFilter({
+    DurableOperationFilter? requested,
+  }) {
+    final filter = requested ?? const DurableObservationFilter();
+    final scope = _authSessionProvider == null
+        ? filter.authScope
+        : _observationAuthScope;
+    return filter.bindToScope(scope);
   }
 
   /// Whether [key] has a runtime codec and executor registration.
@@ -306,7 +336,9 @@ class DurableMutationQueue {
     try {
       await _coordinator.open();
       _restoreProjectionState();
+      await _refreshObservationScope();
       _isOpen = true;
+      _listenForObservationScopeChanges();
       _publishObservation();
     } on DurableOutboxException {
       rethrow;
@@ -322,6 +354,9 @@ class DurableMutationQueue {
   Future<void> close() async {
     if (!_isOpen) return;
     try {
+      await _observationAuthSubscription?.cancel();
+      _observationAuthSubscription = null;
+      _observationAuthScope = null;
       await _coordinator.close();
       _isOpen = false;
     } on DurableOutboxException {
@@ -332,6 +367,29 @@ class DurableMutationQueue {
         stackTrace,
       );
     }
+  }
+
+  Future<void> _refreshObservationScope() async {
+    final provider = _authSessionProvider;
+    if (provider == null) {
+      _observationAuthScope = null;
+      return;
+    }
+    try {
+      _observationAuthScope = (await provider.currentSession()).scope;
+    } on Object {
+      // Fail closed when the auth boundary cannot resolve its current scope.
+      _observationAuthScope = null;
+    }
+  }
+
+  void _listenForObservationScopeChanges() {
+    final provider = _authSessionProvider;
+    if (provider == null || _observationAuthSubscription != null) return;
+    _observationAuthSubscription = provider.changes.listen((session) {
+      _observationAuthScope = session.scope;
+      _publishObservation();
+    });
   }
 
   /// Encodes and durably commits one pending mutation operation.

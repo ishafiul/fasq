@@ -221,6 +221,54 @@ void main() {
       );
     },
   );
+
+  test('exposes discarded audit state and unknown record guidance', () {
+    final discarded = _operation(
+      id: 'discarded',
+      key: mutationKey,
+      state: MutationOperationState.failedTerminal,
+    );
+    final observation = buildQueueObservation(
+      OutboxSnapshot(
+        deadLetters: [
+          OutboxDeadLetter(
+            operation: discarded,
+            category: MutationFailureCategory.business,
+            messageKey: 'mutation.rejected',
+            retryable: false,
+            repairable: false,
+            failedAt: DateTime.utc(2026, 1, 2),
+          ),
+        ],
+        history: [
+          OutboxHistoryEntry.validated(
+            operationId: discarded.operationId,
+            state: MutationOperationState.discarded,
+            completedAt: DateTime.utc(2026, 1, 3),
+          ),
+        ],
+        unknownRecords: const [
+          OutboxUnknownRecord(
+            recordId: 'unknown-1',
+            kind: OutboxUnknownRecordKind.active,
+            schemaVersion: 1,
+            messageKey: 'sync.outbox.unknown_record',
+          ),
+        ],
+      ),
+    );
+
+    expect(
+      observation.operations.single.state,
+      DurableOperationState.discarded,
+    );
+    expect(observation.history.single.state, DurableOperationState.discarded);
+    expect(observation.unknownRecords.single.recordId, 'unknown-1');
+    expect(
+      observation.aggregateState,
+      DurableQueueAggregateState.attentionRequired,
+    );
+  });
 }
 
 MutationOperation _operation({

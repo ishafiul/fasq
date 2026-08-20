@@ -470,6 +470,9 @@ class FileDurableOutbox implements DurableOutboxStore {
   }) {
     try {
       final snapshot = OutboxSnapshot.fromJson(payload);
+      if (wasMigrated && snapshot.unknownRecords.isNotEmpty) {
+        throw const OutboxMigrationRequiredException();
+      }
       securityPolicy.validate(snapshot.toJson());
       return snapshot;
     } on OutboxCorruptException {

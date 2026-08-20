@@ -49,6 +49,9 @@ enum DurableOperationState {
 
   /// Durable storage could not validate the operation.
   storageCorrupt,
+
+  /// Persisted record could not be recognized safely.
+  unrecognized,
 }
 
 /// Durable aggregate state for a filtered queue view.
@@ -76,6 +79,32 @@ enum DurableObservationRecordKind {
 
   /// Operation is retained as a dead letter.
   deadLetter,
+
+  /// Persisted record could not be decoded into a known durable model.
+  unknown,
+}
+
+/// Safe metadata for a persisted record that needs explicit recovery.
+class DurableUnknownRecordObservation {
+  /// Creates safe unknown-record metadata.
+  const DurableUnknownRecordObservation({
+    required this.recordId,
+    required this.recordKind,
+    required this.schemaVersion,
+    required this.messageKey,
+  });
+
+  /// Stable opaque identifier for the unrecognized record.
+  final String recordId;
+
+  /// Logical retention area in which the record was found.
+  final DurableObservationRecordKind recordKind;
+
+  /// Schema version associated with the record.
+  final int schemaVersion;
+
+  /// Stable diagnostic key describing the required action.
+  final String messageKey;
 }
 
 /// Safe failure metadata retained for public observation.
@@ -190,6 +219,7 @@ class DurableOperationObservation {
     required DurableObservationRecordKind recordKind,
     DurableFailureObservation? failure,
     DateTime? failedAt,
+    DurableOperationState? stateOverride,
   }) {
     return DurableOperationObservation(
       operationId: operation.operationId,
@@ -198,7 +228,7 @@ class DurableOperationObservation {
       lineageId: operation.lineageId,
       authPolicy: operation.authPolicy,
       authScope: operation.authScope,
-      state: _publicState(operation.state, failure?.category),
+      state: stateOverride ?? _publicState(operation.state, failure?.category),
       createdAt: operation.createdAt,
       attemptCount: operation.attemptCount,
       maxAttempts: operation.maxAttempts,
@@ -266,9 +296,11 @@ class DurableOperationFilter {
     this.states = const <DurableOperationState>{},
     this.authScope,
     this.includeUnauthenticated = true,
+    bool scopeBound = false,
     this.includeDeadLetters = true,
     this.limit,
-  }) : assert(limit == null || limit > 0, 'limit must be positive');
+  }) : scopeBound = scopeBound || authScope != null,
+       assert(limit == null || limit > 0, 'limit must be positive');
 
   /// Restricts observation to one operation.
   final OperationId? operationId;
@@ -285,6 +317,9 @@ class DurableOperationFilter {
   /// Whether operations without an auth scope remain visible alongside the
   /// exact requested scope.
   final bool includeUnauthenticated;
+
+  /// Whether the filter is bound to an exact current observation scope.
+  final bool scopeBound;
 
   /// Whether dead-letter records are included.
   final bool includeDeadLetters;
@@ -307,9 +342,23 @@ class DurableOperationFilter {
         observation.recordKind == DurableObservationRecordKind.deadLetter) {
       return false;
     }
-    if (authScope == null) return true;
+    if (!scopeBound) return true;
     if (observation.authScope == authScope) return true;
     return includeUnauthenticated && observation.authScope == null;
+  }
+
+  /// Returns a copy bound to [scope] at the observation boundary.
+  DurableOperationFilter bindToScope(AuthScope? scope) {
+    return DurableOperationFilter(
+      operationId: operationId,
+      mutationKey: mutationKey,
+      states: states,
+      authScope: scope,
+      includeUnauthenticated: includeUnauthenticated,
+      scopeBound: true,
+      includeDeadLetters: includeDeadLetters,
+      limit: limit,
+    );
   }
 }
 
@@ -325,15 +374,21 @@ class DurableQueueObservation {
   DurableQueueObservation({
     required List<DurableOperationObservation> operations,
     required List<DurableHistoryObservation> history,
+    List<DurableUnknownRecordObservation> unknownRecords =
+        const <DurableUnknownRecordObservation>[],
     required this.aggregateState,
   }) : operations = List.unmodifiable(operations),
-       history = List.unmodifiable(history);
+       history = List.unmodifiable(history),
+       unknownRecords = List.unmodifiable(unknownRecords);
 
   /// Matching active and dead-letter operations.
   final List<DurableOperationObservation> operations;
 
   /// Matching retained history entries.
   final List<DurableHistoryObservation> history;
+
+  /// Safe metadata for records requiring explicit migration or recovery.
+  final List<DurableUnknownRecordObservation> unknownRecords;
 
   /// Derived aggregate state for [operations].
   final DurableQueueAggregateState aggregateState;

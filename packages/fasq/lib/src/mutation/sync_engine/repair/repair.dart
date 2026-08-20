@@ -1,5 +1,6 @@
 import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/conflict/conflict_repair.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
 import 'package:fasq/src/mutation/sync_engine/store/durable_outbox.dart';
@@ -28,6 +29,9 @@ enum RepairActionErrorCode {
 
   /// The idempotency key was reused for another action.
   idempotencyConflict,
+
+  /// A conflict repair needs a fresh compare-and-set token.
+  conflictPreconditionRequired,
 }
 
 /// Safe public exception; it never carries variables or exception objects.
@@ -403,6 +407,12 @@ class DurableRepairService {
         'sync.repair.operation_not_found',
       );
     }
+    if (_wasDiscarded(current, operationId)) {
+      throw const RepairActionException(
+        RepairActionErrorCode.invalidState,
+        'sync.repair.operation_discarded',
+      );
+    }
     if (original.authPolicy == AuthPolicy.required &&
         original.authScope != currentAuthScope) {
       throw const RepairActionException(
@@ -423,7 +433,9 @@ class DurableRepairService {
         'sync.repair.not_dead_lettered',
       );
     }
-    if (action == RepairAction.retry && !deadLetter!.retryable) {
+    if (action == RepairAction.retry &&
+        (!deadLetter!.retryable ||
+            deadLetter.category == MutationFailureCategory.conflict)) {
       throw const RepairActionException(
         RepairActionErrorCode.notRetryable,
         'sync.repair.retry_not_allowed',
@@ -435,10 +447,21 @@ class DurableRepairService {
         'sync.repair.replacement_not_allowed',
       );
     }
+    if (action == RepairAction.replace &&
+        deadLetter!.category == MutationFailureCategory.conflict &&
+        (conflictPrecondition == null ||
+            conflictPrecondition ==
+                deadLetter.operation.conflictPrecondition)) {
+      throw const RepairActionException(
+        RepairActionErrorCode.conflictPreconditionRequired,
+        'sync.repair.fresh_conflict_precondition_required',
+      );
+    }
 
     final freshOperationId = _identities.newOperationId();
     final freshIdempotencyKey = _identities.newIdempotencyKey();
     var active = current.active;
+    var history = current.history;
     var blockedCount = 0;
     MutationOperation? replacement;
     if (action == RepairAction.restoreQuarantine) {
@@ -452,6 +475,15 @@ class DurableRepairService {
       final blocked = _block(active, operationId);
       active = blocked.active;
       blockedCount = blocked.count;
+      history = [
+        ...history,
+        OutboxHistoryEntry.validated(
+          operationId: original.operationId,
+          state: MutationOperationState.discarded,
+          completedAt: _now().toUtc(),
+          authScope: original.authScope,
+        ),
+      ];
     } else {
       final source = deadLetter!.operation;
       final nextPrecondition = action == RepairAction.retry
@@ -490,6 +522,7 @@ class DurableRepairService {
     }
     return _RepairPlan(
       active: active,
+      history: history,
       result: RepairActionResult(
         action: action,
         originalOperationId: operationId,
@@ -568,6 +601,7 @@ class DurableRepairService {
     ];
     return current.copyWith(
       active: plan.active,
+      history: plan.history,
       metadata: {...current.metadata, _ledgerKey: ledger},
     );
   }
@@ -623,6 +657,14 @@ class DurableRepairService {
     return null;
   }
 
+  bool _wasDiscarded(OutboxSnapshot snapshot, OperationId operationId) {
+    return snapshot.history.any(
+      (entry) =>
+          entry.operationId == operationId &&
+          entry.state == MutationOperationState.discarded,
+    );
+  }
+
   void _emit(RepairActionResult result, String outcome) {
     try {
       _telemetry?.call(
@@ -667,9 +709,14 @@ class DurableRepairService {
 }
 
 class _RepairPlan {
-  const _RepairPlan({required this.active, required this.result});
+  const _RepairPlan({
+    required this.active,
+    required this.history,
+    required this.result,
+  });
 
   final List<MutationOperation> active;
+  final List<OutboxHistoryEntry> history;
   final RepairActionResult result;
 }
 

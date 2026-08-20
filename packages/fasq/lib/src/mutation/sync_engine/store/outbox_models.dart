@@ -2,7 +2,68 @@ import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_json.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
+import 'package:fasq/src/mutation/sync_engine/store/outbox_envelope.dart';
 import 'package:fasq/src/mutation/sync_engine/store/outbox_errors.dart';
+
+/// Logical collection in which an unrecognized record was found.
+enum OutboxUnknownRecordKind { active, deadLetter, history }
+
+/// Safe durable marker for a record that requires explicit recovery.
+class OutboxUnknownRecord {
+  /// Creates an unknown-record marker.
+  const OutboxUnknownRecord({
+    required this.recordId,
+    required this.kind,
+    required this.schemaVersion,
+    required this.messageKey,
+  });
+
+  /// Stable opaque identifier for the record.
+  final String recordId;
+
+  /// Collection containing the record.
+  final OutboxUnknownRecordKind kind;
+
+  /// Schema version in which the record was encountered.
+  final int schemaVersion;
+
+  /// Stable diagnostic key for migration or recovery guidance.
+  final String messageKey;
+
+  /// Serializes only safe metadata; malformed payloads are never re-exposed.
+  Map<String, Object?> toJson() => {
+    'recordId': recordId,
+    'kind': kind.name,
+    'schemaVersion': schemaVersion,
+    'messageKey': messageKey,
+  };
+
+  /// Decodes a previously retained marker.
+  factory OutboxUnknownRecord.fromJson(Map<String, Object?> json) {
+    final recordId = json['recordId'];
+    final kind = json['kind'];
+    final schemaVersion = json['schemaVersion'];
+    final messageKey = json['messageKey'];
+    if (recordId is! String ||
+        recordId.isEmpty ||
+        kind is! String ||
+        schemaVersion is! int ||
+        messageKey is! String ||
+        messageKey.isEmpty) {
+      throw const OutboxCorruptException();
+    }
+    final parsedKind = OutboxUnknownRecordKind.values.where(
+      (value) => value.name == kind,
+    );
+    if (parsedKind.isEmpty) throw const OutboxCorruptException();
+    return OutboxUnknownRecord(
+      recordId: recordId,
+      kind: parsedKind.single,
+      schemaVersion: schemaVersion,
+      messageKey: messageKey,
+    );
+  }
+}
 
 /// One terminal operation retained for repair and inspection.
 class OutboxDeadLetter {
@@ -180,28 +241,42 @@ class OutboxSnapshot {
     List<MutationOperation> active = const <MutationOperation>[],
     List<OutboxDeadLetter> deadLetters = const <OutboxDeadLetter>[],
     List<OutboxHistoryEntry> history = const <OutboxHistoryEntry>[],
+    List<OutboxUnknownRecord> unknownRecords = const <OutboxUnknownRecord>[],
     Map<String, Object?> metadata = const <String, Object?>{},
   }) : active = List.unmodifiable(active.map(_copyOperation)),
        deadLetters = List.unmodifiable(deadLetters.map(_copyDeadLetter)),
        history = List.unmodifiable(history.map(_copyHistoryEntry)),
+       unknownRecords = List.unmodifiable(unknownRecords),
        metadata = _immutableJsonMap(metadata, 'metadata');
 
   /// Recreates a snapshot from validated JSON.
   factory OutboxSnapshot.fromJson(Map<String, Object?> json) {
     try {
+      final active = _decodeKnownList(
+        json['active'],
+        kind: OutboxUnknownRecordKind.active,
+        decode: MutationOperation.fromJson,
+      );
+      final deadLetters = _decodeKnownList(
+        json['deadLetters'],
+        kind: OutboxUnknownRecordKind.deadLetter,
+        decode: OutboxDeadLetter.fromJson,
+      );
+      final history = _decodeKnownList(
+        json['history'],
+        kind: OutboxUnknownRecordKind.history,
+        decode: OutboxHistoryEntry.fromJson,
+      );
       return OutboxSnapshot(
-        active: _decodeList(
-          json['active'],
-          MutationOperation.fromJson,
-        ),
-        deadLetters: _decodeList(
-          json['deadLetters'],
-          OutboxDeadLetter.fromJson,
-        ),
-        history: _decodeList(
-          json['history'],
-          OutboxHistoryEntry.fromJson,
-        ),
+        active: active.records,
+        deadLetters: deadLetters.records,
+        history: history.records,
+        unknownRecords: [
+          ...active.unknownRecords,
+          ...deadLetters.unknownRecords,
+          ...history.unknownRecords,
+          ..._decodeUnknownRecords(json['unknownRecords']),
+        ],
         metadata: _metadata(json['metadata']),
       );
     } on OutboxCorruptException {
@@ -220,6 +295,9 @@ class OutboxSnapshot {
   /// Completed/discarded operation ledger.
   final List<OutboxHistoryEntry> history;
 
+  /// Persisted records that require explicit migration or recovery.
+  final List<OutboxUnknownRecord> unknownRecords;
+
   /// JSON-safe dependency or projection metadata owned by the store.
   final Map<String, Object?> metadata;
 
@@ -228,38 +306,111 @@ class OutboxSnapshot {
     List<MutationOperation>? active,
     List<OutboxDeadLetter>? deadLetters,
     List<OutboxHistoryEntry>? history,
+    List<OutboxUnknownRecord>? unknownRecords,
     Map<String, Object?>? metadata,
   }) {
     return OutboxSnapshot(
       active: active ?? this.active,
       deadLetters: deadLetters ?? this.deadLetters,
       history: history ?? this.history,
+      unknownRecords: unknownRecords ?? this.unknownRecords,
       metadata: metadata ?? this.metadata,
     );
   }
 
   /// Number of records retained by the logical store.
-  int get recordCount => active.length + deadLetters.length + history.length;
+  int get recordCount =>
+      active.length +
+      deadLetters.length +
+      history.length +
+      unknownRecords.length;
 
   /// Serializes the complete logical store payload.
   Map<String, Object?> toJson() => {
     'active': active.map((item) => item.toJson()).toList(),
     'deadLetters': deadLetters.map((item) => item.toJson()).toList(),
     'history': history.map((item) => item.toJson()).toList(),
+    'unknownRecords': unknownRecords.map((item) => item.toJson()).toList(),
     'metadata': metadata,
   };
 }
 
 typedef _JsonDecoder<T> = T Function(Map<String, Object?> json);
 
-List<T> _decodeList<T>(Object? value, _JsonDecoder<T> decode) {
+_DecodedKnownList<T> _decodeKnownList<T>(
+  Object? value, {
+  required OutboxUnknownRecordKind kind,
+  required _JsonDecoder<T> decode,
+}) {
+  if (value is! List<Object?>) {
+    return _DecodedKnownList(
+      records: <T>[],
+      unknownRecords: [
+        _unknownRecord(
+          kind: kind,
+          index: 0,
+          messageKey: 'sync.outbox.unknown_collection',
+        ),
+      ],
+    );
+  }
+  final records = <T>[];
+  final unknownRecords = <OutboxUnknownRecord>[];
+  for (var index = 0; index < value.length; index++) {
+    final item = value[index];
+    try {
+      if (item is! Map<Object?, Object?>) {
+        throw const OutboxCorruptException();
+      }
+      records.add(decode(_objectMap(item)));
+    } on Object {
+      unknownRecords.add(_unknownRecord(kind: kind, index: index, item: item));
+    }
+  }
+  return _DecodedKnownList(
+    records: List.unmodifiable(records),
+    unknownRecords: List.unmodifiable(unknownRecords),
+  );
+}
+
+class _DecodedKnownList<T> {
+  const _DecodedKnownList({
+    required this.records,
+    required this.unknownRecords,
+  });
+
+  final List<T> records;
+  final List<OutboxUnknownRecord> unknownRecords;
+}
+
+OutboxUnknownRecord _unknownRecord({
+  required OutboxUnknownRecordKind kind,
+  required int index,
+  Object? item,
+  String? messageKey,
+}) {
+  final itemMap = item is Map<Object?, Object?> ? item : null;
+  final operationId = itemMap?['operationId'];
+  final recordId = operationId is String && operationId.isNotEmpty
+      ? operationId
+      : 'unknown-${kind.name}-$index';
+  return OutboxUnknownRecord(
+    recordId: recordId,
+    kind: kind,
+    schemaVersion: currentOutboxSchemaVersion,
+    messageKey: messageKey ?? 'sync.outbox.unknown_record',
+  );
+}
+
+List<OutboxUnknownRecord> _decodeUnknownRecords(Object? value) {
+  if (value == null) return const <OutboxUnknownRecord>[];
   if (value is! List<Object?>) throw const OutboxCorruptException();
   return value
       .map((item) {
         if (item is! Map<Object?, Object?>) {
           throw const OutboxCorruptException();
         }
-        return decode(_objectMap(item));
+        return OutboxUnknownRecord.fromJson(_objectMap(item));
       })
       .toList(growable: false);
 }

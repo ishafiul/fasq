@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fasq/src/mutation/durable_mutation_queue.dart';
 import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
+import 'package:fasq/src/mutation/sync_engine/execution/auth_session.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
@@ -188,6 +189,76 @@ void main() {
     expect(visible.map((item) => item.operationId.value), <String>['scope-a']);
     await queue.close();
   });
+
+  test('default observation follows the current auth session scope', () async {
+    final scopeA = AuthScope(
+      principalId: 'user-a',
+      tenantId: 'tenant',
+      authRealm: 'realm',
+    );
+    final scopeB = AuthScope(
+      principalId: 'user-b',
+      tenantId: 'tenant',
+      authRealm: 'realm',
+    );
+    final provider = InMemoryAuthSessionProvider(
+      initial: AuthSessionSnapshot.ready(scopeA),
+    );
+    final store = _MemoryOutboxStore(
+      snapshot: OutboxSnapshot(
+        active: [
+          _operation(
+            operationId: OperationId('scope-a-default'),
+            key: key,
+            state: MutationOperationState.pending,
+            variables: const {},
+            scope: scopeA,
+          ),
+          _operation(
+            operationId: OperationId('scope-b-default'),
+            key: key,
+            state: MutationOperationState.pending,
+            variables: const {},
+            scope: scopeB,
+          ),
+          _operation(
+            operationId: OperationId('anonymous-default'),
+            key: key,
+            state: MutationOperationState.pending,
+            variables: const {},
+          ),
+        ],
+      ),
+    );
+    final queue = DurableMutationQueue(
+      store: store,
+      authSessionProvider: provider,
+    );
+
+    await queue.open();
+    expect(
+      queue.listOperations().map((item) => item.operationId.value),
+      containsAll(<String>['scope-a-default', 'anonymous-default']),
+    );
+    expect(
+      queue.listOperations().map((item) => item.operationId.value),
+      isNot(contains('scope-b-default')),
+    );
+
+    provider.update(AuthSessionSnapshot.ready(scopeB));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      queue.listOperations().map((item) => item.operationId.value),
+      contains('scope-b-default'),
+    );
+    expect(
+      queue.listOperations().map((item) => item.operationId.value),
+      isNot(contains('scope-a-default')),
+    );
+    await queue.close();
+    await provider.dispose();
+  });
 }
 
 MutationOperation _operation({
@@ -195,6 +266,7 @@ MutationOperation _operation({
   required MutationKey key,
   required MutationOperationState state,
   required Object? variables,
+  AuthScope? scope,
 }) {
   return MutationOperation(
     operationId: operationId,
@@ -203,7 +275,8 @@ MutationOperation _operation({
     createdAt: DateTime.utc(2026, 8, 21),
     idempotencyKey: IdempotencyKey('${operationId.value}-idempotency'),
     lineageId: LineageId('${operationId.value}-lineage'),
-    authPolicy: AuthPolicy.none,
+    authPolicy: scope == null ? AuthPolicy.none : AuthPolicy.required,
+    authScope: scope,
     state: state,
   );
 }
