@@ -254,6 +254,8 @@ MutationOperation _copyOperation(MutationOperation operation) {
     idempotencyKey: operation.idempotencyKey,
     lineageId: operation.lineageId,
     authPolicy: operation.authPolicy,
+    conflictPolicy: operation.conflictPolicy,
+    conflictPrecondition: operation.conflictPrecondition,
     state: operation.state,
     priority: operation.priority,
     attemptCount: operation.attemptCount,

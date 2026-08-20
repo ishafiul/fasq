@@ -1,14 +1,17 @@
+import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/auth_session.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
+import 'package:fasq/src/mutation/sync_engine/projection/projection.dart';
 import 'package:fasq/src/mutation/sync_engine/replay/replay_coordinator.dart';
 import 'package:fasq/src/mutation/sync_engine/replay/retry_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/store/durable_outbox.dart';
 import 'package:fasq/src/mutation/sync_engine/store/outbox_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/store/outbox_models.dart';
+import 'package:fasq/src/query/keys/query_key.dart';
 import 'package:uuid/uuid.dart';
 
 /// Public durable queue facade for registered mutation functions.
@@ -27,6 +30,8 @@ class DurableMutationQueue {
     RetryPolicy retryPolicy = const RetryPolicy(),
     AuthSessionProvider? authSessionProvider,
     bool Function()? isOnline,
+    ProjectionCoordinator? projectionCoordinator,
+    void Function(String queryKey, Object? value)? projectionSink,
   }) {
     final resolvedRegistrations =
         registrations ?? MutationRegistrationRegistry();
@@ -45,6 +50,8 @@ class DurableMutationQueue {
         authSessionProvider: authSessionProvider,
         isOnline: isOnline,
       ),
+      projectionCoordinator: projectionCoordinator,
+      projectionSink: projectionSink,
     );
   }
 
@@ -54,11 +61,15 @@ class DurableMutationQueue {
     required DateTime Function() now,
     required String Function() idGenerator,
     required DurableReplayCoordinator coordinator,
+    ProjectionCoordinator? projectionCoordinator,
+    void Function(String queryKey, Object? value)? projectionSink,
   }) : _store = store,
        _registrations = registrations,
        _now = now,
        _idGenerator = idGenerator,
-       _coordinator = coordinator;
+       _coordinator = coordinator,
+       _projectionCoordinator = projectionCoordinator,
+       _projectionSink = projectionSink;
 
   static const _uuid = Uuid();
 
@@ -67,10 +78,15 @@ class DurableMutationQueue {
   final DateTime Function() _now;
   final String Function() _idGenerator;
   final DurableReplayCoordinator _coordinator;
+  final ProjectionCoordinator? _projectionCoordinator;
+  final void Function(String queryKey, Object? value)? _projectionSink;
   bool _isOpen = false;
 
   /// Whether the queue currently owns an open durable store.
   bool get isOpen => _isOpen;
+
+  /// Current projection state, when projection integration is configured.
+  ProjectionState? get projectionState => _projectionCoordinator?.state;
 
   /// Snapshot acknowledged by the durable store.
   OutboxSnapshot get snapshot => _store.snapshot;
@@ -127,6 +143,7 @@ class DurableMutationQueue {
     if (_isOpen) return;
     try {
       await _coordinator.open();
+      _restoreProjectionState();
       _isOpen = true;
     } on DurableOutboxException {
       rethrow;
@@ -162,6 +179,8 @@ class DurableMutationQueue {
     IdempotencyKey? idempotencyKey,
     LineageId? lineageId,
     AuthScope? authScope,
+    ConflictPolicy conflictPolicy = ConflictPolicy.none,
+    ConflictPrecondition? conflictPrecondition,
     DateTime? createdAt,
     int priority = 0,
     List<MutationDependency> dependencies = const <MutationDependency>[],
@@ -188,6 +207,8 @@ class DurableMutationQueue {
       idempotencyKey: idempotencyKey ?? IdempotencyKey(_idGenerator()),
       lineageId: lineageId ?? LineageId(_idGenerator()),
       authPolicy: _registrations.authPolicyFor(key),
+      conflictPolicy: conflictPolicy,
+      conflictPrecondition: conflictPrecondition,
       authScope: authScope,
       state: state,
       priority: priority,
@@ -213,13 +234,72 @@ class DurableMutationQueue {
   /// Explicitly replays all currently admissible durable work.
   Future<ReplayRunResult> replay({
     ReplayCancellationToken? cancellationToken,
-  }) => _coordinator.replay(cancellationToken: cancellationToken);
+  }) async {
+    final beforeHistory = _store.snapshot.history
+        .map((entry) => entry.operationId)
+        .toSet();
+    final beforeDeadLetters = _store.snapshot.deadLetters
+        .map((entry) => entry.operation.operationId)
+        .toSet();
+    final result = await _coordinator.replay(
+      cancellationToken: cancellationToken,
+    );
+    await _syncProjectionOutcomes(beforeHistory, beforeDeadLetters);
+    return result;
+  }
 
   /// Compatibility alias for callers that previously requested queue work
   /// through `processQueue`.
   Future<ReplayRunResult> processQueue({
     ReplayCancellationToken? cancellationToken,
   }) => replay(cancellationToken: cancellationToken);
+
+  /// Adds one restart-safe optimistic overlay after enqueue acknowledgement.
+  Future<ProjectionOutcome> enqueueProjection(ProjectionOverlay overlay) {
+    return _mutateProjection((coordinator) => coordinator.enqueue(overlay));
+  }
+
+  /// Applies a confirmed remote base while preserving pending overlays.
+  Future<ProjectionOutcome> setProjectionRemoteBase(
+    QueryKey key,
+    Object? value, {
+    int? revision,
+  }) {
+    return _mutateProjection(
+      (coordinator) => coordinator.setRemoteBase(
+        key,
+        value,
+        revision: revision,
+      ),
+    );
+  }
+
+  /// Materializes one projection view for a cache or UI integration.
+  ProjectionView? materializeProjection(QueryKey key) {
+    return _projectionCoordinator?.materialize(key);
+  }
+
+  /// Completes the matching optimistic overlay after successful replay.
+  Future<ProjectionOutcome> completeProjection(
+    OperationId operationId,
+    Object? result,
+  ) {
+    return _mutateProjection(
+      (coordinator) => coordinator.complete(operationId, result),
+    );
+  }
+
+  /// Removes an overlay after a non-conflict terminal failure.
+  Future<ProjectionOutcome> failProjection(OperationId operationId) {
+    return _mutateProjection((coordinator) => coordinator.fail(operationId));
+  }
+
+  /// Marks an overlay conflicted without discarding local intent.
+  Future<ProjectionOutcome> markProjectionConflict(OperationId operationId) {
+    return _mutateProjection(
+      (coordinator) => coordinator.markConflict(operationId),
+    );
+  }
 
   Future<OutboxSnapshot> _commit(DurableOutboxTransaction transaction) async {
     try {
@@ -240,6 +320,101 @@ class DurableMutationQueue {
     if (!_isOpen) {
       throw StateError('The durable mutation queue is not open');
     }
+  }
+
+  static const _projectionMetadataKey = 'projectionState';
+
+  void _restoreProjectionState() {
+    final coordinator = _projectionCoordinator;
+    if (coordinator == null) return;
+    final raw = _store.snapshot.metadata[_projectionMetadataKey];
+    if (raw is! Map<Object?, Object?>) return;
+    try {
+      coordinator.restore(ProjectionState.fromJson(_stringMap(raw)));
+    } on Object {
+      // Keep durable mutations usable; projection state is independently
+      // repairable and must never block queue recovery.
+    }
+  }
+
+  Future<ProjectionOutcome> _mutateProjection(
+    ProjectionOutcome Function(ProjectionCoordinator coordinator) change,
+  ) async {
+    _requireOpen();
+    final coordinator = _projectionCoordinator;
+    if (coordinator == null) {
+      return ProjectionOutcome(
+        ProjectionState(),
+        <String>[],
+        const ProjectionFailure(null, null, 'projection.not_configured'),
+      );
+    }
+    final previousState = coordinator.state;
+    final outcome = change(coordinator);
+    try {
+      await _commit(
+        (current) => current.copyWith(
+          metadata: {
+            ...current.metadata,
+            _projectionMetadataKey: outcome.state.toJson(),
+          },
+        ),
+      );
+      _notifyProjection(outcome.changedKeys);
+      return outcome;
+    } on Object {
+      coordinator.restore(previousState);
+      return ProjectionOutcome(
+        previousState,
+        const <String>[],
+        const ProjectionFailure(null, null, 'projection.persist_failed'),
+      );
+    }
+  }
+
+  void _notifyProjection(Iterable<String> keys) {
+    final sink = _projectionSink;
+    final coordinator = _projectionCoordinator;
+    if (sink == null || coordinator == null) return;
+    for (final key in keys.toSet()) {
+      final view = coordinator.materialize(StringQueryKey(key));
+      if (view.failure == null) sink(key, view.value);
+    }
+  }
+
+  Future<void> _syncProjectionOutcomes(
+    Set<OperationId> beforeHistory,
+    Set<OperationId> beforeDeadLetters,
+  ) async {
+    final current = _store.snapshot;
+    for (final entry in current.history) {
+      if (entry.state != MutationOperationState.succeeded ||
+          beforeHistory.contains(entry.operationId)) {
+        continue;
+      }
+      await completeProjection(entry.operationId, entry.resultProjection);
+    }
+    for (final entry in current.deadLetters) {
+      if (beforeDeadLetters.contains(entry.operation.operationId)) continue;
+      if (entry.category == MutationFailureCategory.conflict) {
+        await markProjectionConflict(entry.operation.operationId);
+      } else {
+        await failProjection(entry.operation.operationId);
+      }
+    }
+  }
+
+  static Map<String, Object?> _stringMap(Map<Object?, Object?> value) {
+    final result = <String, Object?>{};
+    for (final entry in value.entries) {
+      if (entry.key is! String) {
+        throw const InvalidMutationPayloadException(
+          'Projection metadata keys must be strings',
+        );
+      }
+      result[entry.key! as String] = entry.value;
+    }
+    return result;
   }
 
   void _rejectDuplicateIdentity(

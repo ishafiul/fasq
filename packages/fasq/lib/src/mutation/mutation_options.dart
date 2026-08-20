@@ -1,6 +1,8 @@
 import 'package:fasq/src/mutation/durable_mutation_queue.dart';
 import 'package:fasq/src/mutation/mutation_meta.dart';
+import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/mutation_contracts.dart';
+import 'package:fasq/src/mutation/sync_engine/projection/projection.dart';
 import 'package:meta/meta.dart';
 
 /// Configuration required to persist and replay a mutation after restart.
@@ -17,6 +19,8 @@ class DurableMutationQueueOptions<TVariables> {
     required this.codec,
     this.authPolicy = AuthPolicy.none,
     this.authScope,
+    this.conflictPolicy = ConflictPolicy.none,
+    this.conflictPrecondition,
   });
 
   /// Durable queue used to persist and replay this mutation.
@@ -33,6 +37,12 @@ class DurableMutationQueueOptions<TVariables> {
 
   /// Exact non-secret identity captured with each authenticated operation.
   final AuthScope? authScope;
+
+  /// Explicit stale-write policy captured with queued operations.
+  final ConflictPolicy conflictPolicy;
+
+  /// Opaque compare-and-set token captured with queued operations.
+  final ConflictPrecondition? conflictPrecondition;
 }
 
 /// Configuration options for mutation behavior and lifecycle callbacks.
@@ -45,6 +55,8 @@ class MutationOptions<T, TVariables> {
     this.queueWhenOffline = false,
     this.durableQueue,
     this.resultEncoder,
+    this.projectionPlan,
+    this.projectionBuilder,
     this.maxRetries,
     this.onQueued,
     this.priority = 0,
@@ -75,6 +87,17 @@ class MutationOptions<T, TVariables> {
   /// Encodes mutation results for durable replay history.
   final Object? Function(T data)? resultEncoder;
 
+  /// Serializable projection plan applied when offline work is queued.
+  final ProjectionPlan? projectionPlan;
+
+  /// Builds a runtime overlay from the acknowledged operation identity.
+  final ProjectionOverlay Function(
+    OperationId operationId,
+    LineageId lineageId,
+    TVariables variables,
+  )?
+  projectionBuilder;
+
   /// Stable logical identity for this mutation, if durable queueing is enabled.
   MutationKey? get mutationKey => durableQueue?.mutationKey;
 
@@ -94,6 +117,15 @@ class MutationOptions<T, TVariables> {
         'queueWhenOffline requires durableQueue configuration',
       );
     }
+    if (projectionBuilder != null && projectionPlan == null) {
+      throw ArgumentError(
+        'projectionBuilder requires projectionPlan configuration',
+      );
+    }
+    final durableQueueOptions = durableQueue;
+    durableQueueOptions?.conflictPolicy.validate(
+      durableQueueOptions.conflictPrecondition,
+    );
   }
 
   /// Maximum retry attempts for failed mutations.

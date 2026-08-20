@@ -5,6 +5,7 @@ import 'package:fasq/src/mutation/mutation_options.dart';
 import 'package:fasq/src/mutation/mutation_snapshot.dart';
 import 'package:fasq/src/mutation/mutation_state.dart';
 import 'package:fasq/src/mutation/network_status.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 
 /// Executes and tracks a mutation with optional offline queueing.
 class Mutation<T, TVariables> {
@@ -68,14 +69,39 @@ class Mutation<T, TVariables> {
         );
       }
       try {
+        final projectionPlan = options?.projectionPlan;
         await durableQueue.queue.open();
-        await durableQueue.queue.enqueue(
+        final acknowledgement = await durableQueue.queue.enqueue(
           key: durableQueue.mutationKey,
           variables: variables,
           authScope: durableQueue.authScope,
+          conflictPolicy: durableQueue.conflictPolicy,
+          conflictPrecondition: durableQueue.conflictPrecondition,
           priority: options?.priority ?? 0,
           maxAttempts: options?.maxRetries ?? 5,
+          projections: projectionPlan == null
+              ? const <MutationProjectionDescriptor>[]
+              : <MutationProjectionDescriptor>[
+                  MutationProjectionDescriptor(
+                    id: projectionPlan.registryKey,
+                    queryKeys: projectionPlan.queryKeys,
+                  ),
+                ],
         );
+        final projectionBuilder = options?.projectionBuilder;
+        if (projectionBuilder != null) {
+          try {
+            await durableQueue.queue.enqueueProjection(
+              projectionBuilder(
+                acknowledgement.operationId,
+                acknowledgement.lineageId,
+                variables,
+              ),
+            );
+          } on Object {
+            // Projection failures never change durable mutation outcome.
+          }
+        }
         _updateState(const MutationState.queued());
         options?.onQueued?.call(variables);
         return;

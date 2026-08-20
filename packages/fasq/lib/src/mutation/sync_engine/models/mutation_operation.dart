@@ -1,6 +1,7 @@
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_json.dart';
+import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
 import 'package:meta/meta.dart';
 
 /// Durable lifecycle state for one queued mutation operation.
@@ -70,6 +71,8 @@ class MutationOperation {
     required LineageId lineageId,
     required AuthPolicy authPolicy,
     required MutationOperationState state,
+    ConflictPolicy conflictPolicy = ConflictPolicy.none,
+    ConflictPrecondition? conflictPrecondition,
     int priority = 0,
     AuthScope? authScope,
     List<MutationDependency> dependencies = const <MutationDependency>[],
@@ -89,6 +92,7 @@ class MutationOperation {
         'must be present only for required auth policy',
       );
     }
+    conflictPolicy.validate(conflictPrecondition);
     if (attemptCount < 0) {
       throw ArgumentError.value(
         attemptCount,
@@ -111,6 +115,8 @@ class MutationOperation {
       idempotencyKey: idempotencyKey,
       lineageId: lineageId,
       authPolicy: authPolicy,
+      conflictPolicy: conflictPolicy,
+      conflictPrecondition: conflictPrecondition,
       state: state,
       priority: priority,
       authScope: authScope,
@@ -133,6 +139,8 @@ class MutationOperation {
     required this.idempotencyKey,
     required this.lineageId,
     required this.authPolicy,
+    required this.conflictPolicy,
+    required this.conflictPrecondition,
     required this.state,
     required this.priority,
     required this.dependencies,
@@ -155,6 +163,8 @@ class MutationOperation {
     final idempotencyKey = json['idempotencyKey'];
     final lineageId = json['lineageId'];
     final authPolicy = json['authPolicy'];
+    final conflictPolicy = json['conflictPolicy'];
+    final conflictPrecondition = json['conflictPrecondition'];
     final state = json['state'];
     final priority = json['priority'];
     final attemptCount = json['attemptCount'];
@@ -169,6 +179,9 @@ class MutationOperation {
         idempotencyKey is! String ||
         lineageId is! String ||
         authPolicy is! String ||
+        (conflictPolicy != null && conflictPolicy is! String) ||
+        (conflictPrecondition != null &&
+            conflictPrecondition is! Map<Object?, Object?>) ||
         state is! String ||
         (priority != null && priority is! int) ||
         (attemptCount != null && attemptCount is! int) ||
@@ -185,6 +198,12 @@ class MutationOperation {
 
     final scope = json['authScope'];
     final parsedAuthPolicy = _parseAuthPolicy(authPolicy);
+    final parsedConflictPolicy = _parseConflictPolicy(
+      conflictPolicy as String? ?? ConflictPolicy.none.name,
+    );
+    final parsedConflictPrecondition = conflictPrecondition == null
+        ? null
+        : ConflictPrecondition.fromJson(_asObjectMap(conflictPrecondition));
     final parsedScope = scope == null
         ? null
         : AuthScope.fromJson(_asObjectMap(scope));
@@ -212,6 +231,8 @@ class MutationOperation {
       idempotencyKey: IdempotencyKey(idempotencyKey),
       lineageId: LineageId(lineageId),
       authPolicy: parsedAuthPolicy,
+      conflictPolicy: parsedConflictPolicy,
+      conflictPrecondition: parsedConflictPrecondition,
       state: parseMutationOperationState(state),
       priority: priority as int? ?? 0,
       attemptCount: attemptCount as int? ?? 0,
@@ -249,6 +270,12 @@ class MutationOperation {
 
   /// Authentication requirement selected at enqueue.
   final AuthPolicy authPolicy;
+
+  /// Explicit stale-write policy captured with the operation.
+  final ConflictPolicy conflictPolicy;
+
+  /// Opaque compare-and-set token captured with the operation.
+  final ConflictPrecondition? conflictPrecondition;
 
   /// Exact captured scope for authenticated work.
   final AuthScope? authScope;
@@ -303,6 +330,8 @@ class MutationOperation {
       idempotencyKey: idempotencyKey,
       lineageId: lineageId,
       authPolicy: authPolicy,
+      conflictPolicy: conflictPolicy,
+      conflictPrecondition: conflictPrecondition,
       state: state ?? this.state,
       priority: priority ?? this.priority,
       attemptCount: attemptCount ?? this.attemptCount,
@@ -332,6 +361,8 @@ class MutationOperation {
     'idempotencyKey': idempotencyKey.value,
     'lineageId': lineageId.value,
     'authPolicy': authPolicy.name,
+    'conflictPolicy': conflictPolicy.name,
+    'conflictPrecondition': conflictPrecondition?.toJson(),
     'authScope': authScope?.toJson(),
     'dependencies': dependencies.map((item) => item.toJson()).toList(),
     'projections': projections.map((item) => item.toJson()).toList(),
@@ -350,6 +381,15 @@ class MutationOperation {
       if (policy.name == value) return policy;
     }
     throw InvalidMutationPayloadException('Unknown auth policy: $value');
+  }
+
+  static ConflictPolicy _parseConflictPolicy(String value) {
+    for (final policy in ConflictPolicy.values) {
+      if (policy.name == value) return policy;
+    }
+    throw InvalidMutationPayloadException(
+      'Unknown conflict policy: $value',
+    );
   }
 
   static DateTime _parseCreatedAt(String value) {
