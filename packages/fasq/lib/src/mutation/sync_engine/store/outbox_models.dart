@@ -94,6 +94,7 @@ class OutboxHistoryEntry {
     required this.operationId,
     required this.state,
     required this.completedAt,
+    this.authScope,
     this.resultProjection,
   });
 
@@ -102,12 +103,14 @@ class OutboxHistoryEntry {
     required OperationId operationId,
     required MutationOperationState state,
     required DateTime completedAt,
+    AuthScope? authScope,
     Object? resultProjection,
   }) {
     return OutboxHistoryEntry(
       operationId: operationId,
       state: state,
       completedAt: completedAt,
+      authScope: authScope,
       resultProjection: _immutableJsonValue(
         resultProjection,
         'resultProjection',
@@ -120,6 +123,7 @@ class OutboxHistoryEntry {
     final operationId = json['operationId'];
     final state = json['state'];
     final completedAt = json['completedAt'];
+    final authScope = json['authScope'];
     if (operationId is! String || state is! String || completedAt is! String) {
       throw const OutboxCorruptException();
     }
@@ -134,6 +138,7 @@ class OutboxHistoryEntry {
         operationId: OperationId(operationId),
         state: parsedState,
         completedAt: _date(completedAt),
+        authScope: _parseAuthScope(authScope),
         resultProjection: json['resultProjection'],
       );
     } on OutboxCorruptException {
@@ -152,6 +157,9 @@ class OutboxHistoryEntry {
   /// Completion or discard timestamp.
   final DateTime completedAt;
 
+  /// Exact non-secret authentication scope that owned the operation.
+  final AuthScope? authScope;
+
   /// Optional JSON-safe projected result.
   final Object? resultProjection;
 
@@ -160,6 +168,7 @@ class OutboxHistoryEntry {
     'operationId': operationId.value,
     'state': state.name,
     'completedAt': completedAt.toIso8601String(),
+    'authScope': authScope?.toJson(),
     'resultProjection': resultProjection,
   };
 }
@@ -303,6 +312,7 @@ OutboxHistoryEntry _copyHistoryEntry(OutboxHistoryEntry entry) {
     operationId: entry.operationId,
     state: entry.state,
     completedAt: entry.completedAt,
+    authScope: entry.authScope,
     resultProjection: entry.resultProjection,
   );
 }
@@ -342,6 +352,18 @@ Map<String, Object?> _objectMap(Map<Object?, Object?> value) {
     result[entry.key! as String] = entry.value;
   }
   return result;
+}
+
+AuthScope? _parseAuthScope(Object? value) {
+  if (value == null) return null;
+  if (value is! Map<Object?, Object?>) {
+    throw const OutboxCorruptException();
+  }
+  try {
+    return AuthScope.fromJson(_objectMap(value));
+  } on Exception {
+    throw const OutboxCorruptException();
+  }
 }
 
 DateTime _date(String value) {

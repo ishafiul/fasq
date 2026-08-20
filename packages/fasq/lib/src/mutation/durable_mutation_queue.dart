@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
+import 'package:fasq/src/mutation/sync_engine/conflict/conflict_repair.dart';
 import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/auth_session.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
+import 'package:fasq/src/mutation/sync_engine/observation/observation.dart';
 import 'package:fasq/src/mutation/sync_engine/projection/projection.dart';
+import 'package:fasq/src/mutation/sync_engine/repair/repair.dart';
 import 'package:fasq/src/mutation/sync_engine/replay/replay_coordinator.dart';
 import 'package:fasq/src/mutation/sync_engine/replay/retry_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/store/durable_outbox.dart';
@@ -32,6 +37,8 @@ class DurableMutationQueue {
     bool Function()? isOnline,
     ProjectionCoordinator? projectionCoordinator,
     void Function(String queryKey, Object? value)? projectionSink,
+    RepairIdentityFactory? repairIdentityFactory,
+    RepairTelemetryAdapter? repairTelemetry,
   }) {
     final resolvedRegistrations =
         registrations ?? MutationRegistrationRegistry();
@@ -52,6 +59,12 @@ class DurableMutationQueue {
       ),
       projectionCoordinator: projectionCoordinator,
       projectionSink: projectionSink,
+      repairService: DurableRepairService(
+        store: store,
+        identities: repairIdentityFactory,
+        telemetry: repairTelemetry,
+        now: resolvedNow,
+      ),
     );
   }
 
@@ -63,13 +76,18 @@ class DurableMutationQueue {
     required DurableReplayCoordinator coordinator,
     ProjectionCoordinator? projectionCoordinator,
     void Function(String queryKey, Object? value)? projectionSink,
+    required DurableRepairService repairService,
   }) : _store = store,
        _registrations = registrations,
        _now = now,
        _idGenerator = idGenerator,
        _coordinator = coordinator,
        _projectionCoordinator = projectionCoordinator,
-       _projectionSink = projectionSink;
+       _projectionSink = projectionSink,
+       _repairService = repairService,
+       _observationChanges = StreamController<OutboxSnapshot>.broadcast(
+         sync: true,
+       );
 
   static const _uuid = Uuid();
 
@@ -80,6 +98,8 @@ class DurableMutationQueue {
   final DurableReplayCoordinator _coordinator;
   final ProjectionCoordinator? _projectionCoordinator;
   final void Function(String queryKey, Object? value)? _projectionSink;
+  final DurableRepairService _repairService;
+  final StreamController<OutboxSnapshot> _observationChanges;
   bool _isOpen = false;
 
   /// Whether the queue currently owns an open durable store.
@@ -93,6 +113,148 @@ class DurableMutationQueue {
 
   /// Current durable store generation.
   int get generation => _store.generation;
+
+  /// Current public-safe observation snapshot.
+  DurableQueueObservation get observation =>
+      DurableObservation.fromSnapshot(_store.snapshot).queueObservation();
+
+  /// Looks up one retained operation without exposing variables or errors.
+  DurableOperationObservation? observeOperation(
+    OperationId operationId, {
+    AuthScope? authScope,
+  }) {
+    return DurableObservation.fromSnapshot(_store.snapshot).getOperation(
+      operationId,
+      filter: DurableOperationFilter(
+        authScope: authScope,
+        includeUnauthenticated: authScope == null,
+      ),
+    );
+  }
+
+  /// Lists retained operations using exact, scope-aware filters.
+  List<DurableOperationObservation> listOperations({
+    DurableOperationFilter? filter,
+  }) {
+    return DurableObservation.fromSnapshot(_store.snapshot).listOperations(
+      filter ?? const DurableObservationFilter(),
+    );
+  }
+
+  /// Returns aggregate state for retained work visible to [authScope].
+  DurableQueueAggregateState aggregateState({AuthScope? authScope}) {
+    return DurableObservation.fromSnapshot(_store.snapshot)
+        .queueObservation(
+          filter: DurableOperationFilter(
+            authScope: authScope,
+            includeUnauthenticated: authScope == null,
+          ),
+        )
+        .aggregateState;
+  }
+
+  /// Explicitly retries one retryable dead letter with fresh identities.
+  Future<RepairActionResult> retryDeadLetter({
+    required OperationId operationId,
+    required String idempotencyKey,
+    AuthScope? currentAuthScope,
+  }) => _runRepairAction(
+    () => _repairService.retry(
+      operationId: operationId,
+      idempotencyKey: idempotencyKey,
+      currentAuthScope: currentAuthScope,
+    ),
+  );
+
+  /// Replaces one repairable dead letter with explicit variables.
+  Future<RepairActionResult> repairDeadLetter({
+    required OperationId operationId,
+    required String idempotencyKey,
+    required Object? variables,
+    MutationKey? mutationKey,
+    ConflictPrecondition? conflictPrecondition,
+    AuthScope? currentAuthScope,
+  }) => _runRepairAction(
+    () => _repairService.repair(
+      operationId: operationId,
+      idempotencyKey: idempotencyKey,
+      variables: variables,
+      mutationKey: mutationKey,
+      conflictPrecondition: conflictPrecondition,
+      currentAuthScope: currentAuthScope,
+    ),
+  );
+
+  /// Explicitly discards one dead letter while retaining its evidence.
+  Future<RepairActionResult> discardDeadLetter({
+    required OperationId operationId,
+    required String idempotencyKey,
+    AuthScope? currentAuthScope,
+  }) => _runRepairAction(
+    () => _repairService.discard(
+      operationId: operationId,
+      idempotencyKey: idempotencyKey,
+      currentAuthScope: currentAuthScope,
+    ),
+  );
+
+  /// Restores one quarantined operation after exact scope validation.
+  Future<RepairActionResult> restoreQuarantinedOperation({
+    required OperationId operationId,
+    required String idempotencyKey,
+    required AuthScope currentAuthScope,
+  }) => _runRepairAction(
+    () => _repairService.restoreQuarantine(
+      operationId: operationId,
+      idempotencyKey: idempotencyKey,
+      currentAuthScope: currentAuthScope,
+    ),
+  );
+
+  /// Returns retained completion entries for one operation.
+  List<DurableHistoryObservation> operationHistory(
+    OperationId operationId, {
+    AuthScope? authScope,
+  }) {
+    return DurableObservation.fromSnapshot(_store.snapshot).getOperationHistory(
+      operationId,
+      authScope: authScope,
+    );
+  }
+
+  /// Watches durable public-safe snapshots.
+  ///
+  /// Each listener receives an initial snapshot from durable storage, followed
+  /// by updates after queue mutations. The returned stream is broadcast and
+  /// listeners do not share subscription state.
+  Stream<DurableQueueObservation> watch({
+    DurableOperationFilter? filter,
+  }) {
+    final resolvedFilter = filter ?? const DurableObservationFilter();
+    late final StreamController<DurableQueueObservation> controller;
+    StreamSubscription<OutboxSnapshot>? subscription;
+    controller = StreamController<DurableQueueObservation>.broadcast(
+      sync: true,
+      onListen: () {
+        subscription = _observationChanges.stream.listen((snapshot) {
+          controller.add(
+            buildQueueObservation(snapshot, filter: resolvedFilter),
+          );
+        });
+        scheduleMicrotask(() {
+          if (controller.isClosed) return;
+          controller.add(
+            buildQueueObservation(_store.snapshot, filter: resolvedFilter),
+          );
+        });
+      },
+      onCancel: () async {
+        await subscription?.cancel();
+        if (!controller.isClosed) await controller.close();
+      },
+    );
+    return controller.stream;
+  }
 
   /// Whether [key] has a runtime codec and executor registration.
   bool hasRegistration(MutationKey key) => _registrations.contains(key);
@@ -145,6 +307,7 @@ class DurableMutationQueue {
       await _coordinator.open();
       _restoreProjectionState();
       _isOpen = true;
+      _publishObservation();
     } on DurableOutboxException {
       rethrow;
     } on Object catch (error, stackTrace) {
@@ -228,6 +391,7 @@ class DurableMutationQueue {
     final acknowledged = committed.active.firstWhere(
       (item) => item.operationId == operation.operationId,
     );
+    _publishObservation(committed);
     return DurableEnqueueAcknowledgement(acknowledged);
   }
 
@@ -235,11 +399,15 @@ class DurableMutationQueue {
   Future<ReplayRunResult> replay({
     ReplayCancellationToken? cancellationToken,
   }) async {
-    final result = await _coordinator.replay(
-      cancellationToken: cancellationToken,
-    );
-    await _syncProjectionOutcomes();
-    return result;
+    try {
+      final result = await _coordinator.replay(
+        cancellationToken: cancellationToken,
+      );
+      await _syncProjectionOutcomes();
+      return result;
+    } finally {
+      _publishObservation();
+    }
   }
 
   /// Compatibility alias for callers that previously requested queue work
@@ -342,6 +510,22 @@ class DurableMutationQueue {
     }
   }
 
+  void _publishObservation([OutboxSnapshot? committed]) {
+    if (!_isOpen && committed == null) return;
+    if (!_observationChanges.isClosed) {
+      _observationChanges.add(committed ?? _store.snapshot);
+    }
+  }
+
+  Future<RepairActionResult> _runRepairAction(
+    Future<RepairActionResult> Function() action,
+  ) async {
+    _requireOpen();
+    final result = await action();
+    _publishObservation();
+    return result;
+  }
+
   void _requireOpen() {
     if (!_isOpen) {
       throw StateError('The durable mutation queue is not open');
@@ -390,6 +574,7 @@ class DurableMutationQueue {
               : current.active.map(operationTransform).toList(growable: false),
         ),
       );
+      _publishObservation();
       _notifyProjection(outcome.changedKeys);
       return outcome;
     } on Object {
