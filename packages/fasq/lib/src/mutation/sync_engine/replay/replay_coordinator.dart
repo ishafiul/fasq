@@ -583,6 +583,7 @@ class DurableReplayCoordinator {
         operationId: operation.operationId,
         state: MutationOperationState.succeeded,
         completedAt: _now(),
+        authScope: operation.authScope,
         resultProjection: result,
       );
     } on Object {
@@ -724,6 +725,7 @@ class DurableReplayCoordinator {
               operationId: operation.operationId,
               state: state,
               completedAt: _now(),
+              authScope: operation.authScope,
             ),
           ],
         );

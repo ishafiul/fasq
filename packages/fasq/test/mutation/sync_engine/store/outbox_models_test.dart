@@ -120,7 +120,7 @@ void main() {
     },
   );
 
-  test('surfaces invalid persisted projection and metadata as corruption', () {
+  test('retains invalid persisted records as explicit unknown metadata', () {
     final base = <String, Object?>{
       'active': <Object?>[],
       'deadLetters': <Object?>[],
@@ -128,19 +128,22 @@ void main() {
       'metadata': <String, Object?>{},
     };
 
+    final snapshot = OutboxSnapshot.fromJson({
+      ...base,
+      'history': [
+        {
+          'operationId': 'operation',
+          'state': MutationOperationState.succeeded.name,
+          'completedAt': DateTime.utc(2026).toIso8601String(),
+          'resultProjection': DateTime.utc(2026),
+        },
+      ],
+    });
+    expect(snapshot.history, isEmpty);
+    expect(snapshot.unknownRecords.single.recordId, 'operation');
     expect(
-      () => OutboxSnapshot.fromJson({
-        ...base,
-        'history': [
-          {
-            'operationId': 'operation',
-            'state': MutationOperationState.succeeded.name,
-            'completedAt': DateTime.utc(2026).toIso8601String(),
-            'resultProjection': DateTime.utc(2026),
-          },
-        ],
-      }),
-      throwsA(isA<OutboxCorruptException>()),
+      snapshot.unknownRecords.single.messageKey,
+      'sync.outbox.unknown_record',
     );
     expect(
       () => OutboxSnapshot.fromJson({
