@@ -274,6 +274,32 @@ class DurableMutationQueue {
     );
   }
 
+  /// Remaps a temporary identifier in projections and active queued work.
+  ///
+  /// The projection metadata and active operation variables are committed in
+  /// one outbox transaction so a restart cannot observe only half the map.
+  Future<ProjectionOutcome> remapProjectionId({
+    required String temporaryId,
+    required String serverId,
+  }) {
+    return _mutateProjection(
+      (coordinator) => coordinator.remapId(
+        temporaryId: temporaryId,
+        serverId: serverId,
+      ),
+      operationTransform: (operation) => operation.copyWith(
+        variables: remapProjectionReferences(
+          operation.variables,
+          temporaryId: temporaryId,
+          serverId: serverId,
+        ),
+        projections: operation.projections
+            .map((descriptor) => descriptor.mapKeys(temporaryId, serverId))
+            .toList(growable: false),
+      ),
+    );
+  }
+
   /// Materializes one projection view for a cache or UI integration.
   ProjectionView? materializeProjection(QueryKey key) {
     return _projectionCoordinator?.materialize(key);
@@ -295,9 +321,15 @@ class DurableMutationQueue {
   }
 
   /// Marks an overlay conflicted without discarding local intent.
-  Future<ProjectionOutcome> markProjectionConflict(OperationId operationId) {
+  Future<ProjectionOutcome> markProjectionConflict(
+    OperationId operationId, {
+    Map<String, Object?>? conflictEvidence,
+  }) {
     return _mutateProjection(
-      (coordinator) => coordinator.markConflict(operationId),
+      (coordinator) => coordinator.markConflict(
+        operationId,
+        conflictEvidence: conflictEvidence,
+      ),
     );
   }
 
@@ -338,8 +370,9 @@ class DurableMutationQueue {
   }
 
   Future<ProjectionOutcome> _mutateProjection(
-    ProjectionOutcome Function(ProjectionCoordinator coordinator) change,
-  ) async {
+    ProjectionOutcome Function(ProjectionCoordinator coordinator) change, {
+    MutationOperation Function(MutationOperation operation)? operationTransform,
+  }) async {
     _requireOpen();
     final coordinator = _projectionCoordinator;
     if (coordinator == null) {
@@ -358,6 +391,9 @@ class DurableMutationQueue {
             ...current.metadata,
             _projectionMetadataKey: outcome.state.toJson(),
           },
+          active: operationTransform == null
+              ? current.active
+              : current.active.map(operationTransform).toList(growable: false),
         ),
       );
       _notifyProjection(outcome.changedKeys);
@@ -397,7 +433,10 @@ class DurableMutationQueue {
     for (final entry in current.deadLetters) {
       if (beforeDeadLetters.contains(entry.operation.operationId)) continue;
       if (entry.category == MutationFailureCategory.conflict) {
-        await markProjectionConflict(entry.operation.operationId);
+        await markProjectionConflict(
+          entry.operation.operationId,
+          conflictEvidence: entry.conflictEvidence,
+        );
       } else {
         await failProjection(entry.operation.operationId);
       }

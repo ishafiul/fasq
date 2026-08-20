@@ -9,7 +9,7 @@ ConflictClassification? classifyConflictFailure(
 ) {
   if (failure.category != MutationFailureCategory.conflict) return null;
   return ConflictClassification(
-    kind: ConflictKind.unknown,
+    kind: failure.conflictKind,
     messageKey: failure.messageKey,
   );
 }

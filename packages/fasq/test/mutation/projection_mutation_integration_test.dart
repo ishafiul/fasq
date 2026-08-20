@@ -211,6 +211,177 @@ void main() {
     );
     await second.close();
   });
+
+  test(
+    'remaps temporary IDs in projections and active operations atomically',
+    () async {
+      final plan = ProjectionPlan(
+        id: 'todo.remap',
+        queryKeys: [StringQueryKey('todo:tmp-3')],
+      );
+      final registry = ProjectionRegistry()
+        ..register(
+          ProjectionDefinition(plan: plan, apply: (_, patch) => patch),
+        );
+      final store = _MemoryOutboxStore();
+      final queue = DurableMutationQueue(
+        store: store,
+        projectionCoordinator: ProjectionCoordinator(registry: registry),
+      );
+      final key = MutationKey(namespace: 'tests', name: 'todo-remap');
+      queue.register<Object?, Map<String, Object?>>(
+        key: key,
+        codec: _mapCodec,
+        mutationFn: (variables) async => variables,
+      );
+
+      await queue.open();
+      final operation = await queue.enqueue(
+        key: key,
+        variables: const <String, Object?>{
+          'todoId': 'tmp-3',
+          'payload': {'relatedTodoId': 'tmp-3'},
+        },
+        projections: [
+          MutationProjectionDescriptor(
+            id: plan.registryKey,
+            queryKeys: plan.queryKeys,
+          ),
+        ],
+      );
+      await queue.enqueueProjection(
+        ProjectionOverlay(
+          operationId: operation.operationId,
+          lineageId: operation.lineageId,
+          plan: plan,
+          patches: const {
+            'todo:tmp-3': {'id': 'tmp-3'},
+          },
+          temporaryIds: const {'todo': 'tmp-3'},
+        ),
+      );
+
+      final outcome = await queue.remapProjectionId(
+        temporaryId: 'tmp-3',
+        serverId: 'server-3',
+      );
+
+      expect(outcome.failure, isNull);
+      expect(queue.snapshot.active.single.variables, {
+        'todoId': 'server-3',
+        'payload': {'relatedTodoId': 'server-3'},
+      });
+      expect(
+        queue.snapshot.active.single.projections.single.queryKeys,
+        ['todo:server-3'],
+      );
+      expect(queue.projectionState!.idMappings['tmp-3'], 'server-3');
+      expect(
+        queue.projectionState!.overlays.single.plan.queryKeys,
+        ['todo:server-3'],
+      );
+      expect(queue.projectionState!.overlays.single.patches, {
+        'todo:server-3': {'id': 'server-3'},
+      });
+      await queue.close();
+
+      final restarted = DurableMutationQueue(
+        store: store,
+        projectionCoordinator: ProjectionCoordinator(registry: registry),
+      );
+      await restarted.open();
+      expect(restarted.snapshot.active.single.variables, {
+        'todoId': 'server-3',
+        'payload': {'relatedTodoId': 'server-3'},
+      });
+      expect(
+        restarted.projectionState!.overlays.single.plan.queryKeys,
+        ['todo:server-3'],
+      );
+      await restarted.close();
+    },
+  );
+
+  test(
+    'passes conflict preconditions and persists conflict evidence',
+    () async {
+      final plan = ProjectionPlan(
+        id: 'todo.conflict',
+        queryKeys: [StringQueryKey('todo:server-4')],
+      );
+      final registry = ProjectionRegistry()
+        ..register(
+          ProjectionDefinition(plan: plan, apply: (_, patch) => patch),
+        );
+      final adapter = _ConflictExecutionAdapter();
+      final store = _MemoryOutboxStore();
+      final queue = DurableMutationQueue(
+        store: store,
+        executionAdapter: adapter,
+        projectionCoordinator: ProjectionCoordinator(registry: registry),
+      );
+      final key = MutationKey(namespace: 'tests', name: 'todo-conflict');
+      queue.register<Object?, Map<String, Object?>>(
+        key: key,
+        codec: _mapCodec,
+        mutationFn: (variables) async => variables,
+      );
+
+      await queue.open();
+      final operation = await queue.enqueue(
+        key: key,
+        variables: const <String, Object?>{'id': 'server-4'},
+        conflictPolicy: ConflictPolicy.required,
+        conflictPrecondition: ConflictPrecondition('revision-1'),
+        projections: [
+          MutationProjectionDescriptor(
+            id: plan.registryKey,
+            queryKeys: plan.queryKeys,
+          ),
+        ],
+      );
+      await queue.enqueueProjection(
+        ProjectionOverlay(
+          operationId: operation.operationId,
+          lineageId: operation.lineageId,
+          plan: plan,
+          patches: const {
+            'todo:server-4': {'id': 'server-4', 'title': 'local'},
+          },
+        ),
+      );
+
+      final replay = await queue.replay();
+
+      expect(replay.failedOperationIds, [operation.operationId]);
+      expect(adapter.context?.conflictPolicy, ConflictPolicy.required);
+      expect(
+        adapter.context?.conflictPrecondition,
+        ConflictPrecondition('revision-1'),
+      );
+      final deadLetter = queue.snapshot.deadLetters.single;
+      final evidence = deadLetter.conflictEvidence!;
+      expect(evidence['classification'], {
+        'kind': 'staleWrite',
+        'messageKey': 'sync.conflict.stale_write',
+      });
+      expect(evidence['expectedPrecondition'], {'token': 'revision-1'});
+      expect(evidence['observedPrecondition'], {'token': 'revision-2'});
+      expect(evidence['latestServerSnapshot'], {
+        'id': 'server-4',
+        'title': 'remote',
+      });
+      expect(
+        queue.projectionState!.overlays.single.state,
+        ProjectionOverlayState.conflicted,
+      );
+      expect(queue.projectionState!.overlays.single.conflictEvidence, evidence);
+
+      final restoredDeadLetter = OutboxDeadLetter.fromJson(deadLetter.toJson());
+      expect(restoredDeadLetter.conflictEvidence, evidence);
+      await queue.close();
+    },
+  );
 }
 
 final _mapCodec = JsonMutationCodec<Map<String, Object?>>(
@@ -252,5 +423,30 @@ class _MemoryOutboxStore implements DurableOutboxStore {
   @override
   Future<void> close() async {
     _isOpen = false;
+  }
+}
+
+class _ConflictExecutionAdapter implements MutationExecutionAdapter {
+  MutationExecutionContext? context;
+
+  @override
+  Future<MutationExecutionResult> execute(
+    MutationExecutionContext context,
+    Future<Object?> Function() executor,
+  ) async {
+    this.context = context;
+    return MutationExecutionFailure(
+      MutationAdapterFailure(
+        category: MutationFailureCategory.conflict,
+        messageKey: 'sync.conflict.stale_write',
+        disposition: MutationFailureDisposition.terminal,
+        conflictKind: ConflictKind.staleWrite,
+        observedPrecondition: ConflictPrecondition('revision-2'),
+        latestServerSnapshot: const {
+          'id': 'server-4',
+          'title': 'remote',
+        },
+      ),
+    );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
+import 'package:fasq/src/mutation/sync_engine/conflict/conflict_models.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/auth_session.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
 import 'package:fasq/src/mutation/sync_engine/kahn_dag.dart';
@@ -225,6 +226,8 @@ class DurableReplayCoordinator {
           idempotencyKey: operation.idempotencyKey,
           authPolicy: operation.authPolicy,
           authScope: operation.authScope,
+          conflictPolicy: operation.conflictPolicy,
+          conflictPrecondition: operation.conflictPrecondition,
           attempt: operation.attemptCount,
           cancellationToken: replayCancellationToken,
         );
@@ -694,6 +697,25 @@ class DurableReplayCoordinator {
               retryable: false,
               repairable: failure.repairable,
               failedAt: _now(),
+              conflictEvidence:
+                  failure.category == MutationFailureCategory.conflict
+                  ? ConflictEvidence(
+                      operation: operation,
+                      classification: ConflictClassification(
+                        kind: failure.conflictKind,
+                        messageKey: failure.messageKey,
+                      ),
+                      occurredAt: _now(),
+                      expectedPrecondition: operation.conflictPrecondition,
+                      observedPrecondition: failure.observedPrecondition,
+                      latestServerSnapshot: failure.latestServerSnapshot,
+                      projectionImpact:
+                          failure.projectionImpact ??
+                          operation.projections
+                              .map((item) => item.toJson())
+                              .toList(growable: false),
+                    ).toJson()
+                  : null,
             ),
           ],
           history: [

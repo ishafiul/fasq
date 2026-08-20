@@ -321,6 +321,8 @@ class MutationOperation {
     Object? nextRunAt = _unset,
     Object? rateLimitBucket = _unset,
     Object? lastAttemptAt = _unset,
+    List<MutationDependency>? dependencies,
+    List<MutationProjectionDescriptor>? projections,
   }) {
     return MutationOperation(
       operationId: operationId,
@@ -347,8 +349,8 @@ class MutationOperation {
           ? this.lastAttemptAt
           : lastAttemptAt as DateTime?,
       authScope: authScope,
-      dependencies: dependencies,
-      projections: projections,
+      dependencies: dependencies ?? this.dependencies,
+      projections: projections ?? this.projections,
     );
   }
 

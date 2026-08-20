@@ -350,6 +350,13 @@ class MutationProjectionDescriptor {
   /// Query keys explicitly affected by the plan.
   final List<String> queryKeys;
 
+  /// Returns this descriptor with references to one identifier remapped.
+  MutationProjectionDescriptor mapKeys(String from, String to) =>
+      MutationProjectionDescriptor(
+        id: id.replaceAll(from, to),
+        queryKeys: queryKeys.map((key) => key.replaceAll(from, to)).toList(),
+      );
+
   /// Serializes this descriptor into a JSON-safe map.
   Map<String, Object?> toJson() => {'id': id, 'queryKeys': queryKeys};
 

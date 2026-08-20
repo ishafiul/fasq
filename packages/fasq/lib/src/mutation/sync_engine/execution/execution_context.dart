@@ -1,6 +1,8 @@
 // These interfaces are deliberate substitution boundaries for app adapters.
 // ignore_for_file: one_member_abstracts
 
+import 'package:fasq/src/mutation/sync_engine/conflict/conflict_models.dart';
+import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 
@@ -40,6 +42,10 @@ class MutationAdapterFailure {
     this.rateLimitBucket,
     this.idempotencySafe = false,
     this.repairable = true,
+    this.conflictKind = ConflictKind.unknown,
+    this.observedPrecondition,
+    this.latestServerSnapshot,
+    this.projectionImpact,
   });
 
   /// Creates a conservative failure for an unclassified exception.
@@ -51,7 +57,11 @@ class MutationAdapterFailure {
       retryAfter = null,
       rateLimitBucket = null,
       idempotencySafe = false,
-      repairable = true;
+      repairable = true,
+      conflictKind = ConflictKind.unknown,
+      observedPrecondition = null,
+      latestServerSnapshot = null,
+      projectionImpact = null;
 
   /// Normalized failure category.
   final MutationFailureCategory category;
@@ -76,6 +86,18 @@ class MutationAdapterFailure {
 
   /// Whether explicit repair is allowed.
   final bool repairable;
+
+  /// Normalized conflict kind supplied by an adapter when applicable.
+  final ConflictKind conflictKind;
+
+  /// Version token observed by the adapter, when available.
+  final ConflictPrecondition? observedPrecondition;
+
+  /// Optional bounded server snapshot supplied by the adapter.
+  final Object? latestServerSnapshot;
+
+  /// Optional safe metadata describing affected projections.
+  final Object? projectionImpact;
 }
 
 /// Exception adapter implementations can throw to provide normalized failure.
@@ -123,6 +145,8 @@ class MutationExecutionContext {
     required this.idempotencyKey,
     required this.authPolicy,
     required this.authScope,
+    this.conflictPolicy = ConflictPolicy.none,
+    this.conflictPrecondition,
     required this.attempt,
     required this.cancellationToken,
   });
@@ -138,6 +162,12 @@ class MutationExecutionContext {
 
   /// Exact non-secret scope for authenticated work.
   final AuthScope? authScope;
+
+  /// Conflict policy captured at enqueue time.
+  final ConflictPolicy conflictPolicy;
+
+  /// Opaque compare-and-set token captured at enqueue time.
+  final ConflictPrecondition? conflictPrecondition;
 
   /// One-based invocation count for this operation.
   final int attempt;

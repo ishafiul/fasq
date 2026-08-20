@@ -102,6 +102,7 @@ class ProjectionOverlay {
     required Map<String, Object?> patches,
     Map<String, Object?> references = const {},
     Map<String, String> temporaryIds = const {},
+    Map<String, Object?>? conflictEvidence,
     int sequence = 0,
     ProjectionOverlayState state = ProjectionOverlayState.pending,
   }) {
@@ -111,6 +112,9 @@ class ProjectionOverlay {
     }
     _jsonMap(patches, 'patches');
     _jsonMap(references, 'references');
+    if (conflictEvidence != null) {
+      _jsonMap(conflictEvidence, 'conflictEvidence');
+    }
     return ProjectionOverlay._(
       operationId,
       lineageId,
@@ -118,6 +122,7 @@ class ProjectionOverlay {
       _freezeMap(patches),
       _freezeMap(references),
       Map.unmodifiable(temporaryIds),
+      conflictEvidence == null ? null : _freezeMap(conflictEvidence),
       sequence,
       state,
     );
@@ -128,6 +133,7 @@ class ProjectionOverlay {
     final patches = json['patches'];
     final refs = json['references'];
     final ids = json['temporaryIds'];
+    final conflictEvidence = json['conflictEvidence'];
     final state = json['state'];
     if (json['operationId'] is! String ||
         json['lineageId'] is! String ||
@@ -135,6 +141,8 @@ class ProjectionOverlay {
         patches is! Map<Object?, Object?> ||
         refs is! Map<Object?, Object?> ||
         ids is! Map<Object?, Object?> ||
+        (conflictEvidence != null &&
+            conflictEvidence is! Map<Object?, Object?>) ||
         json['sequence'] is! int ||
         state is! String) {
       throw const InvalidMutationPayloadException('Invalid projection overlay');
@@ -149,6 +157,9 @@ class ProjectionOverlay {
     if (rawIds.values.any((value) => value is! String)) {
       throw const InvalidMutationPayloadException('Invalid temporary ID map');
     }
+    final parsedConflictEvidence = conflictEvidence == null
+        ? null
+        : _stringMap(conflictEvidence as Map<Object?, Object?>);
     return ProjectionOverlay(
       operationId: OperationId(json['operationId']! as String),
       lineageId: LineageId(json['lineageId']! as String),
@@ -156,6 +167,7 @@ class ProjectionOverlay {
       patches: _stringMap(patches),
       references: _stringMap(refs),
       temporaryIds: rawIds.cast<String, String>(),
+      conflictEvidence: parsedConflictEvidence,
       sequence: json['sequence']! as int,
       state: parsed.first,
     );
@@ -168,6 +180,7 @@ class ProjectionOverlay {
     this.patches,
     this.references,
     this.temporaryIds,
+    this.conflictEvidence,
     this.sequence,
     this.state,
   );
@@ -178,6 +191,7 @@ class ProjectionOverlay {
   final Map<String, Object?> patches;
   final Map<String, Object?> references;
   final Map<String, String> temporaryIds;
+  final Map<String, Object?>? conflictEvidence;
   final int sequence;
   final ProjectionOverlayState state;
 
@@ -189,6 +203,7 @@ class ProjectionOverlay {
         patches,
         references,
         temporaryIds,
+        conflictEvidence,
         sequence,
         value,
       );
@@ -200,6 +215,7 @@ class ProjectionOverlay {
     'patches': patches,
     'references': references,
     'temporaryIds': temporaryIds,
+    'conflictEvidence': conflictEvidence,
     'sequence': sequence,
     'state': state.name,
   };
@@ -311,6 +327,7 @@ class ProjectionCoordinator {
             patches: overlay.patches,
             references: overlay.references,
             temporaryIds: overlay.temporaryIds,
+            conflictEvidence: overlay.conflictEvidence,
             sequence: next,
             state: overlay.state,
           );
@@ -416,15 +433,26 @@ class ProjectionCoordinator {
     QueryKey? remoteKey,
     Object? remoteValue,
     int? revision,
+    Map<String, Object?>? conflictEvidence,
   }) {
     final index = _indexOf(operationId);
     if (index < 0) return ProjectionOutcome(_state, const []);
     final overlay = _state.overlays[index];
+    final conflictedOverlay = ProjectionOverlay(
+      operationId: overlay.operationId,
+      lineageId: overlay.lineageId,
+      plan: overlay.plan,
+      patches: overlay.patches,
+      references: overlay.references,
+      temporaryIds: overlay.temporaryIds,
+      conflictEvidence: conflictEvidence ?? overlay.conflictEvidence,
+      sequence: overlay.sequence,
+      state: ProjectionOverlayState.conflicted,
+    );
     _state = ProjectionState(
       remoteBases: _state.remoteBases,
       revisions: _state.revisions,
-      overlays: [..._state.overlays]
-        ..[index] = overlay.withState(ProjectionOverlayState.conflicted),
+      overlays: [..._state.overlays]..[index] = conflictedOverlay,
       idMappings: _state.idMappings,
     );
     final base = remoteKey == null
@@ -522,6 +550,11 @@ class ProjectionCoordinator {
                 value == temporaryId ? serverId : value,
               ),
             ),
+            conflictEvidence: overlay.conflictEvidence == null
+                ? null
+                : _stringMap(
+                    remap(overlay.conflictEvidence) as Map<Object?, Object?>,
+                  ),
             sequence: overlay.sequence,
             state: overlay.state,
           ),
@@ -570,6 +603,19 @@ class ProjectionCoordinator {
       ProjectionFailure(overlay.operationId, null, key),
     );
   }
+}
+
+/// Replaces a temporary identifier in a JSON-safe value and its nested
+/// references.
+Object? remapProjectionReferences(
+  Object? value, {
+  required String temporaryId,
+  required String serverId,
+}) {
+  if (temporaryId.isEmpty || serverId.isEmpty) {
+    throw ArgumentError('Projection identifiers must not be empty');
+  }
+  return _replace(value, temporaryId, serverId);
 }
 
 void _jsonMap(Map<String, Object?> value, String path) {
