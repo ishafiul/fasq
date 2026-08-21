@@ -78,7 +78,7 @@ function must accept one JSON-serializable request and return `Future<T>`:
 Future<Todo> addTodo(AddTodo request) => api.addTodo(request);
 ```
 
-The generated `addTodoDurableMutation` handle is passed to
+The generated `addTodoDurable` handle is passed to
 `OfflineSync.secure(mutations: [...])` and the core
 `MutationBuilder(mutation: ...)`. Ordinary online-only mutations continue
 using `MutationBuilder(mutationFn: ...)`.

@@ -84,7 +84,7 @@ final addTodo = DurableMutation<Todo, AddTodo>.define(
 Register the same handle during bootstrap and use it in the UI with the core
 `MutationBuilder(mutation: ...)` API. With `fasq_serializer_generator`, annotate a
 one-argument `Future<T>` function with `@FasqMutation`; the generated
-`...DurableMutation` handle removes the key, codec, and registration code.
+...Durable handle removes the key, codec, and registration code.
 The annotated function remains the only executor used online and during
 replay.
 
