@@ -12,10 +12,11 @@ class CacheDatabase implements QueryExecutorUser {
   final NativeDatabase _db;
   final String _path;
 
-  static String? _cachedPath;
+  static final Map<String, String> _cachedPaths = <String, String>{};
 
-  static Future<CacheDatabase> open(
-      {String fileName = 'fasq_cache.sqlite'}) async {
+  static Future<CacheDatabase> open({
+    String fileName = 'fasq_cache.sqlite',
+  }) async {
     final file = await _resolveDatabaseFile(fileName);
     final database = NativeDatabase(
       file,
@@ -55,7 +56,9 @@ class CacheDatabase implements QueryExecutorUser {
 
   @override
   Future<void> beforeOpen(
-      QueryExecutor executor, OpeningDetails details) async {
+    QueryExecutor executor,
+    OpeningDetails details,
+  ) async {
     // Schema creation is handled by NativeDatabase setup callback
   }
 
@@ -64,8 +67,9 @@ class CacheDatabase implements QueryExecutorUser {
   }
 
   static Future<File> _resolveDatabaseFile(String fileName) async {
-    if (_cachedPath != null) {
-      final file = File(_cachedPath!);
+    final cachedPath = _cachedPaths[fileName];
+    if (cachedPath != null) {
+      final file = File(cachedPath);
       await file.parent.create(recursive: true);
       return file;
     }
@@ -74,14 +78,15 @@ class CacheDatabase implements QueryExecutorUser {
       final dir = await getApplicationSupportDirectory();
       await dir.create(recursive: true);
       final file = File(p.join(dir.path, fileName));
-      _cachedPath = file.path;
+      _cachedPaths[fileName] = file.path;
       return file;
     } on MissingPluginException {
-      final fallbackDir =
-          Directory(p.join(Directory.systemTemp.path, 'fasq_cache'));
+      final fallbackDir = Directory(
+        p.join(Directory.systemTemp.path, 'fasq_cache'),
+      );
       await fallbackDir.create(recursive: true);
       final file = File(p.join(fallbackDir.path, fileName));
-      _cachedPath = file.path;
+      _cachedPaths[fileName] = file.path;
       return file;
     }
   }
@@ -242,10 +247,7 @@ class CacheDatabase implements QueryExecutorUser {
 }
 
 class CacheEntryMetadata {
-  const CacheEntryMetadata({
-    required this.createdAt,
-    required this.expiresAt,
-  });
+  const CacheEntryMetadata({required this.createdAt, required this.expiresAt});
 
   final DateTime createdAt;
   final DateTime? expiresAt;
