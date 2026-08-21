@@ -1,41 +1,38 @@
 import 'dart:async';
 
 import 'package:fasq/fasq.dart';
+import 'package:fasq_security/fasq_security.dart';
 
-import '../../application/offline_sync_lab_data_source.dart';
+import '../../application/offline_sync_lab.dart';
 import '../../domain/offline_sync_lab_snapshot.dart';
 import '../notes/note_commands.dart';
 import '../notes/simulated_notes_transport.dart';
-import '../security/secure_outbox_factory.dart';
+import 'notes_mutations.dart';
 
-class NotesSyncDataSource implements OfflineSyncLabDataSource {
-  NotesSyncDataSource({
-    required SecureOutboxFactory outboxFactory,
-    SimulatedNotesTransport? transport,
-  }) : _outboxFactory = outboxFactory,
-       _transport = transport ?? SimulatedNotesTransport();
+class NotesOfflineSyncLab implements OfflineSyncLab {
+  NotesOfflineSyncLab({SimulatedNotesTransport? transport})
+    : _transport = transport ?? SimulatedNotesTransport(),
+      _networkStatus = NetworkStatus.instance {
+    _mutations = NotesMutations(
+      transport: _transport,
+      onEvent: _record,
+      onChanged: _publish,
+    );
+  }
 
-  static final _createNoteKey = MutationKey(
-    namespace: 'offline_sync_lab',
-    name: 'create_note',
-  );
-  static final _updateNoteKey = MutationKey(
-    namespace: 'offline_sync_lab',
-    name: 'update_note',
-  );
-
-  final SecureOutboxFactory _outboxFactory;
   final SimulatedNotesTransport _transport;
+  final NetworkStatus _networkStatus;
+  late final NotesMutations _mutations;
   final StreamController<OfflineSyncLabSnapshot> _snapshots =
       StreamController<OfflineSyncLabSnapshot>.broadcast(sync: true);
   final List<String> _events = <String>[];
 
-  DurableMutationQueue? _queue;
+  Fasq? _fasq;
   InMemoryAuthSessionProvider? _auth;
+  StreamSubscription<DurableQueueObservation>? _queueObservationSubscription;
   OfflineSyncLabSnapshot _snapshot = const OfflineSyncLabSnapshot.empty();
   AuthSessionSnapshot _session = const AuthSessionSnapshot.unknown();
   OperationId? _lastCreateOperationId;
-  bool _isOnline = false;
   bool _isDisposed = false;
   int _repairSequence = 0;
 
@@ -47,10 +44,11 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
   @override
   Future<void> initialize() async {
     _checkNotDisposed();
-    if (_queue != null) return;
+    if (_fasq != null) return;
     _session = _readySession('account-a');
     _auth = InMemoryAuthSessionProvider(initial: _session);
-    _queue = await _openQueue();
+    _networkStatus.setOnline(online: false);
+    await _openSession();
     _record('opened encrypted durable outbox');
     _publish();
   }
@@ -58,7 +56,7 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
   @override
   Future<void> setOnline(bool online) async {
     _checkNotDisposed();
-    _isOnline = online;
+    _networkStatus.setOnline(online: online);
     _record(online ? 'online' : 'offline');
     _publish();
   }
@@ -68,7 +66,7 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
     final queue = _requireQueue();
     final session = await _requireReadySession();
     final acknowledgement = await queue.enqueue<CreateNoteCommand>(
-      key: _createNoteKey,
+      key: _mutations.createNote.key,
       variables: CreateNoteCommand(
         localId: 'local-${DateTime.now().microsecondsSinceEpoch}',
         title: title,
@@ -90,7 +88,7 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
     final queue = _requireQueue();
     final session = await _requireReadySession();
     final acknowledgement = await queue.enqueue<UpdateNoteCommand>(
-      key: _updateNoteKey,
+      key: _mutations.updateNote.key,
       variables: UpdateNoteCommand(
         noteId: 'bound-after-create',
         title: 'Updated after create',
@@ -112,7 +110,7 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
   @override
   Future<void> replay() async {
     final queue = _requireQueue();
-    if (!_isOnline) {
+    if (!_networkStatus.isOnline) {
       _record('replay skipped while offline; work remains pending');
       _publish();
       return;
@@ -127,14 +125,14 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
 
   @override
   Future<void> restart() async {
-    final queue = _requireQueue();
+    _requireQueue();
     final auth = _auth!;
     final session = await auth.currentSession();
-    await queue.close();
+    await _closeSession();
     await auth.dispose();
     _session = session;
     _auth = InMemoryAuthSessionProvider(initial: _session);
-    _queue = await _openQueue();
+    await _openSession();
     _record('reopened same encrypted outbox after restart');
     _publish();
   }
@@ -163,20 +161,23 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
   @override
   Future<void> retryFirstDeadLetter() async {
     final queue = _requireQueue();
-    final deadLetters = queue.snapshot.deadLetters;
+    final deadLetters = queue.observation.operations
+        .where(
+          (operation) =>
+              operation.recordKind == DurableObservationRecordKind.deadLetter,
+        )
+        .toList(growable: false);
     final deadLetter = deadLetters.isEmpty ? null : deadLetters.first;
     if (deadLetter == null) {
       throw StateError('No dead letter is available for repair');
     }
     final session = await _requireReadySession();
     await queue.retryDeadLetter(
-      operationId: deadLetter.operation.operationId,
+      operationId: deadLetter.operationId,
       idempotencyKey: 'lab-repair-${++_repairSequence}',
       currentAuthScope: session.scope,
     );
-    _record(
-      'requested retry repair for ${deadLetter.operation.operationId.value}',
-    );
+    _record('requested retry repair for ${deadLetter.operationId.value}');
     _publish();
   }
 
@@ -184,60 +185,41 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
   Future<void> dispose() async {
     if (_isDisposed) return;
     _isDisposed = true;
-    await _queue?.close();
+    await _closeSession();
     await _auth?.dispose();
     await _snapshots.close();
   }
 
-  Future<DurableMutationQueue> _openQueue() async {
+  Future<Fasq> _openFasq() async {
     final auth = _auth;
     if (auth == null) throw StateError('Auth provider is not initialized');
-    final queue = DurableMutationQueue(
-      store: await _outboxFactory.open(),
-      authSessionProvider: auth,
-      isOnline: () => _isOnline,
+    return Fasq.initialize(
+      scope: const FasqDataScope.anonymous(),
+      offlineSync: OfflineSync.secure(
+        mutations: <DurableMutationDefinitionBase>[..._mutations.definitions],
+        auth: auth,
+        connectivity: _networkStatus,
+      ),
     );
-    _registerMutations(queue);
-    await queue.open();
-    return queue;
   }
 
-  void _registerMutations(DurableMutationQueue queue) {
-    queue
-      ..register<Map<String, Object?>, CreateNoteCommand>(
-        key: _createNoteKey,
-        codec: JsonMutationCodec<CreateNoteCommand>(
-          encoder: (command) => command.toJson(),
-          decoder: CreateNoteCommand.fromJson,
-        ),
-        authPolicy: AuthPolicy.required,
-        mutationFn: _executeCreate,
-        resultEncoder: (result) => result,
-      )
-      ..register<Map<String, Object?>, UpdateNoteCommand>(
-        key: _updateNoteKey,
-        codec: JsonMutationCodec<UpdateNoteCommand>(
-          encoder: (command) => command.toJson(),
-          decoder: UpdateNoteCommand.fromJson,
-        ),
-        authPolicy: AuthPolicy.required,
-        mutationFn: _executeUpdate,
-        resultEncoder: (result) => result,
-      );
+  Future<void> _openSession() async {
+    final fasq = await _openFasq();
+    if (fasq.mutationQueue == null) {
+      await fasq.close();
+      throw StateError('Fasq offline sync did not create a mutation queue');
+    }
+    _fasq = fasq;
+    _queueObservationSubscription = fasq.mutationQueue!.watch().listen(
+      (_) => _publish(),
+    );
   }
 
-  Future<Map<String, Object?>> _executeCreate(CreateNoteCommand command) async {
-    final result = _transport.create(command);
-    _record('transport created ${result['id']}');
-    _publish();
-    return result;
-  }
-
-  Future<Map<String, Object?>> _executeUpdate(UpdateNoteCommand command) async {
-    final result = _transport.update(command);
-    _record('transport updated ${result['id']}');
-    _publish();
-    return result;
+  Future<void> _closeSession() async {
+    await _queueObservationSubscription?.cancel();
+    _queueObservationSubscription = null;
+    await _fasq?.close();
+    _fasq = null;
   }
 
   Future<AuthSessionSnapshot> _requireReadySession() async {
@@ -250,7 +232,7 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
 
   DurableMutationQueue _requireQueue() {
     _checkNotDisposed();
-    final queue = _queue;
+    final queue = _fasq?.mutationQueue;
     if (queue == null || !queue.isOpen) {
       throw StateError('Initialize lab before using sync controls');
     }
@@ -259,16 +241,11 @@ class NotesSyncDataSource implements OfflineSyncLabDataSource {
 
   void _publish() {
     if (_isDisposed) return;
-    final queue = _queue;
-    final observation = queue == null
-        ? null
-        : buildQueueObservation(
-            queue.snapshot,
-            filter: DurableOperationFilter(scopeBound: false),
-          );
+    final queue = _fasq?.mutationQueue;
+    final observation = queue?.observation;
     _snapshot = OfflineSyncLabSnapshot(
       initialized: queue?.isOpen ?? false,
-      isOnline: _isOnline,
+      isOnline: _networkStatus.isOnline,
       account: _session.scope?.principalId ?? 'none',
       queueAggregateState: observation?.aggregateState.name ?? 'idle',
       entries:

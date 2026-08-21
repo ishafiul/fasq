@@ -1,6 +1,7 @@
 import '../domain/offline_sync_lab_snapshot.dart';
 
-abstract interface class OfflineSyncLabDataSource {
+/// UI-facing use cases for the offline-sync walkthrough.
+abstract interface class OfflineSyncLab {
   OfflineSyncLabSnapshot get snapshot;
   Stream<OfflineSyncLabSnapshot> get snapshots;
 

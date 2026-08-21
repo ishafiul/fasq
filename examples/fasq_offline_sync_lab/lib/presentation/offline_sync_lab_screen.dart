@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../application/offline_sync_lab_controller.dart';
+import '../application/offline_sync_lab.dart';
 import '../domain/offline_sync_lab_snapshot.dart';
 import 'widgets/activity_card.dart';
 import 'widgets/connection_card.dart';
@@ -11,9 +11,9 @@ import 'widgets/notes_card.dart';
 import 'widgets/queue_card.dart';
 
 class OfflineSyncLabScreen extends StatefulWidget {
-  const OfflineSyncLabScreen({required this.controller, super.key});
+  const OfflineSyncLabScreen({required this.lab, super.key});
 
-  final OfflineSyncLabController controller;
+  final OfflineSyncLab lab;
 
   @override
   State<OfflineSyncLabScreen> createState() => _OfflineSyncLabScreenState();
@@ -24,7 +24,7 @@ class _OfflineSyncLabScreenState extends State<OfflineSyncLabScreen> {
   Object? _error;
   bool _busy = true;
 
-  OfflineSyncLabController get _controller => widget.controller;
+  OfflineSyncLab get _lab => widget.lab;
 
   @override
   void initState() {
@@ -40,7 +40,7 @@ class _OfflineSyncLabScreenState extends State<OfflineSyncLabScreen> {
       });
     }
     try {
-      await _controller.initialize();
+      await _lab.initialize();
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
@@ -67,25 +67,25 @@ class _OfflineSyncLabScreenState extends State<OfflineSyncLabScreen> {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
     await _run(() async {
-      await _controller.setOnline(false);
-      await _controller.createNote(title);
+      await _lab.setOnline(false);
+      await _lab.createNote(title);
     });
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    unawaited(_controller.dispose());
+    unawaited(_lab.dispose());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<OfflineSyncLabSnapshot>(
-      stream: _controller.states,
-      initialData: _controller.state,
+      stream: _lab.snapshots,
+      initialData: _lab.snapshot,
       builder: (context, snapshot) {
-        final state = snapshot.data ?? _controller.state;
+        final state = snapshot.data ?? _lab.snapshot;
         return Scaffold(
           appBar: AppBar(
             title: const Text('Fasq Offline Sync Lab'),
@@ -112,20 +112,16 @@ class _OfflineSyncLabScreenState extends State<OfflineSyncLabScreen> {
                   error: _error,
                   titleController: _titleController,
                   onOnlineChanged: (online) =>
-                      _run(() => _controller.setOnline(online)),
+                      _run(() => _lab.setOnline(online)),
                   onAccountSelected: (account) =>
-                      _run(() => _controller.signInAs(account)),
+                      _run(() => _lab.signInAs(account)),
                   onCreateOffline: _createOffline,
-                  onRestart: () => _run(_controller.restart),
-                  onReconnect: () => _run(() async {
-                    await _controller.setOnline(true);
-                    await _controller.replay();
-                  }),
-                  onDependentUpdate: () =>
-                      _run(_controller.updateNoteAfterCreate),
-                  onFailNextRequest: () => _run(_controller.failNextRequest),
-                  onReplay: () => _run(_controller.replay),
-                  onRepair: () => _run(_controller.retryFirstDeadLetter),
+                  onRestart: () => _run(_lab.restart),
+                  onReconnect: () => _run(() => _lab.setOnline(true)),
+                  onDependentUpdate: () => _run(_lab.updateNoteAfterCreate),
+                  onFailNextRequest: () => _run(_lab.failNextRequest),
+                  onReplay: () => _run(_lab.replay),
+                  onRepair: () => _run(_lab.retryFirstDeadLetter),
                 ),
         );
       },
@@ -257,7 +253,7 @@ class _LabBody extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: busy ? null : onReconnect,
                     icon: const Icon(Icons.cloud_sync),
-                    label: const Text('Reconnect + replay'),
+                    label: const Text('Reconnect (auto replay)'),
                   ),
                 ],
               ),

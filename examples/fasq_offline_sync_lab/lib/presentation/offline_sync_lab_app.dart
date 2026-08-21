@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../application/offline_sync_lab_controller.dart';
+import '../application/offline_sync_lab.dart';
 import 'offline_sync_lab_screen.dart';
 
 class OfflineSyncLabApp extends StatelessWidget {
-  const OfflineSyncLabApp({required this.controller, super.key});
+  const OfflineSyncLabApp({required this.lab, super.key});
 
-  final OfflineSyncLabController controller;
+  final OfflineSyncLab lab;
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +16,7 @@ class OfflineSyncLabApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
-      home: OfflineSyncLabScreen(controller: controller),
+      home: OfflineSyncLabScreen(lab: lab),
     );
   }
 }

@@ -52,6 +52,20 @@ class UpdateNoteCommand {
   }
 }
 
+class NoteMutationResult {
+  const NoteMutationResult({required this.id, this.localId, this.title});
+
+  final String id;
+  final String? localId;
+  final String? title;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    if (localId != null) 'localId': localId,
+    if (title != null) 'title': title,
+  };
+}
+
 Map<String, Object?> _jsonObject(Object? payload) {
   if (payload is! Map) {
     throw const FormatException('Expected JSON object');

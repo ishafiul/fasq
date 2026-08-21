@@ -13,14 +13,14 @@ class SimulatedNotesTransport {
 
   void failNextRequest() => _shouldFailNextRequest = true;
 
-  Map<String, Object?> create(CreateNoteCommand command) {
+  NoteMutationResult create(CreateNoteCommand command) {
     _throwIfFailureRequested();
     final id = 'server-note-${_nextId++}';
     _notes[id] = LabNote(id: id, title: command.title, owner: command.owner);
-    return <String, Object?>{'id': id, 'localId': command.localId};
+    return NoteMutationResult(id: id, localId: command.localId);
   }
 
-  Map<String, Object?> update(UpdateNoteCommand command) {
+  NoteMutationResult update(UpdateNoteCommand command) {
     _throwIfFailureRequested();
     final note = _notes[command.noteId];
     if (note == null) {
@@ -39,7 +39,7 @@ class SimulatedNotesTransport {
       title: command.title,
       owner: note.owner,
     );
-    return <String, Object?>{'id': note.id, 'title': command.title};
+    return NoteMutationResult(id: note.id, title: command.title);
   }
 
   void _throwIfFailureRequested() {
