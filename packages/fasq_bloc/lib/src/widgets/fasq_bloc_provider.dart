@@ -39,11 +39,7 @@ class FasqBlocProvider extends StatefulWidget {
   /// The widget below this widget in the tree.
   final Widget child;
 
-  const FasqBlocProvider({
-    super.key,
-    this.client,
-    required this.child,
-  });
+  const FasqBlocProvider({super.key, this.client, required this.child});
 
   /// Gets the QueryClient from the nearest FasqBlocProvider.
   ///
@@ -99,6 +95,9 @@ class _FasqBlocProviderState extends State<FasqBlocProvider> {
     super.initState();
     if (widget.client != null) {
       _queryClient = widget.client!;
+      _disposeClient = false;
+    } else if (context.queryClient != null) {
+      _queryClient = context.queryClient!;
       _disposeClient = false;
     } else {
       _queryClient = QueryClient();

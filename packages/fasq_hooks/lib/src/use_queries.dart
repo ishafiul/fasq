@@ -33,15 +33,22 @@ class QueryConfig<T> {
 /// final allLoaded = queries.every((q) => q.hasData);
 /// final anyError = queries.any((q) => q.hasError);
 /// ```
-List<QueryState<dynamic>> useQueries(List<QueryConfig> configs,
-    {QueryClient? client}) {
-  final queryClient = client ?? QueryClient();
+List<QueryState<dynamic>> useQueries(
+  List<QueryConfig> configs, {
+  QueryClient? client,
+}) {
+  final queryClient = useQueryClient(client: client);
   final states = useState<List<QueryState<dynamic>>>([]);
 
   useEffect(() {
     final queries = configs
-        .map((config) => queryClient.getQuery(config.queryKey,
-            queryFn: config.queryFn, options: config.options))
+        .map(
+          (config) => queryClient.getQuery(
+            config.queryKey,
+            queryFn: config.queryFn,
+            options: config.options,
+          ),
+        )
         .toList();
 
     // Add listeners to all queries
@@ -52,11 +59,13 @@ List<QueryState<dynamic>> useQueries(List<QueryConfig> configs,
     // Subscribe to state changes for each query
     final subscriptions = <StreamSubscription>[];
     for (int i = 0; i < queries.length; i++) {
-      subscriptions.add(queries[i].stream.listen((newState) {
-        final newStates = List<QueryState<dynamic>>.from(states.value);
-        newStates[i] = newState;
-        states.value = newStates;
-      }));
+      subscriptions.add(
+        queries[i].stream.listen((newState) {
+          final newStates = List<QueryState<dynamic>>.from(states.value);
+          newStates[i] = newState;
+          states.value = newStates;
+        }),
+      );
     }
 
     // Initialize with current states
@@ -115,25 +124,32 @@ class NamedQueryConfig<T> {
 /// final anyError = queries.values.any((q) => q.hasError);
 /// ```
 Map<String, QueryState<dynamic>> useNamedQueries(
-    List<NamedQueryConfig> configs) {
-  final client = QueryClient();
+  List<NamedQueryConfig> configs, {
+  QueryClient? client,
+}) {
+  final queryClient = useQueryClient(client: client);
   final states = useState<Map<String, QueryState<dynamic>>>({});
 
   useEffect(() {
     final queries = <String, Query>{};
     for (final config in configs) {
-      queries[config.name] = client.getQuery(config.queryKey,
-          queryFn: config.queryFn, options: config.options);
+      queries[config.name] = queryClient.getQuery(
+        config.queryKey,
+        queryFn: config.queryFn,
+        options: config.options,
+      );
       queries[config.name]!.addListener();
     }
 
     final subscriptions = <StreamSubscription>[];
     queries.forEach((name, query) {
-      subscriptions.add(query.stream.listen((newState) {
-        final newStates = Map<String, QueryState<dynamic>>.from(states.value);
-        newStates[name] = newState;
-        states.value = newStates;
-      }));
+      subscriptions.add(
+        query.stream.listen((newState) {
+          final newStates = Map<String, QueryState<dynamic>>.from(states.value);
+          newStates[name] = newState;
+          states.value = newStates;
+        }),
+      );
     });
 
     states.value = queries.map((name, query) => MapEntry(name, query.state));

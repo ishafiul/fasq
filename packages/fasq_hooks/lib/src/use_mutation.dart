@@ -9,6 +9,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 /// together with reactive status flags that update as the mutation progresses.
 UseMutationResult<TData, TVariables> useMutation<TData, TVariables>(
   Future<TData> Function(TVariables variables) mutationFn, {
+  MutationOptions<TData, TVariables>? options,
   void Function(TData data)? onSuccess,
   void Function(Object error)? onError,
 }) {
@@ -16,10 +17,12 @@ UseMutationResult<TData, TVariables> useMutation<TData, TVariables>(
   final mutation = useMemoized(
     () => Mutation<TData, TVariables>(
       mutationFn: mutationFn,
-      options: MutationOptions(
-        onSuccess: onSuccess,
-        onError: onError,
-      ),
+      options:
+          options ??
+          MutationOptions<TData, TVariables>(
+            onSuccess: onSuccess,
+            onError: onError,
+          ),
     ),
   );
 
