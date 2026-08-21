@@ -14,6 +14,35 @@ void main() {
       expect(client1, same(client2));
     });
 
+    test('rejects persistence without a security plugin', () {
+      expect(
+        () => QueryClient(
+          persistenceOptions: const PersistenceOptions(enabled: true),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test(
+      'explicit clients coexist and disposing singleton clears it',
+      () async {
+        final singleton = QueryClient();
+        final first = QueryClient.create();
+        final second = QueryClient.create();
+
+        expect(first, isNot(same(second)));
+        expect(QueryClient.maybeInstance, same(singleton));
+
+        await singleton.dispose();
+
+        expect(QueryClient.maybeInstance, isNull);
+        final replacement = QueryClient();
+        expect(replacement, isNot(same(singleton)));
+        await first.dispose();
+        await second.dispose();
+      },
+    );
+
     test('creates new query if key does not exist', () {
       final client = QueryClient();
       final query = client.getQuery<String>(

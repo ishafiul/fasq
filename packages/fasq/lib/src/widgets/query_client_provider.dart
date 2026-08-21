@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fasq/src/cache/cache_config.dart';
 import 'package:fasq/src/client/query_client.dart';
 import 'package:fasq/src/persistence/persistence_options.dart';
+import 'package:fasq/src/security/security_plugin.dart';
 import 'package:flutter/widgets.dart';
 
 /// Provider widget for QueryClient configuration.
@@ -45,17 +46,24 @@ class QueryClientProvider extends StatefulWidget {
     super.key,
     this.config,
     this.persistenceOptions,
+    this.securityPlugin,
     this.client,
   }) : assert(
-          client == null || (config == null && persistenceOptions == null),
-          'Provide either a client or configuration values, not both.',
-        );
+         client == null ||
+             (config == null &&
+                 persistenceOptions == null &&
+                 securityPlugin == null),
+         'Provide either a client or configuration values, not both.',
+       );
 
   /// Cache configuration for the QueryClient.
   final CacheConfig? config;
 
   /// Persistence options for encrypted cache storage.
   final PersistenceOptions? persistenceOptions;
+
+  /// Security plugin required when [persistenceOptions] enables persistence.
+  final SecurityPlugin? securityPlugin;
 
   /// Optional pre-configured [QueryClient] instance to reuse.
   ///
@@ -86,6 +94,7 @@ class _QueryClientProviderState extends State<QueryClientProvider> {
     _client = QueryClient(
       config: widget.config,
       persistenceOptions: widget.persistenceOptions,
+      securityPlugin: widget.securityPlugin,
     );
   }
 

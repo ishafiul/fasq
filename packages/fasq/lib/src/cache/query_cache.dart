@@ -34,11 +34,12 @@ class QueryCache {
     CacheConfig? config,
     this.persistenceOptions,
     this.securityPlugin,
+    this.ownsSecurityResources = true,
     bool enableMemoryPressure = true,
-  })  : config = config ?? const CacheConfig(),
-        _enableMemoryPressure = enableMemoryPressure,
-        _codecRegistry = persistenceOptions?.codecRegistry ??
-            const CacheDataCodecRegistry() {
+  }) : config = config ?? const CacheConfig(),
+       _enableMemoryPressure = enableMemoryPressure,
+       _codecRegistry =
+           persistenceOptions?.codecRegistry ?? const CacheDataCodecRegistry() {
     _hotCache = HotCache<CacheEntry<Object?>>(
       maxSize: this.config.performance.hotCacheSize,
     );
@@ -62,6 +63,9 @@ class QueryCache {
 
   /// Optional security plugin for encrypted entries.
   final SecurityPlugin? securityPlugin;
+
+  /// Whether providers created from [securityPlugin] belong to this cache.
+  final bool ownsSecurityResources;
 
   final Map<String, CacheEntry<Object?>> _entries = {};
   final Map<String, Future<Object?>> _inFlightRequests = {};
@@ -103,6 +107,29 @@ class QueryCache {
   /// Future that completes when persistence (e.g. security provider) is ready.
   Future<void> get persistenceInitialization =>
       _persistenceInitFuture ?? Future.value();
+
+  /// Waits for queued persistence writes and removals to finish.
+  ///
+  /// Cache mutations remain non-blocking for callers, but owners must await
+  /// this method before disposing a cache or handing its storage to another
+  /// owner.
+  Future<void> flushPersistence() async {
+    final initFuture = _persistenceInitFuture;
+    if (initFuture != null) await initFuture;
+
+    while (true) {
+      final global = _globalPersistenceOperation;
+      final pending = <Future<void>>[
+        ..._persistOperations.values,
+        if (global != null) global,
+      ];
+      if (pending.isEmpty) return;
+      await Future.wait(pending);
+      if (identical(_globalPersistenceOperation, global)) {
+        _globalPersistenceOperation = null;
+      }
+    }
+  }
 
   /// Gets a cache entry if it exists.
   ///
@@ -595,6 +622,16 @@ class QueryCache {
     _persistenceGcTimer?.cancel();
     _persistenceGcTimer = null;
 
+    try {
+      await flushPersistence();
+    } on Object catch (error, stackTrace) {
+      _logPersistenceError(
+        'Failed to flush queued persistence operations during disposal',
+        error,
+        stackTrace,
+      );
+    }
+
     // Clean up all locks
     _locks.clear();
 
@@ -656,7 +693,8 @@ class QueryCache {
   /// Starts garbage collection for persisted data.
   void _startPersistenceGarbageCollection() {
     if (!_persistenceReady) return;
-    final interval = persistenceGcInterval ??
+    final interval =
+        persistenceGcInterval ??
         persistenceOptions?.gcInterval ??
         const Duration(minutes: 5);
 
@@ -789,15 +827,17 @@ class QueryCache {
 
       final createdAt = DateTime.parse(json['createdAt'] as String);
       final lastAccessRaw = json['lastAccessedAt'] as String?;
-      final lastAccessedAt =
-          lastAccessRaw != null ? DateTime.parse(lastAccessRaw) : createdAt;
+      final lastAccessedAt = lastAccessRaw != null
+          ? DateTime.parse(lastAccessRaw)
+          : createdAt;
       final accessCountRaw = json['accessCount'];
       final accessCount = accessCountRaw is num ? accessCountRaw.toInt() : 0;
       final staleTimeRaw = json['staleTime'];
       final cacheTimeRaw = json['cacheTime'];
       final referenceCountRaw = json['referenceCount'];
-      final hasValueRaw =
-          json.containsKey('hasValue') ? json['hasValue'] : true;
+      final hasValueRaw = json.containsKey('hasValue')
+          ? json['hasValue']
+          : true;
 
       return CacheEntry<dynamic>(
         data: data,
@@ -810,8 +850,9 @@ class QueryCache {
         cacheTime: cacheTimeRaw is num
             ? Duration(milliseconds: cacheTimeRaw.toInt())
             : config.defaultCacheTime,
-        referenceCount:
-            referenceCountRaw is num ? referenceCountRaw.toInt() : 0,
+        referenceCount: referenceCountRaw is num
+            ? referenceCountRaw.toInt()
+            : 0,
         isSecure: json['isSecure'] as bool? ?? false,
         expiresAt: json['expiresAt'] != null
             ? DateTime.parse(json['expiresAt'] as String)
@@ -853,8 +894,10 @@ class QueryCache {
     final entryJson = jsonEncode(payload);
     final entryBytes = utf8.encode(entryJson);
 
-    final encryptedData =
-        await _encryptionProvider!.encrypt(entryBytes, encryptionKey);
+    final encryptedData = await _encryptionProvider!.encrypt(
+      entryBytes,
+      encryptionKey,
+    );
 
     if (_entryVersions[key] != version) {
       return;
@@ -932,8 +975,10 @@ class QueryCache {
         if (encryptedData != null) {
           try {
             // Decrypt the data
-            final decryptedBytes = await _encryptionProvider!
-                .decrypt(encryptedData, encryptionKey);
+            final decryptedBytes = await _encryptionProvider!.decrypt(
+              encryptedData,
+              encryptionKey,
+            );
             final entryJson = utf8.decode(decryptedBytes);
             final entryMap = jsonDecode(entryJson) as Map<String, dynamic>;
 
@@ -1145,6 +1190,14 @@ class QueryCache {
     }
 
     final tasks = <Future<void>>[];
+
+    if (!ownsSecurityResources) {
+      _persistenceProvider = null;
+      _encryptionProvider = null;
+      _securityProvider = null;
+      _isInitialized = false;
+      return;
+    }
 
     final persistence = _persistenceProvider;
     if (persistence != null) {

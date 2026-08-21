@@ -278,4 +278,11 @@ class _FailingRenameFileSystem implements OutboxFileSystem {
 
   @override
   Future<void> releaseLock(String path) => _delegate.releaseLock(path);
+
+  @override
+  Future<bool> recoverStaleLock(
+    String path, {
+    required Duration lease,
+    required DateTime now,
+  }) => _delegate.recoverStaleLock(path, lease: lease, now: now);
 }
