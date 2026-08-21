@@ -16,6 +16,8 @@ For full documentation and API reference, visit:
 - **🤖 Automatic Detection**: Scans for `TypedQueryKey<T>` in your `QueryKeys` classes.
 - **📦 Serializer Registration**: Generates registration code for `fromJson`/`toJson`.
 - **🏗️ Build Runner**: Integrates seamlessly with `build_runner`.
+- **📡 Durable Mutations**: Generates typed durable mutation handles from
+  `@FasqMutation` functions.
 
 ## 📦 Installation
 
@@ -45,7 +47,7 @@ class QueryKeys {
 ### 2. Run Builder
 
 ```bash
-dart run build_runner build
+flutter pub run build_runner build
 ```
 
 ### 3. Register
@@ -65,6 +67,21 @@ void main() {
   );
 }
 ```
+
+### Durable mutation generation
+
+Annotate only operations that must be queued across offline restarts. The
+function must accept one JSON-serializable request and return `Future<T>`:
+
+```dart
+@FasqMutation(key: 'todos.add', encodeResult: true)
+Future<Todo> addTodo(AddTodo request) => api.addTodo(request);
+```
+
+The generated `addTodoDurable` handle is passed to
+`OfflineSync.secure(mutations: [...])` and the core
+`MutationBuilder(mutation: ...)`. Ordinary online-only mutations continue
+using `MutationBuilder(mutationFn: ...)`.
 
 ## 📄 License
 

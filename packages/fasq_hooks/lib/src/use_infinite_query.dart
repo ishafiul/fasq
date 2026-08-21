@@ -11,15 +11,20 @@ InfiniteQueryState<TData, TParam> useInfiniteQuery<TData, TParam>(
   QueryKey queryKey,
   Future<TData> Function(TParam param) queryFn, {
   InfiniteQueryOptions<TData, TParam>? options,
+  QueryClient? client,
 }) {
-  final client = QueryClient();
+  final queryClient = useQueryClient(client: client);
 
-  final state =
-      useState<InfiniteQueryState<TData, TParam>>(InfiniteQueryState.idle());
+  final state = useState<InfiniteQueryState<TData, TParam>>(
+    InfiniteQueryState.idle(),
+  );
 
   useEffect(() {
-    final query = client.getInfiniteQuery<TData, TParam>(queryKey, queryFn,
-        options: options);
+    final query = queryClient.getInfiniteQuery<TData, TParam>(
+      queryKey,
+      queryFn,
+      options: options,
+    );
 
     query.addListener();
 

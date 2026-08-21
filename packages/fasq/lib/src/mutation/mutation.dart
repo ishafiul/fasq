@@ -74,7 +74,11 @@ class Mutation<T, TVariables> {
         final acknowledgement = await durableQueue.queue.enqueue(
           key: durableQueue.mutationKey,
           variables: variables,
-          authScope: durableQueue.authScope,
+          authScope:
+              durableQueue.authScope ??
+              (durableQueue.authPolicy == AuthPolicy.required
+                  ? durableQueue.queue.currentAuthScope
+                  : null),
           conflictPolicy: durableQueue.conflictPolicy,
           conflictPrecondition: durableQueue.conflictPrecondition,
           priority: options?.priority ?? 0,

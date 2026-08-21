@@ -21,6 +21,28 @@ void main() {
     if (directory.existsSync()) await directory.delete(recursive: true);
   });
 
+  test('recovers a stale owner marker without deleting outbox data', () async {
+    final writer = _newStore(directory, _FakeOutboxEncryption());
+    await writer.open();
+    await writer.transact(
+      (current) => current.copyWith(active: [_operation('retained')]),
+    );
+    await writer.close();
+
+    await File(p.join(directory.path, 'outbox.lock')).writeAsString('crashed');
+    final recovery = _newStore(
+      directory,
+      _FakeOutboxEncryption(),
+      lockLease: Duration.zero,
+    );
+
+    final snapshot = await recovery.open();
+
+    expect(snapshot.active.single.operationId.value, 'retained');
+    await recovery.close();
+    expect(File(p.join(directory.path, 'outbox.json')).existsSync(), isTrue);
+  });
+
   test(
     'does not restore stale backup after primary decryption failure',
     () async {
@@ -244,12 +266,14 @@ FileDurableOutbox _newStore(
   OutboxEncryption encryption, {
   OutboxFileSystem fileSystem = const IoOutboxFileSystem(),
   List<OutboxMigration> migrations = const <OutboxMigration>[],
+  Duration lockLease = const Duration(hours: 24),
 }) {
   return FileDurableOutbox(
     directoryPath: directory.path,
     encryption: encryption,
     fileSystem: fileSystem,
     migrations: migrations,
+    lockLease: lockLease,
   );
 }
 
@@ -379,4 +403,11 @@ class _RecordingFileSystem implements OutboxFileSystem {
 
   @override
   Future<void> releaseLock(String path) => _delegate.releaseLock(path);
+
+  @override
+  Future<bool> recoverStaleLock(
+    String path, {
+    required Duration lease,
+    required DateTime now,
+  }) => _delegate.recoverStaleLock(path, lease: lease, now: now);
 }

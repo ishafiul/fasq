@@ -80,6 +80,14 @@ abstract class OutboxFileSystem {
 
   /// Releases an owner marker created by this backend.
   Future<void> releaseLock(String path);
+
+  /// Removes a lock that has exceeded [lease] without touching store data.
+  /// Implementations that cannot safely determine lock age return false.
+  Future<bool> recoverStaleLock(
+    String path, {
+    required Duration lease,
+    required DateTime now,
+  }) async => false;
 }
 
 /// Default dart:io filesystem implementation.
@@ -176,6 +184,20 @@ class IoOutboxFileSystem implements OutboxFileSystem {
 
   @override
   Future<void> releaseLock(String path) => delete(path);
+
+  @override
+  Future<bool> recoverStaleLock(
+    String path, {
+    required Duration lease,
+    required DateTime now,
+  }) async {
+    final file = File(path);
+    if (!file.existsSync()) return false;
+    final modified = await file.lastModified();
+    if (now.difference(modified) < lease) return false;
+    await file.delete();
+    return true;
+  }
 }
 
 /// Default crash-safe encrypted file backend for the durable outbox.
@@ -188,6 +210,7 @@ class FileDurableOutbox implements DurableOutboxStore {
     this.capacity = const OutboxCapacityPolicy(),
     this.securityPolicy = const OutboxSecurityPolicy(),
     this.migrations = const <OutboxMigration>[],
+    this.lockLease = const Duration(hours: 24),
     DateTime Function()? now,
   }) : _directoryPath = directoryPath,
        _encryption = encryption,
@@ -200,6 +223,7 @@ class FileDurableOutbox implements DurableOutboxStore {
     OutboxCapacityPolicy capacity = const OutboxCapacityPolicy(),
     OutboxSecurityPolicy securityPolicy = const OutboxSecurityPolicy(),
     List<OutboxMigration> migrations = const <OutboxMigration>[],
+    Duration lockLease = const Duration(hours: 24),
     DateTime Function()? now,
   }) async {
     final directory = await getApplicationSupportDirectory();
@@ -210,6 +234,7 @@ class FileDurableOutbox implements DurableOutboxStore {
       capacity: capacity,
       securityPolicy: securityPolicy,
       migrations: migrations,
+      lockLease: lockLease,
       now: now,
     );
   }
@@ -225,6 +250,9 @@ class FileDurableOutbox implements DurableOutboxStore {
 
   /// Copy-on-write schema migrations.
   final List<OutboxMigration> migrations;
+
+  /// Maximum owner-marker age before crash recovery may reclaim it.
+  final Duration lockLease;
 
   final String _directoryPath;
   final OutboxEncryption _encryption;
@@ -265,6 +293,11 @@ class FileDurableOutbox implements DurableOutboxStore {
       if (_isOpen) return _snapshot;
       if (_ownsLock) throw const OutboxOwnershipException();
       await fileSystem.ensureDirectory(_directoryPath);
+      await fileSystem.recoverStaleLock(
+        _lockPath,
+        lease: lockLease,
+        now: _now(),
+      );
       await fileSystem.acquireLock(_lockPath);
       _ownsLock = true;
       try {

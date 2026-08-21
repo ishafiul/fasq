@@ -43,6 +43,12 @@ class QueryClient with WidgetsBindingObserver {
     SecurityPlugin? securityPlugin,
     CircuitBreakerRegistry? circuitBreakerRegistry,
   }) {
+    if (persistenceOptions?.enabled == true && securityPlugin == null) {
+      throw ArgumentError(
+        'A SecurityPlugin is required when query persistence is enabled.',
+        'securityPlugin',
+      );
+    }
     final existing = _instance;
     if (existing != null) {
       if (QueryClientConfigGuard.hasConfigurationConflict(
@@ -72,20 +78,48 @@ class QueryClient with WidgetsBindingObserver {
     return _instance!;
   }
 
+  /// Creates an explicitly owned client without using the legacy singleton.
+  ///
+  /// Applications should prefer the higher-level Fasq bootstrap. This
+  /// constructor exists for isolated scopes, tests, and advanced composition.
+  static QueryClient create({
+    CacheConfig? config,
+    PersistenceOptions? persistenceOptions,
+    SecurityPlugin? securityPlugin,
+    CircuitBreakerRegistry? circuitBreakerRegistry,
+    bool ownsSecurityResources = true,
+  }) {
+    if (persistenceOptions?.enabled == true && securityPlugin == null) {
+      throw ArgumentError(
+        'A SecurityPlugin is required when query persistence is enabled.',
+        'securityPlugin',
+      );
+    }
+    return QueryClient._internal(
+      config: config,
+      persistenceOptions: persistenceOptions,
+      securityPlugin: securityPlugin,
+      circuitBreakerRegistry: circuitBreakerRegistry,
+      ownsSecurityResources: ownsSecurityResources,
+    );
+  }
+
   QueryClient._internal({
     CacheConfig? config,
     PersistenceOptions? persistenceOptions,
     SecurityPlugin? securityPlugin,
     CircuitBreakerRegistry? circuitBreakerRegistry,
-  })  : _configSnapshot = config ?? const CacheConfig(),
-        _persistenceSnapshot = persistenceOptions,
-        _securityPluginType = securityPlugin?.runtimeType,
-        _circuitBreakerRegistry = circuitBreakerRegistry,
-        _cache = QueryCache(
-          config: config ?? const CacheConfig(),
-          persistenceOptions: persistenceOptions,
-          securityPlugin: securityPlugin,
-        ) {
+    bool ownsSecurityResources = true,
+  }) : _configSnapshot = config ?? const CacheConfig(),
+       _persistenceSnapshot = persistenceOptions,
+       _securityPluginType = securityPlugin?.runtimeType,
+       _circuitBreakerRegistry = circuitBreakerRegistry,
+       _cache = QueryCache(
+         config: config ?? const CacheConfig(),
+         persistenceOptions: persistenceOptions,
+         securityPlugin: securityPlugin,
+         ownsSecurityResources: ownsSecurityResources,
+       ) {
     if (BindingBase.debugBindingType() != null) {
       _binding = WidgetsBinding.instance;
       _binding?.addObserver(this);
@@ -96,28 +130,29 @@ class QueryClient with WidgetsBindingObserver {
     _events = QueryClientEvents();
     _registry = QueryClientRegistry(
       cache: _cache,
-      queryFactory: <T>({
-        required queryKey,
-        required dependencyManager,
-        required onDispose,
-        queryFn,
-        queryFnWithToken,
-        options,
-        initialEntry,
-      }) {
-        return Query<T>(
-          queryKey: queryKey,
-          queryFn: queryFn,
-          queryFnWithToken: queryFnWithToken,
-          options: options,
-          cache: _cache,
-          client: this,
-          circuitBreakerRegistry: _circuitBreakerRegistry,
-          dependencyManager: dependencyManager,
-          onDispose: onDispose,
-          initialEntry: initialEntry,
-        );
-      },
+      queryFactory:
+          <T>({
+            required queryKey,
+            required dependencyManager,
+            required onDispose,
+            queryFn,
+            queryFnWithToken,
+            options,
+            initialEntry,
+          }) {
+            return Query<T>(
+              queryKey: queryKey,
+              queryFn: queryFn,
+              queryFnWithToken: queryFnWithToken,
+              options: options,
+              cache: _cache,
+              client: this,
+              circuitBreakerRegistry: _circuitBreakerRegistry,
+              dependencyManager: dependencyManager,
+              onDispose: onDispose,
+              initialEntry: initialEntry,
+            );
+          },
     );
     _cacheOps = QueryClientCacheOps(
       cache: _cache,
@@ -127,11 +162,14 @@ class QueryClient with WidgetsBindingObserver {
       cache: _cache,
       queries: _registry.queries,
     );
-    _isolatePool =
-        IsolatePool(poolSize: config?.performance.isolatePoolSize ?? 2);
+    _isolatePool = IsolatePool(
+      poolSize: config?.performance.isolatePoolSize ?? 2,
+    );
   }
 
   static QueryClient? _instance;
+
+  bool _isDisposed = false;
 
   /// Returns the current singleton instance if already initialized, else null.
   static QueryClient? get maybeInstance => _instance;
@@ -460,6 +498,11 @@ class QueryClient with WidgetsBindingObserver {
 
   /// Disposes the query client and cache.
   Future<void> dispose() async {
+    if (_isDisposed) return;
+    _isDisposed = true;
+    if (identical(_instance, this)) {
+      _instance = null;
+    }
     _metrics.dispose();
     _binding?.removeObserver(this);
     _binding = null;

@@ -1,31 +1,44 @@
 import 'dart:async';
 
 import 'package:fasq/src/client/query_client.dart';
+import 'package:fasq/src/mutation/durable_mutation.dart';
 import 'package:fasq/src/mutation/mutation.dart';
 import 'package:fasq/src/mutation/mutation_options.dart';
 import 'package:fasq/src/mutation/mutation_snapshot.dart';
 import 'package:fasq/src/mutation/mutation_state.dart';
+import 'package:fasq/src/widgets/durable_mutation_scope.dart';
 import 'package:flutter/widgets.dart';
 
 /// A widget that builds UI from the state of a mutation.
 class MutationBuilder<T, TVariables> extends StatefulWidget {
   /// Creates a [MutationBuilder].
   const MutationBuilder({
-    required this.mutationFn,
+    this.mutationFn,
+    this.mutation,
     required this.builder,
     this.options,
     super.key,
-  });
+  }) : assert(
+         (mutationFn == null) != (mutation == null),
+         'Provide exactly one of mutationFn or mutation.',
+       );
 
   /// Async mutation function invoked by the `mutate` callback.
-  final Future<T> Function(TVariables variables) mutationFn;
+  final Future<T> Function(TVariables variables)? mutationFn;
+
+  /// Durable mutation handle bound to the nearest [DurableMutationScope].
+  ///
+  /// Use this for mutations that must survive an offline restart. The legacy
+  /// [mutationFn] form remains the simplest option for online-only work.
+  final DurableMutation<T, TVariables>? mutation;
 
   /// Builds UI from the current mutation `state` and `mutate` callback.
   final Widget Function(
     BuildContext context,
     MutationState<T> state,
     Future<void> Function(TVariables variables) mutate,
-  ) builder;
+  )
+  builder;
 
   /// Optional behavior and callback configuration for the mutation.
   final MutationOptions<T, TVariables>? options;
@@ -40,19 +53,43 @@ class _MutationBuilderState<T, TVariables>
   late Mutation<T, TVariables> _mutation;
   StreamSubscription<MutationState<T>>? _subscription;
   late MutationState<T> _state;
+  MutationOptions<T, TVariables>? _effectiveOptions;
   QueryClient? _client;
+  var _initialized = false;
 
   @override
   void initState() {
     super.initState();
     _client = QueryClient.maybeInstance ?? QueryClient();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) {
+      return;
+    }
     _initializeMutation();
+    _initialized = true;
   }
 
   void _initializeMutation() {
+    final durableMutation = widget.mutation;
+    final mutationFn = durableMutation?.execute ?? widget.mutationFn;
+    if (mutationFn == null) {
+      throw StateError(
+        'MutationBuilder requires a mutation function or handle',
+      );
+    }
+    _effectiveOptions = durableMutation == null
+        ? widget.options
+        : durableMutation.bind(
+            DurableMutationScope.of(context),
+            base: widget.options,
+          );
     _mutation = Mutation<T, TVariables>(
-      mutationFn: widget.mutationFn,
-      options: widget.options,
+      mutationFn: mutationFn,
+      options: _effectiveOptions,
     );
     _state = _mutation.state;
 
@@ -100,9 +137,9 @@ class _MutationBuilderState<T, TVariables>
       previousState: previous,
       currentState: current,
       variables: _mutation.lastVariables,
-      options: widget.options,
+      options: _effectiveOptions,
     );
-    final meta = widget.options?.meta;
+    final meta = _effectiveOptions?.meta;
 
     if (!previous.isLoading && current.isLoading) {
       client.notifyMutationLoading(snapshot, meta, effectiveContext);
