@@ -177,7 +177,9 @@ class Fasq {
           registrationsReady: true,
           encryptionReady: true,
         );
-        await replayLifecycle.onStartup();
+        if (networkStatus.isOnline) {
+          await replayLifecycle.onStartup();
+        }
       }
 
       return Fasq._(

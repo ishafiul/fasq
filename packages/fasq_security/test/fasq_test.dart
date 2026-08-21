@@ -77,6 +77,53 @@ void main() {
       }
     },
   );
+
+  test(
+    'unified bootstrap completes while offline and defers startup replay',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'fasq-offline-bootstrap-',
+      );
+      final store = _RecordingOutboxStore(
+        FileDurableOutbox(
+          directoryPath: directory.path,
+          encryption: _FakeOutboxEncryption(),
+        ),
+      );
+      final mutation = DurableMutationDefinition<String, int>(
+        key: MutationKey(namespace: 'test', name: 'offline-echo'),
+        codec: const JsonMutationCodec<int>(
+          encoder: _encodeInt,
+          decoder: _decodeInt,
+        ),
+        execute: (value) async => '$value',
+      );
+      final networkStatus = NetworkStatus.instance;
+      Fasq? fasq;
+
+      networkStatus.setOnline(online: false);
+      try {
+        fasq = await Fasq.initialize(
+          offlineSync: OfflineSync.custom(
+            mutations: [mutation],
+            store: store,
+            encryption: _FakeOutboxEncryption(),
+            connectivity: networkStatus,
+          ),
+        );
+
+        expect(fasq.mutationQueue, isNotNull);
+        expect(fasq.mutationQueue!.hasRegistration(mutation.key), isTrue);
+      } finally {
+        await fasq?.close();
+        await store.close();
+        networkStatus.setOnline(online: true);
+        if (directory.existsSync()) {
+          await directory.delete(recursive: true);
+        }
+      }
+    },
+  );
 }
 
 Object? _encodeInt(int value) => value;
