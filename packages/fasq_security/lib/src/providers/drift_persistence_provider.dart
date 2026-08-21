@@ -10,8 +10,13 @@ import '../exceptions/persistence_exception.dart';
 /// Provides efficient encrypted data persistence with batch operations,
 /// ACID compliance, and optimized indexing for cache operations.
 class DriftPersistenceProvider implements PersistenceProvider {
-  DriftPersistenceProvider({void Function()? onDispose})
-      : _onDispose = onDispose;
+  DriftPersistenceProvider({
+    this.databaseFileName = 'fasq_cache.sqlite',
+    void Function()? onDispose,
+  }) : _onDispose = onDispose;
+
+  /// Database filename used to isolate application/account scopes.
+  final String databaseFileName;
 
   late CacheDatabase _database;
   bool _initialized = false;
@@ -33,7 +38,7 @@ class DriftPersistenceProvider implements PersistenceProvider {
       if (_initialized) return;
 
       try {
-        _database = await CacheDatabase.open();
+        _database = await CacheDatabase.open(fileName: databaseFileName);
 
         _initialized = true;
         _isDisposed = false;

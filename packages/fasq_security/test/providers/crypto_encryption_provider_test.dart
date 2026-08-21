@@ -32,6 +32,34 @@ void main() {
         expect(decrypted, equals(originalData));
       });
 
+      test(
+        'handles payloads below, at, and above the isolate threshold',
+        () async {
+          final key = provider.generateKey();
+          for (final size in [50 * 1024 - 1, 50 * 1024, 50 * 1024 + 1]) {
+            final originalData = List.generate(size, (i) => i % 256);
+            final encrypted = await provider.encrypt(originalData, key);
+            final decrypted = await provider.decrypt(encrypted, key);
+            expect(decrypted, equals(originalData));
+          }
+        },
+      );
+
+      test('supports concurrent isolate jobs', () async {
+        final key = provider.generateKey();
+        final payloads = List.generate(
+          4,
+          (index) => List.generate(60 * 1024, (i) => (i + index) % 256),
+        );
+        final decrypted = await Future.wait(
+          payloads.map((payload) async {
+            final encrypted = await provider.encrypt(payload, key);
+            return provider.decrypt(encrypted, key);
+          }),
+        );
+        expect(decrypted, equals(payloads));
+      });
+
       test('throws exception for invalid key during encryption', () async {
         final data = [1, 2, 3, 4, 5];
         const invalidKey = 'invalid-key';

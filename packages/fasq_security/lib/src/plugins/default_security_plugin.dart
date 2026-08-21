@@ -17,19 +17,23 @@ class DefaultSecurityPlugin implements SecurityPlugin {
     SecurityProvider? storageProvider,
     EncryptionProvider? encryptionProvider,
     PersistenceProvider? persistenceProvider,
-  })  : _ownsEncryptionProvider = encryptionProvider == null,
-        _ownsPersistenceProvider = persistenceProvider == null {
+    this.storageNamespace = 'default',
+    this.persistenceFileName = 'fasq_cache.sqlite',
+  }) : _ownsEncryptionProvider = encryptionProvider == null,
+       _ownsPersistenceProvider = persistenceProvider == null {
     _storageFactory = storageProvider != null
         ? (() => storageProvider)
-        : (() => SecureStorageProvider());
+        : (() => SecureStorageProvider(namespace: storageNamespace));
     _encryptionFactory = encryptionProvider != null
         ? (() => encryptionProvider)
         : (() =>
-            CryptoEncryptionProvider(onDispose: _handleEncryptionDisposed));
+              CryptoEncryptionProvider(onDispose: _handleEncryptionDisposed));
     _persistenceFactory = persistenceProvider != null
         ? (() => persistenceProvider)
-        : (() =>
-            DriftPersistenceProvider(onDispose: _handlePersistenceDisposed));
+        : (() => DriftPersistenceProvider(
+            databaseFileName: persistenceFileName,
+            onDispose: _handlePersistenceDisposed,
+          ));
 
     if (storageProvider != null) {
       _storageProvider = storageProvider;
@@ -52,6 +56,12 @@ class DefaultSecurityPlugin implements SecurityPlugin {
 
   final bool _ownsEncryptionProvider;
   final bool _ownsPersistenceProvider;
+
+  /// Namespace for the platform key used by this provider bundle.
+  final String storageNamespace;
+
+  /// SQLite filename used by the default persistence provider.
+  final String persistenceFileName;
 
   bool _initialized = false;
 

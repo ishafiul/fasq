@@ -35,6 +35,7 @@ class DurableMutationQueue {
     RetryPolicy retryPolicy = const RetryPolicy(),
     AuthSessionProvider? authSessionProvider,
     bool Function()? isOnline,
+    bool ownsStore = true,
     ProjectionCoordinator? projectionCoordinator,
     void Function(String queryKey, Object? value)? projectionSink,
     RepairIdentityFactory? repairIdentityFactory,
@@ -56,6 +57,7 @@ class DurableMutationQueue {
         executionAdapter: executionAdapter,
         retryPolicy: retryPolicy,
         authSessionProvider: authSessionProvider,
+        ownsStore: ownsStore,
         isOnline: isOnline,
       ),
       projectionCoordinator: projectionCoordinator,
@@ -110,6 +112,12 @@ class DurableMutationQueue {
 
   /// Whether the queue currently owns an open durable store.
   bool get isOpen => _isOpen;
+
+  /// Current non-secret authentication scope observed by the queue.
+  ///
+  /// Durable UI mutations use this value when an authenticated operation is
+  /// queued. Credentials never cross this API boundary.
+  AuthScope? get currentAuthScope => _observationAuthScope;
 
   /// Current projection state, when projection integration is configured.
   ProjectionState? get projectionState => _projectionCoordinator?.state;

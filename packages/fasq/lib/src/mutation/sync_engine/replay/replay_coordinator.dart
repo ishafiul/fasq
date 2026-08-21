@@ -133,6 +133,7 @@ class DurableReplayCoordinator {
     RetryPolicy retryPolicy = const RetryPolicy(),
     AuthSessionProvider? authSessionProvider,
     bool Function()? isOnline,
+    this.ownsStore = true,
   }) : _store = store,
        _registrations = registrations,
        _now = now ?? DateTime.now,
@@ -152,6 +153,9 @@ class DurableReplayCoordinator {
   final RetryPolicy _retryPolicy;
   final AuthSessionProvider? _authSessionProvider;
   final bool Function()? _isOnline;
+
+  /// Whether this coordinator owns the durable store lifecycle.
+  final bool ownsStore;
   final AuthScopeGate _authScopeGate = const AuthScopeGate();
   Future<void> _tail = Future<void>.value();
   bool _isOpen = false;
@@ -169,10 +173,12 @@ class DurableReplayCoordinator {
         _recoveredUnknownOutcomeIds = await _recoverInterrupted();
         _isOpen = true;
       } on Object {
-        try {
-          await _store.close();
-        } on Object {
-          // Preserve the recovery failure; the store owns its cleanup error.
+        if (ownsStore) {
+          try {
+            await _store.close();
+          } on Object {
+            // Preserve the recovery failure; the store owns its cleanup error.
+          }
         }
         rethrow;
       }
@@ -277,7 +283,7 @@ class DurableReplayCoordinator {
   Future<void> close() {
     return _serialized(() async {
       if (!_isOpen) return;
-      await _store.close();
+      if (ownsStore) await _store.close();
       _isOpen = false;
     });
   }

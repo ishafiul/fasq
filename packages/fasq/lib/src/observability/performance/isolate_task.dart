@@ -13,7 +13,12 @@ class IsolateTask<T, R> {
   }) : createdAt = DateTime.now();
 
   /// Callback function to execute in the isolate.
-  final FutureOr<R> Function(T message) callback;
+  // Keep callback transport erased at the isolate seam. Dart function types
+  // are contravariant in their argument, so treating a callback such as
+  // `(Map<String, Object?>) => List<int>` as
+  // `(dynamic) => dynamic` causes a runtime cast before the callback reaches
+  // the worker. The typed result is restored by [completer] at the caller.
+  final Function callback;
 
   /// Input data to pass to [callback].
   final T message;
