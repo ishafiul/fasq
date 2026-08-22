@@ -105,6 +105,20 @@ class DuplicateMutationRegistrationException extends MutationContractException {
     : super('A mutation registration already exists for $key');
 }
 
+/// Raised when a typed key disagrees with its bootstrapped definition.
+class MutationRegistrationTypeException extends MutationContractException {
+  /// Creates a registration type mismatch exception.
+  MutationRegistrationTypeException({
+    required String key,
+    required String expectedDataType,
+    required String expectedVariablesType,
+  }) : super(
+         'Mutation $key is not registered as '
+         'DurableMutationDefinition<$expectedDataType, '
+         '$expectedVariablesType>',
+       );
+}
+
 /// Raised when persisted operation state contains an unknown value.
 class UnknownMutationStateException extends MutationContractException {
   /// Creates an unknown-state exception.

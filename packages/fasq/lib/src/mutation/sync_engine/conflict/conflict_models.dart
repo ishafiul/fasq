@@ -178,6 +178,7 @@ MutationOperation _copyOperation(MutationOperation operation) {
     conflictPolicy: operation.conflictPolicy,
     conflictPrecondition: operation.conflictPrecondition,
     authScope: operation.authScope,
+    identity: operation.identity,
     state: operation.state,
     priority: operation.priority,
     dependencies: operation.dependencies,

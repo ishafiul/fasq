@@ -11,16 +11,18 @@ import 'providers/crypto_encryption_provider.dart';
 import 'providers/secure_storage_provider.dart';
 
 /// Unified application composition root for secure Fasq features.
-class Fasq {
+class Fasq implements FasqRuntime {
   Fasq._({
     required this.scope,
     required QueryClient queryClient,
     required DurableMutationQueue? mutationQueue,
+    required DurableMutationCatalog mutations,
     required ReplayLifecycleController? replayLifecycle,
     required EncryptionProvider? outboxEncryption,
     required SecurityPlugin? querySecurity,
   }) : _queryClient = queryClient,
        _mutationQueue = mutationQueue,
+       _mutations = mutations,
        _replayLifecycle = replayLifecycle,
        _outboxEncryption = outboxEncryption,
        _querySecurity = querySecurity,
@@ -33,6 +35,7 @@ class Fasq {
     OfflineSync offlineSync = const OfflineSync.disabled(),
     CacheConfig? cacheConfig,
   }) async {
+    final mutations = DurableMutationCatalog(offlineSync.mutations);
     QueryClient? queryClient;
     SecurityPlugin? querySecurity;
     SecurityProvider? outboxStorage;
@@ -186,6 +189,7 @@ class Fasq {
         scope: scope,
         queryClient: queryClient,
         mutationQueue: mutationQueue,
+        mutations: mutations,
         replayLifecycle: replayLifecycle,
         outboxEncryption: outboxResourcesOwned ? outboxEncryption : null,
         querySecurity: querySecurity,
@@ -227,6 +231,7 @@ class Fasq {
   final FasqDataScope scope;
   final QueryClient _queryClient;
   final DurableMutationQueue? _mutationQueue;
+  final DurableMutationCatalog _mutations;
   final ReplayLifecycleController? _replayLifecycle;
   final EncryptionProvider? _outboxEncryption;
   final SecurityPlugin? _querySecurity;
@@ -236,10 +241,16 @@ class Fasq {
   FasqStatus get status => _status;
 
   /// Explicit query client owned by this Fasq instance.
+  @override
   QueryClient get queryClient => _queryClient;
 
   /// Durable mutation queue, when offline sync is enabled.
+  @override
   DurableMutationQueue? get mutationQueue => _mutationQueue;
+
+  /// Typed durable mutation definitions registered during bootstrap.
+  @override
+  DurableMutationCatalog get mutations => _mutations;
 
   /// Rotates the encrypted query persistence key.
   ///
@@ -264,6 +275,7 @@ class Fasq {
   }
 
   /// Closes all resources created by this instance.
+  @override
   Future<void> close() async {
     if (_status == FasqStatus.disposed) return;
     await _replayLifecycle?.dispose();
@@ -275,9 +287,10 @@ class Fasq {
   }
 }
 
-/// Exposes one [Fasq] instance and its query client to a widget subtree.
+/// Compatibility wrapper around the core [FasqProvider].
+@Deprecated('Use FasqProvider(runtime: fasq, child: child) instead.')
 class FasqScope extends StatelessWidget {
-  /// Creates a Fasq scope.
+  /// Creates a compatibility scope.
   const FasqScope({required this.instance, required this.child, super.key});
 
   /// Explicit Fasq instance supplied by the application root.
@@ -286,44 +299,26 @@ class FasqScope extends StatelessWidget {
   /// Widget subtree that consumes [instance].
   final Widget child;
 
-  /// Finds the nearest Fasq scope.
+  /// Finds the nearest secure Fasq runtime.
   static Fasq of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_FasqInherited>();
-    if (scope == null) {
-      throw FlutterError('No FasqScope found in the widget tree.');
+    final runtime = FasqProvider.of(context);
+    if (runtime is! Fasq) {
+      throw FlutterError(
+        'The nearest FasqProvider does not contain a fasq_security Fasq '
+        'runtime.',
+      );
     }
-    return scope.instance;
+    return runtime;
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget scopedChild = _FasqInherited(instance: instance, child: child);
-    final mutationQueue = instance.mutationQueue;
-    if (mutationQueue != null) {
-      scopedChild = DurableMutationScope(
-        queue: mutationQueue,
-        child: scopedChild,
-      );
-    }
-    return QueryClientProvider(
-      client: instance.queryClient,
-      child: scopedChild,
-    );
+    return FasqProvider(runtime: instance, child: child);
   }
-}
-
-class _FasqInherited extends InheritedWidget {
-  const _FasqInherited({required this.instance, required super.child});
-
-  final Fasq instance;
-
-  @override
-  bool updateShouldNotify(_FasqInherited oldWidget) =>
-      !identical(instance, oldWidget.instance);
 }
 
 /// Convenient access to the nearest [Fasq] instance.
 extension FasqContext on BuildContext {
-  /// Returns the nearest Fasq instance.
+  /// Returns the nearest secure Fasq instance.
   Fasq get fasq => FasqScope.of(this);
 }

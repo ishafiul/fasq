@@ -8,6 +8,7 @@ import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
 import 'package:fasq/src/mutation/sync_engine/kahn_dag.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_json_path.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
 import 'package:fasq/src/mutation/sync_engine/replay/retry_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/store/durable_outbox.dart';
@@ -89,6 +90,8 @@ class ReplayRunResult {
     required List<OperationId> recoveredUnknownOutcomeIds,
     required List<ReplayDiagnostic> blockedOperations,
     List<OperationId> scheduledRetryOperationIds = const <OperationId>[],
+    Map<OperationId, Object?> successfulResults =
+        const <OperationId, Object?>{},
   }) : executedOperationIds = List.unmodifiable(executedOperationIds),
        failedOperationIds = List.unmodifiable(failedOperationIds),
        recoveredUnknownOutcomeIds = List.unmodifiable(
@@ -97,7 +100,8 @@ class ReplayRunResult {
        blockedOperations = List.unmodifiable(blockedOperations),
        scheduledRetryOperationIds = List.unmodifiable(
          scheduledRetryOperationIds,
-       );
+       ),
+       successfulResults = Map.unmodifiable(successfulResults);
 
   /// Operations whose registered executor was invoked.
   final List<OperationId> executedOperationIds;
@@ -113,6 +117,12 @@ class ReplayRunResult {
 
   /// Operations that failed safely and were scheduled for later replay.
   final List<OperationId> scheduledRetryOperationIds;
+
+  /// Typed in-process results produced during this replay request.
+  ///
+  /// Results are intentionally not serialized. Restart recovery uses
+  /// persisted result projections instead.
+  final Map<OperationId, Object?> successfulResults;
 
   /// Whether this request invoked at least one executor.
   bool get didExecute => executedOperationIds.isNotEmpty;
@@ -201,6 +211,7 @@ class DurableReplayCoordinator {
       final failed = <OperationId>[];
       final scheduledRetries = <OperationId>[];
       final blocked = <String, ReplayDiagnostic>{};
+      final successfulResults = <OperationId, Object?>{};
       final recovered = List<OperationId>.from(_recoveredUnknownOutcomeIds);
       _recoveredUnknownOutcomeIds = const <OperationId>[];
 
@@ -243,7 +254,7 @@ class DurableReplayCoordinator {
         try {
           execution = await _executionAdapter.execute(
             context,
-            () => _registrations.execute(
+            () => _registrations.executeRegistered(
               operation.mutationKey,
               operation.variables,
             ),
@@ -254,7 +265,25 @@ class DurableReplayCoordinator {
           );
         }
         if (execution case MutationExecutionSuccess(:final value)) {
-          await _completeSuccess(started, value);
+          final registered = value;
+          if (registered is RegisteredMutationExecution) {
+            final completed = await _completeSuccess(
+              started,
+              registered.projection,
+            );
+            if (completed) {
+              successfulResults[operation.operationId] = registered.data;
+            } else {
+              failed.add(operation.operationId);
+            }
+          } else {
+            final completed = await _completeSuccess(started, registered);
+            if (completed) {
+              successfulResults[operation.operationId] = registered;
+            } else {
+              failed.add(operation.operationId);
+            }
+          }
           continue;
         }
         if (execution case MutationExecutionFailure(:final failure)) {
@@ -275,6 +304,7 @@ class DurableReplayCoordinator {
         recoveredUnknownOutcomeIds: List.unmodifiable(recovered),
         blockedOperations: List.unmodifiable(blocked.values),
         scheduledRetryOperationIds: List.unmodifiable(scheduledRetries),
+        successfulResults: successfulResults,
       );
     });
   }
@@ -325,7 +355,9 @@ class DurableReplayCoordinator {
               state: MutationOperationState.unknownOutcome,
               completedAt: _now(),
               idempotencyKey: operation.idempotencyKey,
+              mutationKey: operation.mutationKey,
               authScope: operation.authScope,
+              identity: operation.identity,
             ),
           );
         }
@@ -582,19 +614,22 @@ class DurableReplayCoordinator {
     );
   }
 
-  Future<void> _completeSuccess(
+  Future<bool> _completeSuccess(
     _StartedOperation started,
     Object? result,
   ) async {
     final operation = started.operation;
     OutboxHistoryEntry history;
     try {
+      final identity = _resolveIdentity(operation.identity, result);
       history = OutboxHistoryEntry.validated(
         operationId: operation.operationId,
         state: MutationOperationState.succeeded,
         completedAt: _now(),
         idempotencyKey: operation.idempotencyKey,
+        mutationKey: operation.mutationKey,
         authScope: operation.authScope,
+        identity: identity,
         resultProjection: result,
       );
     } on Object {
@@ -607,7 +642,7 @@ class DurableReplayCoordinator {
           outcomeKnowledge: MutationOutcomeKnowledge.unknown,
         ),
       );
-      return;
+      return false;
     }
     await _store.transact(
       (current) {
@@ -630,6 +665,7 @@ class DurableReplayCoordinator {
       },
       expectedGeneration: started.generation,
     );
+    return true;
   }
 
   Future<RetryPlanAction> _completeFailure(
@@ -743,7 +779,9 @@ class DurableReplayCoordinator {
               state: state,
               completedAt: _now(),
               idempotencyKey: operation.idempotencyKey,
+              mutationKey: operation.mutationKey,
               authScope: operation.authScope,
+              identity: operation.identity,
             ),
           ],
         );
@@ -876,7 +914,9 @@ class DurableReplayCoordinator {
                 state: MutationOperationState.failedTerminal,
                 completedAt: now,
                 idempotencyKey: operation.idempotencyKey,
+                mutationKey: operation.mutationKey,
                 authScope: operation.authScope,
+                identity: operation.identity,
               ),
           ],
         );
@@ -1069,7 +1109,10 @@ class DurableReplayCoordinator {
           ),
         );
       }
-      final lookup = _readJsonPath(parent.resultProjection, parentResultPath);
+      final lookup = readMutationJsonPath(
+        parent.resultProjection,
+        parentResultPath,
+      );
       if (!lookup.found) {
         return _ProjectionResult.diagnostic(
           _diagnostic(
@@ -1081,7 +1124,7 @@ class DurableReplayCoordinator {
         );
       }
       try {
-        variables = _writeJsonPath(
+        variables = writeMutationJsonPath(
           variables,
           childVariablePath,
           lookup.value,
@@ -1106,8 +1149,25 @@ class DurableReplayCoordinator {
     if ((parentResultPath == null) != (childVariablePath == null)) {
       return false;
     }
-    return (parentResultPath == null || _isValidJsonPath(parentResultPath)) &&
-        (childVariablePath == null || _isValidJsonPath(childVariablePath));
+    return (parentResultPath == null ||
+            isValidMutationJsonPath(parentResultPath)) &&
+        (childVariablePath == null ||
+            isValidMutationJsonPath(childVariablePath));
+  }
+
+  MutationIdentityLink? _resolveIdentity(
+    MutationIdentityLink? identity,
+    Object? result,
+  ) {
+    if (identity == null) return null;
+    final serverIdPath = identity.serverIdPath;
+    if (serverIdPath == null) return identity;
+    final lookup = readMutationJsonPath(result, serverIdPath);
+    final serverId = lookup.value;
+    if (!lookup.found || serverId is! String || serverId.trim().isEmpty) {
+      throw const InvalidMutationResultException();
+    }
+    return identity.resolve(serverId);
   }
 
   void _requireOpen() {
@@ -1159,13 +1219,6 @@ class _ProjectionResult {
 
   final Object? variables;
   final ReplayDiagnostic? diagnostic;
-}
-
-class _PathLookup {
-  const _PathLookup({required this.found, required this.value});
-
-  final bool found;
-  final Object? value;
 }
 
 class _Completion {
@@ -1307,84 +1360,4 @@ List<MutationOperation> _removeActive(
   return active
       .where((operation) => operation.operationId != operationId)
       .toList(growable: false);
-}
-
-_PathLookup _readJsonPath(Object? root, String path) {
-  var current = root;
-  for (final segment in _pathSegments(path)) {
-    if (current is! Map<Object?, Object?> || !current.containsKey(segment)) {
-      return const _PathLookup(found: false, value: null);
-    }
-    current = current[segment];
-  }
-  return _PathLookup(found: true, value: current);
-}
-
-Object? _writeJsonPath(Object? root, String path, Object? value) {
-  final segments = _pathSegments(path);
-  if (root is! Map<Object?, Object?>) {
-    throw const InvalidMutationPayloadException(
-      'Child variables must be a JSON object for parent binding',
-    );
-  }
-  final result = _copyJsonMap(root);
-  var current = result;
-  for (var index = 0; index < segments.length; index++) {
-    final segment = segments[index];
-    if (index == segments.length - 1) {
-      current[segment] = value;
-      break;
-    }
-    final existing = current[segment];
-    if (existing == null) {
-      final next = <String, Object?>{};
-      current[segment] = next;
-      current = next;
-    } else if (existing is Map<Object?, Object?>) {
-      final next = _copyJsonMap(existing);
-      current[segment] = next;
-      current = next;
-    } else {
-      throw const InvalidMutationPayloadException(
-        'Child variable path crosses a non-object value',
-      );
-    }
-  }
-  return result;
-}
-
-List<String> _pathSegments(String path) {
-  final segments = path.split('.');
-  if (segments.any((segment) => segment.trim().isEmpty)) {
-    throw const InvalidMutationPayloadException(
-      'JSON path contains an empty segment',
-    );
-  }
-  return segments.map((segment) => segment.trim()).toList(growable: false);
-}
-
-bool _isValidJsonPath(String path) {
-  return path.split('.').every((segment) => segment.trim().isNotEmpty);
-}
-
-Map<String, Object?> _copyJsonMap(Map<Object?, Object?> value) {
-  final result = <String, Object?>{};
-  for (final entry in value.entries) {
-    final key = entry.key;
-    if (key is! String) {
-      throw const InvalidMutationPayloadException(
-        'JSON object keys must be strings',
-      );
-    }
-    result[key] = _copyJsonValue(entry.value);
-  }
-  return result;
-}
-
-Object? _copyJsonValue(Object? value) {
-  if (value is Map<Object?, Object?>) return _copyJsonMap(value);
-  if (value is List<Object?>) {
-    return value.map(_copyJsonValue).toList(growable: false);
-  }
-  return value;
 }

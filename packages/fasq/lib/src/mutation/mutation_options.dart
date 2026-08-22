@@ -1,4 +1,5 @@
 import 'package:fasq/src/mutation/durable_mutation_queue.dart';
+import 'package:fasq/src/mutation/mutation_contract.dart';
 import 'package:fasq/src/mutation/mutation_meta.dart';
 import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/mutation_contracts.dart';
@@ -21,6 +22,9 @@ class DurableMutationQueueOptions<TVariables> {
     this.authScope,
     this.conflictPolicy = ConflictPolicy.none,
     this.conflictPrecondition,
+    this.writeAhead = false,
+    this.dependencies =
+        const <FasqMutationDependency<Object?, Object?, Object?, Object?>>[],
   });
 
   /// Durable queue used to persist and replay this mutation.
@@ -43,6 +47,13 @@ class DurableMutationQueueOptions<TVariables> {
 
   /// Opaque compare-and-set token captured with queued operations.
   final ConflictPrecondition? conflictPrecondition;
+
+  /// Whether every invocation is durably committed before execution.
+  final bool writeAhead;
+
+  /// Typed producer-result to current-input mappings.
+  final List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+  dependencies;
 }
 
 /// Configuration options for mutation behavior and lifecycle callbacks.

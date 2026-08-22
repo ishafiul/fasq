@@ -482,7 +482,9 @@ class DurableRepairService {
           state: MutationOperationState.discarded,
           completedAt: _now().toUtc(),
           idempotencyKey: original.idempotencyKey,
+          mutationKey: original.mutationKey,
           authScope: original.authScope,
+          identity: original.identity,
         ),
       ];
     } else {
@@ -507,6 +509,7 @@ class DurableRepairService {
         conflictPrecondition: nextPrecondition,
         state: MutationOperationState.pending,
         priority: source.priority,
+        identity: action == RepairAction.retry ? source.identity : null,
         maxAttempts: source.maxAttempts,
         maxAge: source.maxAge,
         rateLimitBucket: source.rateLimitBucket,

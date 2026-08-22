@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:fasq/src/mutation/mutation_contract.dart';
+import 'package:fasq/src/mutation/network_status.dart';
+import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
 import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
 import 'package:fasq/src/mutation/sync_engine/conflict/conflict_repair.dart';
-import 'package:fasq/src/mutation/sync_engine/codecs/mutation_codec.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/auth_session.dart';
 import 'package:fasq/src/mutation/sync_engine/execution/execution_context.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_json_path.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
 import 'package:fasq/src/mutation/sync_engine/observation/observation.dart';
 import 'package:fasq/src/mutation/sync_engine/projection/projection.dart';
@@ -44,12 +47,14 @@ class DurableMutationQueue {
     final resolvedRegistrations =
         registrations ?? MutationRegistrationRegistry();
     final resolvedNow = now ?? DateTime.now;
+    final resolvedIsOnline = isOnline ?? () => NetworkStatus.instance.isOnline;
     return DurableMutationQueue._(
       store: store,
       registrations: resolvedRegistrations,
       now: resolvedNow,
       idGenerator: idGenerator ?? _newUuid,
       authSessionProvider: authSessionProvider,
+      isOnline: resolvedIsOnline,
       coordinator: DurableReplayCoordinator(
         store: store,
         registrations: resolvedRegistrations,
@@ -58,7 +63,7 @@ class DurableMutationQueue {
         retryPolicy: retryPolicy,
         authSessionProvider: authSessionProvider,
         ownsStore: ownsStore,
-        isOnline: isOnline,
+        isOnline: resolvedIsOnline,
       ),
       projectionCoordinator: projectionCoordinator,
       projectionSink: projectionSink,
@@ -77,6 +82,7 @@ class DurableMutationQueue {
     required DateTime Function() now,
     required String Function() idGenerator,
     AuthSessionProvider? authSessionProvider,
+    required bool Function() isOnline,
     required DurableReplayCoordinator coordinator,
     ProjectionCoordinator? projectionCoordinator,
     void Function(String queryKey, Object? value)? projectionSink,
@@ -86,6 +92,7 @@ class DurableMutationQueue {
        _now = now,
        _idGenerator = idGenerator,
        _authSessionProvider = authSessionProvider,
+       _isOnline = isOnline,
        _coordinator = coordinator,
        _projectionCoordinator = projectionCoordinator,
        _projectionSink = projectionSink,
@@ -101,6 +108,7 @@ class DurableMutationQueue {
   final DateTime Function() _now;
   final String Function() _idGenerator;
   final AuthSessionProvider? _authSessionProvider;
+  final bool Function() _isOnline;
   final DurableReplayCoordinator _coordinator;
   final ProjectionCoordinator? _projectionCoordinator;
   final void Function(String queryKey, Object? value)? _projectionSink;
@@ -112,6 +120,9 @@ class DurableMutationQueue {
 
   /// Whether the queue currently owns an open durable store.
   bool get isOpen => _isOpen;
+
+  /// Current connectivity used by durable replay admission.
+  bool get isOnline => _isOnline();
 
   /// Current non-secret authentication scope observed by the queue.
   ///
@@ -331,6 +342,9 @@ class DurableMutationQueue {
     required Future<TData> Function(TVariables variables) mutationFn,
     AuthPolicy authPolicy = AuthPolicy.none,
     Object? Function(TData data)? resultEncoder,
+    List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+        dependencies =
+        const <FasqMutationDependency<Object?, Object?, Object?, Object?>>[],
   }) {
     _registrations.register<TData, TVariables>(
       key: key,
@@ -338,6 +352,7 @@ class DurableMutationQueue {
       mutationFn: mutationFn,
       authPolicy: authPolicy,
       resultEncoder: resultEncoder,
+      dependencies: dependencies,
     );
   }
 
@@ -431,11 +446,17 @@ class DurableMutationQueue {
         state != MutationOperationState.retryScheduled) {
       throw InvalidMutationEnqueueStateException(state);
     }
-    final encodedVariables = _registrations.encodeVariables(key, variables);
+    final resolvedOperationId = operationId ?? OperationId(_idGenerator());
+    final initialVariables = _registrations.encodeVariables(key, variables);
+    final dependencyResolution = _resolveDependencies(
+      key: key,
+      variables: initialVariables,
+      authScope: authScope,
+    );
     final operation = MutationOperation(
-      operationId: operationId ?? OperationId(_idGenerator()),
+      operationId: resolvedOperationId,
       mutationKey: key,
-      variables: encodedVariables,
+      variables: dependencyResolution.variables,
       createdAt: createdAt ?? _now(),
       idempotencyKey: idempotencyKey ?? IdempotencyKey(_idGenerator()),
       lineageId: lineageId ?? LineageId(_idGenerator()),
@@ -445,7 +466,13 @@ class DurableMutationQueue {
       authScope: authScope,
       state: state,
       priority: priority,
-      dependencies: dependencies,
+      identity: MutationIdentityLink(
+        localId: 'fasq-local:${resolvedOperationId.value}',
+      ),
+      dependencies: <MutationDependency>[
+        ...dependencies,
+        ...dependencyResolution.dependencies,
+      ],
       projections: projections,
       attemptCount: attemptCount,
       maxAttempts: maxAttempts,
@@ -456,6 +483,7 @@ class DurableMutationQueue {
 
     final committed = await _commit((current) {
       _rejectDuplicateIdentity(current, operation);
+      _rejectDuplicateLocalIdentity(current, operation);
       return current.copyWith(active: [...current.active, operation]);
     });
     final acknowledged = committed.active.firstWhere(
@@ -648,7 +676,9 @@ class DurableMutationQueue {
       state: entry.state,
       completedAt: entry.completedAt,
       idempotencyKey: idempotencyKey,
+      mutationKey: entry.mutationKey,
       authScope: entry.authScope,
+      identity: entry.identity,
       resultProjection: entry.resultProjection,
     );
   }
@@ -804,6 +834,159 @@ class DurableMutationQueue {
   }
 
   static String _newUuid() => _uuid.v4();
+
+  _DependencyResolution _resolveDependencies({
+    required MutationKey key,
+    required Object? variables,
+    required AuthScope? authScope,
+  }) {
+    var resolvedVariables = variables;
+    final dependencies = <MutationDependency>[];
+    for (final dependency in _registrations.dependenciesFor(key)) {
+      final lookup = readMutationJsonPath(
+        resolvedVariables,
+        dependency.toInput.path,
+      );
+      final referencedId = lookup.value;
+      if (!lookup.found ||
+          referencedId is! String ||
+          referencedId.trim().isEmpty) {
+        throw InvalidMutationPayloadException(
+          'Mutation ${key.key} must provide a non-empty referenced ID at '
+          '${dependency.toInput.path}',
+        );
+      }
+      final match = _findLocalReference(
+        snapshot: _store.snapshot,
+        parentKey: dependency.dependsOn.runtimeKey,
+        localId: referencedId,
+        authScope: authScope,
+      );
+      if (match == null) continue;
+      if (match.state == MutationOperationState.succeeded) {
+        final parentValue = readMutationJsonPath(
+          match.resultProjection,
+          dependency.fromResult.path,
+        );
+        if (!parentValue.found) {
+          throw InvalidMutationPayloadException(
+            'Mutation ${dependency.dependsOn.value} result does not contain '
+            '${dependency.fromResult.path}',
+          );
+        }
+        resolvedVariables = writeMutationJsonPath(
+          resolvedVariables,
+          dependency.toInput.path,
+          parentValue.value,
+        );
+        continue;
+      }
+      dependencies.add(
+        MutationDependency(
+          parentOperationId: match.operationId,
+          parentResultPath: dependency.fromResult.path,
+          childVariablePath: dependency.toInput.path,
+        ),
+      );
+    }
+    return _DependencyResolution(
+      variables: resolvedVariables,
+      dependencies: dependencies,
+    );
+  }
+
+  _LocalReferenceMatch? _findLocalReference({
+    required OutboxSnapshot snapshot,
+    required MutationKey parentKey,
+    required String localId,
+    required AuthScope? authScope,
+  }) {
+    for (final operation in snapshot.active.reversed) {
+      final identity = operation.identity;
+      if (identity == null) continue;
+      if (operation.mutationKey == parentKey &&
+          operation.authScope == authScope &&
+          identity.localId == localId) {
+        return _LocalReferenceMatch(
+          operationId: operation.operationId,
+          state: operation.state,
+          identity: identity,
+          resultProjection: null,
+        );
+      }
+    }
+    for (final entry in snapshot.deadLetters.reversed) {
+      final operation = entry.operation;
+      final identity = operation.identity;
+      if (identity == null) continue;
+      if (operation.mutationKey == parentKey &&
+          operation.authScope == authScope &&
+          identity.localId == localId) {
+        return _LocalReferenceMatch(
+          operationId: operation.operationId,
+          state: operation.state,
+          identity: identity,
+          resultProjection: null,
+        );
+      }
+    }
+    for (final entry in snapshot.history.reversed) {
+      final identity = entry.identity;
+      if (identity == null) continue;
+      if (entry.mutationKey == parentKey &&
+          entry.authScope == authScope &&
+          identity.localId == localId) {
+        return _LocalReferenceMatch(
+          operationId: entry.operationId,
+          state: entry.state,
+          identity: identity,
+          resultProjection: entry.resultProjection,
+        );
+      }
+    }
+    return null;
+  }
+
+  void _rejectDuplicateLocalIdentity(
+    OutboxSnapshot snapshot,
+    MutationOperation operation,
+  ) {
+    final identity = operation.identity;
+    if (identity == null) return;
+    final existing = _findLocalReference(
+      snapshot: snapshot,
+      parentKey: operation.mutationKey,
+      localId: identity.localId,
+      authScope: operation.authScope,
+    );
+    if (existing != null) {
+      throw DuplicateMutationLocalIdentityException(identity.localId);
+    }
+  }
+}
+
+class _DependencyResolution {
+  const _DependencyResolution({
+    required this.variables,
+    required this.dependencies,
+  });
+
+  final Object? variables;
+  final List<MutationDependency> dependencies;
+}
+
+class _LocalReferenceMatch {
+  const _LocalReferenceMatch({
+    required this.operationId,
+    required this.state,
+    required this.identity,
+    required this.resultProjection,
+  });
+
+  final OperationId operationId;
+  final MutationOperationState state;
+  final MutationIdentityLink identity;
+  final Object? resultProjection;
 }
 
 /// Durable acknowledgement returned after the enqueue transaction commits.
@@ -822,6 +1005,9 @@ class DurableEnqueueAcknowledgement {
 
   /// Stable repair lineage identity.
   LineageId get lineageId => operation.lineageId;
+
+  /// Fasq-owned local reference for dependencies targeting this operation.
+  String get localReference => operation.identity!.localId;
 }
 
 /// Safe typed storage failure raised when a backend returns an unknown error.
@@ -839,6 +1025,14 @@ class DuplicateMutationOperationException extends MutationContractException {
   /// Creates a duplicate-identity failure.
   DuplicateMutationOperationException(String operationId)
     : super('Mutation operation identity is already retained: $operationId');
+}
+
+/// Raised when one scope reuses an unresolved local mutation identity.
+class DuplicateMutationLocalIdentityException
+    extends MutationContractException {
+  /// Creates a duplicate local-identity failure.
+  DuplicateMutationLocalIdentityException(String localId)
+    : super('Durable mutation local identity is already retained: $localId');
 }
 
 /// Raised when callers try to enqueue a non-replayable operation state.

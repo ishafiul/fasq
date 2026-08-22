@@ -41,7 +41,7 @@ Future<void> main() async {
     persistence: const QueryPersistence.secure(),
   );
 
-  runApp(FasqScope(instance: fasq, child: const MyApp()));
+  runApp(FasqProvider(runtime: fasq, child: const MyApp()));
 }
 ```
 
@@ -53,6 +53,10 @@ await fasq.close();
 
 Manual `QueryClient`, `DefaultSecurityPlugin`, and durable queue composition
 remain available for advanced integrations.
+
+`FasqProvider` lives in core `fasq`. This package supplies one secure
+`FasqRuntime` implementation; applications and other packages can provide
+their own implementation without depending on `fasq_security`.
 
 ## Durable mutations without queue boilerplate
 
@@ -70,7 +74,10 @@ Define a durable mutation manually when code generation is not useful:
 
 ```dart
 final addTodo = DurableMutation<Todo, AddTodo>.define(
-  key: 'todos.add',
+  key: const FasqMutationKey<Todo, AddTodo>(
+    namespace: 'todos',
+    name: 'add',
+  ),
   codec: JsonMutationCodec<AddTodo>(
     encoder: (value) => value.toJson(),
     decoder: (payload) => AddTodo.fromJson(
@@ -81,12 +88,15 @@ final addTodo = DurableMutation<Todo, AddTodo>.define(
 );
 ```
 
-Register the same handle during bootstrap and use it in the UI with the core
-`MutationBuilder(mutation: ...)` API. With `fasq_serializer_generator`, annotate a
+Register the same handle during bootstrap and reference its typed key in the
+core `MutationBuilder(mutationKey: ...)` API. `FasqProvider` resolves the
+executor and durable queue from the bootstrapped runtime. With
+`fasq_serializer_generator`, annotate a
 one-argument `Future<T>` function with `@FasqMutation`; the generated
 ...Durable handle removes the key, codec, and registration code.
 The annotated function remains the only executor used online and during
-replay.
+replay. Durable handles use write-ahead execution: online work is persisted
+first and replayed immediately; offline work remains queued.
 
 For advanced queue composition, `DurableMutationDefinition` remains available
 from `fasq` (and is re-exported by `fasq_security`). Most applications should
