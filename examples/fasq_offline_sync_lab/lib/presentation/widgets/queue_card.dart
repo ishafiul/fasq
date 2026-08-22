@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/offline_sync_lab_snapshot.dart';
+import '../offline_sync_lab_scope.dart';
 import 'lab_card.dart';
 
 class QueueCard extends StatelessWidget {
-  const QueueCard({required this.state, super.key});
-
-  final OfflineSyncLabSnapshot state;
+  const QueueCard({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final state = context.offlineSyncLabSnapshot;
     return LabCard(
       title: 'Durable queue',
       child: Column(

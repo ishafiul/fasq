@@ -9,11 +9,7 @@ void main() {
     final transport = SimulatedNotesTransport();
 
     final created = transport.create(
-      const CreateNoteCommand(
-        localId: 'local-1',
-        title: 'First title',
-        owner: 'account-a',
-      ),
+      const CreateNoteCommand(title: 'First title', owner: 'account-a'),
     );
     final noteId = created.id;
 
@@ -37,11 +33,7 @@ void main() {
 
       expect(
         () => transport.create(
-          const CreateNoteCommand(
-            localId: 'local-1',
-            title: 'Will fail',
-            owner: 'account-a',
-          ),
+          const CreateNoteCommand(title: 'Will fail', owner: 'account-a'),
         ),
         throwsA(isA<MutationAdapterException>()),
       );

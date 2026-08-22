@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/offline_sync_lab_snapshot.dart';
+import '../offline_sync_lab_scope.dart';
 import 'lab_card.dart';
 
 class ConnectionCard extends StatelessWidget {
   const ConnectionCard({
-    required this.state,
     required this.busy,
     required this.onOnlineChanged,
     required this.onAccountSelected,
     super.key,
   });
 
-  final OfflineSyncLabSnapshot state;
   final bool busy;
   final ValueChanged<bool> onOnlineChanged;
   final ValueChanged<String> onAccountSelected;
 
   @override
   Widget build(BuildContext context) {
+    final state = context.offlineSyncLabSnapshot;
     return LabCard(
       title: 'Connectivity and identity',
       child: Column(

@@ -11,13 +11,21 @@ class SimulatedNotesTransport {
 
   List<LabNote> get notes => List.unmodifiable(_notes.values);
 
+  List<LabNote> fetchNotes(String owner) {
+    return _notes.values.where((note) => note.owner == owner).toList();
+  }
+
   void failNextRequest() => _shouldFailNextRequest = true;
 
   NoteMutationResult create(CreateNoteCommand command) {
     _throwIfFailureRequested();
     final id = 'server-note-${_nextId++}';
     _notes[id] = LabNote(id: id, title: command.title, owner: command.owner);
-    return NoteMutationResult(id: id, localId: command.localId);
+    return NoteMutationResult(
+      id: id,
+      owner: command.owner,
+      title: command.title,
+    );
   }
 
   NoteMutationResult update(UpdateNoteCommand command) {
@@ -39,7 +47,11 @@ class SimulatedNotesTransport {
       title: command.title,
       owner: note.owner,
     );
-    return NoteMutationResult(id: note.id, title: command.title);
+    return NoteMutationResult(
+      id: note.id,
+      owner: note.owner,
+      title: command.title,
+    );
   }
 
   void _throwIfFailureRequested() {

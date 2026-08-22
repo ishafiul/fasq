@@ -1,9 +1,9 @@
-import 'dart:async';
-
+import 'package:fasq/fasq.dart';
 import 'package:flutter/material.dart';
 
-import '../application/offline_sync_lab.dart';
-import '../domain/offline_sync_lab_snapshot.dart';
+import '../data/sync/notes_mutations.dart';
+import '../domain/note_mutation.dart';
+import 'offline_sync_lab_scope.dart';
 import 'widgets/activity_card.dart';
 import 'widgets/connection_card.dart';
 import 'widgets/lab_card.dart';
@@ -11,9 +11,7 @@ import 'widgets/notes_card.dart';
 import 'widgets/queue_card.dart';
 
 class OfflineSyncLabScreen extends StatefulWidget {
-  const OfflineSyncLabScreen({required this.lab, super.key});
-
-  final OfflineSyncLab lab;
+  const OfflineSyncLabScreen({super.key});
 
   @override
   State<OfflineSyncLabScreen> createState() => _OfflineSyncLabScreenState();
@@ -22,31 +20,7 @@ class OfflineSyncLabScreen extends StatefulWidget {
 class _OfflineSyncLabScreenState extends State<OfflineSyncLabScreen> {
   final _titleController = TextEditingController(text: 'Created while offline');
   Object? _error;
-  bool _busy = true;
-
-  OfflineSyncLab get _lab => widget.lab;
-
-  @override
-  void initState() {
-    super.initState();
-    _initialize();
-  }
-
-  Future<void> _initialize() async {
-    if (mounted) {
-      setState(() {
-        _busy = true;
-        _error = null;
-      });
-    }
-    try {
-      await _lab.initialize();
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  bool _busy = false;
 
   Future<void> _run(Future<void> Function() operation) async {
     if (_busy) return;
@@ -63,111 +37,47 @@ class _OfflineSyncLabScreenState extends State<OfflineSyncLabScreen> {
     }
   }
 
-  Future<void> _createOffline() async {
-    final title = _titleController.text.trim();
-    if (title.isEmpty) return;
-    await _run(() async {
-      await _lab.setOnline(false);
-      await _lab.createNote(title);
-    });
-  }
-
   @override
   void dispose() {
     _titleController.dispose();
-    unawaited(_lab.dispose());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<OfflineSyncLabSnapshot>(
-      stream: _lab.snapshots,
-      initialData: _lab.snapshot,
-      builder: (context, snapshot) {
-        final state = snapshot.data ?? _lab.snapshot;
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Fasq Offline Sync Lab'),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Chip(
-                  avatar: Icon(
-                    state.isOnline ? Icons.cloud_done : Icons.cloud_off,
-                    size: 18,
-                  ),
-                  label: Text(state.isOnline ? 'online' : 'offline'),
-                ),
+    final state = OfflineSyncLabScope.snapshotOf(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Fasq Offline Sync Lab'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Chip(
+              avatar: Icon(
+                state.isOnline ? Icons.cloud_done : Icons.cloud_off,
+                size: 18,
               ),
-            ],
-          ),
-          body: _busy && !state.initialized
-              ? const Center(child: CircularProgressIndicator())
-              : !state.initialized
-              ? _InitializationCard(error: _error, onRetry: _initialize)
-              : _LabBody(
-                  state: state,
-                  busy: _busy,
-                  error: _error,
-                  titleController: _titleController,
-                  onOnlineChanged: (online) =>
-                      _run(() => _lab.setOnline(online)),
-                  onAccountSelected: (account) =>
-                      _run(() => _lab.signInAs(account)),
-                  onCreateOffline: _createOffline,
-                  onRestart: () => _run(_lab.restart),
-                  onReconnect: () => _run(() => _lab.setOnline(true)),
-                  onDependentUpdate: () => _run(_lab.updateNoteAfterCreate),
-                  onFailNextRequest: () => _run(_lab.failNextRequest),
-                  onReplay: () => _run(_lab.replay),
-                  onRepair: () => _run(_lab.retryFirstDeadLetter),
-                ),
-        );
-      },
-    );
-  }
-}
-
-class _InitializationCard extends StatelessWidget {
-  const _InitializationCard({required this.error, required this.onRetry});
-
-  final Object? error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Card(
-          margin: const EdgeInsets.all(24),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Lab is not initialized',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  error == null
-                      ? 'Initialize the encrypted durable outbox before using sync controls.'
-                      : 'Initialization failed: $error',
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.lock_open),
-                  label: const Text('Initialize lab'),
-                ),
-              ],
+              label: Text(state.isOnline ? 'online' : 'offline'),
             ),
           ),
-        ),
+        ],
+      ),
+      body: _LabBody(
+        busy: _busy,
+        error: _error,
+        titleController: _titleController,
+        onOnlineChanged: (online) =>
+            _run(() => OfflineSyncLabScope.of(context).setOnline(online)),
+        onAccountSelected: (account) =>
+            _run(() => OfflineSyncLabScope.of(context).signInAs(account)),
+        onRestart: () => _run(() => OfflineSyncLabScope.of(context).restart()),
+        onReconnect: () =>
+            _run(() => OfflineSyncLabScope.of(context).setOnline(true)),
+        onFailNextRequest: () =>
+            _run(() => OfflineSyncLabScope.of(context).failNextRequest()),
+        onReplay: () => _run(() => OfflineSyncLabScope.of(context).replay()),
+        onRepair: () =>
+            _run(() => OfflineSyncLabScope.of(context).retryFirstDeadLetter()),
       ),
     );
   }
@@ -175,37 +85,32 @@ class _InitializationCard extends StatelessWidget {
 
 class _LabBody extends StatelessWidget {
   const _LabBody({
-    required this.state,
     required this.busy,
     required this.error,
     required this.titleController,
     required this.onOnlineChanged,
     required this.onAccountSelected,
-    required this.onCreateOffline,
     required this.onRestart,
     required this.onReconnect,
-    required this.onDependentUpdate,
     required this.onFailNextRequest,
     required this.onReplay,
     required this.onRepair,
   });
 
-  final OfflineSyncLabSnapshot state;
   final bool busy;
   final Object? error;
   final TextEditingController titleController;
   final ValueChanged<bool> onOnlineChanged;
   final ValueChanged<String> onAccountSelected;
-  final VoidCallback onCreateOffline;
   final VoidCallback onRestart;
   final VoidCallback onReconnect;
-  final VoidCallback onDependentUpdate;
   final VoidCallback onFailNextRequest;
   final VoidCallback onReplay;
   final VoidCallback onRepair;
 
   @override
   Widget build(BuildContext context) {
+    final state = context.offlineSyncLabSnapshot;
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -218,12 +123,11 @@ class _LabBody extends StatelessWidget {
           'Verify durable enqueue, restart recovery, ordered replay, dependency binding, auth scope, and explicit repair.',
         ),
         ConnectionCard(
-          state: state,
           busy: busy,
           onOnlineChanged: onOnlineChanged,
           onAccountSelected: onAccountSelected,
         ),
-        QueueCard(state: state),
+        const QueueCard(),
         LabCard(
           title: 'Offline create → restart → reconnect',
           child: Column(
@@ -240,10 +144,9 @@ class _LabBody extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  FilledButton.icon(
-                    onPressed: busy ? null : onCreateOffline,
-                    icon: const Icon(Icons.cloud_off),
-                    label: const Text('Create offline'),
+                  _CreateNoteMutationButton(
+                    titleController: titleController,
+                    disabled: busy,
                   ),
                   OutlinedButton.icon(
                     onPressed: busy ? null : onRestart,
@@ -266,11 +169,7 @@ class _LabBody extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
-                onPressed: busy ? null : onDependentUpdate,
-                icon: const Icon(Icons.account_tree),
-                label: const Text('Dependent update'),
-              ),
+              _DependentUpdateMutationButton(disabled: busy),
               OutlinedButton.icon(
                 onPressed: busy ? null : onFailNextRequest,
                 icon: const Icon(Icons.warning_amber),
@@ -289,8 +188,8 @@ class _LabBody extends StatelessWidget {
             ],
           ),
         ),
-        NotesCard(notes: state.notes),
-        ActivityCard(events: state.events),
+        const NotesCard(),
+        const ActivityCard(),
         LabCard(
           title: error == null ? 'Lab state' : 'Action failed',
           child: SelectableText(
@@ -307,6 +206,70 @@ class _LabBody extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
+    );
+  }
+}
+
+class _CreateNoteMutationButton extends StatelessWidget {
+  const _CreateNoteMutationButton({
+    required this.titleController,
+    required this.disabled,
+  });
+
+  final TextEditingController titleController;
+  final bool disabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final lab = context.offlineSyncLab;
+    return MutationBuilder<NoteMutationResult, CreateNoteCommand>(
+      mutationKey: createNoteMutationKey,
+      builder: (context, state, mutate) {
+        final title = state.isError
+            ? 'Create failed'
+            : state.isQueued
+            ? 'Create queued'
+            : 'Create offline';
+        return FilledButton.icon(
+          onPressed: disabled || state.isLoading
+              ? null
+              : () async {
+                  final value = titleController.text.trim();
+                  if (value.isEmpty) return;
+                  await lab.setOnline(false);
+                  final submission = await mutate(lab.createNoteCommand(value));
+                  final reference = submission.localReference;
+                  if (reference != null) {
+                    lab.retainCreatedNoteReference(reference);
+                  }
+                },
+          icon: Icon(state.isError ? Icons.error_outline : Icons.cloud_off),
+          label: Text(title),
+        );
+      },
+    );
+  }
+}
+
+class _DependentUpdateMutationButton extends StatelessWidget {
+  const _DependentUpdateMutationButton({required this.disabled});
+
+  final bool disabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final lab = context.offlineSyncLab;
+    return MutationBuilder<NoteMutationResult, UpdateNoteCommand>(
+      mutationKey: updateNoteMutationKey,
+      builder: (context, state, mutate) {
+        return OutlinedButton.icon(
+          onPressed: disabled || state.isLoading
+              ? null
+              : () => mutate(lab.dependentUpdateCommand()),
+          icon: const Icon(Icons.account_tree),
+          label: Text(state.isError ? 'Update failed' : 'Dependent update'),
+        );
+      },
     );
   }
 }
