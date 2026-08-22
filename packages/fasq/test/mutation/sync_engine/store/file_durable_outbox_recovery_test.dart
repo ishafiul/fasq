@@ -21,7 +21,7 @@ void main() {
     if (directory.existsSync()) await directory.delete(recursive: true);
   });
 
-  test('recovers a stale owner marker without deleting outbox data', () async {
+  test('recovers a dead owner marker before its lease expires', () async {
     final writer = _newStore(directory, _FakeOutboxEncryption());
     await writer.open();
     await writer.transact(
@@ -33,7 +33,6 @@ void main() {
     final recovery = _newStore(
       directory,
       _FakeOutboxEncryption(),
-      lockLease: Duration.zero,
     );
 
     final snapshot = await recovery.open();

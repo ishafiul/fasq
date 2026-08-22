@@ -95,6 +95,14 @@ class IoOutboxFileSystem implements OutboxFileSystem {
   /// Creates the dart:io implementation.
   const IoOutboxFileSystem();
 
+  /// Keeps native locks alive for the lifetime of this Dart process.
+  ///
+  /// The marker file is durable evidence, but native ownership is what lets
+  /// the operating system release a lock after a process is terminated.
+  static final Map<String, RandomAccessFile> _ownedLocks =
+      <String, RandomAccessFile>{};
+  static final Set<String> _recoveredLocks = <String>{};
+
   @override
   Future<void> ensureDirectory(String path) async {
     try {
@@ -173,17 +181,46 @@ class IoOutboxFileSystem implements OutboxFileSystem {
   }
 
   @override
-  Future<void> acquireLock(String path) async {
-    if (File(path).existsSync()) throw const OutboxOwnershipException();
+  Future<void> acquireLock(String path) {
+    return Future<void>.sync(() {
+      if (_recoveredLocks.remove(path)) return;
+      _acquireNativeLock(path);
+    });
+  }
+
+  void _acquireNativeLock(String path) {
+    if (_ownedLocks.containsKey(path)) {
+      throw const OutboxOwnershipException();
+    }
+
+    RandomAccessFile? lockFile;
     try {
-      await File(path).create(exclusive: true);
-    } on FileSystemException {
+      final openedLockFile = File(path).openSync(mode: FileMode.append);
+      lockFile = openedLockFile;
+      openedLockFile.lockSync();
+      _ownedLocks[path] = openedLockFile;
+    } on Object {
+      try {
+        lockFile?.closeSync();
+      } on Object {
+        // Preserve the ownership failure from the lock attempt.
+      }
       throw const OutboxOwnershipException();
     }
   }
 
   @override
-  Future<void> releaseLock(String path) => delete(path);
+  Future<void> releaseLock(String path) async {
+    final lockFile = _ownedLocks.remove(path);
+    if (lockFile == null) return;
+
+    try {
+      await lockFile.unlock();
+    } finally {
+      await lockFile.close();
+    }
+    await delete(path);
+  }
 
   @override
   Future<bool> recoverStaleLock(
@@ -193,10 +230,18 @@ class IoOutboxFileSystem implements OutboxFileSystem {
   }) async {
     final file = File(path);
     if (!file.existsSync()) return false;
-    final modified = await file.lastModified();
-    if (now.difference(modified) < lease) return false;
-    await file.delete();
-    return true;
+
+    // Native locks are released by the operating system when their process
+    // exits, so an unlocked marker is reclaimable even before its lease age.
+    // Keep the marker until acquireLock/releaseLock completes to avoid a
+    // delete-and-recreate race with a live owner.
+    try {
+      await Future<void>.sync(() => _acquireNativeLock(path));
+      _recoveredLocks.add(path);
+      return true;
+    } on OutboxOwnershipException {
+      return false;
+    }
   }
 }
 
