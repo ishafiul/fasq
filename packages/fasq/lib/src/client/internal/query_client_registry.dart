@@ -11,15 +11,16 @@ import 'package:fasq/src/query/query_options.dart';
 import 'package:flutter/foundation.dart';
 
 /// Factory used by [QueryClientRegistry] to create [Query] instances.
-typedef QueryClientQueryFactory = Query<T> Function<T>({
-  required QueryKey queryKey,
-  required QueryDependencyManager dependencyManager,
-  required void Function() onDispose,
-  Future<T> Function()? queryFn,
-  Future<T> Function(CancellationToken token)? queryFnWithToken,
-  QueryOptions? options,
-  CacheEntry<T>? initialEntry,
-});
+typedef QueryClientQueryFactory =
+    Query<T> Function<T>({
+      required QueryKey queryKey,
+      required QueryDependencyManager dependencyManager,
+      required void Function() onDispose,
+      Future<T> Function()? queryFn,
+      Future<T> Function(CancellationToken token)? queryFnWithToken,
+      QueryOptions? options,
+      CacheEntry<T>? initialEntry,
+    });
 
 /// Owns in-memory query registries and related lifecycle operations.
 final class QueryClientRegistry {
@@ -27,8 +28,8 @@ final class QueryClientRegistry {
   QueryClientRegistry({
     required QueryCache cache,
     required QueryClientQueryFactory queryFactory,
-  })  : _cache = cache,
-        _queryFactory = queryFactory;
+  }) : _cache = cache,
+       _queryFactory = queryFactory;
 
   final QueryCache _cache;
   final QueryClientQueryFactory _queryFactory;
@@ -96,6 +97,38 @@ final class QueryClientRegistry {
     return query;
   }
 
+  /// Reconfigures a registered query without replacing its instance.
+  Query<T> reconfigureQuery<T>(
+    QueryKey queryKey, {
+    Future<T> Function()? queryFn,
+    Future<T> Function(CancellationToken token)? queryFnWithToken,
+    QueryOptions? options,
+    QueryKey? dependsOn,
+  }) {
+    final existing = _queries[queryKey.key];
+    if (existing == null || existing.isDisposed) {
+      return getQuery<T>(
+        queryKey,
+        queryFn: queryFn,
+        queryFnWithToken: queryFnWithToken,
+        options: options,
+        dependsOn: dependsOn,
+      );
+    }
+    if (dependsOn == null) {
+      _dependencyManager.removeParent(queryKey.key);
+    } else {
+      _dependencyManager.registerDependency(queryKey.key, dependsOn.key);
+    }
+    final query = existing as Query<T>;
+    query.reconfigure(
+      queryFn: queryFn,
+      queryFnWithToken: queryFnWithToken,
+      options: options,
+    );
+    return query;
+  }
+
   /// Gets an existing infinite query or creates a new one.
   InfiniteQuery<TData, TParam> getInfiniteQuery<TData, TParam>(
     QueryKey queryKey,
@@ -124,6 +157,25 @@ final class QueryClientRegistry {
 
     _infiniteQueries[key] = infinite as InfiniteQuery<Object?, Object?>;
     return infinite;
+  }
+
+  /// Reconfigures a registered infinite query without replacing its instance.
+  InfiniteQuery<TData, TParam> reconfigureInfiniteQuery<TData, TParam>(
+    QueryKey queryKey,
+    Future<TData> Function(TParam param) queryFn, {
+    InfiniteQueryOptions<TData, TParam>? options,
+  }) {
+    final existing = _infiniteQueries[queryKey.key];
+    if (existing == null || existing.isDisposed) {
+      return getInfiniteQuery<TData, TParam>(
+        queryKey,
+        queryFn,
+        options: options,
+      );
+    }
+    final query = existing as InfiniteQuery<TData, TParam>;
+    query.reconfigure(queryFn: queryFn, options: options);
+    return query;
   }
 
   /// Retrieves an existing query by key.

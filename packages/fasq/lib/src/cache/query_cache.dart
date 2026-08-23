@@ -117,6 +117,7 @@ class QueryCache {
   /// this method before disposing a cache or handing its storage to another
   /// owner.
   Future<void> flushPersistence() async {
+    if (persistenceOptions?.enabled != true) return;
     final initFuture = _persistenceInitFuture;
     if (initFuture != null) await initFuture;
 
@@ -1202,7 +1203,7 @@ class QueryCache {
 
   Future<void> _disposePersistenceResources() async {
     final initFuture = _persistenceInitFuture;
-    if (initFuture != null) {
+    if (persistenceOptions?.enabled == true && initFuture != null) {
       try {
         await initFuture;
       } on Object catch (_) {}

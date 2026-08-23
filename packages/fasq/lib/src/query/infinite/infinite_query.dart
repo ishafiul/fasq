@@ -57,8 +57,8 @@ class InfiniteQuery<TData, TParam> {
     this.cache,
     this.onDispose,
     List<Page<TData, TParam>>? initialPages,
-  })  : key = queryKey.key,
-        _currentState = InfiniteQueryState<TData, TParam>.idle() {
+  }) : key = queryKey.key,
+       _currentState = InfiniteQueryState<TData, TParam>.idle() {
     if (initialPages != null && initialPages.isNotEmpty) {
       final opts = options;
       final hasNext = _computeHasNextForPages(opts, initialPages);
@@ -82,10 +82,10 @@ class InfiniteQuery<TData, TParam> {
   final String key;
 
   /// Page fetch function invoked with a page parameter.
-  final Future<TData> Function(TParam param) queryFn;
+  Future<TData> Function(TParam param) queryFn;
 
   /// Optional behavior configuration for this infinite query.
-  final InfiniteQueryOptions<TData, TParam>? options;
+  InfiniteQueryOptions<TData, TParam>? options;
 
   /// Optional cache integration used for lifecycle and prefetch behavior.
   final QueryCache? cache;
@@ -100,6 +100,10 @@ class InfiniteQuery<TData, TParam> {
   bool _isDisposed = false;
   Future<void>? _fetchFuture;
   bool _isPrefetching = false;
+  int _operationGeneration = 0;
+
+  /// Delay before an inactive infinite query is disposed.
+  static Duration disposalDelay = const Duration(seconds: 5);
 
   /// Broadcast stream of query state updates.
   Stream<InfiniteQueryState<TData, TParam>> get stream => _controller.stream;
@@ -213,24 +217,29 @@ class InfiniteQuery<TData, TParam> {
   Future<void> fetchNextPage([TParam? overrideParam]) async {
     if (_isDisposed || options?.enabled == false) return;
     if (_fetchFuture != null) return;
-    _fetchFuture = _fetchNextPageImpl(overrideParam);
+    final generation = _operationGeneration;
+    final future = _fetchNextPageImpl(overrideParam, generation);
+    _fetchFuture = future;
     try {
-      await _fetchFuture;
+      await future;
     } finally {
-      _fetchFuture = null;
+      if (identical(_fetchFuture, future)) _fetchFuture = null;
     }
   }
 
-  Future<void> _fetchNextPageImpl([TParam? overrideParam]) async {
-    if (_isDisposed || options?.enabled == false) return;
+  Future<void> _fetchNextPageImpl(
+    TParam? overrideParam,
+    int generation,
+  ) async {
+    if (_isStaleOperation(generation) || options?.enabled == false) return;
     final pages = _currentState.pages;
     final nextParam = overrideParam ?? _computeNextParam(pages);
     if (nextParam == null) {
-      if (_isDisposed) return;
+      if (_isStaleOperation(generation)) return;
       _updateState(_currentState.copyWith(hasNextPage: false));
       return;
     }
-    if (_isDisposed) return;
+    if (_isStaleOperation(generation)) return;
     _updateState(
       _currentState.copyWith(
         isFetchingNextPage: true,
@@ -239,7 +248,7 @@ class InfiniteQuery<TData, TParam> {
     );
     try {
       final data = await queryFn(nextParam);
-      if (_isDisposed) return;
+      if (_isStaleOperation(generation)) return;
       final newPage = Page<TData, TParam>(param: nextParam).withData(data);
       final newPages = [...pages, newPage];
       final capped = _applyMaxPages(newPages, dropFromStart: true);
@@ -251,7 +260,7 @@ class InfiniteQuery<TData, TParam> {
       );
       options?.onSuccess?.call();
     } on Object catch (e, s) {
-      if (_isDisposed) return;
+      if (_isStaleOperation(generation)) return;
       final errorPage = Page<TData, TParam>(param: nextParam).withError(e, s);
       final newPages = [...pages, errorPage];
       final capped = _applyMaxPages(newPages, dropFromStart: true);
@@ -300,28 +309,30 @@ class InfiniteQuery<TData, TParam> {
   Future<void> fetchPreviousPage() async {
     if (_isDisposed || options?.enabled == false) return;
     if (_fetchFuture != null) return;
-    _fetchFuture = _fetchPreviousPageImpl();
+    final generation = _operationGeneration;
+    final future = _fetchPreviousPageImpl(generation);
+    _fetchFuture = future;
     try {
-      await _fetchFuture;
+      await future;
     } finally {
-      _fetchFuture = null;
+      if (identical(_fetchFuture, future)) _fetchFuture = null;
     }
   }
 
-  Future<void> _fetchPreviousPageImpl() async {
-    if (_isDisposed || options?.enabled == false) return;
+  Future<void> _fetchPreviousPageImpl(int generation) async {
+    if (_isStaleOperation(generation) || options?.enabled == false) return;
     final pages = _currentState.pages;
     final prevParam = _computePreviousParam(pages);
     if (prevParam == null) {
-      if (_isDisposed) return;
+      if (_isStaleOperation(generation)) return;
       _updateState(_currentState.copyWith(hasPreviousPage: false));
       return;
     }
-    if (_isDisposed) return;
+    if (_isStaleOperation(generation)) return;
     _updateState(_currentState.copyWith(isFetchingPreviousPage: true));
     try {
       final data = await queryFn(prevParam);
-      if (_isDisposed) return;
+      if (_isStaleOperation(generation)) return;
       final newPage = Page<TData, TParam>(param: prevParam).withData(data);
       final newPages = [newPage, ...pages];
       final capped = _applyMaxPages(newPages, dropFromStart: false);
@@ -333,7 +344,7 @@ class InfiniteQuery<TData, TParam> {
       );
       options?.onSuccess?.call();
     } on Object catch (e, s) {
-      if (_isDisposed) return;
+      if (_isStaleOperation(generation)) return;
       final errorPage = Page<TData, TParam>(param: prevParam).withError(e, s);
       final newPages = [errorPage, ...pages];
       final capped = _applyMaxPages(newPages, dropFromStart: false);
@@ -376,12 +387,27 @@ class InfiniteQuery<TData, TParam> {
     if (_fetchFuture != null) return;
     final pages = _currentState.pages;
     if (index < 0 || index >= pages.length) return;
+    final generation = _operationGeneration;
     final page = pages[index];
+    final future = _refetchPageImpl(index, page, generation);
+    _fetchFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_fetchFuture, future)) _fetchFuture = null;
+    }
+  }
+
+  Future<void> _refetchPageImpl(
+    int index,
+    Page<TData, TParam> page,
+    int generation,
+  ) async {
     try {
       final data = await queryFn(page.param);
-      if (_isDisposed) return;
+      if (_isStaleOperation(generation)) return;
       final updated = page.withData(data);
-      final newPages = [...pages];
+      final newPages = [..._currentState.pages];
       newPages[index] = updated;
       _updateStateWithPages(
         newPages,
@@ -389,13 +415,13 @@ class InfiniteQuery<TData, TParam> {
         dataUpdatedAt: DateTime.now(),
       );
       options?.onSuccess?.call();
-    } on Object catch (e, s) {
-      if (_isDisposed) return;
-      final updated = page.withError(e, s);
-      final newPages = [...pages];
+    } on Object catch (error, stackTrace) {
+      if (_isStaleOperation(generation)) return;
+      final updated = page.withError(error, stackTrace);
+      final newPages = [..._currentState.pages];
       newPages[index] = updated;
       _updateStateWithPages(newPages);
-      options?.onError?.call(e);
+      options?.onError?.call(error);
     }
   }
 
@@ -410,6 +436,7 @@ class InfiniteQuery<TData, TParam> {
   /// query.reset();
   /// ```
   void reset() {
+    _operationGeneration++;
     _fetchFuture = null;
     _updateState(InfiniteQueryState<TData, TParam>.idle());
   }
@@ -438,6 +465,28 @@ class InfiniteQuery<TData, TParam> {
       status: QueryStatus.success,
       dataUpdatedAt: DateTime.now(),
     );
+  }
+
+  /// Replaces the fetch configuration while preserving this query instance,
+  /// pages, state, and listeners.
+  void reconfigure({
+    required Future<TData> Function(TParam param) queryFn,
+    InfiniteQueryOptions<TData, TParam>? options,
+  }) {
+    _operationGeneration++;
+    _fetchFuture = null;
+    this.queryFn = queryFn;
+    this.options = options;
+    _updateState(
+      _currentState.copyWith(
+        hasNextPage: _computeHasNext(_currentState.pages),
+        hasPreviousPage: _computeHasPrev(_currentState.pages),
+      ),
+    );
+  }
+
+  bool _isStaleOperation(int generation) {
+    return _isDisposed || generation != _operationGeneration;
   }
 
   void _updateState(InfiniteQueryState<TData, TParam> newState) {
@@ -560,7 +609,11 @@ class InfiniteQuery<TData, TParam> {
   }
 
   void _scheduleDisposal() {
-    _disposeTimer = Timer(const Duration(seconds: 5), () {
+    if (disposalDelay == Duration.zero) {
+      if (_referenceCount == 0) dispose();
+      return;
+    }
+    _disposeTimer = Timer(disposalDelay, () {
       if (_referenceCount == 0) {
         dispose();
       }

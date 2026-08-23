@@ -310,6 +310,24 @@ class QueryClient with WidgetsBindingObserver {
     );
   }
 
+  /// Reconfigures a query while preserving its identity, state, cache, and
+  /// active listeners.
+  Query<T> reconfigureQuery<T>(
+    QueryKey queryKey, {
+    Future<T> Function()? queryFn,
+    Future<T> Function(CancellationToken token)? queryFnWithToken,
+    QueryOptions? options,
+    QueryKey? dependsOn,
+  }) {
+    return _registry.reconfigureQuery<T>(
+      queryKey,
+      queryFn: queryFn,
+      queryFnWithToken: queryFnWithToken,
+      options: options,
+      dependsOn: dependsOn,
+    );
+  }
+
   /// Gets an existing infinite query or creates a new one.
   InfiniteQuery<TData, TParam> getInfiniteQuery<TData, TParam>(
     QueryKey queryKey,
@@ -317,6 +335,19 @@ class QueryClient with WidgetsBindingObserver {
     InfiniteQueryOptions<TData, TParam>? options,
   }) {
     return _registry.getInfiniteQuery<TData, TParam>(
+      queryKey,
+      queryFn,
+      options: options,
+    );
+  }
+
+  /// Reconfigures an infinite query while preserving its pages and listeners.
+  InfiniteQuery<TData, TParam> reconfigureInfiniteQuery<TData, TParam>(
+    QueryKey queryKey,
+    Future<TData> Function(TParam param) queryFn, {
+    InfiniteQueryOptions<TData, TParam>? options,
+  }) {
+    return _registry.reconfigureInfiniteQuery<TData, TParam>(
       queryKey,
       queryFn,
       options: options,
@@ -516,6 +547,7 @@ class QueryClient with WidgetsBindingObserver {
   /// Only use this in tests to get a fresh instance.
   static Future<void> resetForTesting() async {
     Query.disposalDelay = Duration.zero;
+    InfiniteQuery.disposalDelay = Duration.zero;
     QueryCache.gcInterval = Duration.zero;
     QueryCache.persistenceGcInterval = Duration.zero;
 
