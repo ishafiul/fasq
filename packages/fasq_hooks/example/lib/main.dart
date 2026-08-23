@@ -37,7 +37,7 @@ class GreetingsScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final client = useQueryClient();
-    final state = useQuery<List<String>>(greetingsKey, fetchGreetings);
+    final state = useQuery<List<String>>(greetingsKey, queryFn: fetchGreetings);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Greetings via Hooks')),
