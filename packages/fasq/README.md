@@ -1,15 +1,19 @@
 # FASQ (Flutter Async State Query)
 
+[![Pub Version](https://img.shields.io/pub/v/fasq?style=flat-square)](https://pub.dev/packages/fasq)
+[![Repository](https://img.shields.io/badge/repository-GitHub-181717?style=flat-square)](https://github.com/ishafiul/fasq)
+[![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
+
 > **Caching-first async data management for Flutter.**
 
 Fasq is a powerful library for managing asynchronous state in Flutter applications. It handles caching, synchronization, background updates, and error recovery with a simple, declarative API.
 
-**Current Version:** 0.3.7
+**Current Version:** 0.5.1
 
 ## 📚 Documentation
 
 For full documentation, guides, and API reference, visit:  
-**[https://fasq.shafi.dev](https://fasq.shafi.dev)**
+**[https://shafi.dev/fasq](https://shafi.dev/fasq)**
 
 ## ✨ Features
 
@@ -17,7 +21,7 @@ For full documentation, guides, and API reference, visit:
 - **💾 Intelligent Caching**: Automatic caching with configurable staleness and eviction policies (LRU, LFU, FIFO).
 - **🔄 Auto Refetching**: Background updates keep your UI fresh without blocking the user.
 - **⚡ Request Deduplication**: Multiple widgets requesting the same data trigger only one network call.
-- **🛠️ Mutations**: Integrated mutation management with optimistic updates and offline queuing.
+- **🛠️ Mutations**: Integrated mutation management with optimistic updates and durable offline replay.
 - **📱 Type Safe**: Built with strict typing for compile-time safety.
 - **🔌 Adapter Ecosystem**: Official adapters for Bloc, Riverpod, and Hooks (or use standalone!).
 
@@ -27,7 +31,7 @@ Add `fasq` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  fasq: ^0.3.7
+  fasq: ^0.5.1
 ```
 
 ## 🚀 Quick Start
@@ -39,10 +43,10 @@ resources through the single core provider:
 
 ```dart
 Future<void> main() async {
-  final fasq = await createFasqRuntime();
+  final client = QueryClient.create();
   runApp(
-    FasqProvider(
-      runtime: fasq,
+    QueryClientProvider(
+      client: client,
       child: MyApp(),
     ),
   );
@@ -134,12 +138,18 @@ Fasq is designed to work with your favorite state management solution:
 
 | Package | Description | Version |
 |---------|-------------|---------|
-| `fasq` | Core package (Widgets + Logic) | `^0.3.7` |
-| `fasq_bloc` | Bloc/Cubit integration | `^0.2.4+1` |
-| `fasq_riverpod` | Riverpod providers | `^0.2.4+1` |
-| `fasq_hooks` | Flutter Hooks support (`useQuery`) | `^0.2.4+1` |
-| `fasq_security` | Encrypted storage plugin | `^0.1.4` |
+| `fasq` | Core package (Widgets + Logic) | `^0.5.0` |
+| `fasq_bloc` | Bloc/Cubit integration | `^0.4.0` |
+| `fasq_riverpod` | Riverpod providers | `^0.4.0` |
+| `fasq_hooks` | Flutter Hooks support (`useQuery`) | `^0.4.0` |
+| `fasq_security` | Encrypted storage plugin | `^0.3.0` |
 
 ## 📄 License
 
 MIT
+
+## 🔗 Repository Links
+
+- [Source repository](https://github.com/ishafiul/fasq)
+- [Issue tracker](https://github.com/ishafiul/fasq/issues)
+- [Pull requests](https://github.com/ishafiul/fasq/pulls)

@@ -1,16 +1,15 @@
-# example
+# fasq_riverpod example
 
-A new Flutter project.
+Minimal Flutter app for trying the `fasq_riverpod` adapter from this workspace.
 
-## Getting Started
+## Run locally
 
-This project is a starting point for a Flutter application.
+From the repository root:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter pub get
+flutter run
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+See the [package README](../README.md), [Riverpod docs](https://shafi.dev/fasq/riverpod),
+and [repository issues](https://github.com/ishafiul/fasq/issues) for more.

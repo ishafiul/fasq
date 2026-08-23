@@ -1,6 +1,8 @@
 # fasq_bloc
 
 [![Pub](https://img.shields.io/pub/v/fasq_bloc.svg)](https://pub.dev/packages/fasq_bloc)
+[![Repository](https://img.shields.io/badge/repository-GitHub-181717?style=flat-square)](https://github.com/ishafiul/fasq)
+[![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
 [![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-blue)]()
 [![Null Safety](https://img.shields.io/badge/null-safety-brightgreen)]()
 
@@ -8,18 +10,18 @@
 
 Bring the power of caching, optimistic updates, and offline support to your Bloc application with **zero friction**. `fasq_bloc` bridges the gap between `fasq`'s powerful query engine and the `flutter_bloc` ecosystem, allowing you to build complex data-driven apps without fighting your architecture.
 
-**Current Version:** 0.3.0
+**Current Version:** 0.4.1
 
 ## 📚 Documentation
 
 For full documentation and API reference, visit:  
-**[https://fasq.shafi.dev/adapters/bloc](https://fasq.shafi.dev/adapters/bloc)**
+**[https://shafi.dev/fasq/bloc](https://shafi.dev/fasq/bloc)**
 
 ## ✨ Features
 
 - **🧟 Zombie-proof Caching**: Data is cached, deduplicated, and garbage collected automatically. No more stale data bugs.
 - **🛡️ Resilience Built-in**: **Circuit Breakers** protect your app from crashing backends.
-- **🔌 Offline-First**: Queue mutations when offline and sync automatically when connectivity returns.
+- **🔌 Offline-First**: Use the core durable mutation contract for actions that must survive offline time and app restarts.
 - **🚀 Native Feel**: Zero friction. It's just a `Cubit` where `QueryClient` is auto-injected.
 - **🧩 Composition**: Solve "Bloc Hell" by composing multiple queries in a single Bloc with `FasqSubscriptionMixin`.
 
@@ -27,7 +29,7 @@ For full documentation and API reference, visit:
 
 ```yaml
 dependencies:
-  fasq_bloc: ^0.3.0
+  fasq_bloc: ^0.4.1
   flutter_bloc: ^8.0.0
 ```
 
@@ -47,6 +49,10 @@ void main() {
 }
 ```
 
+For durable offline mutations, use `@FasqMutation` and the core
+`MutationBuilder` inside `FasqProvider`. `fasq_bloc` remains the Bloc state
+adapter; it does not provide the legacy `queueWhenOffline` option.
+
 ### 2. Create a QueryCubit
 
 Extend `QueryCubit` for a 1-to-1 mapping between a Bloc and a Query.
@@ -64,6 +70,12 @@ class UserCubit extends QueryCubit<User> {
   Future<User> Function() get queryFn => () => api.fetchUser(userId);
 }
 ```
+
+## 🔗 Repository Links
+
+- [Source repository](https://github.com/ishafiul/fasq)
+- [Issue tracker](https://github.com/ishafiul/fasq/issues)
+- [Pull requests](https://github.com/ishafiul/fasq/pulls)
 
 ### 3. Use in UI
 

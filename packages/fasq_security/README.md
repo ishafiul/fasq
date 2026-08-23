@@ -1,15 +1,19 @@
 # fasq_security
 
+[![Pub Version](https://img.shields.io/pub/v/fasq_security?style=flat-square)](https://pub.dev/packages/fasq_security)
+[![Repository](https://img.shields.io/badge/repository-GitHub-181717?style=flat-square)](https://github.com/ishafiul/fasq)
+[![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
+
 > **Security plugin for FASQ (Flutter Async State Query).**
 
 Provides enterprise-grade security features for FASQ including encryption, secure storage, and persistence.
 
-**Current Version:** 0.3.0
+**Current Version:** 0.3.1
 
 ## 📚 Documentation
 
 For full documentation and API reference, visit:  
-**[https://fasq.shafi.dev/core/security](https://fasq.shafi.dev/core/security)**
+**[https://shafi.dev/fasq/security](https://shafi.dev/fasq/security)**
 
 ## ✨ Features
 
@@ -22,8 +26,8 @@ For full documentation and API reference, visit:
 
 ```yaml
 dependencies:
-  fasq: ^0.5.0
-  fasq_security: ^0.3.0
+  fasq: ^0.5.1
+  fasq_security: ^0.3.1
 ```
 
 ## 🚀 Quick Start
@@ -68,6 +72,9 @@ remain available for advanced integrations.
 `FasqProvider` lives in core `fasq`. This package supplies one secure
 `FasqRuntime` implementation; applications and other packages can provide
 their own implementation without depending on `fasq_security`.
+
+Read the [durable offline sync release notes](https://shafi.dev/fasq/guides/offline-sync-release)
+for migration guidance and the compatibility boundary for legacy queue APIs.
 
 ## Durable mutations without queue boilerplate
 
@@ -135,3 +142,9 @@ QueryBuilder<String>(
 ## 📄 License
 
 MIT
+
+## 🔗 Repository Links
+
+- [Source repository](https://github.com/ishafiul/fasq)
+- [Issue tracker](https://github.com/ishafiul/fasq/issues)
+- [Pull requests](https://github.com/ishafiul/fasq/pulls)

@@ -5,13 +5,16 @@
 [![Pub Version](https://img.shields.io/pub/v/fasq?style=flat-square)](https://pub.dev/packages/fasq)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg?style=flat-square)](LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ishafiul/fasq/main.yml?branch=main&style=flat-square)](https://github.com/ishafiul/fasq/actions)
+[![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
 
-Fasq handles **async state management**, **server-state caching**, and **synchronization** for Flutter applications. It is designed to be:
+Fasq handles **async state management**, **server-state caching**, and
+**durable offline mutation replay** for Flutter applications. It is designed
+to be:
 
 - 🚀 **Performant**: Intelligent caching, background refetching, and request deduplication.
 - 🛠️ **Flexible**: Works with any state management (Bloc, Riverpod, Hooks, or standalone).
 - 🔒 **Secure**: Built-in encryption support for sensitive data.
-- 📱 **Production Ready**: Robust error recovery, offline support, and 100% type safety.
+- 📱 **Production Ready**: Robust error recovery, durable offline support, and 100% type safety.
 
 Inspired by [TanStack Query](https://tanstack.com/query/latest) and [SWR](https://swr.vercel.app/).
 
@@ -30,11 +33,12 @@ This monorepo manages the following packages:
 
 ## 📚 Documentation
 
-Detailed documentation is available at **[fasq.shafi.dev](https://fasq.shafi.dev)**.
+Detailed documentation is available at **[shafi.dev/fasq](https://shafi.dev/fasq)**.
 
-- [Quick Start](https://fasq.shafi.dev/quick-start)
-- [Core Concepts](https://fasq.shafi.dev/core/core-concepts)
-- [Examples](https://fasq.shafi.dev/core/examples)
+- [Quick Start](https://shafi.dev/fasq/quick-start)
+- [Core](https://shafi.dev/fasq/core)
+- [Durable Offline Sync Release Notes](https://shafi.dev/fasq/guides/offline-sync-release)
+- [Examples](https://shafi.dev/fasq/examples)
 
 ## 🚀 Quick Start
 
@@ -44,16 +48,17 @@ Add `fasq` to your `pubspec.yaml` (or your preferred adapter):
 
 ```yaml
 dependencies:
-  fasq: ^0.3.7
+  fasq: ^0.5.1
   # Optional adapters:
-  # fasq_bloc: ...
-  # fasq_riverpod: ...
-  # fasq_hooks: ...
+  # fasq_bloc: ^0.4.1
+  # fasq_riverpod: ^0.4.0+1
+  # fasq_hooks: ^0.4.1
 ```
 
 ### 2. Configure Client
 
-Available anywhere in your app via `QueryClientProvider` or specific adapter providers.
+Available anywhere in your app through `QueryClientProvider` or a specific
+adapter provider.
 
 ```dart
 void main() {
@@ -86,7 +91,8 @@ QueryBuilder<List<Todo>>(
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file for details on how to get started.
+We welcome contributions! Open an issue or pull request in the
+[Fasq repository](https://github.com/ishafiul/fasq) to get started.
 
 ### Setup for Development
 
@@ -107,11 +113,17 @@ This project relies on [Melos](https://melos.invertase.dev) to manage the monore
 
 ### Running Tests
 
-Run unit and widget tests across all packages:
+Run unit and widget tests across all workspace packages:
 
 ```bash
-melos run test:all
+melos run test
 ```
+
+## 🔗 Repository Links
+
+- [Source repository](https://github.com/ishafiul/fasq)
+- [Issue tracker](https://github.com/ishafiul/fasq/issues)
+- [Pull requests](https://github.com/ishafiul/fasq/pulls)
 
 ## 📄 License
 

@@ -1,15 +1,19 @@
 # fasq_serializer_generator
 
+[![Pub Version](https://img.shields.io/pub/v/fasq_serializer_generator?style=flat-square)](https://pub.dev/packages/fasq_serializer_generator)
+[![Repository](https://img.shields.io/badge/repository-GitHub-181717?style=flat-square)](https://github.com/ishafiul/fasq)
+[![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
+
 > **Code generator for FASQ (Flutter Async State Query).**
 
 Automatically registers serializers from your `TypedQueryKey` declarations, eliminating boilerplate code for complex data types.
 
-**Current Version:** 0.1.1
+**Current Version:** 0.1.3
 
 ## 📚 Documentation
 
 For full documentation and API reference, visit:  
-**[https://fasq.shafi.dev/core/type-safety](https://fasq.shafi.dev/core/type-safety)**
+**[https://shafi.dev/fasq/core/essentials/type-safety](https://shafi.dev/fasq/core/essentials/type-safety)**
 
 ## ✨ Features
 
@@ -23,7 +27,7 @@ For full documentation and API reference, visit:
 
 ```yaml
 dev_dependencies:
-  fasq_serializer_generator: ^0.1.1
+  fasq_serializer_generator: ^0.1.3
   build_runner: ^2.4.0
 ```
 
@@ -114,3 +118,9 @@ executor factory and avoid a global handle for the declaration function.
 ## 📄 License
 
 MIT
+
+## 🔗 Repository Links
+
+- [Source repository](https://github.com/ishafiul/fasq)
+- [Issue tracker](https://github.com/ishafiul/fasq/issues)
+- [Pull requests](https://github.com/ishafiul/fasq/pulls)

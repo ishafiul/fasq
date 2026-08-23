@@ -1,21 +1,25 @@
 # fasq_riverpod
 
+[![Pub Version](https://img.shields.io/pub/v/fasq_riverpod?style=flat-square)](https://pub.dev/packages/fasq_riverpod)
+[![Repository](https://img.shields.io/badge/repository-GitHub-181717?style=flat-square)](https://github.com/ishafiul/fasq)
+[![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
+
 > **Riverpod adapter for FASQ (Flutter Async State Query).**
 
 Seamlessly integrate FASQ's powerful caching and async management into your Riverpod application.
 
-**Current Version:** 0.2.4+1
+**Current Version:** 0.4.0+1
 
 ## 📚 Documentation
 
 For full documentation and API reference, visit:  
-**[https://fasq.shafi.dev/adapters/riverpod](https://fasq.shafi.dev/adapters/riverpod)**
+**[https://shafi.dev/fasq/riverpod](https://shafi.dev/fasq/riverpod)**
 
 ## ✨ Features
 
 - **🔌 queryProvider**: Create type-safe query providers.
 - **♾️ infiniteQueryProvider**: Paginated lists with Riverpod.
-- **🔄 mutationProvider**: Handle server side-effects.
+- **🔄 mutationProvider**: Handle online server side-effects.
 - **🔀 combineQueries**: Merge multiple queries into a single state.
 - **⚡ Riverpod Integration**: Works with `ref.watch`, `ConsumerWidget`, and `.family`.
 
@@ -23,7 +27,7 @@ For full documentation and API reference, visit:
 
 ```yaml
 dependencies:
-  fasq_riverpod: ^0.2.4+1
+  fasq_riverpod: ^0.4.0+1
 ```
 
 ## 🚀 Quick Start
@@ -84,7 +88,16 @@ final createUserProvider = mutationProvider<User, String>(
 - **Prefetching**: `ref.prefetchQuery`.
 - **Dependent Queries**: `enabled: ref.watch(otherProvider).isSuccess`.
 
-See the [main documentation](https://fasq.shafi.dev) for more.
+For durable offline actions, use the core `@FasqMutation` contract and
+`MutationBuilder` inside `FasqProvider`. See the [durable mutation documentation](https://shafi.dev/fasq/core/essentials/durable-mutations).
+
+See the [main documentation](https://shafi.dev/fasq) for more.
+
+## 🔗 Repository Links
+
+- [Source repository](https://github.com/ishafiul/fasq)
+- [Issue tracker](https://github.com/ishafiul/fasq/issues)
+- [Pull requests](https://github.com/ishafiul/fasq/pulls)
 
 ## 📄 License
 
