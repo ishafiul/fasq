@@ -4,41 +4,99 @@ import 'package:fasq/src/observability/performance/throughput_metrics.dart';
 
 class _ThroughputRing {
   _ThroughputRing({required this.bucketCount})
-      : assert(bucketCount > 0, 'bucketCount must be positive'),
-        counts = List<int>.filled(bucketCount, 0),
-        seconds = List<int>.filled(bucketCount, -1);
+    : assert(bucketCount > 0, 'bucketCount must be positive'),
+      counts = List<int>.filled(bucketCount, 0),
+      seconds = List<int>.filled(bucketCount, -1),
+      _tree = _FenwickTree(bucketCount);
 
   final int bucketCount;
   final List<int> counts;
   final List<int> seconds;
+  final _FenwickTree _tree;
+  int? _lastObservedSecond;
 
   void record(DateTime now) {
     final s = now.millisecondsSinceEpoch ~/ 1000;
+    _advance(s);
     final idx = s % bucketCount;
-    if (seconds[idx] != s) {
-      seconds[idx] = s;
-      counts[idx] = 0;
-    }
+    if (seconds[idx] != s) _replace(idx, s, 0);
     counts[idx]++;
+    _tree.add(idx, 1);
   }
 
-  /// O(bucketCount) per call; only counts buckets whose
-  /// second is in [start..end].
-  /// Window is second-granularity ([Duration.inSeconds] truncates).
+  /// Returns a rolling range sum in O(log bucketCount) after lazy expiry.
   int sumLast(Duration window, DateTime now) {
     final end = now.millisecondsSinceEpoch ~/ 1000;
+    _advance(end);
     final windowSecs = window.inSeconds;
     if (windowSecs <= 0) return 0;
     final start = end - windowSecs + 1;
-    var total = 0;
-    for (var i = 0; i < bucketCount; i++) {
-      final sec = seconds[i];
-      if (sec >= start && sec <= end) {
-        total += counts[i];
+    if (windowSecs >= bucketCount) return _tree.total;
+    final firstIndex = start % bucketCount;
+    final lastIndex = end % bucketCount;
+    if (firstIndex <= lastIndex) {
+      return _tree.rangeSum(firstIndex, lastIndex);
+    }
+    return _tree.rangeSum(firstIndex, bucketCount - 1) +
+        _tree.rangeSum(0, lastIndex);
+  }
+
+  void _advance(int second) {
+    final previous = _lastObservedSecond;
+    if (previous == null) {
+      _lastObservedSecond = second;
+      return;
+    }
+    final elapsed = second - previous;
+    if (elapsed <= 0) return;
+    if (elapsed >= bucketCount) {
+      for (var index = 0; index < bucketCount; index++) {
+        _replace(index, second - bucketCount + index + 1, 0);
+      }
+    } else {
+      for (var value = previous + 1; value <= second; value++) {
+        final index = value % bucketCount;
+        if (seconds[index] != value) _replace(index, value, 0);
       }
     }
-    return total;
+    _lastObservedSecond = second;
   }
+
+  void _replace(int index, int second, int count) {
+    final previousCount = counts[index];
+    if (previousCount != count) _tree.add(index, count - previousCount);
+    counts[index] = count;
+    seconds[index] = second;
+  }
+}
+
+class _FenwickTree {
+  _FenwickTree(int length) : _values = List<int>.filled(length + 1, 0);
+
+  final List<int> _values;
+
+  int get total => prefixSum(_values.length - 2);
+
+  void add(int index, int value) {
+    for (
+      var cursor = index + 1;
+      cursor < _values.length;
+      cursor += cursor & -cursor
+    ) {
+      _values[cursor] += value;
+    }
+  }
+
+  int prefixSum(int index) {
+    var result = 0;
+    for (var cursor = index + 1; cursor > 0; cursor -= cursor & -cursor) {
+      result += _values[cursor];
+    }
+    return result;
+  }
+
+  int rangeSum(int start, int end) =>
+      prefixSum(end) - (start == 0 ? 0 : prefixSum(start - 1));
 }
 
 /// Metrics for monitoring cache performance.
@@ -51,7 +109,7 @@ class CacheMetrics {
   /// If `now` is provided, it is used as the UTC clock source for
   /// time-dependent metrics, which is useful for deterministic tests.
   CacheMetrics({DateTime Function()? now})
-      : _nowFn = now ?? (() => DateTime.now().toUtc());
+    : _nowFn = now ?? (() => DateTime.now().toUtc());
 
   final DateTime Function() _nowFn;
 
@@ -286,8 +344,7 @@ class CacheMetrics {
   /// and rates are second-granularity to match
   /// bucket counts. Returns null if no executions in that window.
   ///
-  /// O(bucketCount) per call; fine for debug/inspection — avoid calling
-  /// in hot paths (e.g. every UI frame).
+  /// O(log bucketCount) after lazy expiry; avoid calling in every UI frame.
   ThroughputMetrics? calculateThroughput(
     String queryKey, {
     Duration window = const Duration(minutes: 1),
@@ -512,7 +569,8 @@ class PerformanceSnapshot {
     final raw = json['cacheReport'] ?? json['cacheMetrics'];
     if (raw == null) {
       throw const FormatException(
-          'Missing cacheReport or cacheMetrics in JSON');
+        'Missing cacheReport or cacheMetrics in JSON',
+      );
     }
     final cacheReport = PerformanceReport.fromJson(raw as Map<String, dynamic>);
     final queryMetricsMap = (json['queryMetrics'] as Map<String, dynamic>).map(
@@ -610,7 +668,8 @@ class QueryMetrics {
   /// Throws [FormatException] if the JSON structure is invalid or required
   /// fields are missing.
   factory QueryMetrics.fromJson(Map<String, dynamic> json) {
-    final fetchHistory = (json['fetchHistory'] as List<dynamic>?)
+    final fetchHistory =
+        (json['fetchHistory'] as List<dynamic>?)
             ?.map((d) => Duration(milliseconds: d as int))
             .toList() ??
         [];

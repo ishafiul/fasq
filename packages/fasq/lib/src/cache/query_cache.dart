@@ -68,6 +68,7 @@ class QueryCache {
   final bool ownsSecurityResources;
 
   final Map<String, CacheEntry<Object?>> _entries = {};
+  final Map<String, int> _entrySizes = {};
   final Map<String, Future<Object?>> _inFlightRequests = {};
   final Map<String, AsyncLock> _locks = {};
   final CacheMetrics _metrics = CacheMetrics();
@@ -77,6 +78,7 @@ class QueryCache {
   final Map<String, int> _entryVersions = {};
   final Map<String, Type> _keyTypes = {};
   int _versionCounter = 0;
+  int _currentSizeBytes = 0;
   bool _isGcPaused = false;
   final bool _enableMemoryPressure;
 
@@ -94,6 +96,7 @@ class QueryCache {
 
   /// Interval between persistence garbage collection runs, or null to disable.
   static Duration? persistenceGcInterval;
+  static const int _persistedLoadConcurrency = 8;
 
   final CacheDataCodecRegistry _codecRegistry;
   final AsyncLock _encryptionKeyLock = AsyncLock();
@@ -234,7 +237,7 @@ class QueryCache {
       maxAge: maxAge,
     );
 
-    _entries[key] = entry;
+    _replaceEntry(key, entry);
     final version = _nextEntryVersion();
     _entryVersions[key] = version;
     _keyTypes[key] = T;
@@ -266,6 +269,7 @@ class QueryCache {
   void _removeKeyEverywhere(String key, {bool removeFromPersistence = true}) {
     final removed = _entries.remove(key);
     if (removed == null) return;
+    _currentSizeBytes -= _entrySizes.remove(key) ?? removed.estimateSize();
 
     final remove = _inFlightRequests.remove(key);
     if (remove != null) unawaited(remove);
@@ -287,6 +291,7 @@ class QueryCache {
   void _removeInMemoryOnly(String key) {
     final removed = _entries.remove(key);
     if (removed == null) return;
+    _currentSizeBytes -= _entrySizes.remove(key) ?? removed.estimateSize();
     _hotCache.remove(key);
     _entryVersions.remove(key);
     final persistF = _persistOperations.remove(key);
@@ -297,6 +302,8 @@ class QueryCache {
 
   void _clearInMemory() {
     _entries.clear();
+    _entrySizes.clear();
+    _currentSizeBytes = 0;
     _hotCache.clear();
     _inFlightRequests.clear();
     _locks.clear();
@@ -452,11 +459,7 @@ class QueryCache {
 
   /// Current total cache size in bytes.
   int get currentSize {
-    var total = 0;
-    for (final entry in _entries.values) {
-      total += entry.estimateSize();
-    }
-    return total;
+    return _currentSizeBytes;
   }
 
   /// Current number of cache entries.
@@ -532,6 +535,14 @@ class QueryCache {
     _metrics.recordMemoryUsage(currentSize);
   }
 
+  void _replaceEntry(String key, CacheEntry<Object?> entry) {
+    final previousSize = _entrySizes[key] ?? 0;
+    final nextSize = entry.estimateSize();
+    _entries[key] = entry;
+    _entrySizes[key] = nextSize;
+    _currentSizeBytes += nextSize - previousSize;
+  }
+
   void _startGarbageCollection() {
     if (gcInterval == Duration.zero) return;
     _gcTimer = Timer.periodic(gcInterval, (_) {
@@ -566,6 +577,7 @@ class QueryCache {
     for (final key in keysToRemove) {
       final removed = _entries.remove(key);
       if (removed != null) {
+        _currentSizeBytes -= _entrySizes.remove(key) ?? removed.estimateSize();
         _hotCache.remove(key);
         _entryVersions.remove(key);
         _persistOperations.remove(key);
@@ -970,51 +982,58 @@ class QueryCache {
 
       final allKeys = await _persistenceProvider!.getAllKeys();
 
-      for (final key in allKeys) {
-        final encryptedData = await _persistenceProvider!.retrieve(key);
-        if (encryptedData != null) {
-          try {
-            // Decrypt the data
-            final decryptedBytes = await _encryptionProvider!.decrypt(
-              encryptedData,
-              encryptionKey,
-            );
-            final entryJson = utf8.decode(decryptedBytes);
-            final entryMap = jsonDecode(entryJson) as Map<String, dynamic>;
-
-            final entry = _decodePersistedEntry(key, entryMap);
-            if (entry == null) {
-              await _persistenceProvider!.remove(key);
-              continue;
-            }
-
-            if (!entry.isExpired) {
-              _entries[key] = entry;
-              _entryVersions[key] = _nextEntryVersion();
-            } else {
-              await _persistenceProvider!.remove(key);
-            }
-          } on Object catch (e, stackTrace) {
-            try {
-              await _persistenceProvider!.remove(key);
-            } on Object catch (removeError, removeStack) {
-              _logPersistenceError(
-                'Failed to remove corrupted cache entry for key $key',
-                removeError,
-                removeStack,
-              );
-            }
-            _logPersistenceError(
-              'Failed to load persisted cache entry for key $key',
-              e,
-              stackTrace,
-            );
-          }
+      var nextIndex = 0;
+      final workerCount = _persistedLoadConcurrency < allKeys.length
+          ? _persistedLoadConcurrency
+          : allKeys.length;
+      Future<void> loadNext() async {
+        while (true) {
+          final index = nextIndex++;
+          if (index >= allKeys.length) return;
+          await _loadPersistedEntry(allKeys[index], encryptionKey);
         }
       }
+
+      await Future.wait(List.generate(workerCount, (_) => loadNext()));
     } on Object catch (e, stackTrace) {
       _logPersistenceError(
         'Failed to load persisted cache entries',
+        e,
+        stackTrace,
+      );
+    }
+  }
+
+  Future<void> _loadPersistedEntry(String key, String encryptionKey) async {
+    final encryptedData = await _persistenceProvider!.retrieve(key);
+    if (encryptedData == null) return;
+
+    try {
+      final decryptedBytes = await _encryptionProvider!.decrypt(
+        encryptedData,
+        encryptionKey,
+      );
+      final entryJson = utf8.decode(decryptedBytes);
+      final entryMap = jsonDecode(entryJson) as Map<String, dynamic>;
+      final entry = _decodePersistedEntry(key, entryMap);
+      if (entry == null || entry.isExpired) {
+        await _persistenceProvider!.remove(key);
+        return;
+      }
+      _replaceEntry(key, entry);
+      _entryVersions[key] = _nextEntryVersion();
+    } on Object catch (e, stackTrace) {
+      try {
+        await _persistenceProvider!.remove(key);
+      } on Object catch (removeError, removeStack) {
+        _logPersistenceError(
+          'Failed to remove corrupted cache entry for key $key',
+          removeError,
+          removeStack,
+        );
+      }
+      _logPersistenceError(
+        'Failed to load persisted cache entry for key $key',
         e,
         stackTrace,
       );
