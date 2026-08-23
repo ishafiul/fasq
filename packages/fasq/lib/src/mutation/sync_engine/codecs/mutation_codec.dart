@@ -1,0 +1,265 @@
+import 'package:fasq/src/mutation/mutation_contract.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
+import 'package:fasq/src/mutation/sync_engine/models/mutation_json.dart';
+
+/// Encodes and decodes one typed mutation variable model.
+abstract interface class MutationCodec<TVariables> {
+  /// Encodes variables into JSON-safe data.
+  Object? encode(TVariables variables);
+
+  /// Decodes JSON-safe data into typed variables.
+  TVariables decode(Object? payload);
+}
+
+/// Codec backed by explicit JSON encode/decode functions.
+class JsonMutationCodec<TVariables> implements MutationCodec<TVariables> {
+  /// Creates a JSON mutation codec.
+  const JsonMutationCodec({required this.encoder, required this.decoder});
+
+  /// Typed encoder supplied by the application.
+  final Object? Function(TVariables variables) encoder;
+
+  /// Typed decoder supplied by the application.
+  final TVariables Function(Object? payload) decoder;
+
+  @override
+  Object? encode(TVariables variables) {
+    final payload = encoder(variables);
+    validateJsonValue(payload);
+    return payload;
+  }
+
+  @override
+  TVariables decode(Object? payload) {
+    validateJsonValue(payload);
+    try {
+      return decoder(payload);
+    } on MutationContractException {
+      rethrow;
+    } on Object {
+      throw const InvalidMutationPayloadException(
+        'Mutation payload could not be decoded',
+      );
+    }
+  }
+}
+
+/// Registry of typed variable codecs keyed by versioned MutationKey.
+class MutationCodecRegistry {
+  final Map<MutationKey, _ErasedMutationCodec<Object?>> _codecs = {};
+
+  /// Registers a codec for [key].
+  void register<TVariables>(MutationKey key, MutationCodec<TVariables> codec) {
+    if (_codecs.containsKey(key)) {
+      throw DuplicateMutationRegistrationException(key.key);
+    }
+    _codecs[key] = _ErasedMutationCodec<TVariables>(codec);
+  }
+
+  /// Returns whether a codec exists for [key].
+  bool contains(MutationKey key) => _codecs.containsKey(key);
+
+  /// Encodes variables for [key].
+  Object? encode(MutationKey key, Object? variables) {
+    final codec = _codecs[key];
+    if (codec == null) throw UnknownMutationKeyException(key.key);
+    return codec.encode(variables);
+  }
+
+  /// Decodes persisted variables for [key].
+  Object? decode(MutationKey key, Object? payload) {
+    final codec = _codecs[key];
+    if (codec == null) throw UnknownMutationKeyException(key.key);
+    return codec.decode(payload);
+  }
+
+  /// Returns the registered keys in insertion order.
+  List<MutationKey> get registeredKeys => List.unmodifiable(_codecs.keys);
+
+  @override
+  String toString() => 'MutationCodecRegistry(keys: ${_codecs.keys})';
+}
+
+/// Runtime-only registration of a typed codec and async executor.
+///
+/// Registered function must be same logical function used for immediate
+/// mutation execution. It is not a second offline-only executor.
+class MutationRegistrationRegistry {
+  final Map<MutationKey, _RegisteredMutation<Object?, Object?>> _registrations =
+      {};
+
+  /// Registers a mutation executor and its variable codec.
+  void register<TData, TVariables>({
+    required MutationKey key,
+    required MutationCodec<TVariables> codec,
+    required Future<TData> Function(TVariables variables) mutationFn,
+    AuthPolicy authPolicy = AuthPolicy.none,
+    Object? Function(TData data)? resultEncoder,
+    List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+        dependencies =
+        const <FasqMutationDependency<Object?, Object?, Object?, Object?>>[],
+  }) {
+    if (_registrations.containsKey(key)) {
+      throw DuplicateMutationRegistrationException(key.key);
+    }
+    _registrations[key] = _RegisteredMutation<TData, TVariables>(
+      key: key,
+      codec: codec,
+      mutationFn: mutationFn,
+      authPolicy: authPolicy,
+      resultEncoder: resultEncoder,
+      dependencies: dependencies,
+    );
+  }
+
+  /// Returns whether an executor is registered for [key].
+  bool contains(MutationKey key) => _registrations.containsKey(key);
+
+  /// Returns runtime registration readiness for [key].
+  MutationRegistrationReadiness readinessFor(MutationKey key) {
+    return contains(key)
+        ? MutationRegistrationReadiness.ready
+        : MutationRegistrationReadiness.missing;
+  }
+
+  /// Encodes variables using the runtime registration for [key].
+  Object? encodeVariables(MutationKey key, Object? variables) {
+    final registration = _registrations[key];
+    if (registration == null) throw UnknownMutationKeyException(key.key);
+    return registration.encode(variables);
+  }
+
+  /// Decodes variables using the runtime registration for [key].
+  Object? decodeVariables(MutationKey key, Object? payload) {
+    final registration = _registrations[key];
+    if (registration == null) throw UnknownMutationKeyException(key.key);
+    return registration.decode(payload);
+  }
+
+  /// Executes a registered mutation with decoded persisted variables.
+  Future<Object?> execute(MutationKey key, Object? payload) async {
+    return (await executeRegistered(key, payload)).projection;
+  }
+
+  /// Executes a registration while retaining typed in-process result data.
+  Future<RegisteredMutationExecution> executeRegistered(
+    MutationKey key,
+    Object? payload,
+  ) async {
+    final registration = _registrations[key];
+    if (registration == null) throw UnknownMutationKeyException(key.key);
+    return registration.executeRegistered(payload);
+  }
+
+  /// Returns the auth policy for [key].
+  AuthPolicy authPolicyFor(MutationKey key) {
+    final registration = _registrations[key];
+    if (registration == null) throw UnknownMutationKeyException(key.key);
+    return registration.authPolicy;
+  }
+
+  /// Returns typed dependency mappings declared by [key].
+  List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+  dependenciesFor(
+    MutationKey key,
+  ) {
+    final registration = _registrations[key];
+    if (registration == null) throw UnknownMutationKeyException(key.key);
+    return registration.dependencies;
+  }
+
+  /// Returns the currently registered keys.
+  List<MutationKey> get registeredKeys =>
+      List.unmodifiable(_registrations.keys);
+}
+
+class _ErasedMutationCodec<TVariables> {
+  const _ErasedMutationCodec(this._codec);
+
+  final MutationCodec<TVariables> _codec;
+
+  Object? encode(Object? variables) {
+    if (variables is! TVariables) {
+      throw InvalidMutationPayloadException(
+        'Variables have type ${variables.runtimeType}, expected $TVariables',
+      );
+    }
+    return _codec.encode(variables);
+  }
+
+  Object? decode(Object? payload) => _codec.decode(payload);
+}
+
+class _RegisteredMutation<TData, TVariables> {
+  const _RegisteredMutation({
+    required this.key,
+    required this.codec,
+    required this.mutationFn,
+    required this.authPolicy,
+    required this.resultEncoder,
+    required this.dependencies,
+  });
+
+  final MutationKey key;
+  final MutationCodec<TVariables> codec;
+  final Future<TData> Function(TVariables variables) mutationFn;
+  final AuthPolicy authPolicy;
+  final Object? Function(TData data)? resultEncoder;
+  final List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+  dependencies;
+
+  Object? encode(Object? variables) {
+    if (variables is! TVariables) {
+      throw InvalidMutationPayloadException(
+        'Variables have type ${variables.runtimeType}, expected $TVariables',
+      );
+    }
+    return codec.encode(variables);
+  }
+
+  Object? decode(Object? payload) => codec.decode(payload);
+
+  Future<RegisteredMutationExecution> executeRegistered(Object? payload) async {
+    final variables = decode(payload);
+    if (variables is! TVariables) {
+      throw InvalidMutationPayloadException(
+        'Decoded variables have type ${variables.runtimeType}, '
+        'expected $TVariables',
+      );
+    }
+    final result = await mutationFn(variables);
+    try {
+      final encoder = resultEncoder;
+      final encoded = encoder == null ? result : encoder(result);
+      validateJsonValue(encoded, 'mutation result');
+      return RegisteredMutationExecution(data: result, projection: encoded);
+    } on Object {
+      throw const InvalidMutationResultException();
+    }
+  }
+}
+
+/// Typed in-process result plus JSON-safe durable projection.
+class RegisteredMutationExecution {
+  /// Creates one registered execution result.
+  const RegisteredMutationExecution({
+    required this.data,
+    required this.projection,
+  });
+
+  /// Original typed result returned to the submitting mutation.
+  final Object? data;
+
+  /// JSON-safe result persisted for dependency binding and restart recovery.
+  final Object? projection;
+}
+
+/// Runtime readiness of a mutation codec and executor registration.
+enum MutationRegistrationReadiness {
+  /// No codec and executor are registered for the key.
+  missing,
+
+  /// Codec and executor are available for runtime use.
+  ready,
+}

@@ -1,0 +1,370 @@
+import 'dart:async';
+
+import 'package:fasq/fasq.dart';
+import 'package:flutter/widgets.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+import 'fasq_exceptions.dart';
+import 'fasq_options.dart';
+import 'plugins/default_security_plugin.dart';
+import 'providers/crypto_encryption_provider.dart';
+import 'providers/secure_storage_provider.dart';
+
+/// Unified application composition root for secure Fasq features.
+class Fasq with WidgetsBindingObserver implements FasqRuntime {
+  Fasq._({
+    required this.scope,
+    required QueryClient queryClient,
+    required DurableMutationQueue? mutationQueue,
+    required DurableMutationCatalog mutations,
+    required ReplayLifecycleController? replayLifecycle,
+    required EncryptionProvider? outboxEncryption,
+    required SecurityPlugin? querySecurity,
+  }) : _queryClient = queryClient,
+       _mutationQueue = mutationQueue,
+       _mutations = mutations,
+       _replayLifecycle = replayLifecycle,
+       _outboxEncryption = outboxEncryption,
+       _querySecurity = querySecurity,
+       _status = FasqStatus.ready {
+    if (replayLifecycle != null) {
+      _binding = WidgetsBinding.instance..addObserver(this);
+    }
+  }
+
+  /// Initializes one explicit Fasq application scope.
+  static Future<Fasq> initialize({
+    FasqDataScope scope = const FasqDataScope.anonymous(),
+    QueryPersistence persistence = const QueryPersistence.disabled(),
+    OfflineSync offlineSync = const OfflineSync.disabled(),
+    CacheConfig? cacheConfig,
+  }) async {
+    final mutations = DurableMutationCatalog(offlineSync.mutations);
+    QueryClient? queryClient;
+    SecurityPlugin? querySecurity;
+    SecurityProvider? outboxStorage;
+    EncryptionProvider? outboxEncryption;
+    DurableMutationQueue? mutationQueue;
+    ReplayLifecycleController? replayLifecycle;
+    var querySecurityOwned = false;
+    var outboxResourcesOwned = false;
+
+    try {
+      final queryEnabled = persistence.enabled;
+      if (queryEnabled) {
+        final activeQuerySecurity =
+            persistence.plugin ??
+            DefaultSecurityPlugin(
+              storageNamespace: 'query-${scope.storageId}',
+              persistenceFileName: 'fasq_cache_${scope.storageId}.sqlite',
+            );
+        querySecurity = activeQuerySecurity;
+        querySecurityOwned = persistence.plugin == null;
+        if (!activeQuerySecurity.isSupported) {
+          throw const FasqInitializationException(
+            'Secure query persistence is not supported on this platform',
+          );
+        }
+        await activeQuerySecurity.initialize();
+      }
+
+      final queryOptions =
+          persistence.options ?? const PersistenceOptions(enabled: true);
+      if (queryEnabled && !queryOptions.enabled) {
+        throw const FasqConfigurationException(
+          'Secure query persistence requires enabled PersistenceOptions',
+        );
+      }
+      queryClient = QueryClient.create(
+        config: cacheConfig,
+        persistenceOptions: queryEnabled ? queryOptions : null,
+        securityPlugin: querySecurity,
+        ownsSecurityResources: querySecurityOwned,
+      );
+      try {
+        await queryClient.persistenceInitialization;
+      } on Object catch (error, stackTrace) {
+        Error.throwWithStackTrace(
+          FasqStorageException(
+            'Failed to initialize secure query persistence',
+            error,
+          ),
+          stackTrace,
+        );
+      }
+
+      if (offlineSync.enabled) {
+        if (offlineSync.mutations.isEmpty) {
+          throw const FasqConfigurationException(
+            'OfflineSync requires at least one mutation definition',
+          );
+        }
+        if (!offlineSync.usesDefaultSecurity) {
+          mutationQueue = DurableMutationQueue(
+            store: offlineSync.store!,
+            ownsStore: false,
+            authSessionProvider: offlineSync.auth,
+            isOnline: () =>
+                offlineSync.connectivity?.isOnline ??
+                NetworkStatus.instance.isOnline,
+          );
+        } else {
+          final supportDirectory = await getApplicationSupportDirectory();
+          final namespace = 'outbox-${scope.storageId}';
+          outboxStorage = SecureStorageProvider(namespace: namespace);
+          outboxEncryption = CryptoEncryptionProvider();
+          outboxResourcesOwned = true;
+          await outboxStorage.initialize();
+          final encryption = SecurityProviderOutboxEncryption(
+            securityProvider: outboxStorage,
+            encryptionProvider: outboxEncryption,
+          );
+          final outboxPath = p.join(
+            supportDirectory.path,
+            'fasq',
+            scope.storageId,
+            'offline_outbox',
+          );
+          final store = FileDurableOutbox(
+            directoryPath: outboxPath,
+            encryption: encryption,
+          );
+          mutationQueue = DurableMutationQueue(
+            store: store,
+            authSessionProvider: offlineSync.auth,
+            isOnline: () =>
+                offlineSync.connectivity?.isOnline ??
+                NetworkStatus.instance.isOnline,
+          );
+        }
+
+        for (final mutation in offlineSync.mutations) {
+          try {
+            mutation.register(mutationQueue);
+          } on Object catch (error, stackTrace) {
+            Error.throwWithStackTrace(
+              FasqMutationRegistrationException(
+                'Failed to register mutation ${mutation.runtimeType}',
+                error,
+              ),
+              stackTrace,
+            );
+          }
+        }
+        try {
+          await mutationQueue.open();
+        } on OutboxOwnershipException catch (error, stackTrace) {
+          Error.throwWithStackTrace(
+            FasqOwnershipException(
+              'The durable outbox is already owned by another process',
+              error,
+            ),
+            stackTrace,
+          );
+        } on DurableOutboxException catch (error, stackTrace) {
+          Error.throwWithStackTrace(
+            FasqRecoveryException(
+              'Failed to open and recover the durable outbox',
+              recovery:
+                  mutationQueue.recovery ??
+                  DurableOutboxRecovery(error.code, error.message),
+              cause: error,
+            ),
+            stackTrace,
+          );
+        }
+        final readiness = ReplayReadinessBarrier();
+        final networkStatus =
+            offlineSync.connectivity ?? NetworkStatus.instance;
+        replayLifecycle = ReplayLifecycleController(
+          readiness: readiness,
+          replay: mutationQueue.replay,
+          authSessionProvider: offlineSync.auth,
+          networkStatus: networkStatus,
+          backgroundAdapter: offlineSync.backgroundAdapter,
+        );
+        readiness.update(
+          storeReady: true,
+          registrationsReady: true,
+          encryptionReady: true,
+        );
+        if (networkStatus.isOnline) {
+          await replayLifecycle.onStartup();
+        }
+      }
+
+      return Fasq._(
+        scope: scope,
+        queryClient: queryClient,
+        mutationQueue: mutationQueue,
+        mutations: mutations,
+        replayLifecycle: replayLifecycle,
+        outboxEncryption: outboxResourcesOwned ? outboxEncryption : null,
+        querySecurity: querySecurity,
+      );
+    } on FasqException {
+      await _closePartial(
+        replayLifecycle: replayLifecycle,
+        mutationQueue: mutationQueue,
+        queryClient: queryClient,
+        outboxEncryption: outboxResourcesOwned ? outboxEncryption : null,
+      );
+      rethrow;
+    } on Object catch (error, stackTrace) {
+      await _closePartial(
+        replayLifecycle: replayLifecycle,
+        mutationQueue: mutationQueue,
+        queryClient: queryClient,
+        outboxEncryption: outboxResourcesOwned ? outboxEncryption : null,
+      );
+      Error.throwWithStackTrace(
+        FasqInitializationException('Fasq initialization failed', error),
+        stackTrace,
+      );
+    }
+  }
+
+  static Future<void> _closePartial({
+    required ReplayLifecycleController? replayLifecycle,
+    required DurableMutationQueue? mutationQueue,
+    required QueryClient? queryClient,
+    required EncryptionProvider? outboxEncryption,
+  }) async {
+    await replayLifecycle?.dispose();
+    await mutationQueue?.close();
+    await queryClient?.dispose();
+    await outboxEncryption?.dispose();
+  }
+
+  final FasqDataScope scope;
+  final QueryClient _queryClient;
+  final DurableMutationQueue? _mutationQueue;
+  final DurableMutationCatalog _mutations;
+  final ReplayLifecycleController? _replayLifecycle;
+  final EncryptionProvider? _outboxEncryption;
+  final SecurityPlugin? _querySecurity;
+  WidgetsBinding? _binding;
+  FasqStatus _status;
+
+  /// Current lifecycle state.
+  FasqStatus get status => _status;
+
+  /// Explicit query client owned by this Fasq instance.
+  @override
+  QueryClient get queryClient => _queryClient;
+
+  /// Durable mutation queue, when offline sync is enabled.
+  @override
+  DurableMutationQueue? get mutationQueue => _mutationQueue;
+
+  /// Typed durable mutation definitions registered during bootstrap.
+  @override
+  DurableMutationCatalog get mutations => _mutations;
+
+  /// Rotates the encrypted query persistence key.
+  ///
+  /// Durable mutations use an independent key namespace. Pending mutations
+  /// are rejected here so a future coordinated outbox rotation cannot make
+  /// queued work unreadable.
+  Future<void> rotateEncryptionKey(String newKey) async {
+    if (_status == FasqStatus.disposed) {
+      throw const FasqDisposedException();
+    }
+    final queue = _mutationQueue;
+    if (queue != null && queue.snapshot.active.isNotEmpty) {
+      throw const FasqKeyRotationBlockedException();
+    }
+    final security = _querySecurity;
+    if (security is! DefaultSecurityPlugin) {
+      throw const FasqConfigurationException(
+        'Key rotation requires the default secure query provider',
+      );
+    }
+    await security.updateEncryptionKey(newKey);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final trigger = switch (state) {
+      AppLifecycleState.resumed => ReplayLifecycleTrigger.foreground,
+      AppLifecycleState.paused => ReplayLifecycleTrigger.background,
+      _ => null,
+    };
+    if (trigger != null) _requestLifecycleReplay(trigger);
+  }
+
+  void _requestLifecycleReplay(ReplayLifecycleTrigger trigger) {
+    final lifecycle = _replayLifecycle;
+    if (lifecycle == null) return;
+    unawaited(
+      lifecycle
+          .request(trigger)
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stackTrace) {
+              FlutterError.reportError(
+                FlutterErrorDetails(
+                  exception: error,
+                  stack: stackTrace,
+                  library: 'fasq_security',
+                  context: ErrorDescription(
+                    'requesting ${trigger.name} durable mutation replay',
+                  ),
+                ),
+              );
+            },
+          ),
+    );
+  }
+
+  /// Closes all resources created by this instance.
+  @override
+  Future<void> close() async {
+    if (_status == FasqStatus.disposed) return;
+    _binding?.removeObserver(this);
+    _binding = null;
+    await _replayLifecycle?.dispose();
+    await _mutationQueue?.close();
+    await _queryClient.cache.flushPersistence();
+    await _queryClient.dispose();
+    await _outboxEncryption?.dispose();
+    _status = FasqStatus.disposed;
+  }
+}
+
+/// Compatibility wrapper around the core [FasqProvider].
+@Deprecated('Use FasqProvider(runtime: fasq, child: child) instead.')
+class FasqScope extends StatelessWidget {
+  /// Creates a compatibility scope.
+  const FasqScope({required this.instance, required this.child, super.key});
+
+  /// Explicit Fasq instance supplied by the application root.
+  final Fasq instance;
+
+  /// Widget subtree that consumes [instance].
+  final Widget child;
+
+  /// Finds the nearest secure Fasq runtime.
+  static Fasq of(BuildContext context) {
+    final runtime = FasqProvider.of(context);
+    if (runtime is! Fasq) {
+      throw FlutterError(
+        'The nearest FasqProvider does not contain a fasq_security Fasq '
+        'runtime.',
+      );
+    }
+    return runtime;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FasqProvider(runtime: instance, child: child);
+  }
+}
+
+/// Convenient access to the nearest [Fasq] instance.
+extension FasqContext on BuildContext {
+  /// Returns the nearest secure Fasq instance.
+  Fasq get fasq => FasqScope.of(this);
+}

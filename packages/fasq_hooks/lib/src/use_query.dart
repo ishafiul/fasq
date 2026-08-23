@@ -14,13 +14,16 @@ QueryState<T> useQuery<T>(
   QueryOptions? options,
   QueryClient? client,
 }) {
-  final queryClient = client ?? QueryClient();
+  final queryClient = useQueryClient(client: client);
 
   final state = useState<QueryState<T>>(QueryState.idle());
 
   useEffect(() {
-    final query =
-        queryClient.getQuery<T>(queryKey, queryFn: queryFn, options: options);
+    final query = queryClient.getQuery<T>(
+      queryKey,
+      queryFn: queryFn,
+      options: options,
+    );
 
     query.addListener();
 

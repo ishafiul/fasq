@@ -1,0 +1,29 @@
+name: fasq_offline_sync_lab
+description: Real-app verification shell for Fasq durable offline sync.
+publish_to: none
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+resolution: workspace
+
+dependencies:
+  fasq:
+    path: ../../packages/fasq
+  fasq_security:
+    path: ../../packages/fasq_security
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  build_runner: ^2.15.0
+  fasq_serializer_generator:
+    path: ../../packages/fasq_serializer_generator
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

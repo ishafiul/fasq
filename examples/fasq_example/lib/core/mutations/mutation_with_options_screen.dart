@@ -25,8 +25,6 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
   bool _enableOnSuccess = true;
   bool _enableOnError = true;
   bool _enableOnMutate = true;
-  bool _queueWhenOffline = false;
-  int _priority = 0;
 
   @override
   void initState() {
@@ -119,15 +117,6 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
                 }
               }
             : null,
-        onQueued: _queueWhenOffline
-            ? (variables) {
-                if (mounted) {
-                  _addLog('📥 onQueued called: ${variables.name}');
-                }
-              }
-            : null,
-        queueWhenOffline: _queueWhenOffline,
-        priority: _priority,
       ),
     );
 
@@ -165,7 +154,7 @@ class _MutationWithOptionsScreenState extends State<MutationWithOptionsScreen> {
     return ExampleScaffold(
       title: 'Mutation Options',
       description:
-          'Demonstrates advanced mutation options including callbacks (onSuccess, onError, onMutate, onQueued), offline queue support, and priority handling. Shows how to configure mutation behavior for different scenarios.',
+          'Demonstrates online mutation callbacks (onSuccess, onError, and onMutate) and how to configure mutation behavior for different scenarios.',
       codeSnippet: '''
 MutationOptions<User, UpdateUserRequest>(
   // Callback executed when mutation succeeds
@@ -186,24 +175,13 @@ MutationOptions<User, UpdateUserRequest>(
     updateUIOptimistically(variables);
   },
   
-  // Queue mutation when offline
-  queueWhenOffline: true,
-  
-  // Priority (higher = executes first when queue processed)
-  priority: 5,
-  
-  // Called when mutation is queued
-  onQueued: (variables) {
-    print('Queued: \${variables.name}');
-  },
 )
 
 // Use cases for options:
 // - Analytics tracking
 // - Optimistic updates
 // - Error logging
-// - Offline support
-// - Queue priority management
+// Durable offline work uses @FasqMutation and MutationBuilder.
 ''',
       child: Column(
         children: [
@@ -329,43 +307,6 @@ MutationOptions<User, UpdateUserRequest>(
           ),
           const Divider(),
 
-          // Priority Slider
-          Text(
-            'Priority: $_priority',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-          ),
-          Slider(
-            value: _priority.toDouble(),
-            min: 0,
-            max: 10,
-            divisions: 10,
-            onChanged: (value) {
-              setState(() {
-                _priority = value.round();
-                _initializeMutation();
-              });
-            },
-          ),
-
-          // Queue When Offline Toggle
-          SwitchListTile(
-            title: const Text('Queue When Offline'),
-            subtitle: const Text('Queue mutations when network is offline'),
-            value: _queueWhenOffline,
-            onChanged: (value) {
-              setState(() {
-                _queueWhenOffline = value;
-                _initializeMutation();
-              });
-            },
-            secondary: Icon(
-              Icons.queue,
-              color: _queueWhenOffline ? Colors.orange : Colors.grey,
-            ),
-          ),
-
           const Divider(),
 
           // Clear Log Button
@@ -420,10 +361,9 @@ MutationOptions<User, UpdateUserRequest>(
             'Interactive Testing:\n'
             '1️⃣ Toggle callbacks on/off to test each one (onSuccess, onError, onMutate)\n'
             '2️⃣ Toggle "Simulate Error" to test error handling\n'
-            '3️⃣ Adjust "Priority" slider (0-10) to test queue priority\n'
-            '4️⃣ Toggle "Queue When Offline" to test offline support\n'
-            '5️⃣ Watch Event Log to see which callbacks fire\n'
-            '6️⃣ Try with/without each option to understand behavior',
+            '3️⃣ Watch Event Log to see which callbacks fire\n'
+            '4️⃣ Try with/without each option to understand behavior\n'
+            '5️⃣ See the Offline Mutations example for durable replay',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

@@ -1,4 +1,15 @@
+export 'package:fasq/fasq.dart'
+    show
+        DurableMutationDefinition,
+        DurableMutationDefinitionBase,
+        FasqProvider,
+        FasqProviderContext,
+        FasqRuntime;
+
 // Export the main security plugin
+export 'src/fasq.dart';
+export 'src/fasq_exceptions.dart';
+export 'src/fasq_options.dart';
 // Export exception classes
 export 'src/exceptions/encryption_exception.dart';
 export 'src/exceptions/persistence_exception.dart';

@@ -14,6 +14,58 @@ void main() {
       expect(client1, same(client2));
     });
 
+    test('rejects persistence without a security plugin', () {
+      expect(
+        () => QueryClient(
+          persistenceOptions: const PersistenceOptions(enabled: true),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test(
+      'explicit clients coexist and disposing singleton clears it',
+      () async {
+        final singleton = QueryClient();
+        final first = QueryClient.create();
+        final second = QueryClient.create();
+
+        expect(first, isNot(same(second)));
+        expect(QueryClient.maybeInstance, same(singleton));
+
+        await singleton.dispose();
+
+        expect(QueryClient.maybeInstance, isNull);
+        final replacement = QueryClient();
+        expect(replacement, isNot(same(singleton)));
+        await first.dispose();
+        await second.dispose();
+      },
+    );
+
+    test('explicit mutation client receives lifecycle notifications', () async {
+      final client = QueryClient.create();
+      var loading = 0;
+      var success = 0;
+      client.addObserver(
+        _MutationObserver(
+          onLoading: () => loading++,
+          onSuccess: () => success++,
+        ),
+      );
+      final mutation = Mutation<String, String>(
+        mutationFn: (value) async => value,
+        client: client,
+      );
+
+      await mutation.submit('value');
+
+      expect(loading, 1);
+      expect(success, 1);
+      mutation.dispose();
+      await client.dispose();
+    });
+
     test('creates new query if key does not exist', () {
       final client = QueryClient();
       final query = client.getQuery<String>(
@@ -280,4 +332,17 @@ void main() {
       });
     });
   });
+}
+
+class _MutationObserver extends QueryClientObserver {
+  _MutationObserver({required this.onLoading, required this.onSuccess});
+
+  final void Function() onLoading;
+  final void Function() onSuccess;
+
+  @override
+  void onMutationLoading(snapshot, meta, context) => onLoading();
+
+  @override
+  void onMutationSuccess(snapshot, meta, context) => onSuccess();
 }

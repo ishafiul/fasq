@@ -14,11 +14,26 @@ import '../exceptions/security_exception.dart';
 /// - Web: Not supported (throws UnsupportedError)
 /// - Desktop: Platform-specific secure storage
 class SecureStorageProvider implements SecurityProvider {
-  static const String _keyIdKey = 'fasq_key_id';
+  SecureStorageProvider({String namespace = 'default'})
+    : _keyIdKey = namespace == 'default'
+          ? 'fasq_key_id'
+          : 'fasq_key_id_${_normalizeNamespace(namespace)}',
+      _storage = const FlutterSecureStorage();
+
+  static String _normalizeNamespace(String namespace) {
+    final normalized = namespace.trim().toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9_.-]'),
+      '_',
+    );
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(namespace, 'namespace', 'must not be empty');
+    }
+    return normalized;
+  }
+
+  final String _keyIdKey;
 
   final FlutterSecureStorage _storage;
-
-  SecureStorageProvider() : _storage = const FlutterSecureStorage();
 
   @override
   Future<void> initialize() async {

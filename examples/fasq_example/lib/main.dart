@@ -1,44 +1,45 @@
 import 'package:fasq/fasq.dart';
+import 'package:fasq_security/fasq_security.dart';
 import 'package:flutter/material.dart';
 
 import 'core/global_effects.dart';
+import 'core/mutations/offline_mutations.dart';
 import 'core/screens/core_examples_screen.dart';
 
 final EffectMessenger _messenger = EffectMessenger();
+late QueryClient _queryClient;
 
-final QueryClient _queryClient = QueryClient(
-  config: const CacheConfig(
-    defaultCacheTime: Duration(minutes: 10),
-  ),
-);
-
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  NetworkStatus.instance.setOnline(online: true);
+  final fasq = await Fasq.initialize(
+    persistence: const QueryPersistence.secure(),
+    offlineSync: OfflineSync.secure(mutations: [createTodoDurable]),
+  );
+  _queryClient = fasq.queryClient;
   GlobalQueryEffects.install(
-    client: _queryClient,
+    client: fasq.queryClient,
     messenger: _messenger,
     resolveMessage: _resolveMessage,
     onMutationCritical: _handleCriticalMutation,
   );
-  runApp(MyApp(
-    client: _queryClient,
-    scaffoldMessengerKey: _messenger.key,
-  ));
+  runApp(MyApp(runtime: fasq, scaffoldMessengerKey: _messenger.key));
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({
     super.key,
-    required this.client,
+    required this.runtime,
     required this.scaffoldMessengerKey,
   });
 
-  final QueryClient client;
+  final FasqRuntime runtime;
   final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey;
 
   @override
   Widget build(BuildContext context) {
-    return QueryClientProvider(
-      client: client,
+    return FasqProvider(
+      runtime: runtime,
       child: MaterialApp(
         scaffoldMessengerKey: scaffoldMessengerKey,
         debugShowCheckedModeBanner: false,

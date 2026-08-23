@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fasq/src/cache/cache_config.dart';
 import 'package:fasq/src/client/query_client.dart';
 import 'package:fasq/src/persistence/persistence_options.dart';
+import 'package:fasq/src/security/security_plugin.dart';
 import 'package:flutter/widgets.dart';
 
 /// Provider widget for QueryClient configuration.
@@ -45,17 +46,24 @@ class QueryClientProvider extends StatefulWidget {
     super.key,
     this.config,
     this.persistenceOptions,
+    this.securityPlugin,
     this.client,
   }) : assert(
-          client == null || (config == null && persistenceOptions == null),
-          'Provide either a client or configuration values, not both.',
-        );
+         client == null ||
+             (config == null &&
+                 persistenceOptions == null &&
+                 securityPlugin == null),
+         'Provide either a client or configuration values, not both.',
+       );
 
   /// Cache configuration for the QueryClient.
   final CacheConfig? config;
 
   /// Persistence options for encrypted cache storage.
   final PersistenceOptions? persistenceOptions;
+
+  /// Security plugin required when [persistenceOptions] enables persistence.
+  final SecurityPlugin? securityPlugin;
 
   /// Optional pre-configured [QueryClient] instance to reuse.
   ///
@@ -70,14 +78,32 @@ class QueryClientProvider extends StatefulWidget {
 }
 
 class _QueryClientProviderState extends State<QueryClientProvider> {
-  late final QueryClient _client;
-  late final bool _ownsClient;
+  late QueryClient _client;
+  late bool _ownsClient;
 
   @override
   void initState() {
     super.initState();
-    if (widget.client != null) {
-      _client = widget.client!;
+    _initializeClient();
+  }
+
+  @override
+  void didUpdateWidget(QueryClientProvider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.client, widget.client)) return;
+
+    final previousClient = _client;
+    final ownedPreviousClient = _ownsClient;
+    _initializeClient();
+    if (ownedPreviousClient) {
+      _disposeOwnedClient(previousClient);
+    }
+  }
+
+  void _initializeClient() {
+    final client = widget.client;
+    if (client != null) {
+      _client = client;
       _ownsClient = false;
       return;
     }
@@ -86,15 +112,31 @@ class _QueryClientProviderState extends State<QueryClientProvider> {
     _client = QueryClient(
       config: widget.config,
       persistenceOptions: widget.persistenceOptions,
+      securityPlugin: widget.securityPlugin,
     );
   }
 
   @override
   void dispose() {
     if (_ownsClient) {
-      unawaited(_client.dispose());
+      _disposeOwnedClient(_client);
     }
     super.dispose();
+  }
+
+  void _disposeOwnedClient(QueryClient client) {
+    unawaited(
+      client.dispose().catchError((Object error, StackTrace stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'fasq',
+            context: ErrorDescription('disposing an owned QueryClient'),
+          ),
+        );
+      }),
+    );
   }
 
   @override

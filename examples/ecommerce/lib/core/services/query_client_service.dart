@@ -11,12 +11,13 @@ import 'package:injectable/injectable.dart';
 /// - [DriftPersistenceProvider]: SQLite persistence using Drift
 /// - Performance monitoring and metrics export
 @singleton
-class QueryClientService {
+class QueryClientService implements FasqRuntime {
   late final QueryClient _client;
   late final DefaultSecurityPlugin _securityPlugin;
   late final SecureStorageProvider _storageProvider;
   late final CryptoEncryptionProvider _encryptionProvider;
   late final DriftPersistenceProvider _persistenceProvider;
+  late final DurableMutationCatalog _mutations = DurableMutationCatalog(const <DurableMutationDefinitionBase>[]);
 
   QueryClientService() {
     // Initialize security providers
@@ -32,9 +33,7 @@ class QueryClientService {
     );
 
     // Automatically register serializers for all QueryKeys types
-    final codecRegistry = registerQueryKeySerializers(
-      const CacheDataCodecRegistry(),
-    );
+    final codecRegistry = registerQueryKeySerializers(const CacheDataCodecRegistry());
 
     // Configure QueryClient with security plugin
     _client = QueryClient(
@@ -43,14 +42,9 @@ class QueryClientService {
         defaultCacheTime: Duration(minutes: 30),
         maxCacheSize: 100 * 1024 * 1024, // 100MB
         maxEntries: 5000,
-        performance: GlobalPerformanceConfig(
-          enableTracking: true,
-        ),
+        performance: GlobalPerformanceConfig(enableTracking: true),
       ),
-      persistenceOptions: PersistenceOptions(
-        enabled: true,
-        codecRegistry: codecRegistry,
-      ),
+      persistenceOptions: PersistenceOptions(enabled: true, codecRegistry: codecRegistry),
       securityPlugin: _securityPlugin,
     );
   }
@@ -65,6 +59,18 @@ class QueryClientService {
 
   /// Gets the QueryClient instance.
   QueryClient get client => _client;
+
+  @override
+  QueryClient get queryClient => _client;
+
+  @override
+  DurableMutationQueue? get mutationQueue => null;
+
+  @override
+  DurableMutationCatalog get mutations => _mutations;
+
+  @override
+  Future<void> close() => _client.dispose();
 
   /// Gets the security plugin instance.
   DefaultSecurityPlugin get securityPlugin => _securityPlugin;
