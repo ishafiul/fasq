@@ -83,12 +83,7 @@ class Post {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'title': title,
-      'body': body,
-    };
+    return {'id': id, 'userId': userId, 'title': title, 'body': body};
   }
 
   @override
@@ -135,20 +130,10 @@ class Todo {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'title': title,
-      'completed': completed,
-    };
+    return {'id': id, 'userId': userId, 'title': title, 'completed': completed};
   }
 
-  Todo copyWith({
-    int? id,
-    int? userId,
-    String? title,
-    bool? completed,
-  }) {
+  Todo copyWith({int? id, int? userId, String? title, bool? completed}) {
     return Todo(
       id: id ?? this.id,
       userId: userId ?? this.userId,
@@ -246,12 +231,16 @@ class CreateTodoRequest {
     this.completed = false,
   });
 
+  factory CreateTodoRequest.fromJson(Map<String, dynamic> json) {
+    return CreateTodoRequest(
+      userId: json['userId'] as int,
+      title: json['title'] as String,
+      completed: json['completed'] as bool? ?? false,
+    );
+  }
+
   Map<String, dynamic> toJson() {
-    return {
-      'userId': userId,
-      'title': title,
-      'completed': completed,
-    };
+    return {'userId': userId, 'title': title, 'completed': completed};
   }
 }
 
@@ -269,12 +258,7 @@ class UpdateUserRequest {
   });
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'website': website,
-    };
+    return {'name': name, 'email': email, 'phone': phone, 'website': website};
   }
 }
 
@@ -298,11 +282,7 @@ class Category {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-    };
+    return {'id': id, 'name': name, 'description': description};
   }
 
   @override
