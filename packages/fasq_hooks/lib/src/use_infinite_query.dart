@@ -1,44 +1,99 @@
 import 'dart:async';
 
-import 'package:fasq_hooks/fasq_hooks.dart';
+import 'package:fasq/fasq.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-/// Observes an [InfiniteQuery] from a HookWidget and returns its state.
-///
-/// The hook handles listener lifecycle automatically and keeps pagination
-/// metadata in sync with the backing query instance.
-InfiniteQueryState<TData, TParam> useInfiniteQuery<TData, TParam>(
+import 'use_query_client.dart';
+
+/// Returns reactive infinite-query state and pagination commands.
+UseInfiniteQueryResult<TData, TParam> useInfiniteQuery<TData, TParam>(
   QueryKey queryKey,
   Future<TData> Function(TParam param) queryFn, {
   InfiniteQueryOptions<TData, TParam>? options,
   QueryClient? client,
 }) {
   final queryClient = useQueryClient(client: client);
-
-  final state = useState<InfiniteQueryState<TData, TParam>>(
-    InfiniteQueryState.idle(),
+  final query = useMemoized(
+    () => queryClient.getInfiniteQuery<TData, TParam>(
+      queryKey,
+      queryFn,
+      options: options,
+    ),
+    [queryClient, queryKey.key],
   );
+  final state = useState<InfiniteQueryState<TData, TParam>>(query.state);
+  final hasMounted = useRef(false);
 
   useEffect(() {
-    final query = queryClient.getInfiniteQuery<TData, TParam>(
+    final shouldReconfigure = hasMounted.value;
+    hasMounted.value = true;
+    final configuredQuery = queryClient.reconfigureInfiniteQuery<TData, TParam>(
       queryKey,
       queryFn,
       options: options,
     );
-
-    query.addListener();
-
-    final subscription = query.stream.listen((newState) {
-      state.value = newState;
+    configuredQuery.addListener();
+    state.value = configuredQuery.state;
+    final subscription = configuredQuery.stream.listen((nextState) {
+      state.value = nextState;
     });
-
-    state.value = query.state;
-
+    if (options?.refetchOnMount == true || shouldReconfigure) {
+      if (shouldReconfigure) configuredQuery.reset();
+      unawaited(configuredQuery.fetchNextPage());
+    }
     return () {
-      subscription.cancel();
-      query.removeListener();
+      unawaited(subscription.cancel());
+      configuredQuery.removeListener();
     };
-  }, [queryKey.key]);
+  }, [queryClient, queryKey.key, queryFn, options]);
 
-  return state.value;
+  return UseInfiniteQueryResult<TData, TParam>(
+    client: queryClient,
+    query: query,
+    state: state.value,
+  );
+}
+
+/// Reactive state and commands for one infinite query.
+class UseInfiniteQueryResult<TData, TParam> {
+  /// Creates an infinite query result.
+  const UseInfiniteQueryResult({
+    required this.client,
+    required this.query,
+    required this.state,
+  });
+
+  /// Client owning the query.
+  final QueryClient client;
+
+  /// Shared infinite-query instance.
+  final InfiniteQuery<TData, TParam> query;
+
+  /// Current pagination state.
+  final InfiniteQueryState<TData, TParam> state;
+
+  /// Fetches the next page.
+  Future<void> fetchNextPage([TParam? parameter]) =>
+      query.fetchNextPage(parameter);
+
+  /// Fetches the previous page.
+  Future<void> fetchPreviousPage() => query.fetchPreviousPage();
+
+  /// Refetches one existing page.
+  Future<void> refetchPage(int index) => query.refetchPage(index);
+
+  /// Clears all pages and returns to idle state.
+  void reset() => query.reset();
+
+  /// Invalidates this query in the shared client cache.
+  void invalidate() => client.invalidateQuery(query.queryKey);
+
+  /// Removes this query from the client registry.
+  void remove() => client.removeInfiniteQuery(query.queryKey);
+
+  /// Whether another forward page is available.
+  bool get hasNextPage => query.hasNextPage;
+
+  /// Whether another backward page is available.
+  bool get hasPreviousPage => query.hasPreviousPage;
 }
