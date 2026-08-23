@@ -19,6 +19,7 @@ class _IsolateWorker {
   /// The current task being processed
   IsolateTask<dynamic, dynamic>? _currentTask;
   StreamSubscription<dynamic>? _currentSubscription;
+  Future<void>? _restartFuture;
 
   /// Queue of pending tasks for this worker
   final List<IsolateTask<dynamic, dynamic>> _taskQueue = [];
@@ -38,13 +39,20 @@ class _IsolateWorker {
   Future<R> execute<T, R>(
     IsolateTask<T, R> task, {
     Duration timeout = const Duration(seconds: 30),
+    int maxQueueSize = 100,
   }) async {
     if (_isDisposed) {
       task.completeError(const IsolateExecutionException('Worker is disposed'));
       return task.completer.future;
     }
 
-    if (_currentTask != null) {
+    if (_currentTask != null && _taskQueue.length >= maxQueueSize) {
+      task.completeError(
+        IsolateExecutionException(
+          'Worker queue is full (limit $maxQueueSize)',
+        ),
+      );
+    } else if (_currentTask != null) {
       _taskQueue.add(task);
     } else {
       _runTask(task);
@@ -61,11 +69,43 @@ class _IsolateWorker {
         },
       );
     } on Object catch (e) {
+      if (task.isCancelled) {
+        await _restartAfterTimeout();
+      }
       if (!task.isCancelled) {
         task.completeError(e);
       }
       rethrow;
     }
+  }
+
+  Future<void> _restartAfterTimeout() {
+    final existing = _restartFuture;
+    if (existing != null) return existing;
+
+    final restart = () async {
+      final pending = List<IsolateTask<dynamic, dynamic>>.from(_taskQueue);
+      _taskQueue.clear();
+      await _currentSubscription?.cancel();
+      _currentSubscription = null;
+      _currentTask = null;
+      _isolate?.kill(priority: Isolate.immediate);
+      _receivePort?.close();
+      _isolate = null;
+      _sendPort = null;
+      _receivePort = null;
+      try {
+        await initialize();
+        _taskQueue.addAll(pending);
+        _processNextTask();
+      } on Object catch (error, stackTrace) {
+        for (final task in pending) {
+          task.completeError(error, stackTrace);
+        }
+      }
+    }();
+    _restartFuture = restart;
+    return restart.whenComplete(() => _restartFuture = null);
   }
 
   /// Process the next task in the queue
@@ -216,13 +256,18 @@ void _isolateEntryPoint(SendPort sendPort) {
 /// with automatic work distribution, lifecycle management, and error handling.
 class IsolatePool {
   /// Create an isolate pool with the specified number of workers
-  IsolatePool({this.poolSize = 2})
-      : assert(poolSize > 0, 'Pool size must be greater than 0') {
+  IsolatePool({this.poolSize = 2, int? maxQueuedTasks})
+    : assert(poolSize > 0, 'Pool size must be greater than 0') {
+    this.maxQueuedTasks = maxQueuedTasks ?? poolSize * 50;
+    assert(this.maxQueuedTasks > 0, 'maxQueuedTasks must be greater than 0');
     _initialization = _initializeWorkers();
   }
 
   /// Number of worker isolates managed by this pool.
   final int poolSize;
+
+  /// Maximum queued tasks across all workers.
+  late final int maxQueuedTasks;
   final List<_IsolateWorker> _workers = [];
   int _currentWorkerIndex = 0;
   bool _isDisposed = false;
@@ -247,8 +292,9 @@ class IsolatePool {
   /// that can be serialized and sent to an isolate.
   Future<R> execute<T, R>(
     FutureOr<R> Function(T message) callback,
-    T message,
-  ) async {
+    T message, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     if (_isDisposed) {
       throw const IsolateExecutionException('Isolate pool is disposed');
     }
@@ -290,7 +336,17 @@ class IsolatePool {
     }
 
     try {
-      return await selectedWorker.execute(task);
+      final queuedTasks = status.totalQueuedTasks;
+      if (queuedTasks >= maxQueuedTasks && selectedWorker.isBusy) {
+        throw IsolateExecutionException(
+          'Isolate pool queue is full (limit $maxQueuedTasks)',
+        );
+      }
+      return await selectedWorker.execute(
+        task,
+        timeout: timeout,
+        maxQueueSize: maxQueuedTasks,
+      );
     } on Object catch (e) {
       throw IsolateExecutionException('Task execution failed', e);
     }
@@ -341,8 +397,10 @@ class IsolatePool {
   /// Get the current status of the isolate pool
   IsolatePoolStatus get status {
     final busyWorkers = _workers.where((w) => w.isBusy).length;
-    final totalQueuedTasks =
-        _workers.fold<int>(0, (sum, w) => sum + w._taskQueue.length);
+    final totalQueuedTasks = _workers.fold<int>(
+      0,
+      (sum, w) => sum + w._taskQueue.length,
+    );
 
     return IsolatePoolStatus(
       totalWorkers: poolSize,

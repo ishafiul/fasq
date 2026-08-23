@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fasq/src/observability/performance/isolate_pool.dart';
 import 'package:fasq/src/observability/performance/isolate_task.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,8 +17,12 @@ void main() {
     });
 
     test('executes synchronous work and returns result', () async {
-      final result =
-          await pool.execute<List<int>, int>(_sumReducer, [1, 2, 3, 4]);
+      final result = await pool.execute<List<int>, int>(_sumReducer, [
+        1,
+        2,
+        3,
+        4,
+      ]);
       expect(result, 10);
     });
 
@@ -42,6 +48,23 @@ void main() {
         throwsA(isA<IsolateExecutionException>()),
       );
     });
+
+    test(
+      'restarts a worker after timeout instead of retaining stuck work',
+      () async {
+        await expectLater(
+          pool.execute<int, int>(
+            _neverCompletes,
+            5,
+            timeout: const Duration(milliseconds: 10),
+          ),
+          throwsA(isA<IsolateExecutionException>()),
+        );
+
+        final result = await pool.execute<int, int>(_delayedIdentity, 9);
+        expect(result, 9);
+      },
+    );
   });
 }
 
@@ -62,6 +85,8 @@ Future<int> _delayedIdentity(int value) async {
   await Future<void>.delayed(const Duration(milliseconds: 10));
   return value;
 }
+
+Future<int> _neverCompletes(int value) => Completer<int>().future;
 
 int _throwingWork(int value) {
   throw StateError('failed on $value');
