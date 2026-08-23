@@ -300,15 +300,19 @@ enum ProjectionRepairAction { replace, discard }
 
 class ProjectionCoordinator {
   ProjectionCoordinator({required this.registry, ProjectionState? state})
-    : _state = state ?? ProjectionState();
+    : _state = state ?? ProjectionState() {
+    _rebuildOverlayIndex();
+  }
 
   final ProjectionRegistry registry;
   ProjectionState _state;
+  final Map<String, List<ProjectionOverlay>> _overlaysByQueryKey = {};
   ProjectionState get state => _state;
 
   /// Restores durable projection state after the outbox has opened.
   void restore(ProjectionState state) {
     _state = state;
+    _rebuildOverlayIndex();
   }
 
   ProjectionOutcome enqueue(ProjectionOverlay overlay) {
@@ -340,6 +344,13 @@ class ProjectionCoordinator {
         for (final id in stored.temporaryIds.values) id: null,
       },
     );
+    for (final key in stored.plan.queryKeys) {
+      _overlaysByQueryKey
+          .putIfAbsent(key, () => <ProjectionOverlay>[])
+          .add(
+            stored,
+          );
+    }
     return ProjectionOutcome(_state, stored.plan.queryKeys);
   }
 
@@ -373,13 +384,9 @@ class ProjectionCoordinator {
   ProjectionView materialize(QueryKey key) {
     Object? value = _state.remoteBases[key.key];
     ProjectionFailure? failure;
-    final overlays = [..._state.overlays]
-      ..sort((a, b) => a.sequence.compareTo(b.sequence));
-    for (final overlay in overlays.where(
-      (item) =>
-          item.state != ProjectionOverlayState.resolved &&
-          item.patches.containsKey(key.key),
-    )) {
+    final overlays = _overlaysByQueryKey[key.key] ?? const [];
+    for (final overlay in overlays) {
+      if (overlay.state == ProjectionOverlayState.resolved) continue;
       final definition = registry.find(overlay.plan);
       if (definition == null) {
         failure = ProjectionFailure(
@@ -422,6 +429,7 @@ class ProjectionCoordinator {
         overlays: [..._state.overlays]..removeAt(index),
         idMappings: _state.idMappings,
       );
+      _removeOverlayFromIndex(overlay);
       return ProjectionOutcome(_state, overlay.plan.queryKeys);
     } on Object {
       return _error(index, 'projection.reconcile_failed');
@@ -615,6 +623,7 @@ class ProjectionCoordinator {
       overlays: overlays,
       idMappings: {..._state.idMappings, temporaryId: serverId},
     );
+    _rebuildOverlayIndex();
     return ProjectionOutcome(_state, changedKeys.toList());
   }
 
@@ -631,7 +640,35 @@ class ProjectionCoordinator {
       overlays: [..._state.overlays]..removeAt(index),
       idMappings: _state.idMappings,
     );
+    _removeOverlayFromIndex(overlay);
     return ProjectionOutcome(_state, overlay.plan.queryKeys);
+  }
+
+  void _rebuildOverlayIndex() {
+    _overlaysByQueryKey.clear();
+    for (final overlay in _state.overlays) {
+      for (final key in overlay.plan.queryKeys) {
+        _overlaysByQueryKey
+            .putIfAbsent(key, () => <ProjectionOverlay>[])
+            .add(
+              overlay,
+            );
+      }
+    }
+    for (final overlays in _overlaysByQueryKey.values) {
+      overlays.sort((left, right) => left.sequence.compareTo(right.sequence));
+    }
+  }
+
+  void _removeOverlayFromIndex(ProjectionOverlay target) {
+    for (final key in target.plan.queryKeys) {
+      final overlays = _overlaysByQueryKey[key];
+      if (overlays == null) continue;
+      overlays.removeWhere(
+        (overlay) => overlay.operationId == target.operationId,
+      );
+      if (overlays.isEmpty) _overlaysByQueryKey.remove(key);
+    }
   }
 
   ProjectionOutcome _error(int index, String key) {
