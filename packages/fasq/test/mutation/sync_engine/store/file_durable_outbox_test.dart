@@ -37,6 +37,37 @@ void main() {
     await store.close();
   });
 
+  test(
+    'switches to encrypted append journal for sustained mutations',
+    () async {
+      final store = _newStore(directory, _FakeOutboxEncryption());
+      await store.open();
+
+      for (var index = 1; index <= 10; index++) {
+        await store.transact(
+          (current) => current.copyWith(
+            active: [
+              ...current.active,
+              _operation('operation-$index'),
+            ],
+          ),
+        );
+      }
+      await store.close();
+
+      expect(File('${directory.path}/outbox.json.log').existsSync(), isTrue);
+      final recovered = _newStore(directory, _FakeOutboxEncryption());
+      await recovered.open();
+      expect(recovered.generation, 10);
+      expect(recovered.snapshot.active, hasLength(10));
+      expect(
+        recovered.snapshot.active.last.operationId.value,
+        'operation-10',
+      );
+      await recovered.close();
+    },
+  );
+
   test('restores the last-known-good backup without clearing work', () async {
     final encryption = _FakeOutboxEncryption();
     final first = _newStore(directory, encryption);

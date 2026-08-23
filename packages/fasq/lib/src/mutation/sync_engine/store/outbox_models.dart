@@ -301,6 +301,14 @@ class OutboxSnapshot {
        unknownRecords = List.unmodifiable(unknownRecords),
        metadata = _immutableJsonMap(metadata, 'metadata');
 
+  OutboxSnapshot._internal({
+    required this.active,
+    required this.deadLetters,
+    required this.history,
+    required this.unknownRecords,
+    required this.metadata,
+  });
+
   /// Recreates a snapshot from validated JSON.
   factory OutboxSnapshot.fromJson(Map<String, Object?> json) {
     try {
@@ -361,12 +369,16 @@ class OutboxSnapshot {
     List<OutboxUnknownRecord>? unknownRecords,
     Map<String, Object?>? metadata,
   }) {
-    return OutboxSnapshot(
-      active: active ?? this.active,
-      deadLetters: deadLetters ?? this.deadLetters,
-      history: history ?? this.history,
-      unknownRecords: unknownRecords ?? this.unknownRecords,
-      metadata: metadata ?? this.metadata,
+    return OutboxSnapshot._internal(
+      active: active == null ? this.active : List.unmodifiable(active),
+      deadLetters: deadLetters == null
+          ? this.deadLetters
+          : List.unmodifiable(deadLetters),
+      history: history == null ? this.history : List.unmodifiable(history),
+      unknownRecords: unknownRecords == null
+          ? this.unknownRecords
+          : List.unmodifiable(unknownRecords),
+      metadata: metadata == null ? this.metadata : Map.unmodifiable(metadata),
     );
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fasq/src/mutation/sync_engine/models/mutation_operation.dart';
 import 'package:fasq/src/mutation/sync_engine/store/durable_outbox.dart';
 import 'package:fasq/src/mutation/sync_engine/store/outbox_envelope.dart';
 import 'package:fasq/src/mutation/sync_engine/store/outbox_errors.dart';
@@ -139,6 +140,24 @@ class IoOutboxFileSystem implements OutboxFileSystem {
       throw const DurableOutboxException(
         DurableOutboxErrorCode.storage,
         'The durable outbox could not be durably written',
+      );
+    }
+  }
+
+  /// Appends bytes and flushes them before acknowledging.
+  Future<void> append(String path, List<int> bytes) async {
+    try {
+      final file = await File(path).open(mode: FileMode.append);
+      try {
+        await file.writeFrom(bytes);
+        await file.flush();
+      } finally {
+        await file.close();
+      }
+    } on FileSystemException {
+      throw const DurableOutboxException(
+        DurableOutboxErrorCode.storage,
+        'The durable outbox journal could not be durably written',
       );
     }
   }
@@ -307,6 +326,7 @@ class FileDurableOutbox implements RecoverableDurableOutboxStore {
       '${identityHashCode(Object())}';
   late final String _storePath = p.join(_directoryPath, 'outbox.json');
   late final String _backupPath = p.join(_directoryPath, 'outbox.json.bak');
+  late final String _journalPath = p.join(_directoryPath, 'outbox.json.log');
   late final String _lockPath = p.join(_directoryPath, 'outbox.lock');
   late final String _temporaryPath = p.join(
     _directoryPath,
@@ -322,7 +342,13 @@ class FileDurableOutbox implements RecoverableDurableOutboxStore {
   int _generation = 0;
   bool _isOpen = false;
   bool _ownsLock = false;
+  bool _journalMode = false;
+  int _fullWriteCount = 0;
+  int _journalEntryCount = 0;
   Future<void> _tail = Future<void>.value();
+
+  static const int _journalModeThreshold = 8;
+  static const int _journalCompactionThreshold = 256;
 
   /// Whether this backend currently owns the store.
   bool get isOpen => _isOpen;
@@ -366,6 +392,8 @@ class FileDurableOutbox implements RecoverableDurableOutboxStore {
             await _write(_snapshot, generation: _generation + 1);
             _generation++;
           }
+          _journalMode = loaded.hasJournal;
+          _journalEntryCount = loaded.journalEntryCount;
         }
         _isOpen = true;
         _recovery = null;
@@ -410,9 +438,22 @@ class FileDurableOutbox implements RecoverableDurableOutboxStore {
         throw const OutboxGenerationConflictException();
       }
       final next = transaction(_snapshot);
-      securityPolicy.validate(next.toJson());
       final generation = _generation + 1;
-      await _write(next, generation: generation);
+      if (_shouldUseJournal()) {
+        await _appendJournal(_snapshot, next, generation: generation);
+        _journalEntryCount++;
+        if (_journalEntryCount >= _journalCompactionThreshold) {
+          await _compactJournal(next, generation: generation);
+          _journalEntryCount = 0;
+        }
+      } else {
+        await _write(next, generation: generation);
+        _fullWriteCount++;
+        if (_fullWriteCount >= _journalModeThreshold) {
+          _journalMode = true;
+          await _copyPrimaryToBackup();
+        }
+      }
       _snapshot = next;
       _generation = generation;
       return next;
@@ -434,11 +475,12 @@ class FileDurableOutbox implements RecoverableDurableOutboxStore {
   Future<_LoadedOutbox?> _load() async {
     final hasPrimary = await fileSystem.exists(_storePath);
     final hasBackup = await fileSystem.exists(_backupPath);
+    final hasJournal = await fileSystem.exists(_journalPath);
     if (!hasPrimary && !hasBackup) return null;
 
     if (hasPrimary) {
       try {
-        return await _readSource(_storePath);
+        return await _readSourceWithJournal(_storePath, hasJournal);
       } on OutboxMigrationRequiredException {
         rethrow;
       } on OutboxCorruptException {
@@ -448,7 +490,7 @@ class FileDurableOutbox implements RecoverableDurableOutboxStore {
 
     if (!hasBackup) throw const OutboxCorruptException();
     try {
-      final loaded = await _readSource(_backupPath);
+      final loaded = await _readSourceWithJournal(_backupPath, hasJournal);
       await _restoreBackup();
       return loaded;
     } on OutboxMigrationRequiredException {
@@ -457,6 +499,67 @@ class FileDurableOutbox implements RecoverableDurableOutboxStore {
       await _preserveEvidence(_backupPath);
       throw const OutboxCorruptException();
     }
+  }
+
+  Future<_LoadedOutbox> _readSourceWithJournal(
+    String path,
+    bool hasJournal,
+  ) async {
+    final loaded = await _readSource(path);
+    if (!hasJournal) return loaded;
+
+    final bytes = await fileSystem.read(_journalPath);
+    if (bytes.isEmpty) {
+      return _LoadedOutbox(
+        snapshot: loaded.snapshot,
+        generation: loaded.generation,
+        wasMigrated: loaded.wasMigrated,
+        hasJournal: true,
+        journalEntryCount: 0,
+      );
+    }
+
+    var snapshot = loaded.snapshot;
+    var generation = loaded.generation;
+    var appliedEntries = 0;
+    final lines = utf8.decode(bytes).split('\n');
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      try {
+        final envelope = _decodeEnvelope(utf8.encode(line));
+        if (envelope.schemaVersion > currentOutboxSchemaVersion) {
+          throw const OutboxMigrationRequiredException();
+        }
+        final encrypted = _decodeEncryptedPayload(envelope.payload);
+        if (_checksum(encrypted) != envelope.checksum) {
+          throw const OutboxCorruptException();
+        }
+        final payload = _decodeObject(
+          utf8.decode(await _encryption.decrypt(encrypted)),
+        );
+        if (envelope.generation <= generation) continue;
+        if (envelope.generation != generation + 1) {
+          throw const OutboxCorruptException();
+        }
+        snapshot = _applyDelta(snapshot, payload);
+        generation = envelope.generation;
+        appliedEntries++;
+      } on OutboxMigrationRequiredException {
+        rethrow;
+      } on OutboxCorruptException {
+        throw const OutboxCorruptException();
+      } on Object {
+        throw const OutboxCorruptException();
+      }
+    }
+    return _LoadedOutbox(
+      snapshot: snapshot,
+      generation: generation,
+      wasMigrated: loaded.wasMigrated,
+      hasJournal: true,
+      journalEntryCount: appliedEntries,
+    );
   }
 
   Future<_LoadedOutbox> _readSource(String path) async {
@@ -529,6 +632,209 @@ class FileDurableOutbox implements RecoverableDurableOutboxStore {
       await fileSystem.rename(_backupTemporaryPath, _backupPath);
     }
     await fileSystem.rename(_temporaryPath, _storePath);
+  }
+
+  bool _shouldUseJournal() {
+    return _journalMode && capacity.maxBytes == null;
+  }
+
+  Future<void> _appendJournal(
+    OutboxSnapshot current,
+    OutboxSnapshot next, {
+    required int generation,
+  }) async {
+    final delta = _buildDelta(current, next);
+    securityPolicy.validate(delta);
+    final plaintext = utf8.encode(jsonEncode(delta));
+    final encrypted = await _encryption.encrypt(plaintext);
+    final envelope = OutboxEnvelope(
+      schemaVersion: currentOutboxSchemaVersion,
+      generation: generation,
+      checksum: _checksum(encrypted),
+      payload: base64Encode(encrypted),
+    );
+    final bytes = utf8.encode('${jsonEncode(envelope.toJson())}\n');
+    if (fileSystem is IoOutboxFileSystem) {
+      await (fileSystem as IoOutboxFileSystem).append(_journalPath, bytes);
+    } else {
+      final existing = await fileSystem.exists(_journalPath)
+          ? await fileSystem.read(_journalPath)
+          : const <int>[];
+      await fileSystem.write(_journalPath, <int>[...existing, ...bytes]);
+    }
+  }
+
+  Future<void> _compactJournal(
+    OutboxSnapshot snapshot, {
+    required int generation,
+  }) async {
+    await _write(snapshot, generation: generation);
+    await _copyPrimaryToBackup();
+    await fileSystem.delete(_journalPath);
+  }
+
+  Future<void> _copyPrimaryToBackup() async {
+    final primary = await fileSystem.read(_storePath);
+    await fileSystem.write(_backupTemporaryPath, primary);
+    await fileSystem.rename(_backupTemporaryPath, _backupPath);
+  }
+
+  Map<String, Object?> _buildDelta(
+    OutboxSnapshot current,
+    OutboxSnapshot next,
+  ) => {
+    'active': _collectionDelta(
+      current.active,
+      next.active,
+      id: (item) => item.operationId.value,
+      encode: (item) => item.toJson(),
+    ),
+    'deadLetters': _collectionDelta(
+      current.deadLetters,
+      next.deadLetters,
+      id: (item) => item.operation.operationId.value,
+      encode: (item) => item.toJson(),
+    ),
+    'history': _collectionDelta(
+      current.history,
+      next.history,
+      id: (item) => item.operationId.value,
+      encode: (item) => item.toJson(),
+    ),
+    'unknownRecords': _collectionDelta(
+      current.unknownRecords,
+      next.unknownRecords,
+      id: (item) => '${item.kind.name}:${item.recordId}',
+      encode: (item) => item.toJson(),
+    ),
+    if (!identical(current.metadata, next.metadata)) 'metadata': next.metadata,
+  };
+
+  Map<String, Object?> _collectionDelta<T>(
+    List<T> current,
+    List<T> next, {
+    required String Function(T item) id,
+    required Map<String, Object?> Function(T item) encode,
+  }) {
+    final previous = <String, T>{for (final item in current) id(item): item};
+    final nextIds = <String>{};
+    final upserts = <Object?>[];
+    for (final item in next) {
+      final itemId = id(item);
+      nextIds.add(itemId);
+      if (!identical(previous[itemId], item)) upserts.add(encode(item));
+    }
+    final removals = <String>[];
+    for (final item in current) {
+      final itemId = id(item);
+      if (!nextIds.contains(itemId)) removals.add(itemId);
+    }
+    return <String, Object?>{'upsert': upserts, 'remove': removals};
+  }
+
+  OutboxSnapshot _applyDelta(
+    OutboxSnapshot current,
+    Map<String, Object?> delta,
+  ) {
+    final active = _hasCollectionChanges(delta['active'])
+        ? _applyCollection(
+            current.active,
+            delta['active'],
+            id: (item) => item.operationId.value,
+            decode: MutationOperation.fromJson,
+          )
+        : null;
+    final deadLetters = _hasCollectionChanges(delta['deadLetters'])
+        ? _applyCollection(
+            current.deadLetters,
+            delta['deadLetters'],
+            id: (item) => item.operation.operationId.value,
+            decode: OutboxDeadLetter.fromJson,
+          )
+        : null;
+    final history = _hasCollectionChanges(delta['history'])
+        ? _applyCollection(
+            current.history,
+            delta['history'],
+            id: (item) => item.operationId.value,
+            decode: OutboxHistoryEntry.fromJson,
+          )
+        : null;
+    final unknownRecords = _hasCollectionChanges(delta['unknownRecords'])
+        ? _applyCollection(
+            current.unknownRecords,
+            delta['unknownRecords'],
+            id: (item) => '${item.kind.name}:${item.recordId}',
+            decode: OutboxUnknownRecord.fromJson,
+          )
+        : null;
+    return current.copyWith(
+      active: active,
+      deadLetters: deadLetters,
+      history: history,
+      unknownRecords: unknownRecords,
+      metadata: delta.containsKey('metadata')
+          ? _decodeObjectMap(delta['metadata']!)
+          : null,
+    );
+  }
+
+  bool _hasCollectionChanges(Object? value) {
+    if (value is! Map<Object?, Object?>) {
+      throw const OutboxCorruptException();
+    }
+    final delta = _decodeObjectMap(value);
+    final upsert = delta['upsert'];
+    final remove = delta['remove'];
+    if (upsert is! List<Object?> || remove is! List<Object?>) {
+      throw const OutboxCorruptException();
+    }
+    return upsert.isNotEmpty || remove.isNotEmpty;
+  }
+
+  List<T> _applyCollection<T>(
+    List<T> current,
+    Object? rawDelta, {
+    required String Function(T item) id,
+    required T Function(Map<String, Object?> json) decode,
+  }) {
+    if (rawDelta is! Map<Object?, Object?>) {
+      throw const OutboxCorruptException();
+    }
+    final delta = _decodeObjectMap(rawDelta);
+    final rawUpserts = delta['upsert'];
+    final rawRemovals = delta['remove'];
+    if (rawUpserts is! List<Object?> || rawRemovals is! List<Object?>) {
+      throw const OutboxCorruptException();
+    }
+    final removals = rawRemovals.whereType<String>().toSet();
+    if (removals.length != rawRemovals.length) {
+      throw const OutboxCorruptException();
+    }
+    final byId = <String, T>{
+      for (final item in current)
+        if (!removals.contains(id(item))) id(item): item,
+    };
+    for (final raw in rawUpserts) {
+      if (raw is! Map<Object?, Object?>) {
+        throw const OutboxCorruptException();
+      }
+      final item = decode(_decodeObjectMap(raw));
+      byId[id(item)] = item;
+    }
+    return byId.values.toList(growable: false);
+  }
+
+  Map<String, Object?> _decodeObjectMap(Object value) {
+    if (value is! Map<Object?, Object?>) {
+      throw const OutboxCorruptException();
+    }
+    final result = <String, Object?>{};
+    for (final entry in value.entries) {
+      if (entry.key is! String) throw const OutboxCorruptException();
+      result[entry.key! as String] = entry.value;
+    }
+    return result;
   }
 
   Future<void> _restoreBackup() async {
@@ -651,9 +957,13 @@ class _LoadedOutbox {
     required this.snapshot,
     required this.generation,
     required this.wasMigrated,
+    this.hasJournal = false,
+    this.journalEntryCount = 0,
   });
 
   final OutboxSnapshot snapshot;
   final int generation;
   final bool wasMigrated;
+  final bool hasJournal;
+  final int journalEntryCount;
 }
