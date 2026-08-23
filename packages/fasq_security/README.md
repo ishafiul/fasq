@@ -51,6 +51,17 @@ Future<void> main() async {
 await fasq.close();
 ```
 
+The runtime automatically maps Flutter `resumed` events to foreground replay
+and `paused` events to an optional best-effort background wake-up. Mobile
+platform execution is not guaranteed; startup and reconnect replay remain the
+correctness path.
+
+With `OfflineSync.custom`, the supplied `DurableOutboxStore` is borrowed and
+owns its persistence security. Construct `FileDurableOutbox` with an
+`OutboxEncryption` adapter when encrypted custom file persistence is required.
+If opening an outbox fails, `FasqRecoveryException.recovery` exposes a safe
+typed recovery code and message after partial bootstrap resources are closed.
+
 Manual `QueryClient`, `DefaultSecurityPlugin`, and durable queue composition
 remain available for advanced integrations.
 

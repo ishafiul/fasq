@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:fasq/fasq.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
@@ -11,7 +12,7 @@ import 'providers/crypto_encryption_provider.dart';
 import 'providers/secure_storage_provider.dart';
 
 /// Unified application composition root for secure Fasq features.
-class Fasq implements FasqRuntime {
+class Fasq with WidgetsBindingObserver implements FasqRuntime {
   Fasq._({
     required this.scope,
     required QueryClient queryClient,
@@ -26,7 +27,11 @@ class Fasq implements FasqRuntime {
        _replayLifecycle = replayLifecycle,
        _outboxEncryption = outboxEncryption,
        _querySecurity = querySecurity,
-       _status = FasqStatus.ready;
+       _status = FasqStatus.ready {
+    if (replayLifecycle != null) {
+      _binding = WidgetsBinding.instance..addObserver(this);
+    }
+  }
 
   /// Initializes one explicit Fasq application scope.
   static Future<Fasq> initialize({
@@ -161,7 +166,10 @@ class Fasq implements FasqRuntime {
           Error.throwWithStackTrace(
             FasqRecoveryException(
               'Failed to open and recover the durable outbox',
-              error,
+              recovery:
+                  mutationQueue.recovery ??
+                  DurableOutboxRecovery(error.code, error.message),
+              cause: error,
             ),
             stackTrace,
           );
@@ -174,6 +182,7 @@ class Fasq implements FasqRuntime {
           replay: mutationQueue.replay,
           authSessionProvider: offlineSync.auth,
           networkStatus: networkStatus,
+          backgroundAdapter: offlineSync.backgroundAdapter,
         );
         readiness.update(
           storeReady: true,
@@ -235,6 +244,7 @@ class Fasq implements FasqRuntime {
   final ReplayLifecycleController? _replayLifecycle;
   final EncryptionProvider? _outboxEncryption;
   final SecurityPlugin? _querySecurity;
+  WidgetsBinding? _binding;
   FasqStatus _status;
 
   /// Current lifecycle state.
@@ -274,10 +284,46 @@ class Fasq implements FasqRuntime {
     await security.updateEncryptionKey(newKey);
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final trigger = switch (state) {
+      AppLifecycleState.resumed => ReplayLifecycleTrigger.foreground,
+      AppLifecycleState.paused => ReplayLifecycleTrigger.background,
+      _ => null,
+    };
+    if (trigger != null) _requestLifecycleReplay(trigger);
+  }
+
+  void _requestLifecycleReplay(ReplayLifecycleTrigger trigger) {
+    final lifecycle = _replayLifecycle;
+    if (lifecycle == null) return;
+    unawaited(
+      lifecycle
+          .request(trigger)
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stackTrace) {
+              FlutterError.reportError(
+                FlutterErrorDetails(
+                  exception: error,
+                  stack: stackTrace,
+                  library: 'fasq_security',
+                  context: ErrorDescription(
+                    'requesting ${trigger.name} durable mutation replay',
+                  ),
+                ),
+              );
+            },
+          ),
+    );
+  }
+
   /// Closes all resources created by this instance.
   @override
   Future<void> close() async {
     if (_status == FasqStatus.disposed) return;
+    _binding?.removeObserver(this);
+    _binding = null;
     await _replayLifecycle?.dispose();
     await _mutationQueue?.close();
     await _queryClient.cache.flushPersistence();

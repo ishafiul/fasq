@@ -63,24 +63,27 @@ class OfflineSync {
       auth = null,
       connectivity = null,
       store = null,
-      encryption = null;
+      backgroundAdapter = null;
 
   /// Enables the default encrypted file outbox and lifecycle replay.
   const OfflineSync.secure({
     required this.mutations,
     this.auth,
     this.connectivity,
+    this.backgroundAdapter,
   }) : mode = OfflineSyncMode.secure,
-       store = null,
-       encryption = null;
+       store = null;
 
-  /// Uses an application-supplied outbox and encryption adapter.
+  /// Uses an application-supplied outbox.
+  ///
+  /// The store owns its persistence security. Use [FileDurableOutbox] with an
+  /// [OutboxEncryption] adapter when encrypted file persistence is required.
   const OfflineSync.custom({
     required this.mutations,
     required this.store,
-    required this.encryption,
     this.auth,
     this.connectivity,
+    this.backgroundAdapter,
   }) : mode = OfflineSyncMode.custom;
 
   final OfflineSyncMode mode;
@@ -88,7 +91,9 @@ class OfflineSync {
   final AuthSessionProvider? auth;
   final NetworkStatus? connectivity;
   final DurableOutboxStore? store;
-  final OutboxEncryption? encryption;
+
+  /// Optional platform adapter for best-effort background replay scheduling.
+  final BackgroundReplayAdapter? backgroundAdapter;
 
   /// Whether this configuration requests durable synchronization.
   bool get enabled => mode != OfflineSyncMode.disabled;

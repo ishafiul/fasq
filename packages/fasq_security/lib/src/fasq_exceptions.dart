@@ -1,3 +1,5 @@
+import 'package:fasq/fasq.dart';
+
 /// Base error for unified Fasq bootstrap failures.
 class FasqException implements Exception {
   /// Creates a bootstrap error.
@@ -46,7 +48,14 @@ class FasqMutationRegistrationException extends FasqException {
 /// A durable store could not be opened or recovered.
 class FasqRecoveryException extends FasqException {
   /// Creates a recovery error.
-  const FasqRecoveryException(super.message, [super.cause]);
+  const FasqRecoveryException(
+    String message, {
+    required this.recovery,
+    Object? cause,
+  }) : super(message, cause);
+
+  /// Safe recovery category and guidance retained after bootstrap cleanup.
+  final DurableOutboxRecovery recovery;
 }
 
 /// An operation was requested after the Fasq instance closed.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fasq/fasq.dart';
@@ -90,11 +91,7 @@ void main() {
 
       try {
         final fasq = await Fasq.initialize(
-          offlineSync: OfflineSync.custom(
-            mutations: [mutation],
-            store: store,
-            encryption: _FakeOutboxEncryption(),
-          ),
+          offlineSync: OfflineSync.custom(mutations: [mutation], store: store),
         );
 
         expect(fasq.mutationQueue, isNotNull);
@@ -145,7 +142,6 @@ void main() {
           offlineSync: OfflineSync.custom(
             mutations: [mutation],
             store: store,
-            encryption: _FakeOutboxEncryption(),
             connectivity: networkStatus,
           ),
         );
@@ -156,6 +152,99 @@ void main() {
         await fasq?.close();
         await store.close();
         networkStatus.setOnline(online: true);
+        if (directory.existsSync()) {
+          await directory.delete(recursive: true);
+        }
+      }
+    },
+  );
+
+  test('bootstrap failure exposes safe outbox recovery diagnostics', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'fasq-recovery-bootstrap-',
+    );
+    final store = FileDurableOutbox(
+      directoryPath: directory.path,
+      encryption: const _UnavailableOutboxEncryption(),
+    );
+    final mutation = DurableMutationDefinition<String, int>(
+      contractKey: _echoMutationKey,
+      codec: const JsonMutationCodec<int>(
+        encoder: _encodeInt,
+        decoder: _decodeInt,
+      ),
+      execute: (value) async => '$value',
+    );
+
+    try {
+      await expectLater(
+        Fasq.initialize(
+          offlineSync: OfflineSync.custom(mutations: [mutation], store: store),
+        ),
+        throwsA(
+          isA<FasqRecoveryException>().having(
+            (error) => error.recovery.code,
+            'recovery code',
+            DurableOutboxErrorCode.encryption,
+          ),
+        ),
+      );
+    } finally {
+      await store.close();
+      if (directory.existsSync()) {
+        await directory.delete(recursive: true);
+      }
+    }
+  });
+
+  test(
+    'unified runtime maps foreground and background lifecycle signals',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'fasq-lifecycle-bootstrap-',
+      );
+      final store = FileDurableOutbox(
+        directoryPath: directory.path,
+        encryption: _FakeOutboxEncryption(),
+      );
+      final executionStarted = Completer<void>();
+      final backgroundAdapter = _RecordingBackgroundAdapter();
+      final mutation = DurableMutationDefinition<String, int>(
+        contractKey: _echoMutationKey,
+        codec: const JsonMutationCodec<int>(
+          encoder: _encodeInt,
+          decoder: _decodeInt,
+        ),
+        execute: (value) async {
+          if (!executionStarted.isCompleted) executionStarted.complete();
+          return '$value';
+        },
+      );
+      Fasq? fasq;
+
+      try {
+        fasq = await Fasq.initialize(
+          offlineSync: OfflineSync.custom(
+            mutations: [mutation],
+            store: store,
+            backgroundAdapter: backgroundAdapter,
+          ),
+        );
+        await fasq.mutationQueue!.enqueue(key: mutation.key, variables: 7);
+
+        fasq.didChangeAppLifecycleState(AppLifecycleState.resumed);
+        await executionStarted.future.timeout(const Duration(seconds: 1));
+        await fasq.mutationQueue!.replay();
+
+        fasq.didChangeAppLifecycleState(AppLifecycleState.paused);
+        await backgroundAdapter.requested.future.timeout(
+          const Duration(seconds: 1),
+        );
+
+        expect(backgroundAdapter.requests, 1);
+      } finally {
+        await fasq?.close();
+        await store.close();
         if (directory.existsSync()) {
           await directory.delete(recursive: true);
         }
@@ -177,6 +266,32 @@ class _FakeOutboxEncryption implements OutboxEncryption {
 
   @override
   Future<List<int>> decrypt(List<int> ciphertext) async => ciphertext;
+}
+
+class _UnavailableOutboxEncryption implements OutboxEncryption {
+  const _UnavailableOutboxEncryption();
+
+  @override
+  Future<void> prepare({required bool allowCreateKey}) async {
+    throw const OutboxEncryptionException();
+  }
+
+  @override
+  Future<List<int>> encrypt(List<int> plaintext) async => plaintext;
+
+  @override
+  Future<List<int>> decrypt(List<int> ciphertext) async => ciphertext;
+}
+
+class _RecordingBackgroundAdapter implements BackgroundReplayAdapter {
+  final Completer<void> requested = Completer<void>();
+  int requests = 0;
+
+  @override
+  Future<void> requestWakeUp(BackgroundReplayRequest request) async {
+    requests++;
+    if (!requested.isCompleted) requested.complete();
+  }
 }
 
 class _RecordingOutboxStore implements DurableOutboxStore {
