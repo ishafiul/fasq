@@ -1,3 +1,7 @@
+## 0.4.0+1
+
+ - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+
 ## 0.4.0
 
 > Note: This release has breaking changes.

@@ -1,3 +1,8 @@
+## 0.4.1
+
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
+ - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+
 ## 0.4.0
 
 > Note: This release has breaking changes.

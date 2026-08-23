@@ -3,6 +3,58 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2026-08-23
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`fasq` - `v0.5.1`](#fasq---v051)
+ - [`fasq_bloc` - `v0.4.1`](#fasq_bloc---v041)
+ - [`fasq_hooks` - `v0.4.1`](#fasq_hooks---v041)
+ - [`fasq_riverpod` - `v0.4.0+1`](#fasq_riverpod---v0401)
+ - [`fasq_security` - `v0.3.1`](#fasq_security---v031)
+ - [`fasq_serializer_generator` - `v0.1.3`](#fasq_serializer_generator---v013)
+
+---
+
+#### `fasq` - `v0.5.1`
+
+ - **PERF**: Fix Fasq core performance hotspots ([#73](https://github.com/ishafiul/fasq/issues/73)). ([c998ecd0](https://github.com/ishafiul/fasq/commit/c998ecd069b6a8187cf055f8b1caa2f781a2fdfa))
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
+ - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+
+#### `fasq_bloc` - `v0.4.1`
+
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
+ - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+
+#### `fasq_hooks` - `v0.4.1`
+
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
+ - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+
+#### `fasq_riverpod` - `v0.4.0+1`
+
+ - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+
+#### `fasq_security` - `v0.3.1`
+
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
+ - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+
+#### `fasq_serializer_generator` - `v0.1.3`
+
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
+ - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+
+
 ## 2026-05-10
 
 ### Changes
