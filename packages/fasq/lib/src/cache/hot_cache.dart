@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 /// A hot cache entry that tracks access patterns and frequency.
 class _HotEntry<T> {
   _HotEntry({
@@ -31,16 +33,14 @@ class _HotEntry<T> {
 /// Provides O(1) access time for hot items and automatically manages
 /// promotion and eviction based on access patterns.
 class HotCache<T> {
-  // LRU list (most recent at end)
-
   /// Creates a hot cache with the specified maximum size.
   HotCache({this.maxSize = 50})
-      : assert(maxSize > 0, 'maxSize must be greater than 0');
+    : assert(maxSize > 0, 'maxSize must be greater than 0');
 
   /// Maximum number of entries in the hot cache.
   final int maxSize;
-  final Map<String, _HotEntry<T>> _entries = {};
-  final List<String> _accessOrder = [];
+  // LinkedHashMap iteration order is least-recently-used to most-recently-used.
+  final LinkedHashMap<String, _HotEntry<T>> _entries = LinkedHashMap();
 
   /// Get a value from the hot cache
   ///
@@ -51,7 +51,7 @@ class HotCache<T> {
 
     // Update access information
     entry.recordAccess();
-    _updateAccessOrder(key);
+    _touch(key, entry);
 
     return entry.value;
   }
@@ -63,7 +63,7 @@ class HotCache<T> {
     if (_entries.containsKey(key)) {
       // Update existing entry
       _entries[key]!.recordAccess();
-      _updateAccessOrder(key);
+      _touch(key, _entries[key]!);
       return;
     }
 
@@ -79,21 +79,16 @@ class HotCache<T> {
     );
 
     _entries[key] = entry;
-    _accessOrder.add(key);
   }
 
   /// Remove a specific key from the hot cache
   void remove(String key) {
-    final entry = _entries.remove(key);
-    if (entry != null) {
-      _accessOrder.remove(key);
-    }
+    _entries.remove(key);
   }
 
   /// Clear all entries from the hot cache
   void clear() {
     _entries.clear();
-    _accessOrder.clear();
   }
 
   /// Check if the hot cache contains a key
@@ -165,18 +160,17 @@ class HotCache<T> {
     );
   }
 
-  /// Update the access order for a key (move to end of LRU list)
-  void _updateAccessOrder(String key) {
-    _accessOrder
+  /// Moves [key] to the most-recently-used position in O(1) expected time.
+  void _touch(String key, _HotEntry<T> entry) {
+    _entries
       ..remove(key)
-      ..add(key);
+      ..[key] = entry;
   }
 
   /// Evict the least recently used item
   void _evictLeastRecentlyUsed() {
-    if (_accessOrder.isNotEmpty) {
-      final lruKey = _accessOrder.removeAt(0);
-      _entries.remove(lruKey);
+    if (_entries.isNotEmpty) {
+      _entries.remove(_entries.keys.first);
     }
   }
 

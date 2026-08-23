@@ -14,13 +14,14 @@ final class QueryClientMetrics {
     required QueryCache cache,
     required Map<String, Query<Object?>> queries,
   }) : _performanceMonitor = PerformanceMonitor(
-          cache: cache,
-          queries: queries,
-        );
+         cache: cache,
+         queries: queries,
+       );
 
   final PerformanceMonitor _performanceMonitor;
   MetricsConfig _metricsConfig = MetricsConfig();
   Timer? _exportTimer;
+  bool _isExporting = false;
 
   /// Returns a snapshot of global performance metrics.
   PerformanceSnapshot getMetrics({
@@ -34,8 +35,9 @@ final class QueryClientMetrics {
     QueryKey queryKey, {
     Duration throughputWindow = const Duration(minutes: 1),
   }) {
-    final snapshot =
-        _performanceMonitor.getSnapshot(throughputWindow: throughputWindow);
+    final snapshot = _performanceMonitor.getSnapshot(
+      throughputWindow: throughputWindow,
+    );
     return snapshot.queryMetrics[queryKey.key];
   }
 
@@ -51,29 +53,31 @@ final class QueryClientMetrics {
         _metricsConfig.exporters.isNotEmpty) {
       _exportTimer = Timer.periodic(
         _metricsConfig.exportInterval,
-        (timer) async {
-          final snapshot = _performanceMonitor.getSnapshot();
-          for (final exporter in _metricsConfig.exporters) {
-            try {
-              await exporter.export(snapshot);
-            } on Object catch (_) {
-              // Exporter-level logging is delegated to exporters.
-            }
-          }
-        },
+        (timer) => unawaited(_exportSnapshotIfIdle()),
       );
     }
   }
 
   /// Triggers an immediate export to all configured exporters.
   Future<void> exportMetricsManually() async {
-    final snapshot = _performanceMonitor.getSnapshot();
-    for (final exporter in _metricsConfig.exporters) {
-      try {
-        await exporter.export(snapshot);
-      } on Object catch (_) {
-        // Exporter-level logging is delegated to exporters.
+    await _exportSnapshotIfIdle();
+  }
+
+  Future<void> _exportSnapshotIfIdle() async {
+    if (_isExporting) return;
+    _isExporting = true;
+    try {
+      final snapshot = _performanceMonitor.getSnapshot();
+      final exporters = _metricsConfig.exporters;
+      for (final exporter in exporters) {
+        try {
+          await exporter.export(snapshot);
+        } on Object catch (_) {
+          // Exporter-level logging is delegated to exporters.
+        }
       }
+    } finally {
+      _isExporting = false;
     }
   }
 

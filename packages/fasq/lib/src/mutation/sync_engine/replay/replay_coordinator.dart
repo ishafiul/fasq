@@ -143,8 +143,13 @@ class DurableReplayCoordinator {
     RetryPolicy retryPolicy = const RetryPolicy(),
     AuthSessionProvider? authSessionProvider,
     bool Function()? isOnline,
+    this.maxConcurrentOperations = 4,
     this.ownsStore = true,
-  }) : _store = store,
+  }) : assert(
+         maxConcurrentOperations > 0,
+         'maxConcurrentOperations must be positive',
+       ),
+       _store = store,
        _registrations = registrations,
        _now = now ?? DateTime.now,
        _executionAdapter =
@@ -166,6 +171,9 @@ class DurableReplayCoordinator {
 
   /// Whether this coordinator owns the durable store lifecycle.
   final bool ownsStore;
+
+  /// Maximum number of independent ready operations executed together.
+  final int maxConcurrentOperations;
   final AuthScopeGate _authScopeGate = const AuthScopeGate();
   Future<void> _tail = Future<void>.value();
   bool _isOpen = false;
@@ -229,71 +237,58 @@ class DurableReplayCoordinator {
           await _persistDiagnostics(selection);
         }
 
-        final next = selection.orderedNodes.isEmpty
-            ? null
-            : selection.orderedNodes.first.payload;
-        if (next == null) break;
-
-        final started = await _start(next);
-        if (started == null) continue;
-        final operation = started.operation;
-        _lastServedRateLimitBucket = operation.rateLimitBucket;
-        executed.add(operation.operationId);
-
-        final context = MutationExecutionContext(
-          operationId: operation.operationId,
-          idempotencyKey: operation.idempotencyKey,
-          authPolicy: operation.authPolicy,
-          authScope: operation.authScope,
-          conflictPolicy: operation.conflictPolicy,
-          conflictPrecondition: operation.conflictPrecondition,
-          attempt: operation.attemptCount,
-          cancellationToken: replayCancellationToken,
-        );
-        MutationExecutionResult execution;
-        try {
-          execution = await _executionAdapter.execute(
-            context,
-            () => _registrations.executeRegistered(
-              operation.mutationKey,
-              operation.variables,
-            ),
-          );
-        } on Object catch (error) {
-          execution = MutationExecutionFailure(
-            _classifyAdapterError(error),
-          );
+        final batch = _readyBatch(selection.orderedNodes);
+        if (batch.isEmpty) break;
+        final startedOperations = <_StartedOperation>[];
+        for (final operation in batch) {
+          final started = await _start(operation);
+          if (started != null) {
+            startedOperations.add(started);
+            _lastServedRateLimitBucket = operation.rateLimitBucket;
+            executed.add(operation.operationId);
+          }
         }
-        if (execution case MutationExecutionSuccess(:final value)) {
-          final registered = value;
-          if (registered is RegisteredMutationExecution) {
+        if (startedOperations.isEmpty) break;
+        final executions = await Future.wait(
+          startedOperations.map(
+            (started) => _executeStarted(started, replayCancellationToken),
+          ),
+        );
+        for (var index = 0; index < startedOperations.length; index++) {
+          final started = startedOperations[index];
+          final operation = started.operation;
+          final execution = executions[index];
+          final completionGeneration = startedOperations.length == 1
+              ? started.generation
+              : _store.generation;
+          if (execution case MutationExecutionSuccess(:final value)) {
+            final registered = value;
+            final result = registered is RegisteredMutationExecution
+                ? registered.projection
+                : registered;
             final completed = await _completeSuccess(
               started,
-              registered.projection,
+              result,
+              expectedGeneration: completionGeneration,
             );
             if (completed) {
-              successfulResults[operation.operationId] = registered.data;
+              successfulResults[operation.operationId] =
+                  registered is RegisteredMutationExecution
+                  ? registered.data
+                  : registered;
             } else {
               failed.add(operation.operationId);
             }
-          } else {
-            final completed = await _completeSuccess(started, registered);
-            if (completed) {
-              successfulResults[operation.operationId] = registered;
-            } else {
-              failed.add(operation.operationId);
+          } else if (execution case MutationExecutionFailure(:final failure)) {
+            failed.add(operation.operationId);
+            final action = await _completeFailure(
+              started,
+              failure,
+              expectedGeneration: completionGeneration,
+            );
+            if (action == RetryPlanAction.retry) {
+              scheduledRetries.add(operation.operationId);
             }
-          }
-          continue;
-        }
-        if (execution case MutationExecutionFailure(:final failure)) {
-          failed.add(operation.operationId);
-          final action = await _completeFailure(
-            started,
-            failure,
-          );
-          if (action == RetryPlanAction.retry) {
-            scheduledRetries.add(operation.operationId);
           }
         }
       }
@@ -307,6 +302,74 @@ class DurableReplayCoordinator {
         successfulResults: successfulResults,
       );
     });
+  }
+
+  Future<MutationExecutionResult> _executeStarted(
+    _StartedOperation started,
+    ReplayCancellationToken cancellationToken,
+  ) async {
+    final operation = started.operation;
+    final context = MutationExecutionContext(
+      operationId: operation.operationId,
+      idempotencyKey: operation.idempotencyKey,
+      authPolicy: operation.authPolicy,
+      authScope: operation.authScope,
+      conflictPolicy: operation.conflictPolicy,
+      conflictPrecondition: operation.conflictPrecondition,
+      attempt: operation.attemptCount,
+      cancellationToken: cancellationToken,
+    );
+    try {
+      return await _executionAdapter.execute(
+        context,
+        () => _registrations.executeRegistered(
+          operation.mutationKey,
+          operation.variables,
+        ),
+      );
+    } on Object catch (error) {
+      return MutationExecutionFailure(_classifyAdapterError(error));
+    }
+  }
+
+  List<MutationOperation> _readyBatch(
+    List<SyncDagNode<MutationOperation>> orderedNodes,
+  ) {
+    if (orderedNodes.isEmpty) return const <MutationOperation>[];
+    final depthById = <String, int>{};
+    for (final node in orderedNodes) {
+      var depth = 0;
+      for (final dependencyId in node.dependsOnIds) {
+        final dependencyDepth = depthById[dependencyId];
+        if (dependencyDepth != null && dependencyDepth + 1 > depth) {
+          depth = dependencyDepth + 1;
+        }
+      }
+      depthById[node.id] = depth;
+    }
+    final firstDepth = depthById[orderedNodes.first.id]!;
+    final firstId = orderedNodes.first.id;
+    final firstHasDependents = orderedNodes
+        .skip(1)
+        .any(
+          (node) => node.dependsOnIds.contains(firstId),
+        );
+    if (firstHasDependents) {
+      return <MutationOperation>[orderedNodes.first.payload];
+    }
+    final firstBucket = orderedNodes.first.payload.rateLimitBucket;
+    final batch = <MutationOperation>[];
+    for (final node in orderedNodes) {
+      if (depthById[node.id] != firstDepth) continue;
+      if (firstBucket != null &&
+          batch.isNotEmpty &&
+          node.payload.rateLimitBucket == firstBucket) {
+        continue;
+      }
+      batch.add(node.payload);
+      if (batch.length == maxConcurrentOperations) break;
+    }
+    return batch;
   }
 
   /// Closes the coordinator and releases the outbox owner marker.
@@ -616,8 +679,9 @@ class DurableReplayCoordinator {
 
   Future<bool> _completeSuccess(
     _StartedOperation started,
-    Object? result,
-  ) async {
+    Object? result, {
+    required int expectedGeneration,
+  }) async {
     final operation = started.operation;
     OutboxHistoryEntry history;
     try {
@@ -641,6 +705,7 @@ class DurableReplayCoordinator {
           disposition: MutationFailureDisposition.unknownOutcome,
           outcomeKnowledge: MutationOutcomeKnowledge.unknown,
         ),
+        expectedGeneration: expectedGeneration,
       );
       return false;
     }
@@ -663,15 +728,16 @@ class DurableReplayCoordinator {
           history: updatedHistory,
         );
       },
-      expectedGeneration: started.generation,
+      expectedGeneration: expectedGeneration,
     );
     return true;
   }
 
   Future<RetryPlanAction> _completeFailure(
     _StartedOperation started,
-    MutationAdapterFailure failure,
-  ) async {
+    MutationAdapterFailure failure, {
+    required int expectedGeneration,
+  }) async {
     final operation = started.operation;
     final plan = _retryPolicy.plan(
       operation: operation,
@@ -715,7 +781,7 @@ class DurableReplayCoordinator {
             metadata: metadata,
           );
         },
-        expectedGeneration: started.generation,
+        expectedGeneration: expectedGeneration,
       );
       return plan.action;
     }
@@ -786,7 +852,7 @@ class DurableReplayCoordinator {
           ],
         );
       },
-      expectedGeneration: started.generation,
+      expectedGeneration: expectedGeneration,
     );
     return plan.action;
   }
