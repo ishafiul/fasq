@@ -1,55 +1,40 @@
 import 'dart:async';
 
-import 'package:fasq_hooks/fasq_hooks.dart';
+import 'package:fasq/fasq.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-/// Hook that provides a callback to prefetch queries.
-///
-/// Returns a function that can be called to prefetch a query.
-/// Useful for prefetching on hover, on mount, or before navigation.
-///
-/// Example:
-/// ```dart
-/// final prefetch = usePrefetchQuery();
-///
-/// // Prefetch on hover
-/// onHover: () => prefetch('user-123', () => api.fetchUser('123')),
-/// ```
-void Function(QueryKey, Future<T> Function(), {QueryOptions? options})
+import 'use_query_client.dart';
+
+/// Returns a stable asynchronous callback for prefetching one query.
+Future<void> Function(QueryKey, Future<T> Function(), {QueryOptions? options})
 usePrefetchQuery<T>({QueryClient? client}) {
   final queryClient = useQueryClient(client: client);
-
   return useCallback((
     QueryKey queryKey,
     Future<T> Function() queryFn, {
     QueryOptions? options,
   }) {
-    queryClient.prefetchQuery(queryKey, queryFn, options: options);
-  }, []);
+    return queryClient.prefetchQuery(queryKey, queryFn, options: options);
+  }, [queryClient]);
 }
 
-/// Hook that prefetches queries on mount.
-///
-/// Useful for warming the cache for upcoming screens or tabs.
-///
-/// Example:
-/// ```dart
-/// usePrefetchOnMount([
-///   PrefetchConfig(
-///     queryKey: 'users'.toQueryKey(),
-///     queryFn: () => api.fetchUsers(),
-///   ),
-///   PrefetchConfig(
-///     queryKey: 'posts'.toQueryKey(),
-///     queryFn: () => api.fetchPosts(),
-///   ),
-/// ]);
-/// ```
-void usePrefetchOnMount(List<PrefetchConfig> configs, {QueryClient? client}) {
+/// Starts configured prefetches whenever the configuration changes.
+void usePrefetchOnMount(
+  List<PrefetchConfig<dynamic>> configs, {
+  QueryClient? client,
+}) {
   final queryClient = useQueryClient(client: client);
+  final dependencies = <Object?>[
+    queryClient,
+    for (final config in configs) ...<Object?>[
+      config.queryKey.key,
+      config.queryFn,
+      config.options,
+    ],
+  ];
 
   useEffect(() {
-    queryClient.prefetchQueries(configs);
+    unawaited(queryClient.prefetchQueries(configs));
     return null;
-  }, [configs.length]);
+  }, dependencies);
 }

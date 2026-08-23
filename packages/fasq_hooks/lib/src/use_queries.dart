@@ -1,168 +1,238 @@
 import 'dart:async';
 
-import 'package:fasq_hooks/fasq_hooks.dart';
+import 'package:fasq/fasq.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-/// Configuration for a single query in a parallel query setup.
+import 'use_query.dart';
+import 'use_query_client.dart';
+
+/// Configuration for one standard query in a parallel query set.
 class QueryConfig<T> {
-  /// Unique identifier for this query.
+  /// Creates a query configuration.
+  const QueryConfig(
+    this.queryKey,
+    this.queryFn, {
+    this.queryFnWithToken,
+    this.options,
+    this.dependsOn,
+  });
+
+  /// Stable query identity.
   final QueryKey queryKey;
 
-  /// Function that returns a Future with the data.
-  final Future<T> Function() queryFn;
+  /// Ordinary fetch function.
+  final Future<T> Function()? queryFn;
 
-  /// Optional configuration for this query.
+  /// Cancellation-aware fetch function.
+  final Future<T> Function(CancellationToken token)? queryFnWithToken;
+
+  /// Query behavior options.
   final QueryOptions? options;
 
-  const QueryConfig(this.queryKey, this.queryFn, {this.options});
+  /// Optional parent query dependency.
+  final QueryKey? dependsOn;
 }
 
-/// Hook that executes multiple queries in parallel and returns their states.
-///
-/// Each query executes independently and updates its state asynchronously.
-/// The hook returns a list of QueryState objects corresponding to each config.
-///
-/// Example:
-/// ```dart
-/// final queries = useQueries([
-///   QueryConfig('users', () => api.fetchUsers()),
-///   QueryConfig('posts', () => api.fetchPosts()),
-///   QueryConfig('comments', () => api.fetchComments()),
-/// ]);
-///
-/// final allLoaded = queries.every((q) => q.hasData);
-/// final anyError = queries.any((q) => q.hasError);
-/// ```
-List<QueryState<dynamic>> useQueries(
-  List<QueryConfig> configs, {
+/// Executes and observes multiple queries keyed by their query identity.
+List<UseQueryResult<dynamic>> useQueries(
+  List<QueryConfig<dynamic>> configs, {
   QueryClient? client,
 }) {
   final queryClient = useQueryClient(client: client);
-  final states = useState<List<QueryState<dynamic>>>([]);
+  final results = useState<List<UseQueryResult<dynamic>>>(const []);
+  final hasMounted = useRef(false);
+  final dependencies = _queryDependencies(queryClient, configs);
 
   useEffect(() {
+    final shouldReconfigure = hasMounted.value;
+    hasMounted.value = true;
     final queries = configs
         .map(
-          (config) => queryClient.getQuery(
+          (config) => queryClient.reconfigureQuery<dynamic>(
             config.queryKey,
             queryFn: config.queryFn,
+            queryFnWithToken: config.queryFnWithToken,
             options: config.options,
+            dependsOn: config.dependsOn,
           ),
         )
-        .toList();
+        .toList(growable: false);
+    final subscriptions = <StreamSubscription<QueryState<dynamic>>>[];
 
-    // Add listeners to all queries
-    for (final query in queries) {
+    for (var index = 0; index < queries.length; index++) {
+      final query = queries[index];
       query.addListener();
-    }
-
-    // Subscribe to state changes for each query
-    final subscriptions = <StreamSubscription>[];
-    for (int i = 0; i < queries.length; i++) {
       subscriptions.add(
-        queries[i].stream.listen((newState) {
-          final newStates = List<QueryState<dynamic>>.from(states.value);
-          newStates[i] = newState;
-          states.value = newStates;
+        query.stream.listen((state) {
+          final next = List<UseQueryResult<dynamic>>.from(results.value);
+          if (index >= next.length) return;
+          next[index] = UseQueryResult<dynamic>(
+            client: queryClient,
+            query: query,
+            state: state,
+          );
+          results.value = next;
         }),
       );
     }
 
-    // Initialize with current states
-    states.value = queries.map((q) => q.state).toList();
+    results.value = [
+      for (final query in queries)
+        UseQueryResult<dynamic>(
+          client: queryClient,
+          query: query,
+          state: query.state,
+        ),
+    ];
+    for (final query in queries) {
+      if (query.options?.refetchOnMount == true || shouldReconfigure) {
+        unawaited(
+          query.fetch(
+            forceRefetch:
+                shouldReconfigure || query.options?.refetchOnMount == true,
+          ),
+        );
+      }
+    }
 
-    // Cleanup function
     return () {
-      for (final sub in subscriptions) {
-        sub.cancel();
+      for (final subscription in subscriptions) {
+        unawaited(subscription.cancel());
       }
       for (final query in queries) {
         query.removeListener();
       }
     };
-  }, [configs.length]);
+  }, dependencies);
 
-  return states.value;
+  return results.value;
 }
 
-/// Named configuration for queries
+/// Configuration for one named query.
 class NamedQueryConfig<T> {
-  /// Name identifier for this query.
-  final String name;
-
-  /// Unique identifier for this query.
-  final QueryKey queryKey;
-
-  /// Function that returns a Future with the data.
-  final Future<T> Function() queryFn;
-
-  /// Optional configuration for this query.
-  final QueryOptions? options;
-
+  /// Creates a named query configuration.
   const NamedQueryConfig({
     required this.name,
     required this.queryKey,
-    required this.queryFn,
+    this.queryFn,
+    this.queryFnWithToken,
     this.options,
+    this.dependsOn,
   });
+
+  /// Stable UI name.
+  final String name;
+
+  /// Stable query identity.
+  final QueryKey queryKey;
+
+  /// Ordinary fetch function.
+  final Future<T> Function()? queryFn;
+
+  /// Cancellation-aware fetch function.
+  final Future<T> Function(CancellationToken token)? queryFnWithToken;
+
+  /// Query behavior options.
+  final QueryOptions? options;
+
+  /// Optional parent query dependency.
+  final QueryKey? dependsOn;
 }
 
-/// Hook for named queries with map-based access
-///
-/// Each query executes independently and updates its state asynchronously.
-/// The hook returns a map of QueryState objects keyed by query name.
-///
-/// Example:
-/// ```dart
-/// final queries = useNamedQueries([
-///   NamedQueryConfig(name: 'users', key: 'users', queryFn: () => api.fetchUsers()),
-///   NamedQueryConfig(name: 'posts', key: 'posts', queryFn: () => api.fetchPosts()),
-///   NamedQueryConfig(name: 'comments', key: 'comments', queryFn: () => api.fetchComments()),
-/// ]);
-///
-/// final allLoaded = queries.values.every((q) => q.hasData);
-/// final anyError = queries.values.any((q) => q.hasError);
-/// ```
-Map<String, QueryState<dynamic>> useNamedQueries(
-  List<NamedQueryConfig> configs, {
+/// Executes and observes named queries keyed by name and query identity.
+Map<String, UseQueryResult<dynamic>> useNamedQueries(
+  List<NamedQueryConfig<dynamic>> configs, {
   QueryClient? client,
 }) {
   final queryClient = useQueryClient(client: client);
-  final states = useState<Map<String, QueryState<dynamic>>>({});
+  final results = useState<Map<String, UseQueryResult<dynamic>>>({});
+  final hasMounted = useRef(false);
+  final dependencies = <Object?>[
+    queryClient,
+    for (final config in configs) ...<Object?>[
+      config.name,
+      config.queryKey.key,
+      config.queryFn,
+      config.queryFnWithToken,
+      config.options,
+      config.dependsOn?.key,
+    ],
+  ];
 
   useEffect(() {
-    final queries = <String, Query>{};
-    for (final config in configs) {
-      queries[config.name] = queryClient.getQuery(
-        config.queryKey,
-        queryFn: config.queryFn,
-        options: config.options,
-      );
-      queries[config.name]!.addListener();
-    }
-
-    final subscriptions = <StreamSubscription>[];
+    final shouldReconfigure = hasMounted.value;
+    hasMounted.value = true;
+    final queries = <String, Query<dynamic>>{
+      for (final config in configs)
+        config.name: queryClient.reconfigureQuery<dynamic>(
+          config.queryKey,
+          queryFn: config.queryFn,
+          queryFnWithToken: config.queryFnWithToken,
+          options: config.options,
+          dependsOn: config.dependsOn,
+        ),
+    };
+    final subscriptions = <StreamSubscription<QueryState<dynamic>>>[];
     queries.forEach((name, query) {
+      query.addListener();
       subscriptions.add(
-        query.stream.listen((newState) {
-          final newStates = Map<String, QueryState<dynamic>>.from(states.value);
-          newStates[name] = newState;
-          states.value = newStates;
+        query.stream.listen((state) {
+          final next = Map<String, UseQueryResult<dynamic>>.from(results.value);
+          next[name] = UseQueryResult<dynamic>(
+            client: queryClient,
+            query: query,
+            state: state,
+          );
+          results.value = next;
         }),
       );
     });
-
-    states.value = queries.map((name, query) => MapEntry(name, query.state));
+    results.value = {
+      for (final entry in queries.entries)
+        entry.key: UseQueryResult<dynamic>(
+          client: queryClient,
+          query: entry.value,
+          state: entry.value.state,
+        ),
+    };
+    for (final config in configs) {
+      final query = queries[config.name];
+      if (query == null) continue;
+      if (config.options?.refetchOnMount == true || shouldReconfigure) {
+        unawaited(
+          query.fetch(
+            forceRefetch:
+                shouldReconfigure || config.options?.refetchOnMount == true,
+          ),
+        );
+      }
+    }
 
     return () {
-      for (final sub in subscriptions) {
-        sub.cancel();
+      for (final subscription in subscriptions) {
+        unawaited(subscription.cancel());
       }
       for (final query in queries.values) {
         query.removeListener();
       }
     };
-  }, [configs.length]);
+  }, dependencies);
 
-  return states.value;
+  return results.value;
+}
+
+List<Object?> _queryDependencies(
+  QueryClient queryClient,
+  List<QueryConfig<dynamic>> configs,
+) {
+  return <Object?>[
+    queryClient,
+    for (final config in configs) ...<Object?>[
+      config.queryKey.key,
+      config.queryFn,
+      config.queryFnWithToken,
+      config.options,
+      config.dependsOn?.key,
+    ],
+  ];
 }
