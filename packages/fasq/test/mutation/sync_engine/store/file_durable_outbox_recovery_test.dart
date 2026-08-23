@@ -71,6 +71,7 @@ void main() {
 
       expect(await _readPrimary(directory), primaryBeforeFailure);
       expect(recovery.isOpen, isFalse);
+      expect(recovery.recovery?.code, DurableOutboxErrorCode.encryption);
     },
   );
 

@@ -25,6 +25,18 @@ enum DurableOutboxErrorCode {
   credentialRejected,
 }
 
+/// Safe, inspectable state left after a store cannot be opened.
+class DurableOutboxRecovery {
+  /// Creates a recovery state without retaining payloads or exception details.
+  const DurableOutboxRecovery(this.code, this.message);
+
+  /// Stable failure category suitable for application logic.
+  final DurableOutboxErrorCode code;
+
+  /// Redacted guidance key/message for UI and telemetry.
+  final String message;
+}
+
 /// Base exception for durable outbox operations.
 class DurableOutboxException implements Exception {
   /// Creates a safe, public-facing outbox exception.

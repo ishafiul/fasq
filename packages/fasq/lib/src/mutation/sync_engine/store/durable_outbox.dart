@@ -1,3 +1,4 @@
+import 'package:fasq/src/mutation/sync_engine/store/outbox_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/store/outbox_models.dart';
 
 /// A synchronous logical transformation committed as one durable transaction.
@@ -25,4 +26,11 @@ abstract class DurableOutboxStore {
 
   /// Releases ownership and closes the store.
   Future<void> close();
+}
+
+/// Optional recovery diagnostics exposed by stores that support them.
+abstract interface class RecoverableDurableOutboxStore
+    implements DurableOutboxStore {
+  /// Last safe recovery state, when opening the store failed.
+  DurableOutboxRecovery? get recovery;
 }

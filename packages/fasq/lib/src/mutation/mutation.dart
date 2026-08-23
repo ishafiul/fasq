@@ -15,6 +15,7 @@ class Mutation<T, TVariables> {
   Mutation({
     required this.mutationFn,
     this.options,
+    this.client,
   }) {
     _controller = StreamController<MutationState<T>>.broadcast();
     options?.validateDurableConfiguration();
@@ -37,6 +38,12 @@ class Mutation<T, TVariables> {
 
   /// Optional mutation behavior and callbacks.
   final MutationOptions<T, TVariables>? options;
+
+  /// Client that owns lifecycle notifications for this mutation.
+  ///
+  /// Explicit ownership is required for non-singleton runtimes. When omitted
+  /// the legacy singleton is used for compatibility.
+  final QueryClient? client;
 
   MutationState<T> _currentState = const MutationState.idle();
   late final StreamController<MutationState<T>> _controller;
@@ -92,8 +99,8 @@ class Mutation<T, TVariables> {
     DurableMutationQueueOptions<TVariables> durableOptions, {
     required bool executeImmediately,
   }) async {
-    final client = QueryClient.maybeInstance;
-    if (executeImmediately) _notifyLoading(client);
+    final queryClient = _queryClient;
+    if (executeImmediately) _notifyLoading(queryClient);
     try {
       final queue = durableOptions.queue;
       await queue.open();
@@ -124,7 +131,7 @@ class Mutation<T, TVariables> {
         final data = _typedResult(
           replay.successfulResults[acknowledgement.operationId],
         );
-        _notifySuccess(data, variables, client);
+        _notifySuccess(data, variables, queryClient);
         return MutationSubmission<T>.succeeded(
           data: data,
           localReference: acknowledgement.localReference,
@@ -134,7 +141,7 @@ class Mutation<T, TVariables> {
         _notifyError(
           DurableMutationExecutionException(acknowledgement.operationId),
           StackTrace.current,
-          client,
+          queryClient,
         );
         return MutationSubmission<T>.failed(
           localReference: acknowledgement.localReference,
@@ -145,7 +152,7 @@ class Mutation<T, TVariables> {
         localReference: acknowledgement.localReference,
       );
     } on Object catch (error, stackTrace) {
-      _notifyError(error, stackTrace, client);
+      _notifyError(error, stackTrace, queryClient);
       rethrow;
     }
   }
@@ -191,17 +198,19 @@ class Mutation<T, TVariables> {
   Future<MutationSubmission<T>> _executeImmediately(
     TVariables variables,
   ) async {
-    final client = QueryClient.maybeInstance;
-    _notifyLoading(client);
+    final queryClient = _queryClient;
+    _notifyLoading(queryClient);
     try {
       final data = await mutationFn(variables);
-      _notifySuccess(data, variables, client);
+      _notifySuccess(data, variables, queryClient);
       return MutationSubmission<T>.succeeded(data: data);
     } on Object catch (error, stackTrace) {
-      _notifyError(error, stackTrace, client);
+      _notifyError(error, stackTrace, queryClient);
       return MutationSubmission<T>.failed();
     }
   }
+
+  QueryClient? get _queryClient => client ?? QueryClient.maybeInstance;
 
   void _notifyLoading(QueryClient? client) {
     final previous = _currentState;

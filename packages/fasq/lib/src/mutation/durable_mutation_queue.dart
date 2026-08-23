@@ -136,6 +136,16 @@ class DurableMutationQueue {
   /// Snapshot acknowledged by the durable store.
   OutboxSnapshot get snapshot => _store.snapshot;
 
+  /// Safe recovery state when the durable store could not be opened.
+  ///
+  /// This remains available after [open] throws, allowing callers to render
+  /// repair guidance without exposing encrypted payloads or raw exceptions.
+  DurableOutboxRecovery? get recovery {
+    final store = _store;
+    if (store is RecoverableDurableOutboxStore) return store.recovery;
+    return null;
+  }
+
   /// Current durable store generation.
   int get generation => _store.generation;
 

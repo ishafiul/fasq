@@ -153,6 +153,7 @@ class _MutationBuilderState<T, TVariables>
     _mutation = Mutation<T, TVariables>(
       mutationFn: mutationFn,
       options: _effectiveOptions,
+      client: _client,
     );
     _state = _mutation.state;
 

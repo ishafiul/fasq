@@ -246,7 +246,7 @@ class IoOutboxFileSystem implements OutboxFileSystem {
 }
 
 /// Default crash-safe encrypted file backend for the durable outbox.
-class FileDurableOutbox implements DurableOutboxStore {
+class FileDurableOutbox implements RecoverableDurableOutboxStore {
   /// Creates a file-backed durable outbox.
   FileDurableOutbox({
     required String directoryPath,
@@ -318,6 +318,7 @@ class FileDurableOutbox implements DurableOutboxStore {
   );
 
   OutboxSnapshot _snapshot = OutboxSnapshot();
+  DurableOutboxRecovery? _recovery;
   int _generation = 0;
   bool _isOpen = false;
   bool _ownsLock = false;
@@ -328,6 +329,9 @@ class FileDurableOutbox implements DurableOutboxStore {
 
   @override
   OutboxSnapshot get snapshot => _snapshot;
+
+  @override
+  DurableOutboxRecovery? get recovery => _recovery;
 
   @override
   int get generation => _generation;
@@ -364,7 +368,21 @@ class FileDurableOutbox implements DurableOutboxStore {
           }
         }
         _isOpen = true;
+        _recovery = null;
         return _snapshot;
+      } on DurableOutboxException catch (error) {
+        _recovery = DurableOutboxRecovery(error.code, error.message);
+        if (error.code == DurableOutboxErrorCode.migrationRequired ||
+            error.code == DurableOutboxErrorCode.encryption ||
+            error.code == DurableOutboxErrorCode.storageCorrupt) {
+          await _preserveEvidenceIfPresent(_storePath);
+        }
+        try {
+          await _releaseLock();
+        } on Object {
+          // Preserve the original failure while retaining ownership state.
+        }
+        rethrow;
       } on Object {
         try {
           await _releaseLock();
@@ -525,6 +543,15 @@ class FileDurableOutbox implements DurableOutboxStore {
       await fileSystem.copy(path, evidence);
     } on Object {
       // The original source remains untouched even if evidence export fails.
+    }
+  }
+
+  Future<void> _preserveEvidenceIfPresent(String path) async {
+    try {
+      if (!await fileSystem.exists(path)) return;
+      await _preserveEvidence(path);
+    } on Object {
+      // Recovery diagnostics must never mask the original open failure.
     }
   }
 
