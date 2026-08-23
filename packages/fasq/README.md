@@ -8,7 +8,7 @@
 
 Fasq is a powerful library for managing asynchronous state in Flutter applications. It handles caching, synchronization, background updates, and error recovery with a simple, declarative API.
 
-**Current Version:** 0.5.0
+**Current Version:** 0.5.1
 
 ## 📚 Documentation
 
@@ -31,7 +31,7 @@ Add `fasq` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  fasq: ^0.5.0
+  fasq: ^0.5.1
 ```
 
 ## 🚀 Quick Start

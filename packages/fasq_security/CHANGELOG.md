@@ -1,24 +1,19 @@
 ## 0.3.1
 
- - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
- - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/pull/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
 
 ## 0.3.0
 
 > Note: This release has breaking changes.
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
- - **FEAT**: enhance CacheDatabase schema setup (#39).
- - **FEAT**: introduce cache data codec (#38).
- - **FEAT**: harden persistence across cache layers (#36).
- - **FEAT**: example app (#23).
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
- - **DOCS**: sync readme versions (#35).
- - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
- - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
+ - **FEAT**: enhance CacheDatabase schema setup ([#39](https://github.com/ishafiul/fasq/pull/39)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
+ - **FEAT**: harden persistence across cache layers ([#36](https://github.com/ishafiul/fasq/pull/36)).
+ - **FEAT**: example app ([#23](https://github.com/ishafiul/fasq/pull/23)).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package ([#11](https://github.com/ishafiul/fasq/pull/11)).
 
 ## 0.2.0+3
 
@@ -36,34 +31,28 @@
 
 > Note: This release has breaking changes.
 
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
 
 ## 0.1.4+2
 
  - Update a dependency to the latest release.
 
-## 0.1.4+1
-
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
-
 ## 0.1.4
 
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
 
 ## 0.1.3
 
- - **FEAT**: enhance CacheDatabase schema setup (#39).
- - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: enhance CacheDatabase schema setup ([#39](https://github.com/ishafiul/fasq/pull/39)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
 
 ## 0.1.2
 
- - **FEAT**: harden persistence across cache layers (#36).
- - **DOCS**: sync readme versions (#35).
+ - **FEAT**: harden persistence across cache layers ([#36](https://github.com/ishafiul/fasq/pull/36)).
 
 ## 0.1.1
 
- - **FEAT**: example app (#23).
+ - **FEAT**: example app ([#23](https://github.com/ishafiul/fasq/pull/23)).
 
 ## 0.1.0+3
 
@@ -81,9 +70,8 @@
 
 > Note: This release has breaking changes.
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
- - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package ([#11](https://github.com/ishafiul/fasq/pull/11)).
 
 # Changelog
 

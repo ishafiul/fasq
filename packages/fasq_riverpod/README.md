@@ -8,7 +8,7 @@
 
 Seamlessly integrate FASQ's powerful caching and async management into your Riverpod application.
 
-**Current Version:** 0.4.0
+**Current Version:** 0.4.0+1
 
 ## 📚 Documentation
 
@@ -27,7 +27,7 @@ For full documentation and API reference, visit:
 
 ```yaml
 dependencies:
-  fasq_riverpod: ^0.4.0
+  fasq_riverpod: ^0.4.0+1
 ```
 
 ## 🚀 Quick Start

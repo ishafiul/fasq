@@ -1,28 +1,21 @@
-## 0.4.0+1
-
- - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
-
 ## 0.4.0
 
 > Note: This release has breaking changes.
 
- - **REFACTOR**: fasq core files path and folder structure  (#59).
+ - **REFACTOR**: fasq core files path and folder structure  ([#59](https://github.com/ishafiul/fasq/pull/59)).
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: security (#9).
- - **FEAT**: Riverpod Update (#54).
- - **FEAT**: introduce cache data codec (#38).
- - **FEAT**: update SEO and metadata handling.
- - **FEAT**: add type-safe query keys support (#28).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: offline mutation queue (#5).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
- - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**: Riverpod Update ([#54](https://github.com/ishafiul/fasq/pull/54)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: offline mutation queue ([#5](https://github.com/ishafiul/fasq/pull/5)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners ([#7](https://github.com/ishafiul/fasq/pull/7)).
 
 ## 0.3.1+1
 
@@ -30,7 +23,7 @@
 
 ## 0.3.1
 
- - **FEAT**: Riverpod Update (#54).
+ - **FEAT**: Riverpod Update ([#54](https://github.com/ishafiul/fasq/pull/54)).
 
 ## 0.3.0+2
 
@@ -44,42 +37,30 @@
 
 > Note: This release has breaking changes.
 
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
 
 ## 0.2.4+3
 
  - Update a dependency to the latest release.
 
-## 0.2.4+2
-
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
-
-## 0.2.4+1
-
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
-
 ## 0.2.4
 
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
 
 ## 0.2.3+1
 
  - Update a dependency to the latest release.
 
-## 0.2.3
-
- - **FEAT**: update SEO and metadata handling.
-
 ## 0.2.2
 
-- **FIX**: align docs, entrypoints, and tests around typed QueryKey usage (#30).
-- **FIX**: add Flutter example apps for fasq, bloc, hooks, and riverpod packages (#30).
+- **FIX**: align docs, entrypoints, and tests around typed QueryKey usage ([#30](https://github.com/ishafiul/fasq/pull/30)).
+- **FIX**: add Flutter example apps for fasq, bloc, hooks, and riverpod packages ([#30](https://github.com/ishafiul/fasq/pull/30)).
 
 
 ## 0.2.1
 
- - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
 
 ## 0.2.0+2
 
@@ -93,14 +74,14 @@
 
 > Note: This release has breaking changes.
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: security (#9).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: offline mutation queue (#5).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: offline mutation queue ([#5](https://github.com/ishafiul/fasq/pull/5)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners ([#7](https://github.com/ishafiul/fasq/pull/7)).
 
 ## 0.0.1
 

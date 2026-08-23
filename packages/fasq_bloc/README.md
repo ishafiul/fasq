@@ -10,7 +10,7 @@
 
 Bring the power of caching, optimistic updates, and offline support to your Bloc application with **zero friction**. `fasq_bloc` bridges the gap between `fasq`'s powerful query engine and the `flutter_bloc` ecosystem, allowing you to build complex data-driven apps without fighting your architecture.
 
-**Current Version:** 0.4.0
+**Current Version:** 0.4.1
 
 ## 📚 Documentation
 
@@ -29,7 +29,7 @@ For full documentation and API reference, visit:
 
 ```yaml
 dependencies:
-  fasq_bloc: ^0.4.0
+  fasq_bloc: ^0.4.1
   flutter_bloc: ^8.0.0
 ```
 

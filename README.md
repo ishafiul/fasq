@@ -48,11 +48,11 @@ Add `fasq` to your `pubspec.yaml` (or your preferred adapter):
 
 ```yaml
 dependencies:
-  fasq: ^0.5.0
+  fasq: ^0.5.1
   # Optional adapters:
-  # fasq_bloc: ...
-  # fasq_riverpod: ...
-  # fasq_hooks: ...
+  # fasq_bloc: ^0.4.1
+  # fasq_riverpod: ^0.4.0+1
+  # fasq_hooks: ^0.4.1
 ```
 
 ### 2. Configure Client

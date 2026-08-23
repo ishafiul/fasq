@@ -8,7 +8,7 @@
 
 Automatically registers serializers from your `TypedQueryKey` declarations, eliminating boilerplate code for complex data types.
 
-**Current Version:** 0.1.2
+**Current Version:** 0.1.3
 
 ## 📚 Documentation
 
@@ -27,7 +27,7 @@ For full documentation and API reference, visit:
 
 ```yaml
 dev_dependencies:
-  fasq_serializer_generator: ^0.1.2
+  fasq_serializer_generator: ^0.1.3
   build_runner: ^2.4.0
 ```
 

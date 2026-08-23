@@ -8,7 +8,7 @@
 
 The most natural way to use FASQ in Flutter. Bringing React Query-style hooks to your Flutter applications.
 
-**Current Version:** 0.4.0
+**Current Version:** 0.4.1
 
 ## 📚 Documentation
 
@@ -27,7 +27,7 @@ For full documentation and API reference, visit:
 
 ```yaml
 dependencies:
-  fasq_hooks: ^0.4.0
+  fasq_hooks: ^0.4.1
 ```
 
 ## 🚀 Quick Start

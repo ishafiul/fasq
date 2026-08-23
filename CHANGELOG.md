@@ -26,33 +26,27 @@ Packages with other changes:
 
 #### `fasq` - `v0.5.1`
 
- - **PERF**: Fix Fasq core performance hotspots ([#73](https://github.com/ishafiul/fasq/issues/73)). ([c998ecd0](https://github.com/ishafiul/fasq/commit/c998ecd069b6a8187cf055f8b1caa2f781a2fdfa))
- - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
- - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+ - **PERF**: Fix Fasq core performance hotspots ([#73](https://github.com/ishafiul/fasq/pull/73)). ([c998ecd0](https://github.com/ishafiul/fasq/commit/c998ecd069b6a8187cf055f8b1caa2f781a2fdfa))
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/pull/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
 
 #### `fasq_bloc` - `v0.4.1`
 
- - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
- - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/pull/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
 
 #### `fasq_hooks` - `v0.4.1`
 
- - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
- - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/pull/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
 
 #### `fasq_riverpod` - `v0.4.0+1`
 
- - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
 
 #### `fasq_security` - `v0.3.1`
 
- - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
- - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/pull/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
 
 #### `fasq_serializer_generator` - `v0.1.3`
 
- - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/issues/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
- - **DOCS**: update README files across the repository for clarity and consistency. ([d0ace325](https://github.com/ishafiul/fasq/commit/d0ace325974f42e278293a94ebf56eb8a45afe1d))
+ - **FEAT**: build offline-first mutation sync engine ([#61](https://github.com/ishafiul/fasq/pull/61)). ([cd0cff75](https://github.com/ishafiul/fasq/commit/cd0cff752cb6e4806803feb07eb93b05c8a0c821))
 
 
 ## 2026-05-10
@@ -77,130 +71,110 @@ Packages with other changes:
 
 #### `fasq` - `v0.5.0`
 
- - **REFACTOR**: Improve query and mutation handling in widgets (#56).
+ - **REFACTOR**: Improve query and mutation handling in widgets ([#56](https://github.com/ishafiul/fasq/pull/56)).
  - **REFACTOR**: Update LeakDetector to throw Exception instead of TestFailure.
- - **REFACTOR**: fasq core files path and folder structure  (#59).
- - **REFACTOR**(performance): simplify isolate pool initialization (#24).
- - **FIX**: security (#9).
- - **FIX**(query_cache): Enhance cache entry management and eviction logic (#57).
- - **FIX**: comprehensive fixes for reference counting and loading state (#21).
- - **FIX**: wait for persistence initialization before creating queries (#41).
+ - **REFACTOR**: fasq core files path and folder structure  ([#59](https://github.com/ishafiul/fasq/pull/59)).
+ - **REFACTOR**(performance): simplify isolate pool initialization ([#24](https://github.com/ishafiul/fasq/pull/24)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FIX**(query_cache): Enhance cache entry management and eviction logic ([#57](https://github.com/ishafiul/fasq/pull/57)).
+ - **FIX**: comprehensive fixes for reference counting and loading state ([#21](https://github.com/ishafiul/fasq/pull/21)).
+ - **FIX**: wait for persistence initialization before creating queries ([#41](https://github.com/ishafiul/fasq/pull/41)).
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FIX**: resolve cache type safety issue by reconstructing CacheEntry instead of casting (#27).
- - **FIX**: enhance infinite query options and state management (#25).
- - **FIX**: improve cache staleness handling and query state management (#22).
- - **FIX**: prevent negative reference count in Query and InfiniteQuery (#18).
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: resolve critical issues and improve code quality (#15).
- - **FEAT**: introduce cache data codec (#38).
- - **FEAT**: Error Tracking System for Production Diagnostics (#52).
- - **FEAT**: harden persistence across cache layers (#36).
- - **FEAT**: prefetching (#8).
- - **FEAT**: allow typed meta messages (#34).
- - **FEAT**: refine global query effects (#33).
- - **FEAT**: add context-aware query observers (#32).
- - **FEAT**: allow injecting manual query client (#31).
- - **FEAT**: update SEO and metadata handling.
- - **FEAT**: add type-safe query keys support (#28).
- - **FEAT**: Built-in Logging for Query and Mutation Lifecycle Events (#48).
- - **FEAT**: dependent queries (#4).
- - **FEAT**(circuit-breaker): Implement circuit breaker pattern for query protection (#45).
- - **FEAT**: offline mutation queue (#5).
- - **FEAT**: infinite queries (#3).
- - **FEAT**: clear cache when query is disposed to ensure fresh data on revisit (#20).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
- - **FEAT**: Leak Detection (#51).
- - **FEAT**: Memory Management with Pressure Handling & Leak Detection (#50).
- - **FEAT**: implement comprehensive performance optimization system (#13).
- - **FEAT**: integrate SecurityPlugin with QueryCache (#12).
- - **FEAT**: complete updateEncryptionKey implementation with real persistence (#10).
- - **FEAT**(fasq): add performance metrics, optimize IsolatePool, and improve lifecycle (#49).
- - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
- - **DOCS**: sync readme versions (#35).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
- - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+ - **FIX**: resolve cache type safety issue by reconstructing CacheEntry instead of casting ([#27](https://github.com/ishafiul/fasq/pull/27)).
+ - **FIX**: enhance infinite query options and state management ([#25](https://github.com/ishafiul/fasq/pull/25)).
+ - **FIX**: improve cache staleness handling and query state management ([#22](https://github.com/ishafiul/fasq/pull/22)).
+ - **FIX**: prevent negative reference count in Query and InfiniteQuery ([#18](https://github.com/ishafiul/fasq/pull/18)).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: resolve critical issues and improve code quality ([#15](https://github.com/ishafiul/fasq/pull/15)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
+ - **FEAT**: Error Tracking System for Production Diagnostics ([#52](https://github.com/ishafiul/fasq/pull/52)).
+ - **FEAT**: harden persistence across cache layers ([#36](https://github.com/ishafiul/fasq/pull/36)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: allow typed meta messages ([#34](https://github.com/ishafiul/fasq/pull/34)).
+ - **FEAT**: refine global query effects ([#33](https://github.com/ishafiul/fasq/pull/33)).
+ - **FEAT**: add context-aware query observers ([#32](https://github.com/ishafiul/fasq/pull/32)).
+ - **FEAT**: allow injecting manual query client ([#31](https://github.com/ishafiul/fasq/pull/31)).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
+ - **FEAT**: Built-in Logging for Query and Mutation Lifecycle Events ([#48](https://github.com/ishafiul/fasq/pull/48)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**(circuit-breaker): Implement circuit breaker pattern for query protection ([#45](https://github.com/ishafiul/fasq/pull/45)).
+ - **FEAT**: offline mutation queue ([#5](https://github.com/ishafiul/fasq/pull/5)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **FEAT**: clear cache when query is disposed to ensure fresh data on revisit ([#20](https://github.com/ishafiul/fasq/pull/20)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
+ - **FEAT**: Leak Detection ([#51](https://github.com/ishafiul/fasq/pull/51)).
+ - **FEAT**: Memory Management with Pressure Handling & Leak Detection ([#50](https://github.com/ishafiul/fasq/pull/50)).
+ - **FEAT**: implement comprehensive performance optimization system ([#13](https://github.com/ishafiul/fasq/pull/13)).
+ - **FEAT**: integrate SecurityPlugin with QueryCache ([#12](https://github.com/ishafiul/fasq/pull/12)).
+ - **FEAT**: complete updateEncryptionKey implementation with real persistence ([#10](https://github.com/ishafiul/fasq/pull/10)).
+ - **FEAT**(fasq): add performance metrics, optimize IsolatePool, and improve lifecycle ([#49](https://github.com/ishafiul/fasq/pull/49)).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package ([#11](https://github.com/ishafiul/fasq/pull/11)).
 
 #### `fasq_bloc` - `v0.4.0`
 
- - **REFACTOR**: convert cubits to abstract base classes (#26).
+ - **REFACTOR**: convert cubits to abstract base classes ([#26](https://github.com/ishafiul/fasq/pull/26)).
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: security (#9).
- - **FEAT**(fasq_bloc): Major Refactor - Composition, Lifecycle Hooks, and Feature Parity (#53).
- - **FEAT**: introduce cache data codec (#38).
- - **FEAT**: update SEO and metadata handling.
- - **FEAT**: example app (#23).
- - **FEAT**: add type-safe query keys support (#28).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: offline mutation queue (#5).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
- - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**(fasq_bloc): Major Refactor - Composition, Lifecycle Hooks, and Feature Parity ([#53](https://github.com/ishafiul/fasq/pull/53)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
+ - **FEAT**: example app ([#23](https://github.com/ishafiul/fasq/pull/23)).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: offline mutation queue ([#5](https://github.com/ishafiul/fasq/pull/5)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners ([#7](https://github.com/ishafiul/fasq/pull/7)).
 
 #### `fasq_hooks` - `v0.4.0`
 
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: security (#9).
- - **FEAT**: introduce cache data codec (#38).
- - **FEAT**: update SEO and metadata handling.
- - **FEAT**: add type-safe query keys support (#28).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
- - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners ([#7](https://github.com/ishafiul/fasq/pull/7)).
 
 #### `fasq_riverpod` - `v0.4.0`
 
- - **REFACTOR**: fasq core files path and folder structure  (#59).
+ - **REFACTOR**: fasq core files path and folder structure  ([#59](https://github.com/ishafiul/fasq/pull/59)).
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: security (#9).
- - **FEAT**: Riverpod Update (#54).
- - **FEAT**: introduce cache data codec (#38).
- - **FEAT**: update SEO and metadata handling.
- - **FEAT**: add type-safe query keys support (#28).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: offline mutation queue (#5).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
- - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**: Riverpod Update ([#54](https://github.com/ishafiul/fasq/pull/54)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: offline mutation queue ([#5](https://github.com/ishafiul/fasq/pull/5)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners ([#7](https://github.com/ishafiul/fasq/pull/7)).
 
 #### `fasq_security` - `v0.3.0`
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
- - **FEAT**: enhance CacheDatabase schema setup (#39).
- - **FEAT**: introduce cache data codec (#38).
- - **FEAT**: harden persistence across cache layers (#36).
- - **FEAT**: example app (#23).
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
- - **DOCS**: sync readme versions (#35).
- - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
- - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
+ - **FEAT**: enhance CacheDatabase schema setup ([#39](https://github.com/ishafiul/fasq/pull/39)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
+ - **FEAT**: harden persistence across cache layers ([#36](https://github.com/ishafiul/fasq/pull/36)).
+ - **FEAT**: example app ([#23](https://github.com/ishafiul/fasq/pull/23)).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package ([#11](https://github.com/ishafiul/fasq/pull/11)).
 
 #### `fasq_serializer_generator` - `v0.1.2`
 
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
 
 
 ## 2026-01-13
@@ -236,7 +210,7 @@ Packages with dependency updates only:
 
 #### `fasq` - `v0.4.2+1`
 
- - **REFACTOR**: Improve query and mutation handling in widgets (#56).
+ - **REFACTOR**: Improve query and mutation handling in widgets ([#56](https://github.com/ishafiul/fasq/pull/56)).
 
 
 ## 2026-01-11
@@ -257,7 +231,7 @@ Packages with other changes:
 
 #### `fasq_riverpod` - `v0.3.1`
 
- - **FEAT**: Riverpod Update (#54).
+ - **FEAT**: Riverpod Update ([#54](https://github.com/ishafiul/fasq/pull/54)).
 
 
 ## 2026-01-04
@@ -293,11 +267,11 @@ Packages with dependency updates only:
 #### `fasq` - `v0.4.2`
 
  - **REFACTOR**: Update LeakDetector to throw Exception instead of TestFailure.
- - **FEAT**: Error Tracking System for Production Diagnostics (#52).
+ - **FEAT**: Error Tracking System for Production Diagnostics ([#52](https://github.com/ishafiul/fasq/pull/52)).
 
 #### `fasq_bloc` - `v0.3.1`
 
- - **FEAT**(fasq_bloc): Major Refactor - Composition, Lifecycle Hooks, and Feature Parity (#53).
+ - **FEAT**(fasq_bloc): Major Refactor - Composition, Lifecycle Hooks, and Feature Parity ([#53](https://github.com/ishafiul/fasq/pull/53)).
 
 
 ## 2026-01-03
@@ -333,10 +307,10 @@ Packages with dependency updates only:
 
 #### `fasq` - `v0.4.1`
 
- - **FEAT**: Leak Detection (#51).
- - **FEAT**: Memory Management with Pressure Handling & Leak Detection (#50).
- - **FEAT**(fasq): add performance metrics, optimize IsolatePool, and improve lifecycle (#49).
- - **FEAT**: Built-in Logging for Query and Mutation Lifecycle Events (#48).
+ - **FEAT**: Leak Detection ([#51](https://github.com/ishafiul/fasq/pull/51)).
+ - **FEAT**: Memory Management with Pressure Handling & Leak Detection ([#50](https://github.com/ishafiul/fasq/pull/50)).
+ - **FEAT**(fasq): add performance metrics, optimize IsolatePool, and improve lifecycle ([#49](https://github.com/ishafiul/fasq/pull/49)).
+ - **FEAT**: Built-in Logging for Query and Mutation Lifecycle Events ([#48](https://github.com/ishafiul/fasq/pull/48)).
 
 
 ## 2025-12-29
@@ -367,23 +341,23 @@ Packages with dependency updates only:
 
 #### `fasq` - `v0.4.0`
 
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
 
 #### `fasq_bloc` - `v0.3.0`
 
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
 
 #### `fasq_hooks` - `v0.3.0`
 
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
 
 #### `fasq_riverpod` - `v0.3.0`
 
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
 
 #### `fasq_security` - `v0.2.0`
 
- - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal (#47).
+ - **BREAKING** **FEAT**(core): Parent-Child Query Cancellation & Cascading Disposal ([#47](https://github.com/ishafiul/fasq/pull/47)).
 
 
 ## 2025-12-28
@@ -419,7 +393,7 @@ Packages with dependency updates only:
 
 #### `fasq` - `v0.3.8`
 
- - **FEAT**(circuit-breaker): Implement circuit breaker pattern for query protection (#45).
+ - **FEAT**(circuit-breaker): Implement circuit breaker pattern for query protection ([#45](https://github.com/ishafiul/fasq/pull/45)).
 
 
 ## 2025-12-26
@@ -445,27 +419,21 @@ Packages with other changes:
 
 #### `fasq` - `v0.3.7+1`
 
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
 
 #### `fasq_bloc` - `v0.2.4+2`
 
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
 
 #### `fasq_hooks` - `v0.2.4+2`
 
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
 
 #### `fasq_riverpod` - `v0.2.4+2`
 
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
 
 #### `fasq_security` - `v0.1.4+1`
 
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
 
 #### `fasq_serializer_generator` - `v0.1.1+1`
 
- - **DOCS**: Update READMEs with new features, documentation links, usage examples, and remove production warnings. (#44).
 
 
 ## 2025-12-25
@@ -486,8 +454,7 @@ Packages with other changes:
 
 #### `fasq_serializer_generator` - `v0.1.1`
 
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
 
 
 ## 2025-12-25
@@ -514,30 +481,25 @@ Packages with other changes:
 #### `ecommerce` - `v0.0.2`
 
  - **FEAT**(tests): add persistence check tests for promotional content and query client integration.
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
 
 #### `fasq` - `v0.3.7`
 
- - **FIX**: wait for persistence initialization before creating queries (#41).
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **FIX**: wait for persistence initialization before creating queries ([#41](https://github.com/ishafiul/fasq/pull/41)).
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
 
 #### `fasq_bloc` - `v0.2.4+1`
 
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
 
 #### `fasq_hooks` - `v0.2.4+1`
 
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
 
 #### `fasq_riverpod` - `v0.2.4+1`
 
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
 
 #### `fasq_security` - `v0.1.4`
 
- - **FEAT**: Add automatic serializer generator for type-safe persistence (#42).
- - **DOCS**: Update README files across packages to indicate active development status and not ready for production use.
+ - **FEAT**: Add automatic serializer generator for type-safe persistence ([#42](https://github.com/ishafiul/fasq/pull/42)).
 
 
 ## 2025-11-20
@@ -563,27 +525,27 @@ Packages with other changes:
 #### `fasq` - `v0.3.6`
 
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
 
 #### `fasq_bloc` - `v0.2.4`
 
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
 
 #### `fasq_hooks` - `v0.2.4`
 
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
 
 #### `fasq_riverpod` - `v0.2.4`
 
  - **FIX**: ensure query cache cleanup and proper disposal.
- - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
 
 #### `fasq_security` - `v0.1.3`
 
- - **FEAT**: enhance CacheDatabase schema setup (#39).
- - **FEAT**: introduce cache data codec (#38).
+ - **FEAT**: enhance CacheDatabase schema setup ([#39](https://github.com/ishafiul/fasq/pull/39)).
+ - **FEAT**: introduce cache data codec ([#38](https://github.com/ishafiul/fasq/pull/38)).
 
 
 ## 2025-11-09
@@ -616,13 +578,11 @@ Packages with dependency updates only:
 
 #### `fasq` - `v0.3.5`
 
- - **FEAT**: harden persistence across cache layers (#36).
- - **DOCS**: sync readme versions (#35).
+ - **FEAT**: harden persistence across cache layers ([#36](https://github.com/ishafiul/fasq/pull/36)).
 
 #### `fasq_security` - `v0.1.2`
 
- - **FEAT**: harden persistence across cache layers (#36).
- - **DOCS**: sync readme versions (#35).
+ - **FEAT**: harden persistence across cache layers ([#36](https://github.com/ishafiul/fasq/pull/36)).
 
 
 ## 2025-11-08
@@ -647,28 +607,24 @@ Packages with other changes:
 
 #### `fasq` - `v0.3.4`
 
- - **FEAT**: allow typed meta messages (#34).
- - **FEAT**: refine global query effects (#33).
- - **FEAT**: add context-aware query observers (#32).
- - **FEAT**: allow injecting manual query client (#31).
- - **FEAT**: update SEO and metadata handling.
+ - **FEAT**: allow typed meta messages ([#34](https://github.com/ishafiul/fasq/pull/34)).
+ - **FEAT**: refine global query effects ([#33](https://github.com/ishafiul/fasq/pull/33)).
+ - **FEAT**: add context-aware query observers ([#32](https://github.com/ishafiul/fasq/pull/32)).
+ - **FEAT**: allow injecting manual query client ([#31](https://github.com/ishafiul/fasq/pull/31)).
 
 #### `fasq_bloc` - `v0.2.3`
 
- - **FEAT**: update SEO and metadata handling.
- - **FEAT**: example app (#23).
+ - **FEAT**: example app ([#23](https://github.com/ishafiul/fasq/pull/23)).
 
 #### `fasq_hooks` - `v0.2.3`
 
- - **FEAT**: update SEO and metadata handling.
 
 #### `fasq_riverpod` - `v0.2.3`
 
- - **FEAT**: update SEO and metadata handling.
 
 #### `fasq_security` - `v0.1.1`
 
- - **FEAT**: example app (#23).
+ - **FEAT**: example app ([#23](https://github.com/ishafiul/fasq/pull/23)).
 
 
 ## 2025-11-06
@@ -699,19 +655,19 @@ Packages with dependency updates only:
 
 #### `fasq` - `v0.3.2`
 
- - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
 
 #### `fasq_bloc` - `v0.2.1`
 
- - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
 
 #### `fasq_hooks` - `v0.2.1`
 
- - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
 
 #### `fasq_riverpod` - `v0.2.1`
 
- - **FEAT**: add type-safe query keys support (#28).
+ - **FEAT**: add type-safe query keys support ([#28](https://github.com/ishafiul/fasq/pull/28)).
 
 
 ## 2025-11-06
@@ -744,12 +700,12 @@ Packages with dependency updates only:
 
 #### `fasq` - `v0.3.1+1`
 
- - **FIX**: resolve cache type safety issue by reconstructing CacheEntry instead of casting (#27).
- - **FIX**: enhance infinite query options and state management (#25).
+ - **FIX**: resolve cache type safety issue by reconstructing CacheEntry instead of casting ([#27](https://github.com/ishafiul/fasq/pull/27)).
+ - **FIX**: enhance infinite query options and state management ([#25](https://github.com/ishafiul/fasq/pull/25)).
 
 #### `fasq_bloc` - `v0.2.0+2`
 
- - **REFACTOR**: convert cubits to abstract base classes (#26).
+ - **REFACTOR**: convert cubits to abstract base classes ([#26](https://github.com/ishafiul/fasq/pull/26)).
 
 
 ## 2025-10-27
@@ -783,11 +739,11 @@ Packages with dependency updates only:
 
 #### `fasq` - `v0.3.1`
 
- - **REFACTOR**(performance): simplify isolate pool initialization (#24).
- - **FIX**: improve cache staleness handling and query state management (#22).
- - **FIX**: comprehensive fixes for reference counting and loading state (#21).
- - **FIX**: prevent negative reference count in Query and InfiniteQuery (#18).
- - **FEAT**: clear cache when query is disposed to ensure fresh data on revisit (#20).
+ - **REFACTOR**(performance): simplify isolate pool initialization ([#24](https://github.com/ishafiul/fasq/pull/24)).
+ - **FIX**: improve cache staleness handling and query state management ([#22](https://github.com/ishafiul/fasq/pull/22)).
+ - **FIX**: comprehensive fixes for reference counting and loading state ([#21](https://github.com/ishafiul/fasq/pull/21)).
+ - **FIX**: prevent negative reference count in Query and InfiniteQuery ([#18](https://github.com/ishafiul/fasq/pull/18)).
+ - **FEAT**: clear cache when query is disposed to ensure fresh data on revisit ([#20](https://github.com/ishafiul/fasq/pull/20)).
 
 
 ## 2025-10-22
@@ -812,55 +768,53 @@ Packages with other changes:
 
 #### `fasq` - `v0.3.0`
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: resolve critical issues and improve code quality (#15).
- - **FIX**: security (#9).
- - **FEAT**: implement comprehensive performance optimization system (#13).
- - **FEAT**: integrate SecurityPlugin with QueryCache (#12).
- - **FEAT**: complete updateEncryptionKey implementation with real persistence (#10).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: offline mutation queue (#5).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
- - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: resolve critical issues and improve code quality ([#15](https://github.com/ishafiul/fasq/pull/15)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**: implement comprehensive performance optimization system ([#13](https://github.com/ishafiul/fasq/pull/13)).
+ - **FEAT**: integrate SecurityPlugin with QueryCache ([#12](https://github.com/ishafiul/fasq/pull/12)).
+ - **FEAT**: complete updateEncryptionKey implementation with real persistence ([#10](https://github.com/ishafiul/fasq/pull/10)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: offline mutation queue ([#5](https://github.com/ishafiul/fasq/pull/5)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package ([#11](https://github.com/ishafiul/fasq/pull/11)).
 
 #### `fasq_bloc` - `v0.2.0`
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: security (#9).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: offline mutation queue (#5).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: offline mutation queue ([#5](https://github.com/ishafiul/fasq/pull/5)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners ([#7](https://github.com/ishafiul/fasq/pull/7)).
 
 #### `fasq_hooks` - `v0.2.0`
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: security (#9).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners ([#7](https://github.com/ishafiul/fasq/pull/7)).
 
 #### `fasq_riverpod` - `v0.2.0`
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **FIX**: security (#9).
- - **FEAT**: prefetching (#8).
- - **FEAT**: implement parallel queries across all adapters (#6).
- - **FEAT**: offline mutation queue (#5).
- - **FEAT**: dependent queries (#4).
- - **FEAT**: infinite queries (#3).
- - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners (#7).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **FIX**: security ([#9](https://github.com/ishafiul/fasq/pull/9)).
+ - **FEAT**: prefetching ([#8](https://github.com/ishafiul/fasq/pull/8)).
+ - **FEAT**: implement parallel queries across all adapters ([#6](https://github.com/ishafiul/fasq/pull/6)).
+ - **FEAT**: offline mutation queue ([#5](https://github.com/ishafiul/fasq/pull/5)).
+ - **FEAT**: dependent queries ([#4](https://github.com/ishafiul/fasq/pull/4)).
+ - **FEAT**: infinite queries ([#3](https://github.com/ishafiul/fasq/pull/3)).
+ - **BREAKING** **FEAT**: Replace Fixed Combiners with Dynamic Query Combiners ([#7](https://github.com/ishafiul/fasq/pull/7)).
 
 #### `fasq_security` - `v0.1.0`
 
- - **FIX**: resolve all analysis issues and prepare packages for publishing (#16).
- - **DOCS**: Clean up README by removing phase references and PRD mentions (#14).
- - **BREAKING** **FEAT**: Extract security features to separate fasq_security package (#11).
+ - **FIX**: resolve all analysis issues and prepare packages for publishing ([#16](https://github.com/ishafiul/fasq/pull/16)).
+ - **BREAKING** **FEAT**: Extract security features to separate fasq_security package ([#11](https://github.com/ishafiul/fasq/pull/11)).
 

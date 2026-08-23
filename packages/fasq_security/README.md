@@ -8,7 +8,7 @@
 
 Provides enterprise-grade security features for FASQ including encryption, secure storage, and persistence.
 
-**Current Version:** 0.3.0
+**Current Version:** 0.3.1
 
 ## 📚 Documentation
 
@@ -26,8 +26,8 @@ For full documentation and API reference, visit:
 
 ```yaml
 dependencies:
-  fasq: ^0.5.0
-  fasq_security: ^0.3.0
+  fasq: ^0.5.1
+  fasq_security: ^0.3.1
 ```
 
 ## 🚀 Quick Start
