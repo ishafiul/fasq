@@ -73,6 +73,20 @@ class QueryDependencyManager {
     }
   }
 
+  /// Removes only the parent relationship for [childKey].
+  ///
+  /// Unlike [unregister], this keeps the query's children intact. It is used
+  /// when an existing query changes its dependency without being disposed.
+  void removeParent(String childKey) {
+    final parent = _childToParent.remove(childKey);
+    if (parent == null) return;
+    final children = _parentToChildren[parent];
+    children?.remove(childKey);
+    if (children?.isEmpty ?? false) {
+      _parentToChildren.remove(parent);
+    }
+  }
+
   /// Returns all direct child keys for a given parent.
   Set<String> getChildren(String parentKey) {
     return Set.unmodifiable(_parentToChildren[parentKey] ?? {});

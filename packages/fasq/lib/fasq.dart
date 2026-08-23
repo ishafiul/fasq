@@ -27,6 +27,7 @@ export 'src/mutation/durable_mutation_catalog.dart';
 export 'src/mutation/durable_mutation_definition.dart';
 export 'src/mutation/durable_mutation_queue.dart';
 export 'src/mutation/mutation.dart';
+export 'src/mutation/mutation_factory.dart';
 export 'src/mutation/mutation_contract.dart';
 export 'src/mutation/mutation_meta.dart';
 export 'src/mutation/mutation_options.dart';

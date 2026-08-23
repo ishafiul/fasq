@@ -4,6 +4,7 @@ import 'package:fasq/src/client/query_client.dart';
 import 'package:fasq/src/mutation/durable_mutation_definition.dart';
 import 'package:fasq/src/mutation/durable_mutation_queue.dart';
 import 'package:fasq/src/mutation/mutation.dart';
+import 'package:fasq/src/mutation/mutation_factory.dart';
 import 'package:fasq/src/mutation/mutation_contract.dart';
 import 'package:fasq/src/mutation/mutation_options.dart';
 import 'package:fasq/src/mutation/mutation_snapshot.dart';
@@ -150,11 +151,19 @@ class _MutationBuilderState<T, TVariables>
     _effectiveOptions = durableDefinition == null
         ? widget.options
         : durableDefinition.bind(durableQueue!, base: widget.options);
-    _mutation = Mutation<T, TVariables>(
-      mutationFn: mutationFn,
-      options: _effectiveOptions,
-      client: _client,
-    );
+    _mutation = durableDefinition == null
+        ? MutationFactory.fromFunction<T, TVariables>(
+            mutationFn: mutationFn,
+            options: _effectiveOptions,
+            client: _client,
+          )
+        : MutationFactory.fromKey<T, TVariables>(
+            key: widget.mutationKey!,
+            catalog: FasqProvider.of(context).mutations,
+            queue: durableQueue!,
+            options: widget.options,
+            client: _client,
+          );
     _state = _mutation.state;
 
     _subscription = _mutation.stream.listen((state) {

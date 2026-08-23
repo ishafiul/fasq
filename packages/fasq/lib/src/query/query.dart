@@ -95,15 +95,15 @@ class Query<T> {
     this.dependencyManager,
     this.onDispose,
     CacheEntry<T>? initialEntry,
-  })  : assert(
-          queryFn != null || queryFnWithToken != null,
-          'Either queryFn or queryFnWithToken must be provided',
-        ),
-        key = queryKey.key,
-        _currentState = QueryState<T>.idle(),
-        _debugCreationStack = kDebugMode ? StackTrace.current : null,
-        _debugHolders = kDebugMode ? <Object, StackTrace>{} : null,
-        _debugHolderOrder = kDebugMode ? <Object>[] : null {
+  }) : assert(
+         queryFn != null || queryFnWithToken != null,
+         'Either queryFn or queryFnWithToken must be provided',
+       ),
+       key = queryKey.key,
+       _currentState = QueryState<T>.idle(),
+       _debugCreationStack = kDebugMode ? StackTrace.current : null,
+       _debugHolders = kDebugMode ? <Object, StackTrace>{} : null,
+       _debugHolderOrder = kDebugMode ? <Object>[] : null {
     _controller = StreamController<QueryState<T>>.broadcast();
 
     // Set initial state based on cache snapshot and staleness
@@ -120,17 +120,17 @@ class Query<T> {
   /// The async function that fetches the data.
   ///
   /// // TODO(fasq): Deprecate in favor of queryFnWithToken in next major version
-  final Future<T> Function()? queryFn;
+  Future<T> Function()? queryFn;
 
   /// The async function that fetches data with cancellation support.
   ///
   /// Use this instead of [queryFn] to enable cooperative cancellation.
   /// The [CancellationToken] can be checked during long operations or passed
   /// to HTTP clients that support cancellation.
-  final Future<T> Function(CancellationToken token)? queryFnWithToken;
+  Future<T> Function(CancellationToken token)? queryFnWithToken;
 
   /// Optional configuration for this query.
-  final QueryOptions? options;
+  QueryOptions? options;
 
   /// The cache instance for storing results.
   final QueryCache? cache;
@@ -275,10 +275,10 @@ class Query<T> {
 
   /// Get performance metrics for this query
   QueryMetrics get metrics => QueryMetrics(
-        fetchHistory: List.from(_fetchHistory),
-        lastFetchDuration: _lastFetchDuration,
-        referenceCount: _referenceCount,
-      );
+    fetchHistory: List.from(_fetchHistory),
+    lastFetchDuration: _lastFetchDuration,
+    referenceCount: _referenceCount,
+  );
 
   /// Creates a query function that can be used with _executeFetch.
   ///
@@ -311,11 +311,11 @@ class Query<T> {
       final estimatedSize = _estimateDataFootprint(data);
       if (estimatedSize >= threshold) {
         try {
-          final transformed =
-              await client!.isolatePool.execute<_TransformPayload<T>, T?>(
-            _runDataTransformerTask,
-            _TransformPayload<T>(data: data, transformer: transformer),
-          );
+          final transformed = await client!.isolatePool
+              .execute<_TransformPayload<T>, T?>(
+                _runDataTransformerTask,
+                _TransformPayload<T>(data: data, transformer: transformer),
+              );
           if (transformed != null) {
             return transformed;
           }
@@ -672,6 +672,25 @@ class Query<T> {
     );
   }
 
+  /// Replaces the executable configuration while preserving this query's
+  /// cache, state, listeners, and identity.
+  void reconfigure({
+    Future<T> Function()? queryFn,
+    Future<T> Function(CancellationToken token)? queryFnWithToken,
+    QueryOptions? options,
+  }) {
+    if (queryFn == null && queryFnWithToken == null) {
+      throw ArgumentError(
+        'Either queryFn or queryFnWithToken must be provided',
+      );
+    }
+    cancel();
+    this.queryFn = queryFn;
+    this.queryFnWithToken = queryFnWithToken;
+    this.options = options;
+    _updateState(_currentState);
+  }
+
   void _updateState(QueryState<T> newState) {
     _currentState = newState;
     if (!_controller.isClosed) {
@@ -781,8 +800,9 @@ class Query<T> {
     if (manager == null || queryClient == null) return;
 
     manager.notifyParentDisposed(key, (childKey) {
-      final childQuery =
-          queryClient.getQueryByKey<Object>(StringQueryKey(childKey));
+      final childQuery = queryClient.getQueryByKey<Object>(
+        StringQueryKey(childKey),
+      );
       childQuery?.cancel();
     });
   }
