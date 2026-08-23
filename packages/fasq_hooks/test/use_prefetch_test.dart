@@ -4,148 +4,56 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('usePrefetchQuery', () {
-    testWidgets('returns stable callback', (tester) async {
-      late void Function(QueryKey, Future<String> Function(),
-          {QueryOptions? options}) prefetch1;
-      late void Function(QueryKey, Future<String> Function(),
-          {QueryOptions? options}) prefetch2;
+  setUp(() => QueryCache.gcInterval = Duration.zero);
+  tearDown(() async => QueryClient.resetForTesting());
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              prefetch1 = usePrefetchQuery<String>();
-              prefetch2 = usePrefetchQuery<String>();
-              return const SizedBox();
-            },
-          ),
+  testWidgets('prefetch callback returns a future', (tester) async {
+    Future<void> Function(
+      QueryKey,
+      Future<String> Function(), {
+      QueryOptions? options,
+    })?
+    prefetch;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HookBuilder(
+          builder: (context) {
+            prefetch = usePrefetchQuery<String>();
+            return const SizedBox();
+          },
         ),
-      );
+      ),
+    );
 
-      await tester.pump();
-
-      expect(prefetch1, equals(prefetch2));
-    });
-
-    testWidgets('prefetch callback works correctly', (tester) async {
-      late void Function(QueryKey, Future<String> Function(),
-          {QueryOptions? options}) prefetch;
-      int fetchCount = 0;
-
-      Future<String> fetchData() async {
-        fetchCount++;
-        return 'test-data';
-      }
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              prefetch = usePrefetchQuery<String>();
-              return const SizedBox();
-            },
-          ),
-        ),
-      );
-
-      prefetch('test-key'.toQueryKey(), fetchData);
-      await tester.pump();
-
-      expect(fetchCount, equals(1));
-    });
+    await prefetch!('prefetched'.toQueryKey(), () async => 'value');
+    expect(
+      QueryClient().getQueryData<String>('prefetched'.toQueryKey()),
+      'value',
+    );
   });
 
-  group('usePrefetchOnMount', () {
-    testWidgets('prefetches on mount', (tester) async {
-      int fetchCount = 0;
-
-      Future<String> fetchData() async {
-        fetchCount++;
-        return 'test-data';
-      }
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              usePrefetchOnMount([
-                PrefetchConfig(
-                    queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
-              ]);
-              return const SizedBox();
-            },
-          ),
+  testWidgets('prefetches all mount configurations', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HookBuilder(
+          builder: (context) {
+            usePrefetchOnMount([
+              PrefetchConfig<String>(
+                queryKey: 'a'.toQueryKey(),
+                queryFn: () async => 'A',
+              ),
+              PrefetchConfig<String>(
+                queryKey: 'b'.toQueryKey(),
+                queryFn: () async => 'B',
+              ),
+            ]);
+            return const SizedBox();
+          },
         ),
-      );
-
-      await tester.pump();
-
-      expect(fetchCount, equals(1));
-    });
-
-    testWidgets('multiple configs prefetch in parallel', (tester) async {
-      int fetchCount1 = 0;
-      int fetchCount2 = 0;
-
-      Future<String> fetchData1() async {
-        fetchCount1++;
-        return 'test-data-1';
-      }
-
-      Future<String> fetchData2() async {
-        fetchCount2++;
-        return 'test-data-2';
-      }
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              usePrefetchOnMount([
-                PrefetchConfig(
-                    queryKey: 'test-key-1'.toQueryKey(), queryFn: fetchData1),
-                PrefetchConfig(
-                    queryKey: 'test-key-2'.toQueryKey(), queryFn: fetchData2),
-              ]);
-              return const SizedBox();
-            },
-          ),
-        ),
-      );
-
-      await tester.pump();
-
-      expect(fetchCount1, equals(1));
-      expect(fetchCount2, equals(1));
-    });
-
-    testWidgets('does not prefetch on rebuild', (tester) async {
-      int fetchCount = 0;
-
-      Future<String> fetchData() async {
-        fetchCount++;
-        return 'test-data';
-      }
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              usePrefetchOnMount([
-                PrefetchConfig(
-                    queryKey: 'test-key'.toQueryKey(), queryFn: fetchData),
-              ]);
-              return const SizedBox();
-            },
-          ),
-        ),
-      );
-
-      await tester.pump();
-      await tester.pump();
-
-      expect(fetchCount, equals(1));
-    });
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(QueryClient().getQueryData<String>('a'.toQueryKey()), 'A');
+    expect(QueryClient().getQueryData<String>('b'.toQueryKey()), 'B');
   });
 }

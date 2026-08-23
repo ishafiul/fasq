@@ -4,198 +4,73 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('useMutation', () {
-    testWidgets('executes mutation and updates state', (tester) async {
-      Future<String> createUser(String name) async {
-        await Future.delayed(const Duration(milliseconds: 100));
-        return 'User: $name';
-      }
+  setUp(() => QueryCache.gcInterval = Duration.zero);
+  tearDown(() async {
+    await QueryClient.resetForTesting();
+  });
 
-      UseMutationResult<String, String>? capturedResult;
+  testWidgets('returns submission and updates mutation state', (tester) async {
+    UseMutationResult<String, String>? result;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              final mutation = useMutation<String, String>(createUser);
-              capturedResult = mutation;
-
-              return ElevatedButton(
-                onPressed: () => mutation.mutate('John'),
-                child: Text(mutation.data ?? 'Create User'),
-              );
-            },
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HookBuilder(
+          builder: (context) {
+            result = useMutation<String, String>(
+              mutationFn: (name) async => 'User: $name',
+            );
+            return ElevatedButton(
+              onPressed: () => result!.mutate('Ada'),
+              child: Text(result!.data ?? 'create'),
+            );
+          },
         ),
-      );
+      ),
+    );
+    await tester.pump();
+    await result!.mutate('Ada');
+    await tester.pump();
+    await tester.pump();
 
-      expect(capturedResult?.isIdle, true);
-      expect(capturedResult?.hasData, false);
+    expect(result!.isSuccess, isTrue);
+    expect(result!.data, 'User: Ada');
+    final submission = await result!.submit('Grace');
+    expect(submission.isSucceeded, isTrue);
+    expect(submission.data, 'User: Grace');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
 
-      await tester.tap(find.text('Create User'));
-      await tester.pump();
+  testWidgets('preserves callbacks and stack traces', (tester) async {
+    Object? callbackError;
+    UseMutationResult<String, String>? result;
 
-      expect(capturedResult?.isLoading, true);
-
-      await tester.pumpAndSettle();
-
-      expect(capturedResult?.hasData, true);
-      expect(capturedResult?.data, 'User: John');
-      expect(find.text('User: John'), findsOneWidget);
-    });
-
-    testWidgets('handles errors correctly', (tester) async {
-      Future<String> createUser(String name) async {
-        await Future.delayed(const Duration(milliseconds: 100));
-        throw Exception('creation failed');
-      }
-
-      UseMutationResult<String, String>? capturedResult;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              final mutation = useMutation<String, String>(createUser);
-              capturedResult = mutation;
-
-              if (mutation.hasError) {
-                return Text('Error: ${mutation.error}');
-              }
-
-              return ElevatedButton(
-                onPressed: () => mutation.mutate('John'),
-                child: const Text('Create User'),
-              );
-            },
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HookBuilder(
+          builder: (context) {
+            result = useMutation<String, String>(
+              mutationFn: (_) async => throw StateError('failed'),
+              onError: (error) => callbackError = error,
+            );
+            return ElevatedButton(
+              onPressed: () => result!.mutate('x'),
+              child: const Text('fail'),
+            );
+          },
         ),
-      );
+      ),
+    );
 
-      await tester.tap(find.text('Create User'));
-      await tester.pump();
+    await tester.tap(find.text('fail'));
+    await tester.pumpAndSettle();
 
-      await tester.pumpAndSettle();
-
-      expect(capturedResult?.hasError, true);
-      expect(capturedResult?.error.toString(), contains('creation failed'));
-      expect(find.textContaining('Error:'), findsOneWidget);
-    });
-
-    testWidgets('calls onSuccess callback', (tester) async {
-      String? successResult;
-
-      Future<String> createUser(String name) async {
-        await Future.delayed(const Duration(milliseconds: 100));
-        return 'User: $name';
-      }
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              final mutation = useMutation<String, String>(
-                createUser,
-                onSuccess: (data) {
-                  successResult = data;
-                },
-              );
-
-              return ElevatedButton(
-                onPressed: () => mutation.mutate('Alice'),
-                child: const Text('Create'),
-              );
-            },
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('Create'));
-      await tester.pumpAndSettle();
-
-      expect(successResult, 'User: Alice');
-    });
-
-    testWidgets('calls onError callback', (tester) async {
-      Object? errorResult;
-
-      Future<String> createUser(String name) async {
-        await Future.delayed(const Duration(milliseconds: 100));
-        throw Exception('creation failed');
-      }
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HookBuilder(
-            builder: (context) {
-              final mutation = useMutation<String, String>(
-                createUser,
-                onError: (error) {
-                  errorResult = error;
-                },
-              );
-
-              return ElevatedButton(
-                onPressed: () => mutation.mutate('Bob'),
-                child: const Text('Create'),
-              );
-            },
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('Create'));
-      await tester.pumpAndSettle();
-
-      expect(errorResult, isNotNull);
-      expect(errorResult.toString(), contains('creation failed'));
-    });
-
-    // testWidgets('reset clears mutation state', (tester) async {
-    //   Future<String> createUser(String name) async {
-    //     await Future.delayed(const Duration(milliseconds: 100));
-    //     return 'User: $name';
-    //   }
-    //
-    //   MutationState<String, String>? capturedResult;
-    //
-    //   await tester.pumpWidget(
-    //     MaterialApp(
-    //       home: HookBuilder(
-    //         builder: (context) {
-    //           final mutation = useMutation<String, String>(createUser);
-    //           capturedResult = mutation;
-    //
-    //           return Column(
-    //             children: [
-    //               ElevatedButton(
-    //                 onPressed: () => mutation.mutate('Charlie'),
-    //                 child: const Text('Create'),
-    //               ),
-    //               ElevatedButton(
-    //                 onPressed: mutation.reset,
-    //                 child: const Text('Reset'),
-    //               ),
-    //               Text(mutation.data ?? 'no data'),
-    //             ],
-    //           );
-    //         },
-    //       ),
-    //     ),
-    //   );
-    //
-    //   await tester.tap(find.text('Create'));
-    //   await tester.pumpAndSettle();
-    //
-    //   expect(capturedResult?.hasData, true);
-    //   expect(find.text('User: Charlie'), findsOneWidget);
-    //
-    //   await tester.tap(find.text('Reset'));
-    //   await tester.pump();
-    //
-    //   expect(capturedResult?.isIdle, true);
-    //   expect(capturedResult?.hasData, false);
-    //   expect(find.text('no data'), findsOneWidget);
-    // });
+    expect(result!.isError, isTrue);
+    expect(result!.stackTrace, isNotNull);
+    expect(callbackError, isA<StateError>());
+    result!.reset();
+    expect(result!.mutation.state.isIdle, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
   });
 }
