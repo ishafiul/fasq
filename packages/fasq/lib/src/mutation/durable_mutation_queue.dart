@@ -81,12 +81,12 @@ class DurableMutationQueue {
     required MutationRegistrationRegistry registrations,
     required DateTime Function() now,
     required String Function() idGenerator,
-    AuthSessionProvider? authSessionProvider,
     required bool Function() isOnline,
     required DurableReplayCoordinator coordinator,
+    required DurableRepairService repairService,
+    AuthSessionProvider? authSessionProvider,
     ProjectionCoordinator? projectionCoordinator,
     void Function(String queryKey, Object? value)? projectionSink,
-    required DurableRepairService repairService,
   }) : _store = store,
        _registrations = registrations,
        _now = now,
@@ -155,7 +155,6 @@ class DurableMutationQueue {
       filter: _boundObservationFilter(
         requested: DurableOperationFilter(
           authScope: authScope,
-          includeUnauthenticated: true,
         ),
       ),
     );
@@ -177,7 +176,6 @@ class DurableMutationQueue {
           filter: _boundObservationFilter(
             requested: DurableOperationFilter(
               authScope: authScope,
-              includeUnauthenticated: true,
             ),
           ),
         )
@@ -318,7 +316,8 @@ class DurableMutationQueue {
         current.history.any((entry) => entry.operationId == operationId);
   }
 
-  /// Whether [idempotencyKey] is retained in active, dead-letter, or history data.
+  /// Whether [idempotencyKey] is retained in active, dead-letter, or history
+  /// data.
   bool hasRetainedIdempotencyKey(IdempotencyKey idempotencyKey) {
     final current = _store.snapshot;
     return current.active.any(
@@ -510,12 +509,6 @@ class DurableMutationQueue {
     }
   }
 
-  /// Compatibility alias for callers that previously requested queue work
-  /// through `processQueue`.
-  Future<ReplayRunResult> processQueue({
-    ReplayCancellationToken? cancellationToken,
-  }) => replay(cancellationToken: cancellationToken);
-
   /// Adds one restart-safe optimistic overlay after enqueue acknowledgement.
   Future<ProjectionOutcome> enqueueProjection(ProjectionOverlay overlay) {
     return _mutateProjection((coordinator) => coordinator.enqueue(overlay));
@@ -636,8 +629,7 @@ class DurableMutationQueue {
       for (final deadLetter in current.deadLetters)
         deadLetter.operation.operationId: deadLetter.operation.idempotencyKey,
       for (final entry in current.history)
-        if (entry.idempotencyKey case final idempotencyKey?)
-          entry.operationId: idempotencyKey,
+        entry.operationId: ?entry.idempotencyKey,
     };
   }
 

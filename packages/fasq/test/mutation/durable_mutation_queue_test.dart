@@ -261,35 +261,6 @@ void main() {
     expect(queue.snapshot.active, isEmpty);
     await queue.close();
   });
-
-  test(
-    'keeps processQueue as an explicit replay compatibility alias',
-    () async {
-      final store = _MemoryOutboxStore();
-      var calls = 0;
-      final queue = DurableMutationQueue(store: store);
-      queue.register<Map<String, Object?>, Map<String, Object?>>(
-        key: key,
-        codec: _mapCodec,
-        mutationFn: (variables) async {
-          calls++;
-          return variables;
-        },
-      );
-      await queue.open();
-      final operation = await queue.enqueue(
-        key: key,
-        variables: <String, Object?>{'title': 'compat'},
-      );
-
-      final report = await queue.processQueue();
-
-      expect(report.executedOperationIds, <OperationId>[operation.operationId]);
-      expect(calls, 1);
-      expect(queue.snapshot.active, isEmpty);
-      await queue.close();
-    },
-  );
 }
 
 final _mapCodec = JsonMutationCodec<Map<String, Object?>>(
