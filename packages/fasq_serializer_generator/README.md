@@ -74,14 +74,42 @@ Annotate only operations that must be queued across offline restarts. The
 function must accept one JSON-serializable request and return `Future<T>`:
 
 ```dart
-@FasqMutation(key: 'todos.add', encodeResult: true)
-Future<Todo> addTodo(AddTodo request) => api.addTodo(request);
+@FasqMutation(namespace: 'todos', name: 'create', encodeResult: true)
+Future<Todo> createTodo(CreateTodo request) => api.createTodo(request);
+
+@FasqMutation(
+  namespace: 'todos',
+  name: 'update',
+  dependencies: [
+    FasqMutationDependencyDeclaration(
+      dependsOn: FasqMutationSource<Todo, CreateTodo>(createTodo),
+      fromResult: FasqMutationField<Todo, String>('id'),
+      toInput: FasqMutationField<UpdateTodo, String>('todoId'),
+    ),
+  ],
+)
+Future<Todo> updateTodo(UpdateTodo request) => api.updateTodo(request);
 ```
+
+Mutation keys and field descriptors carry their model and value types. The
+generator verifies those types and the named model fields, so an incompatible
+mapping or field rename fails generation. Fasq creates local references; the
+application does not add a local ID to `CreateTodo`. During execution, Fasq
+treats an unrecognized value as a server ID. A known local reference is either
+rewritten from completed history or linked to its exact pending operation.
 
 The generated `addTodoDurable` handle is passed to
 `OfflineSync.secure(mutations: [...])` and the core
-`MutationBuilder(mutation: ...)`. Ordinary online-only mutations continue
+`MutationBuilder(mutationKey: ...)`. Ordinary online-only mutations continue
 using `MutationBuilder(mutationFn: ...)`.
+
+Adapters with instance-scoped transports can use the generated
+`createTodoDurableHandle(execute: ...)` factory. The annotation still owns the
+stable key, schema version, codec, auth policy, and result encoding; the
+adapter supplies only its executor instance.
+
+Contract-only declarations can set `factoryOnly: true` to generate only the
+executor factory and avoid a global handle for the declaration function.
 
 ## 📄 License
 

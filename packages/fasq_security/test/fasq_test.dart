@@ -2,12 +2,22 @@ import 'dart:io';
 
 import 'package:fasq/fasq.dart';
 import 'package:fasq_security/fasq_security.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const _echoMutationKey = FasqMutationKey<String, int>(
+  namespace: 'test',
+  name: 'echo',
+);
+const _offlineEchoMutationKey = FasqMutationKey<String, int>(
+  namespace: 'test',
+  name: 'offline-echo',
+);
 
 void main() {
   test('manual durable mutation definition owns its queue contract', () {
     final mutation = DurableMutation<String, int>.define(
-      key: 'test.echo',
+      key: _echoMutationKey,
       codec: const JsonMutationCodec<int>(
         encoder: _encodeInt,
         decoder: _decodeInt,
@@ -30,6 +40,33 @@ void main() {
     expect(fasq.status, FasqStatus.disposed);
   });
 
+  testWidgets('secure runtime plugs into the core FasqProvider', (
+    tester,
+  ) async {
+    final fasq = await Fasq.initialize();
+    late FasqRuntime resolvedRuntime;
+    late Fasq resolvedSecureRuntime;
+
+    await tester.pumpWidget(
+      FasqProvider(
+        runtime: fasq,
+        child: Builder(
+          builder: (context) {
+            resolvedRuntime = context.fasqRuntime;
+            resolvedSecureRuntime = context.fasq;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(resolvedRuntime, same(fasq));
+    expect(resolvedSecureRuntime, same(fasq));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await fasq.close();
+  });
+
   test(
     'unified bootstrap registers custom durable mutations before open',
     () async {
@@ -43,7 +80,7 @@ void main() {
         ),
       );
       final mutation = DurableMutationDefinition<String, int>(
-        key: MutationKey(namespace: 'test', name: 'echo'),
+        contractKey: _echoMutationKey,
         codec: const JsonMutationCodec<int>(
           encoder: _encodeInt,
           decoder: _decodeInt,
@@ -61,6 +98,7 @@ void main() {
         );
 
         expect(fasq.mutationQueue, isNotNull);
+        expect(fasq.mutations.resolve(_echoMutationKey), same(mutation));
         expect(fasq.mutationQueue!.hasRegistration(mutation.key), isTrue);
         await fasq.mutationQueue!.enqueue(key: mutation.key, variables: 7);
         await expectLater(
@@ -71,6 +109,53 @@ void main() {
         expect(store.closeCalls, 0);
       } finally {
         await store.close();
+        if (directory.existsSync()) {
+          await directory.delete(recursive: true);
+        }
+      }
+    },
+  );
+
+  test(
+    'unified bootstrap completes while offline and defers startup replay',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'fasq-offline-bootstrap-',
+      );
+      final store = _RecordingOutboxStore(
+        FileDurableOutbox(
+          directoryPath: directory.path,
+          encryption: _FakeOutboxEncryption(),
+        ),
+      );
+      final mutation = DurableMutationDefinition<String, int>(
+        contractKey: _offlineEchoMutationKey,
+        codec: const JsonMutationCodec<int>(
+          encoder: _encodeInt,
+          decoder: _decodeInt,
+        ),
+        execute: (value) async => '$value',
+      );
+      final networkStatus = NetworkStatus.instance;
+      Fasq? fasq;
+
+      networkStatus.setOnline(online: false);
+      try {
+        fasq = await Fasq.initialize(
+          offlineSync: OfflineSync.custom(
+            mutations: [mutation],
+            store: store,
+            encryption: _FakeOutboxEncryption(),
+            connectivity: networkStatus,
+          ),
+        );
+
+        expect(fasq.mutationQueue, isNotNull);
+        expect(fasq.mutationQueue!.hasRegistration(mutation.key), isTrue);
+      } finally {
+        await fasq?.close();
+        await store.close();
+        networkStatus.setOnline(online: true);
         if (directory.existsSync()) {
           await directory.delete(recursive: true);
         }

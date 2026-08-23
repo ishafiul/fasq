@@ -305,6 +305,77 @@ class MutationDependency {
   }
 }
 
+/// Local identity produced by one durable mutation operation.
+@immutable
+class MutationIdentityLink {
+  /// Creates an internal local reference for one durable operation.
+  ///
+  /// [serverIdPath] and [serverId] are accepted only to read and repair
+  /// durable records written by the former identity-mapping contract.
+  factory MutationIdentityLink({
+    required String localId,
+    String? serverIdPath,
+    String? serverId,
+  }) {
+    return MutationIdentityLink._(
+      localId: _requireValue(localId),
+      serverIdPath: serverIdPath == null ? null : _requireValue(serverIdPath),
+      serverId: serverId == null ? null : _requireValue(serverId),
+    );
+  }
+
+  const MutationIdentityLink._({
+    required this.localId,
+    required this.serverIdPath,
+    required this.serverId,
+  });
+
+  /// Recreates an identity link from durable JSON.
+  factory MutationIdentityLink.fromJson(Map<String, Object?> json) {
+    final localId = json['localId'];
+    final serverIdPath = json['serverIdPath'];
+    final serverId = json['serverId'];
+    if (localId is! String ||
+        (serverIdPath != null && serverIdPath is! String) ||
+        (serverId != null && serverId is! String)) {
+      throw const InvalidMutationPayloadException(
+        'Invalid durable mutation identity payload',
+      );
+    }
+    return MutationIdentityLink(
+      localId: localId,
+      serverIdPath: serverIdPath as String?,
+      serverId: serverId as String?,
+    );
+  }
+
+  /// Temporary identifier stored in local durable data.
+  final String localId;
+
+  /// Legacy parent-result path from pre-dependency-mapping records.
+  final String? serverIdPath;
+
+  /// Canonical server identifier after successful execution.
+  final String? serverId;
+
+  /// Whether this link has been resolved by a successful parent result.
+  bool get isResolved => serverId != null;
+
+  /// Returns a legacy link resolved to [value].
+  MutationIdentityLink resolve(String value) => MutationIdentityLink(
+    localId: localId,
+    serverIdPath: serverIdPath,
+    serverId: value,
+  );
+
+  /// Serializes this identity link.
+  Map<String, Object?> toJson() => <String, Object?>{
+    'localId': localId,
+    if (serverIdPath != null) 'serverIdPath': serverIdPath,
+    if (serverId != null) 'serverId': serverId,
+  };
+}
+
 /// Explicit cache projection plan reference.
 @immutable
 class MutationProjectionDescriptor {

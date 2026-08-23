@@ -78,14 +78,32 @@ class QueryClientProvider extends StatefulWidget {
 }
 
 class _QueryClientProviderState extends State<QueryClientProvider> {
-  late final QueryClient _client;
-  late final bool _ownsClient;
+  late QueryClient _client;
+  late bool _ownsClient;
 
   @override
   void initState() {
     super.initState();
-    if (widget.client != null) {
-      _client = widget.client!;
+    _initializeClient();
+  }
+
+  @override
+  void didUpdateWidget(QueryClientProvider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.client, widget.client)) return;
+
+    final previousClient = _client;
+    final ownedPreviousClient = _ownsClient;
+    _initializeClient();
+    if (ownedPreviousClient) {
+      _disposeOwnedClient(previousClient);
+    }
+  }
+
+  void _initializeClient() {
+    final client = widget.client;
+    if (client != null) {
+      _client = client;
       _ownsClient = false;
       return;
     }
@@ -101,9 +119,24 @@ class _QueryClientProviderState extends State<QueryClientProvider> {
   @override
   void dispose() {
     if (_ownsClient) {
-      unawaited(_client.dispose());
+      _disposeOwnedClient(_client);
     }
     super.dispose();
+  }
+
+  void _disposeOwnedClient(QueryClient client) {
+    unawaited(
+      client.dispose().catchError((Object error, StackTrace stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'fasq',
+            context: ErrorDescription('disposing an owned QueryClient'),
+          ),
+        );
+      }),
+    );
   }
 
   @override

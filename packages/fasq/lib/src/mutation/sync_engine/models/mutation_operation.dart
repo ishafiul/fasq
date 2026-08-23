@@ -75,6 +75,7 @@ class MutationOperation {
     ConflictPrecondition? conflictPrecondition,
     int priority = 0,
     AuthScope? authScope,
+    MutationIdentityLink? identity,
     List<MutationDependency> dependencies = const <MutationDependency>[],
     List<MutationProjectionDescriptor> projections =
         const <MutationProjectionDescriptor>[],
@@ -120,6 +121,7 @@ class MutationOperation {
       state: state,
       priority: priority,
       authScope: authScope,
+      identity: identity,
       dependencies: List.unmodifiable(dependencies),
       projections: List.unmodifiable(projections),
       attemptCount: attemptCount,
@@ -152,6 +154,7 @@ class MutationOperation {
     required this.rateLimitBucket,
     required this.lastAttemptAt,
     this.authScope,
+    this.identity,
   });
 
   /// Recreates an operation from a validated JSON-safe map.
@@ -173,6 +176,7 @@ class MutationOperation {
     final nextRunAt = json['nextRunAt'];
     final rateLimitBucket = json['rateLimitBucket'];
     final lastAttemptAt = json['lastAttemptAt'];
+    final identity = json['identity'];
     if (operationId is! String ||
         mutationKey is! Map<Object?, Object?> ||
         createdAt is! String ||
@@ -222,6 +226,13 @@ class MutationOperation {
       'projections',
       MutationProjectionDescriptor.fromJson,
     );
+    final parsedIdentity = identity == null
+        ? null
+        : identity is Map<Object?, Object?>
+        ? MutationIdentityLink.fromJson(_asObjectMap(identity))
+        : throw const InvalidMutationPayloadException(
+            'Invalid durable mutation identity payload',
+          );
 
     return MutationOperation(
       operationId: OperationId(operationId),
@@ -245,6 +256,7 @@ class MutationOperation {
       rateLimitBucket: rateLimitBucket as String?,
       lastAttemptAt: _parseOptionalDate(lastAttemptAt as String?),
       authScope: parsedScope,
+      identity: parsedIdentity,
       dependencies: dependencies,
       projections: projections,
     );
@@ -279,6 +291,9 @@ class MutationOperation {
 
   /// Exact captured scope for authenticated work.
   final AuthScope? authScope;
+
+  /// Local identity produced by this operation, when declared.
+  final MutationIdentityLink? identity;
 
   /// Parent operation bindings.
   final List<MutationDependency> dependencies;
@@ -349,6 +364,7 @@ class MutationOperation {
           ? this.lastAttemptAt
           : lastAttemptAt as DateTime?,
       authScope: authScope,
+      identity: identity,
       dependencies: dependencies ?? this.dependencies,
       projections: projections ?? this.projections,
     );
@@ -366,6 +382,7 @@ class MutationOperation {
     'conflictPolicy': conflictPolicy.name,
     'conflictPrecondition': conflictPrecondition?.toJson(),
     'authScope': authScope?.toJson(),
+    'identity': identity?.toJson(),
     'dependencies': dependencies.map((item) => item.toJson()).toList(),
     'projections': projections.map((item) => item.toJson()).toList(),
     'state': state.name,

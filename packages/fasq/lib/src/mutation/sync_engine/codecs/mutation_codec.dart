@@ -1,3 +1,4 @@
+import 'package:fasq/src/mutation/mutation_contract.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_errors.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_identity.dart';
 import 'package:fasq/src/mutation/sync_engine/models/mutation_json.dart';
@@ -95,6 +96,9 @@ class MutationRegistrationRegistry {
     required Future<TData> Function(TVariables variables) mutationFn,
     AuthPolicy authPolicy = AuthPolicy.none,
     Object? Function(TData data)? resultEncoder,
+    List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+        dependencies =
+        const <FasqMutationDependency<Object?, Object?, Object?, Object?>>[],
   }) {
     if (_registrations.containsKey(key)) {
       throw DuplicateMutationRegistrationException(key.key);
@@ -105,6 +109,7 @@ class MutationRegistrationRegistry {
       mutationFn: mutationFn,
       authPolicy: authPolicy,
       resultEncoder: resultEncoder,
+      dependencies: dependencies,
     );
   }
 
@@ -134,9 +139,17 @@ class MutationRegistrationRegistry {
 
   /// Executes a registered mutation with decoded persisted variables.
   Future<Object?> execute(MutationKey key, Object? payload) async {
+    return (await executeRegistered(key, payload)).projection;
+  }
+
+  /// Executes a registration while retaining typed in-process result data.
+  Future<RegisteredMutationExecution> executeRegistered(
+    MutationKey key,
+    Object? payload,
+  ) async {
     final registration = _registrations[key];
     if (registration == null) throw UnknownMutationKeyException(key.key);
-    return registration.execute(payload);
+    return registration.executeRegistered(payload);
   }
 
   /// Returns the auth policy for [key].
@@ -144,6 +157,16 @@ class MutationRegistrationRegistry {
     final registration = _registrations[key];
     if (registration == null) throw UnknownMutationKeyException(key.key);
     return registration.authPolicy;
+  }
+
+  /// Returns typed dependency mappings declared by [key].
+  List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+  dependenciesFor(
+    MutationKey key,
+  ) {
+    final registration = _registrations[key];
+    if (registration == null) throw UnknownMutationKeyException(key.key);
+    return registration.dependencies;
   }
 
   /// Returns the currently registered keys.
@@ -175,6 +198,7 @@ class _RegisteredMutation<TData, TVariables> {
     required this.mutationFn,
     required this.authPolicy,
     required this.resultEncoder,
+    required this.dependencies,
   });
 
   final MutationKey key;
@@ -182,6 +206,8 @@ class _RegisteredMutation<TData, TVariables> {
   final Future<TData> Function(TVariables variables) mutationFn;
   final AuthPolicy authPolicy;
   final Object? Function(TData data)? resultEncoder;
+  final List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+  dependencies;
 
   Object? encode(Object? variables) {
     if (variables is! TVariables) {
@@ -194,7 +220,7 @@ class _RegisteredMutation<TData, TVariables> {
 
   Object? decode(Object? payload) => codec.decode(payload);
 
-  Future<Object?> execute(Object? payload) async {
+  Future<RegisteredMutationExecution> executeRegistered(Object? payload) async {
     final variables = decode(payload);
     if (variables is! TVariables) {
       throw InvalidMutationPayloadException(
@@ -207,11 +233,26 @@ class _RegisteredMutation<TData, TVariables> {
       final encoder = resultEncoder;
       final encoded = encoder == null ? result : encoder(result);
       validateJsonValue(encoded, 'mutation result');
-      return encoded;
+      return RegisteredMutationExecution(data: result, projection: encoded);
     } on Object {
       throw const InvalidMutationResultException();
     }
   }
+}
+
+/// Typed in-process result plus JSON-safe durable projection.
+class RegisteredMutationExecution {
+  /// Creates one registered execution result.
+  const RegisteredMutationExecution({
+    required this.data,
+    required this.projection,
+  });
+
+  /// Original typed result returned to the submitting mutation.
+  final Object? data;
+
+  /// JSON-safe result persisted for dependency binding and restart recovery.
+  final Object? projection;
 }
 
 /// Runtime readiness of a mutation codec and executor registration.

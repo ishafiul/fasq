@@ -16,11 +16,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final queryClient = locator<QueryClientService>().client;
+    final fasqRuntime = locator<QueryClientService>();
     final navigatorKeyService = locator<NavigatorKeyService>();
 
-    return QueryClientProvider(
-      client: queryClient,
+    return FasqProvider(
+      runtime: fasqRuntime,
       child: MaterialApp.router(
         routerConfig: locator.router.config(),
         title: 'E-commerce App',

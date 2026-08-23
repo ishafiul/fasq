@@ -1,7 +1,5 @@
 import 'package:fasq/src/mutation/durable_mutation_definition.dart';
-import 'package:fasq/src/mutation/durable_mutation_queue.dart';
-import 'package:fasq/src/mutation/mutation_options.dart';
-import 'package:fasq/src/mutation/sync_engine/conflict/conflict_policy.dart';
+import 'package:fasq/src/mutation/mutation_contract.dart';
 import 'package:fasq/src/mutation/sync_engine/mutation_contracts.dart';
 
 /// One durable mutation handle shared by immediate execution and replay.
@@ -13,79 +11,31 @@ class DurableMutation<TData, TVariables>
     extends DurableMutationDefinition<TData, TVariables> {
   /// Defines a durable mutation using a readable dot-separated key.
   factory DurableMutation.define({
-    required String key,
+    required FasqMutationKey<TData, TVariables> key,
     required MutationCodec<TVariables> codec,
     required Future<TData> Function(TVariables variables) execute,
-    int version = 1,
     AuthPolicy authPolicy = AuthPolicy.none,
     Object? Function(TData data)? resultEncoder,
+    List<FasqMutationDependency<Object?, Object?, Object?, Object?>>
+        dependencies =
+        const <FasqMutationDependency<Object?, Object?, Object?, Object?>>[],
   }) {
     return DurableMutation._(
-      key: _parseKey(key, version),
+      contractKey: key,
       codec: codec,
       execute: execute,
       authPolicy: authPolicy,
       resultEncoder: resultEncoder,
+      dependencies: dependencies,
     );
   }
 
   const DurableMutation._({
-    required super.key,
+    required super.contractKey,
     required super.codec,
     required super.execute,
     super.authPolicy,
     super.resultEncoder,
+    super.dependencies,
   });
-
-  /// Binds this handle to an initialized durable queue.
-  ///
-  /// [base] may contain normal mutation callbacks and UI metadata. Queue
-  /// details are supplied by this handle and cannot drift from the replay
-  /// registration.
-  MutationOptions<TData, TVariables> bind(
-    DurableMutationQueue queue, {
-    MutationOptions<TData, TVariables>? base,
-  }) {
-    final baseOptions = base;
-    return MutationOptions<TData, TVariables>(
-      onSuccess: baseOptions?.onSuccess,
-      onError: baseOptions?.onError,
-      onMutate: baseOptions?.onMutate,
-      queueWhenOffline: true,
-      durableQueue: DurableMutationQueueOptions<TVariables>(
-        queue: queue,
-        mutationKey: key,
-        codec: codec,
-        authPolicy: authPolicy,
-        authScope: baseOptions?.durableQueue?.authScope,
-        conflictPolicy:
-            baseOptions?.durableQueue?.conflictPolicy ?? ConflictPolicy.none,
-        conflictPrecondition: baseOptions?.durableQueue?.conflictPrecondition,
-      ),
-      resultEncoder: baseOptions?.resultEncoder ?? resultEncoder,
-      projectionPlan: baseOptions?.projectionPlan,
-      projectionBuilder: baseOptions?.projectionBuilder,
-      maxRetries: baseOptions?.maxRetries,
-      onQueued: baseOptions?.onQueued,
-      priority: baseOptions?.priority ?? 0,
-      meta: baseOptions?.meta,
-    );
-  }
-
-  static MutationKey _parseKey(String value, int version) {
-    final normalized = value.trim();
-    final separator = normalized.lastIndexOf('.');
-    if (separator <= 0 || separator == normalized.length - 1) {
-      throw ArgumentError.value(
-        value,
-        'key',
-        'must contain a namespace and name separated by a dot',
-      );
-    }
-    return MutationKey(
-      namespace: normalized.substring(0, separator),
-      name: normalized.substring(separator + 1),
-      version: version,
-    );
-  }
 }

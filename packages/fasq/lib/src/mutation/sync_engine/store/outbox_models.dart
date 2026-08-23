@@ -156,7 +156,9 @@ class OutboxHistoryEntry {
     required this.state,
     required this.completedAt,
     this.idempotencyKey,
+    this.mutationKey,
     this.authScope,
+    this.identity,
     this.resultProjection,
   });
 
@@ -166,7 +168,9 @@ class OutboxHistoryEntry {
     required MutationOperationState state,
     required DateTime completedAt,
     IdempotencyKey? idempotencyKey,
+    MutationKey? mutationKey,
     AuthScope? authScope,
+    MutationIdentityLink? identity,
     Object? resultProjection,
   }) {
     return OutboxHistoryEntry(
@@ -174,7 +178,9 @@ class OutboxHistoryEntry {
       state: state,
       completedAt: completedAt,
       idempotencyKey: idempotencyKey,
+      mutationKey: mutationKey,
       authScope: authScope,
+      identity: identity,
       resultProjection: _immutableJsonValue(
         resultProjection,
         'resultProjection',
@@ -188,8 +194,14 @@ class OutboxHistoryEntry {
     final state = json['state'];
     final completedAt = json['completedAt'];
     final idempotencyKey = json['idempotencyKey'];
+    final mutationKey = json['mutationKey'];
     final authScope = json['authScope'];
+    final identity = json['identity'];
     if (operationId is! String || state is! String || completedAt is! String) {
+      throw const OutboxCorruptException();
+    }
+    if ((mutationKey != null && mutationKey is! Map<Object?, Object?>) ||
+        (identity != null && identity is! Map<Object?, Object?>)) {
       throw const OutboxCorruptException();
     }
     IdempotencyKey? parsedIdempotencyKey;
@@ -213,7 +225,17 @@ class OutboxHistoryEntry {
         state: parsedState,
         completedAt: _date(completedAt),
         idempotencyKey: parsedIdempotencyKey,
+        mutationKey: mutationKey == null
+            ? null
+            : MutationKey.fromJson(
+                _objectMap(mutationKey as Map<Object?, Object?>),
+              ),
         authScope: _parseAuthScope(authScope),
+        identity: identity == null
+            ? null
+            : MutationIdentityLink.fromJson(
+                _objectMap(identity as Map<Object?, Object?>),
+              ),
         resultProjection: json['resultProjection'],
       );
     } on OutboxCorruptException {
@@ -231,6 +253,11 @@ class OutboxHistoryEntry {
   /// Nullable only for history written by versions before this field existed.
   final IdempotencyKey? idempotencyKey;
 
+  /// Logical mutation key that produced this retained result.
+  ///
+  /// Nullable only for history written before identity-aware contracts.
+  final MutationKey? mutationKey;
+
   /// Final state recorded in the completion ledger.
   final MutationOperationState state;
 
@@ -240,6 +267,9 @@ class OutboxHistoryEntry {
   /// Exact non-secret authentication scope that owned the operation.
   final AuthScope? authScope;
 
+  /// Local-to-server identity retained after operation completion.
+  final MutationIdentityLink? identity;
+
   /// Optional JSON-safe projected result.
   final Object? resultProjection;
 
@@ -247,9 +277,11 @@ class OutboxHistoryEntry {
   Map<String, Object?> toJson() => {
     'operationId': operationId.value,
     'idempotencyKey': idempotencyKey?.value,
+    'mutationKey': mutationKey?.toJson(),
     'state': state.name,
     'completedAt': completedAt.toIso8601String(),
     'authScope': authScope?.toJson(),
+    'identity': identity?.toJson(),
     'resultProjection': resultProjection,
   };
 }
@@ -461,6 +493,7 @@ MutationOperation _copyOperation(MutationOperation operation) {
     rateLimitBucket: operation.rateLimitBucket,
     lastAttemptAt: operation.lastAttemptAt,
     authScope: operation.authScope,
+    identity: operation.identity,
     dependencies: List.unmodifiable(operation.dependencies),
     projections: List.unmodifiable(operation.projections),
   );
@@ -484,7 +517,9 @@ OutboxHistoryEntry _copyHistoryEntry(OutboxHistoryEntry entry) {
     state: entry.state,
     completedAt: entry.completedAt,
     idempotencyKey: entry.idempotencyKey,
+    mutationKey: entry.mutationKey,
     authScope: entry.authScope,
+    identity: entry.identity,
     resultProjection: entry.resultProjection,
   );
 }
