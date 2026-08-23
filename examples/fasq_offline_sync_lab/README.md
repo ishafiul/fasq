@@ -1,5 +1,8 @@
 # Fasq offline sync lab
 
+[![Repository](https://img.shields.io/badge/repository-GitHub-181717?style=flat-square)](https://github.com/ishafiul/fasq)
+[![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
+
 Small native Flutter app showing one complete Fasq setup:
 
 `Fasq.initialize` → encrypted durable query cache + outbox → typed mutations → replay.
@@ -99,3 +102,7 @@ session provider, and connectivity.
 
 This lab does not promise exactly-once delivery or guaranteed background
 execution. Production transports still need idempotency handling.
+
+Read the [durable offline sync release notes](https://shafi.dev/fasq/guides/offline-sync-release)
+for migration guidance, compatibility boundaries, and the full guarantee
+contract.

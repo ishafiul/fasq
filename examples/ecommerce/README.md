@@ -1,16 +1,17 @@
-# ecommerce
+# Fasq ecommerce example
 
-A new Flutter project.
+Reference Flutter application combining `fasq` with `fasq_security` in a
+larger application flow. It is a workspace example, not a publishable package.
 
-## Getting Started
+## Run locally
 
-This project is a starting point for a Flutter application.
+From the repository root:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter pub get
+flutter run
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+See the [Fasq documentation](https://shafi.dev/fasq), [source repository](https://github.com/ishafiul/fasq),
+and [issue tracker](https://github.com/ishafiul/fasq/issues) for package usage
+and support.

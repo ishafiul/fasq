@@ -1,3 +1,11 @@
+# Fasq example backend
+
+Cloudflare Workers backend used by the example applications.
+
+[Repository](https://github.com/ishafiul/fasq) · [Issues](https://github.com/ishafiul/fasq/issues)
+
+## Development
+
 ```txt
 npm install
 npm run dev

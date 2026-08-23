@@ -1,21 +1,25 @@
 # fasq_hooks
 
+[![Pub Version](https://img.shields.io/pub/v/fasq_hooks?style=flat-square)](https://pub.dev/packages/fasq_hooks)
+[![Repository](https://img.shields.io/badge/repository-GitHub-181717?style=flat-square)](https://github.com/ishafiul/fasq)
+[![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
+
 > **Flutter Hooks adapter for FASQ (Flutter Async State Query).**
 
 The most natural way to use FASQ in Flutter. Bringing React Query-style hooks to your Flutter applications.
 
-**Current Version:** 0.2.4+1
+**Current Version:** 0.4.0
 
 ## 📚 Documentation
 
 For full documentation and API reference, visit:  
-**[https://fasq.shafi.dev/adapters/hooks](https://fasq.shafi.dev/adapters/hooks)**
+**[https://shafi.dev/fasq/hooks](https://shafi.dev/fasq/hooks)**
 
 ## ✨ Features
 
 - **🎣 useQuery**: Declarative data fetching with hooks.
 - **♾️ useInfiniteQuery**: Infinite scrolling made simple.
-- **🔄 useMutation**: Handle server mutations and side effects.
+- **🔄 useMutation**: Handle online mutations and side effects.
 - **🔀 useQueries**: Execute multiple queries in parallel.
 - **📦 Zero Configuration**: Works out of the box with `flutter_hooks`.
 
@@ -23,7 +27,7 @@ For full documentation and API reference, visit:
 
 ```yaml
 dependencies:
-  fasq_hooks: ^0.2.4+1
+  fasq_hooks: ^0.4.0
 ```
 
 ## 🚀 Quick Start
@@ -89,7 +93,16 @@ final posts = useInfiniteQuery<List<Post>, int>(
 - **Global Cache Access**: `useQueryClient`.
 - **Dependent Queries**: `enabled: otherQuery.isSuccess`.
 
-See the [main documentation](https://fasq.shafi.dev) for more.
+For durable offline actions, use the core `@FasqMutation` contract and
+`MutationBuilder` inside `FasqProvider`. See the [durable mutation documentation](https://shafi.dev/fasq/core/essentials/durable-mutations).
+
+See the [main documentation](https://shafi.dev/fasq) for more.
+
+## 🔗 Repository Links
+
+- [Source repository](https://github.com/ishafiul/fasq)
+- [Issue tracker](https://github.com/ishafiul/fasq/issues)
+- [Pull requests](https://github.com/ishafiul/fasq/pulls)
 
 ## 📄 License
 

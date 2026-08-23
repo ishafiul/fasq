@@ -1,16 +1,17 @@
-# fasq_example
+# Fasq example app
 
-Comprehensive examples demonstrating FASQ (Flutter Async State Query) features including caching, mutations, and forms.
+Comprehensive Flutter examples demonstrating Fasq caching, queries, mutations,
+forms, and secure persistence.
 
-## Getting Started
+## Run locally
 
-This project is a starting point for a Flutter application.
+From the repository root:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter pub get
+flutter run
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Start with the [Fasq documentation](https://shafi.dev/fasq/quick-start), then
+review the [source repository](https://github.com/ishafiul/fasq) for the package
+implementations.
