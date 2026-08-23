@@ -24,6 +24,8 @@ workspace:
 dev_dependencies:
   melos: ^7.7.0
 
+repository: https://github.com/ishafiul/fasq
+
 melos:
   command:
     bootstrap:
@@ -32,7 +34,8 @@ melos:
         flutter: ">=3.41.0"
 
     version:
-      branch: main
+      linkToCommits: true
+      releaseUrl: true
       message: "chore(release): publish packages"
 
   scripts:
