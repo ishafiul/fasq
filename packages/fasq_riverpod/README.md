@@ -19,9 +19,12 @@ For full documentation and API reference, visit:
 
 - **🔌 queryProvider**: Create type-safe query providers.
 - **♾️ infiniteQueryProvider**: Paginated lists with Riverpod.
-- **🔄 mutationProvider**: Handle online server side-effects.
-- **🔀 combineQueries**: Merge multiple queries into a single state.
-- **⚡ Riverpod Integration**: Works with `ref.watch`, `ConsumerWidget`, and `.family`.
+- **⚡ queriesProvider / namedQueriesProvider**: Execute parallel query sets.
+- **🔄 mutationProvider**: Handle immediate or typed durable server side-effects.
+- **📬 mutationQueueProvider**: Observe, replay, repair, and project durable work.
+- **🔀 combineQueries**: Merge multiple `AsyncValue` providers into one state.
+- **⚡ Riverpod Integration**: Works with `ref.watch`, `ConsumerWidget`, and
+  explicit `ProviderContainer` scopes.
 
 ## 📦 Installation
 
@@ -38,7 +41,7 @@ Create a `queryProvider` for your data source.
 
 ```dart
 final usersProvider = queryProvider<List<User>>(
-  'users',
+  'users'.toQueryKey(),
   () => api.fetchUsers(),
   options: QueryOptions(
     staleTime: Duration(minutes: 5),
@@ -74,22 +77,89 @@ Use `mutationProvider` for actions.
 ```dart
 final createUserProvider = mutationProvider<User, String>(
   (name) => api.createUser(name),
-  options: MutationOptions(
-    onSuccess: (user) {
-      QueryClient().invalidateQuery('users');
-    },
-  ),
 );
+```
+
+After the submission completes, use the same scoped client to invalidate
+related queries:
+
+```dart
+final receipt = await ref.read(createUserProvider.notifier).submit('Ada');
+if (receipt.isSucceeded) {
+  ref.read(fasqClientProvider).invalidateQuery('users'.toQueryKey());
+}
 ```
 
 ## 🧩 Advanced Features
 
-- **Parameterized Queries**: `queryProvider.family`.
+- **Parameterized Queries**: include parameters in a typed `QueryKey`, then
+  create one provider per parameterized key (or use the core `QueryClient`
+  registry directly).
+- **Parallel Queries**: use `queriesProvider` with `QueryConfig` or
+  `namedQueriesProvider` with `NamedQueryConfig`; use `combineQueries` when
+  the inputs are already Riverpod providers.
 - **Prefetching**: `ref.prefetchQuery`.
-- **Dependent Queries**: `enabled: ref.watch(otherProvider).isSuccess`.
+- **Dependent Queries**: use core `dependsOn: parentKey`, or compose a child
+  provider from another Riverpod provider when its key depends on Riverpod
+  state.
 
-For durable offline actions, use the core `@FasqMutation` contract and
-`MutationBuilder` inside `FasqProvider`. See the [durable mutation documentation](https://shafi.dev/fasq/core/essentials/durable-mutations).
+`QueryNotifier` exposes the underlying core query through `query`, `queryClient`,
+and `ready`, plus `refetch`, `invalidate`, `cancel`, `setData`,
+`updateFromCache`, `remove`, `updateOptions`, `metrics`, and `debugInfo`.
+`InfiniteQueryNotifier` additionally exposes next/previous page fetches, page
+refetch, reset, invalidation, page restoration, and pagination flags.
+
+The adapter's public surface is:
+
+- `queryProvider` and `queryProviderWithToken` for ordinary and
+  cancellation-aware queries.
+- `infiniteQueryProvider` for page-based data.
+- `queriesProvider` / `namedQueriesProvider` for owned parallel query sets.
+- `combineQueries` / `combineNamedQueries` for composing existing
+  `AsyncValue` providers.
+- `mutationProvider` / `durableMutationProvider` for immediate or typed
+  durable mutations.
+- `mutationQueueProvider` for redacted queue observation plus replay,
+  projection, history, and repair commands.
+- `PrefetchExtension` for `WidgetRef.prefetchQuery` and
+  `WidgetRef.prefetchQueries`.
+
+For an application-owned runtime, override the provider once:
+
+```dart
+ProviderScope(
+  overrides: [fasqRuntimeProvider.overrideWithValue(runtime)],
+  child: const App(),
+);
+```
+
+The runtime's `QueryClient` and durable queue are borrowed. With no runtime
+override, `fasqClientProvider` creates an isolated client per container and
+disposes it with that container.
+
+Durable mutations can be created from a typed core contract:
+
+```dart
+final saveProvider = mutationProvider<SaveResult, SaveInput>(
+  null,
+  mutationKey: saveMutationKey,
+);
+
+final receipt = await ref.read(saveProvider.notifier).submit(input);
+```
+
+The receipt preserves queued/succeeded/failed status and its opaque local
+reference. Use `mutationQueueProvider` for redacted queue observations and
+the full replay, projection, history, and repair commands.
+
+The adapter re-exports all public `fasq` APIs, so cache inspection, persistence,
+security, circuit breakers, metrics, observers, and durable contracts remain
+available through the same import. See the [durable mutation documentation](https://shafi.dev/fasq/core/essentials/durable-mutations).
+
+When an application supplies a `FasqRuntime`, the adapter borrows its client
+and durable queue. Without a runtime override, `fasqClientProvider` creates an
+isolated `QueryClient` per `ProviderContainer` and disposes it with that
+container.
 
 See the [main documentation](https://shafi.dev/fasq) for more.
 

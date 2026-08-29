@@ -6,16 +6,16 @@
 /// ## Core APIs
 /// - [queryProvider] - Creates queries that return `AsyncValue<T>`
 /// - [infiniteQueryProvider] - Creates paginated queries
+/// - [queriesProvider] / [namedQueriesProvider] - Execute query sets in parallel
 /// - [mutationProvider] - Creates mutations with imperative API
+/// - [mutationQueueProvider] - Observes and controls durable queue work
+/// - [combineQueries] / [combineNamedQueries] - Aggregates AsyncValue providers
 /// - [PrefetchExtension] - Extension methods for prefetching
 ///
 /// ## Configuration
 /// - [fasqClientProvider] - Main QueryClient provider
+/// - [fasqRuntimeProvider] - Optional application-owned FasqRuntime
 /// - Configuration providers for cache, persistence, security, etc.
-///
-/// ## Legacy APIs
-/// Legacy StateNotifier-based APIs are available in `package:fasq_riverpod/legacy.dart`
-/// for backward compatibility.
 library;
 
 export 'package:fasq/fasq.dart';
