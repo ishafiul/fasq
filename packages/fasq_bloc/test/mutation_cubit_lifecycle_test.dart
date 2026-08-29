@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:fasq_bloc/fasq_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -48,8 +46,10 @@ void main() {
 
       expect(callOrder, contains('onMutate'));
       expect(callOrder, contains('onSuccess'));
-      expect(callOrder.indexOf('onMutate'),
-          lessThan(callOrder.indexOf('onSuccess')));
+      expect(
+        callOrder.indexOf('onMutate'),
+        lessThan(callOrder.indexOf('onSuccess')),
+      );
       expect(successData, 'test result');
       await cubit.close();
     });
@@ -77,66 +77,72 @@ void main() {
 
       expect(callOrder, contains('onMutate'));
       expect(callOrder, contains('onError'));
-      expect(callOrder.indexOf('onMutate'),
-          lessThan(callOrder.indexOf('onError')));
+      expect(
+        callOrder.indexOf('onMutate'),
+        lessThan(callOrder.indexOf('onError')),
+      );
       expect(errorReceived, isA<Exception>());
       expect(contextReceived, 'rollback context');
       await cubit.close();
     });
 
-    test('onSettled is always called after mutation completes (success)',
-        () async {
-      final cubit = _TestMutationCubit();
-      final callOrder = <String>[];
+    test(
+      'onSettled is always called after mutation completes (success)',
+      () async {
+        final cubit = _TestMutationCubit();
+        final callOrder = <String>[];
 
-      cubit.mutate(
-        'test',
-        onMutate: () {
-          callOrder.add('onMutate');
-          return null;
-        },
-        onSuccess: (_) {
-          callOrder.add('onSuccess');
-        },
-        onSettled: () {
-          callOrder.add('onSettled');
-        },
-      );
+        cubit.mutate(
+          'test',
+          onMutate: () {
+            callOrder.add('onMutate');
+            return null;
+          },
+          onSuccess: (_) {
+            callOrder.add('onSuccess');
+          },
+          onSettled: () {
+            callOrder.add('onSettled');
+          },
+        );
 
-      await Future.delayed(const Duration(milliseconds: 20));
+        await Future.delayed(const Duration(milliseconds: 20));
 
-      expect(callOrder.last, 'onSettled');
-      expect(callOrder, contains('onMutate'));
-      expect(callOrder, contains('onSuccess'));
-      await cubit.close();
-    });
+        expect(callOrder.last, 'onSettled');
+        expect(callOrder, contains('onMutate'));
+        expect(callOrder, contains('onSuccess'));
+        await cubit.close();
+      },
+    );
 
-    test('onSettled is always called after mutation completes (error)',
-        () async {
-      final cubit = _ErrorMutationCubit();
-      final callOrder = <String>[];
+    test(
+      'onSettled is always called after mutation completes (error)',
+      () async {
+        final cubit = _ErrorMutationCubit();
+        final callOrder = <String>[];
 
-      cubit.mutate(
-        'test',
-        onMutate: () {
-          callOrder.add('onMutate');
-          return null;
-        },
-        onError: (_, __) {
-          callOrder.add('onError');
-        },
-        onSettled: () {
-          callOrder.add('onSettled');
-        },
-      );
+        cubit.mutate(
+          'test',
+          onMutate: () {
+            callOrder.add('onMutate');
+            return null;
+          },
+          onError: (_, __) {
+            callOrder.add('onError');
+          },
+          onSettled: () {
+            callOrder.add('onSettled');
+          },
+        );
 
-      await Future.delayed(const Duration(milliseconds: 20));
+        await Future.delayed(const Duration(milliseconds: 20));
 
-      expect(callOrder.last, 'onSettled');
-      expect(callOrder, contains('onMutate'));
-      expect(callOrder, contains('onError'));
-      await cubit.close();
-    });
+        expect(callOrder.last, 'onSettled');
+        expect(callOrder, contains('onMutate'));
+        expect(callOrder, contains('onError'));
+        await cubit.close();
+      },
+    );
 
     test('context from onMutate is passed to onError for rollback', () async {
       final cubit = _ErrorMutationCubit();
@@ -239,28 +245,30 @@ void main() {
       await cubit.close();
     });
 
-    test('onError receives correct error and context when mutation fails',
-        () async {
-      final cubit = _ErrorMutationCubit();
-      const testContext = {'key': 'value'};
-      Object? errorReceived;
-      dynamic contextReceived;
+    test(
+      'onError receives correct error and context when mutation fails',
+      () async {
+        final cubit = _ErrorMutationCubit();
+        const testContext = {'key': 'value'};
+        Object? errorReceived;
+        dynamic contextReceived;
 
-      cubit.mutate(
-        'test',
-        onMutate: () => testContext,
-        onError: (error, context) {
-          errorReceived = error;
-          contextReceived = context;
-        },
-      );
+        cubit.mutate(
+          'test',
+          onMutate: () => testContext,
+          onError: (error, context) {
+            errorReceived = error;
+            contextReceived = context;
+          },
+        );
 
-      await Future.delayed(const Duration(milliseconds: 20));
+        await Future.delayed(const Duration(milliseconds: 20));
 
-      expect(errorReceived, isA<Exception>());
-      expect(contextReceived, testContext);
-      await cubit.close();
-    });
+        expect(errorReceived, isA<Exception>());
+        expect(contextReceived, testContext);
+        await cubit.close();
+      },
+    );
 
     test('lifecycle hooks are not called if cubit is closed', () async {
       final cubit = _TestMutationCubit();
@@ -292,60 +300,62 @@ void main() {
     });
 
     test(
-        'correct execution order: onMutate -> mutation -> onSuccess -> onSettled',
-        () async {
-      final cubit = _TestMutationCubit();
-      final executionOrder = <String>[];
+      'correct execution order: onMutate -> mutation -> onSuccess -> onSettled',
+      () async {
+        final cubit = _TestMutationCubit();
+        final executionOrder = <String>[];
 
-      cubit.mutate(
-        'test',
-        onMutate: () {
-          executionOrder.add('onMutate');
-          return null;
-        },
-        onSuccess: (_) {
-          executionOrder.add('onSuccess');
-        },
-        onSettled: () {
-          executionOrder.add('onSettled');
-        },
-      );
+        cubit.mutate(
+          'test',
+          onMutate: () {
+            executionOrder.add('onMutate');
+            return null;
+          },
+          onSuccess: (_) {
+            executionOrder.add('onSuccess');
+          },
+          onSettled: () {
+            executionOrder.add('onSettled');
+          },
+        );
 
-      await Future.delayed(const Duration(milliseconds: 20));
+        await Future.delayed(const Duration(milliseconds: 20));
 
-      expect(executionOrder[0], 'onMutate');
-      expect(executionOrder[1], 'onSuccess');
-      expect(executionOrder[2], 'onSettled');
-      await cubit.close();
-    });
+        expect(executionOrder[0], 'onMutate');
+        expect(executionOrder[1], 'onSuccess');
+        expect(executionOrder[2], 'onSettled');
+        await cubit.close();
+      },
+    );
 
     test(
-        'correct execution order: onMutate -> mutation -> onError -> onSettled',
-        () async {
-      final cubit = _ErrorMutationCubit();
-      final executionOrder = <String>[];
+      'correct execution order: onMutate -> mutation -> onError -> onSettled',
+      () async {
+        final cubit = _ErrorMutationCubit();
+        final executionOrder = <String>[];
 
-      cubit.mutate(
-        'test',
-        onMutate: () {
-          executionOrder.add('onMutate');
-          return null;
-        },
-        onError: (_, __) {
-          executionOrder.add('onError');
-        },
-        onSettled: () {
-          executionOrder.add('onSettled');
-        },
-      );
+        cubit.mutate(
+          'test',
+          onMutate: () {
+            executionOrder.add('onMutate');
+            return null;
+          },
+          onError: (_, __) {
+            executionOrder.add('onError');
+          },
+          onSettled: () {
+            executionOrder.add('onSettled');
+          },
+        );
 
-      await Future.delayed(const Duration(milliseconds: 20));
+        await Future.delayed(const Duration(milliseconds: 20));
 
-      expect(executionOrder[0], 'onMutate');
-      expect(executionOrder[1], 'onError');
-      expect(executionOrder[2], 'onSettled');
-      await cubit.close();
-    });
+        expect(executionOrder[0], 'onMutate');
+        expect(executionOrder[1], 'onError');
+        expect(executionOrder[2], 'onSettled');
+        await cubit.close();
+      },
+    );
   });
 }
 

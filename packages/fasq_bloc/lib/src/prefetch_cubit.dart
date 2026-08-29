@@ -8,8 +8,11 @@ class PrefetchQueryCubit extends Cubit<void> {
   final QueryClient _client;
 
   PrefetchQueryCubit({QueryClient? client})
-      : _client = client ?? QueryClient(),
-        super(null);
+    : _client = client ?? QueryClient(),
+      super(null);
+
+  /// Query client used for all prefetch operations.
+  QueryClient get client => _client;
 
   /// Prefetch a single query.
   Future<void> prefetch<T>(

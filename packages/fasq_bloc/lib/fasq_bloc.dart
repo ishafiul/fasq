@@ -11,6 +11,7 @@ export 'src/infinite_query_cubit.dart';
 export 'src/mixins/fasq_subscription_mixin.dart';
 export 'src/multi_query_builder.dart';
 export 'src/mutation_cubit.dart';
+export 'src/mutation_queue_cubit.dart';
 export 'src/prefetch_builder.dart';
 export 'src/prefetch_cubit.dart';
 export 'src/query_cubit.dart';

@@ -2,84 +2,92 @@ import 'dart:async';
 
 import 'package:fasq/fasq.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Provider widget for making QueryClient accessible through the widget tree.
+/// Provider widget for making FASQ runtime resources available to Bloc and
+/// core widgets.
 ///
-/// This widget wraps the widget tree and provides a QueryClient instance
-/// that can be accessed via context, similar to BlocProvider.
-///
-/// If no QueryClient is provided, a default one is created and automatically
-/// disposed when the widget is removed from the tree.
-///
-/// Example:
-/// ```dart
-/// FasqBlocProvider(
-///   child: MaterialApp(
-///     home: UsersScreen(),
-///   ),
-/// )
-/// ```
-///
-/// Provide an existing client to reuse:
-/// ```dart
-/// final client = QueryClient();
-///
-/// FasqBlocProvider(
-///   client: client,
-///   child: MyApp(),
-/// )
-/// ```
+/// Pass [runtime] for a fully initialized core runtime, or pass [client] for a
+/// query-only scope. When neither is supplied, an existing ancestor client is
+/// reused; otherwise the provider creates and owns the default singleton.
+/// The resolved client and runtime are also available through
+/// `context.read<QueryClient>()` and `context.read<FasqRuntime>()` when a
+/// runtime-backed scope is used.
 class FasqBlocProvider extends StatefulWidget {
-  /// Optional pre-configured [QueryClient] instance to reuse.
-  ///
-  /// When provided, the provider will not dispose the client when removed.
-  /// If not provided, a default QueryClient is created and disposed automatically.
+  /// Optional initialized runtime containing a client and durable queue.
+  final FasqRuntime? runtime;
+
+  /// Optional pre-configured query client.
   final QueryClient? client;
 
-  /// The widget below this widget in the tree.
+  /// Cache configuration used to create an owned query client.
+  final CacheConfig? config;
+
+  /// Persistence configuration used to create an owned query client.
+  final PersistenceOptions? persistenceOptions;
+
+  /// Security plugin used by the owned query client.
+  final SecurityPlugin? securityPlugin;
+
+  /// The widget below this provider.
   final Widget child;
 
-  const FasqBlocProvider({super.key, this.client, required this.child});
+  const FasqBlocProvider({
+    super.key,
+    this.runtime,
+    this.client,
+    this.config,
+    this.persistenceOptions,
+    this.securityPlugin,
+    required this.child,
+  }) : assert(
+         runtime == null || client == null,
+         'Provide either runtime or client, not both.',
+       ),
+       assert(
+         (runtime == null && client == null) ||
+             (config == null &&
+                 persistenceOptions == null &&
+                 securityPlugin == null),
+         'Provide either a runtime/client or configuration values, not both.',
+       );
 
-  /// Gets the QueryClient from the nearest FasqBlocProvider.
-  ///
-  /// Throws if no FasqBlocProvider is found in the widget tree.
-  ///
-  /// Example:
-  /// ```dart
-  /// final client = FasqBlocProvider.of(context);
-  /// ```
+  /// Gets the nearest Bloc adapter client.
   static QueryClient of(BuildContext context) {
     final provider = context
-        .dependOnInheritedWidgetOfExactType<_FasqBlocProviderInherited>();
+        .getInheritedWidgetOfExactType<_FasqBlocProviderInherited>();
     if (provider == null) {
       throw FlutterError(
         'FasqBlocProvider.of() called with a context that does not contain '
-        'a FasqBlocProvider.\n'
-        'No ancestor could be found starting from the context that was passed '
-        'to FasqBlocProvider.of().\n'
-        'The context used was:\n'
-        '  $context',
+        'a FasqBlocProvider.',
       );
     }
     return provider.client;
   }
 
-  /// Gets the QueryClient from the nearest FasqBlocProvider, or null if not found.
-  ///
-  /// Returns null if no FasqBlocProvider is found in the widget tree.
-  ///
-  /// Example:
-  /// ```dart
-  /// final client = FasqBlocProvider.maybeOf(context);
-  /// if (client != null) {
-  ///   // Use client
-  /// }
-  /// ```
+  /// Gets the nearest Bloc adapter client, or null when absent.
   static QueryClient? maybeOf(BuildContext context) {
-    final provider = context
-        .dependOnInheritedWidgetOfExactType<_FasqBlocProviderInherited>();
-    return provider?.client;
+    return context
+        .getInheritedWidgetOfExactType<_FasqBlocProviderInherited>()
+        ?.client;
+  }
+
+  /// Gets the nearest runtime, or null when this is a query-only scope.
+  static FasqRuntime? maybeRuntimeOf(BuildContext context) {
+    return context
+        .getInheritedWidgetOfExactType<_FasqBlocProviderInherited>()
+        ?.runtime;
+  }
+
+  /// Gets the nearest runtime or throws when none was provided.
+  static FasqRuntime runtimeOf(BuildContext context) {
+    final runtime = maybeRuntimeOf(context);
+    if (runtime == null) {
+      throw FlutterError(
+        'FasqBlocProvider.runtimeOf() requires a provider with runtime.',
+      );
+    }
+    return runtime;
   }
 
   @override
@@ -87,52 +95,128 @@ class FasqBlocProvider extends StatefulWidget {
 }
 
 class _FasqBlocProviderState extends State<FasqBlocProvider> {
-  late final QueryClient _queryClient;
-  late final bool _disposeClient;
+  QueryClient? _queryClient;
+  var _ownsClient = false;
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.client != null) {
-      _queryClient = widget.client!;
-      _disposeClient = false;
-    } else if (context.queryClient != null) {
-      _queryClient = context.queryClient!;
-      _disposeClient = false;
-    } else {
-      _queryClient = QueryClient();
-      _disposeClient = true;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _synchronizeClient();
+  }
+
+  @override
+  void didUpdateWidget(covariant FasqBlocProvider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.client, widget.client) ||
+        !identical(oldWidget.runtime, widget.runtime) ||
+        !identical(oldWidget.config, widget.config) ||
+        !identical(oldWidget.persistenceOptions, widget.persistenceOptions) ||
+        !identical(oldWidget.securityPlugin, widget.securityPlugin)) {
+      _synchronizeClient();
+    }
+  }
+
+  void _synchronizeClient() {
+    final requestedClient = widget.runtime?.queryClient ?? widget.client;
+    final hasConfiguration =
+        widget.config != null ||
+        widget.persistenceOptions != null ||
+        widget.securityPlugin != null;
+    final inheritedClient = hasConfiguration ? null : context.queryClient;
+    final nextClient =
+        requestedClient ??
+        inheritedClient ??
+        QueryClient(
+          config: widget.config,
+          persistenceOptions: widget.persistenceOptions,
+          securityPlugin: widget.securityPlugin,
+        );
+    final nextOwnsClient = requestedClient == null && inheritedClient == null;
+
+    if (identical(nextClient, _queryClient)) {
+      _ownsClient = nextOwnsClient;
+      return;
+    }
+
+    final previousClient = _queryClient;
+    final previousOwned = _ownsClient;
+    _queryClient = nextClient;
+    _ownsClient = nextOwnsClient;
+
+    if (previousOwned && previousClient != null) {
+      _disposeOwnedClient(previousClient);
     }
   }
 
   @override
   void dispose() {
-    if (_disposeClient) {
-      unawaited(_queryClient.dispose());
+    final client = _queryClient;
+    if (_ownsClient && client != null) {
+      _disposeOwnedClient(client);
     }
     super.dispose();
   }
 
+  void _disposeOwnedClient(QueryClient client) {
+    unawaited(
+      client.dispose().catchError((Object error, StackTrace stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'fasq_bloc',
+            context: ErrorDescription('disposing an owned QueryClient'),
+          ),
+        );
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return _FasqBlocProviderInherited(
-      client: _queryClient,
+    final client = _queryClient ?? QueryClient();
+    final hasConfiguration =
+        widget.config != null ||
+        widget.persistenceOptions != null ||
+        widget.securityPlugin != null;
+    final runtime = hasConfiguration
+        ? null
+        : widget.runtime ??
+              (widget.client == null ? FasqProvider.maybeOf(context) : null);
+    final inherited = _FasqBlocProviderInherited(
+      client: client,
+      runtime: runtime,
       child: widget.child,
     );
+
+    Widget result;
+    if (runtime != null) {
+      result = FasqProvider(runtime: runtime, child: inherited);
+      result = RepositoryProvider<FasqRuntime>.value(
+        value: runtime,
+        child: result,
+      );
+    } else {
+      result = QueryClientProvider(client: client, child: inherited);
+    }
+    return RepositoryProvider<QueryClient>.value(value: client, child: result);
   }
 }
 
-/// Inherited widget that provides QueryClient to the widget tree.
+/// Inherited value used by the Bloc adapter's static lookup helpers.
 class _FasqBlocProviderInherited extends InheritedWidget {
-  final QueryClient client;
-
   const _FasqBlocProviderInherited({
     required this.client,
+    required this.runtime,
     required super.child,
   });
 
+  final QueryClient client;
+  final FasqRuntime? runtime;
+
   @override
   bool updateShouldNotify(_FasqBlocProviderInherited oldWidget) {
-    return client != oldWidget.client;
+    return !identical(client, oldWidget.client) ||
+        !identical(runtime, oldWidget.runtime);
   }
 }

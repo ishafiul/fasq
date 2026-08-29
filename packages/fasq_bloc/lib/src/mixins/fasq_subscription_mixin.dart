@@ -31,6 +31,13 @@ mixin FasqSubscriptionMixin<State> on Cubit<State> {
   /// cancellation when the cubit is closed.
   final Set<StreamSubscription> _subscriptions = {};
 
+  /// Cleanup for the query reference owned by a subscription.
+  ///
+  /// A stream subscription and a query reference are separate resources in
+  /// FASQ. Keeping their cleanup together prevents a Bloc subscription from
+  /// leaking the query's reference-counted lifecycle.
+  final Map<StreamSubscription, void Function()> _subscriptionCleanup = {};
+
   /// Returns the number of active subscriptions.
   ///
   /// Useful for testing and debugging purposes.
@@ -58,21 +65,24 @@ mixin FasqSubscriptionMixin<State> on Cubit<State> {
   /// ```
   StreamSubscription<QueryState<T>>? subscribeToQuery<T>(
     Query<T>? query,
-    void Function(QueryState<T>) onState,
-  ) {
+    void Function(QueryState<T>) onState, {
+    bool addListener = true,
+  }) {
     if (query == null) {
       return null;
     }
 
-    final subscription = query.stream.listen(
-      (state) {
-        if (!isClosed) {
-          onState(state);
-        }
-      },
-    );
+    final subscription = query.stream.listen((state) {
+      if (!isClosed) {
+        onState(state);
+      }
+    });
 
     _subscriptions.add(subscription);
+    if (addListener) {
+      _subscriptionCleanup[subscription] = query.removeListener;
+      query.addListener();
+    }
     return subscription;
   }
 
@@ -96,23 +106,31 @@ mixin FasqSubscriptionMixin<State> on Cubit<State> {
   ///   },
   /// );
   /// ```
-  void subscribeToInfiniteQuery<TData, TParam>(
+  StreamSubscription<InfiniteQueryState<TData, TParam>>?
+  subscribeToInfiniteQuery<TData, TParam>(
     InfiniteQuery<TData, TParam>? query,
-    void Function(InfiniteQueryState<TData, TParam>) onState,
-  ) {
+    void Function(InfiniteQueryState<TData, TParam>) onState, {
+    bool addListener = true,
+  }) {
     if (query == null) {
-      return;
+      return null;
     }
 
-    final subscription = query.stream.listen(
-      (state) {
-        if (!isClosed) {
-          onState(state);
-        }
-      },
-    );
+    final subscription = query.stream.listen((state) {
+      if (!isClosed) {
+        onState(state);
+      }
+    });
 
     _subscriptions.add(subscription);
+    if (addListener) {
+      _subscriptionCleanup[subscription] = query.removeListener;
+      // InfiniteQuery.addListener() is async because it may prefetch the
+      // first page. It increments the reference count synchronously, while
+      // errors are already represented in the query state.
+      unawaited(query.addListener().catchError((_) {}));
+    }
+    return subscription;
   }
 
   /// Cancels all active subscriptions and clears the internal set.
@@ -122,17 +140,20 @@ mixin FasqSubscriptionMixin<State> on Cubit<State> {
   /// Cancels and removes a specific subscription.
   void unsubscribe(StreamSubscription? subscription) {
     if (subscription != null) {
-      subscription.cancel();
+      unawaited(subscription.cancel());
+      _subscriptionCleanup.remove(subscription)?.call();
       _subscriptions.remove(subscription);
     }
   }
 
   @override
   Future<void> close() {
-    for (final subscription in _subscriptions) {
-      subscription.cancel();
+    for (final subscription in _subscriptions.toList()) {
+      unawaited(subscription.cancel());
+      _subscriptionCleanup.remove(subscription)?.call();
     }
     _subscriptions.clear();
+    _subscriptionCleanup.clear();
     return super.close();
   }
 }
