@@ -6,14 +6,10 @@ void main() {
 
   test('queryProvider respects enabled=false (stays idle)', () async {
     int calls = 0;
-    final provider = queryProvider<String>(
-      'rp:enabled'.toQueryKey(),
-      () async {
-        calls++;
-        return 'ok';
-      },
-      options: QueryOptions(enabled: false),
-    );
+    final provider = queryProvider<String>('rp:enabled'.toQueryKey(), () async {
+      calls++;
+      return 'ok';
+    }, options: QueryOptions(enabled: false));
 
     final container = ProviderContainer();
     addTearDown(container.dispose);

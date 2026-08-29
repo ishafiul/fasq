@@ -11,19 +11,20 @@ void main() {
       await QueryClient.resetForTesting();
     });
 
-    test('fasqClientProvider creates QueryClient with default configuration',
-        () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'fasqClientProvider creates QueryClient with default configuration',
+      () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final client = container.read(fasqClientProvider);
+        final client = container.read(fasqClientProvider);
 
-      expect(client, isNotNull);
-      expect(client, isA<QueryClient>());
-    });
+        expect(client, isNotNull);
+        expect(client, isA<QueryClient>());
+      },
+    );
 
-    test('fasqClientProvider disposes QueryClient on container disposal',
-        () async {
+    test('fasqClientProvider disposes QueryClient on container disposal', () async {
       final container = ProviderContainer();
 
       final client = container.read(fasqClientProvider);
@@ -51,9 +52,7 @@ void main() {
       );
 
       final container = ProviderContainer(
-        overrides: [
-          fasqCacheConfigProvider.overrideWithValue(customConfig),
-        ],
+        overrides: [fasqCacheConfigProvider.overrideWithValue(customConfig)],
       );
       addTearDown(container.dispose);
 
@@ -85,8 +84,9 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final circuitBreakerRegistry =
-          container.read(fasqCircuitBreakerRegistryProvider);
+      final circuitBreakerRegistry = container.read(
+        fasqCircuitBreakerRegistryProvider,
+      );
 
       expect(circuitBreakerRegistry, isNull);
     });
@@ -133,29 +133,28 @@ void main() {
     });
 
     test(
-        'fasqClientProvider adds error reporters from fasqErrorReportersProvider',
-        () {
-      void mockReporter(FasqErrorContext errorContext) {
-        // Mock implementation
-      }
+      'fasqClientProvider adds error reporters from fasqErrorReportersProvider',
+      () {
+        void mockReporter(FasqErrorContext errorContext) {
+          // Mock implementation
+        }
 
-      final container = ProviderContainer(
-        overrides: [
-          fasqErrorReportersProvider.overrideWithValue([mockReporter]),
-        ],
-      );
-      addTearDown(container.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            fasqErrorReportersProvider.overrideWithValue([mockReporter]),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final client = container.read(fasqClientProvider);
+        final client = container.read(fasqClientProvider);
 
-      expect(client, isNotNull);
-      // In a real test, we'd verify the reporter receives error notifications
-    });
+        expect(client, isNotNull);
+        // In a real test, we'd verify the reporter receives error notifications
+      },
+    );
 
     test('multiple provider overrides work together', () {
-      final customConfig = CacheConfig(
-        defaultStaleTime: Duration(minutes: 3),
-      );
+      final customConfig = CacheConfig(defaultStaleTime: Duration(minutes: 3));
       final mockObserver = _MockQueryClientObserver();
 
       final container = ProviderContainer(
@@ -178,8 +177,9 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
-          fasqCircuitBreakerRegistryProvider
-              .overrideWithValue(circuitBreakerRegistry),
+          fasqCircuitBreakerRegistryProvider.overrideWithValue(
+            circuitBreakerRegistry,
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -207,17 +207,29 @@ class _MockQueryClientObserver extends QueryClientObserver {
 
   @override
   void onMutationLoading(
-      MutationSnapshot snapshot, MutationMeta? meta, context) {}
+    MutationSnapshot snapshot,
+    MutationMeta? meta,
+    context,
+  ) {}
 
   @override
   void onMutationSuccess(
-      MutationSnapshot snapshot, MutationMeta? meta, context) {}
+    MutationSnapshot snapshot,
+    MutationMeta? meta,
+    context,
+  ) {}
 
   @override
   void onMutationError(
-      MutationSnapshot snapshot, MutationMeta? meta, context) {}
+    MutationSnapshot snapshot,
+    MutationMeta? meta,
+    context,
+  ) {}
 
   @override
   void onMutationSettled(
-      MutationSnapshot snapshot, MutationMeta? meta, context) {}
+    MutationSnapshot snapshot,
+    MutationMeta? meta,
+    context,
+  ) {}
 }

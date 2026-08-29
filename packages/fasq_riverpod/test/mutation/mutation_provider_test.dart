@@ -32,22 +32,17 @@ void main() {
       addTearDown(container.dispose);
 
       bool wasLoading = false;
-      final provider = mutationProvider<String, String>(
-        (variables) async {
-          await Future.delayed(const Duration(milliseconds: 50));
-          return 'result: $variables';
-        },
-      );
+      final provider = mutationProvider<String, String>((variables) async {
+        await Future.delayed(const Duration(milliseconds: 50));
+        return 'result: $variables';
+      });
 
       // Listen for state changes to check if loading state was reached
-      container.listen(
-        provider,
-        (previous, next) {
-          if (next.isLoading) {
-            wasLoading = true;
-          }
-        },
-      );
+      container.listen(provider, (previous, next) {
+        if (next.isLoading) {
+          wasLoading = true;
+        }
+      });
 
       // Trigger mutation
       await container.read(provider.notifier).mutate('test');
@@ -69,22 +64,17 @@ void main() {
       addTearDown(container.dispose);
 
       bool wasLoading = false;
-      final provider = mutationProvider<String, String>(
-        (variables) async {
-          await Future.delayed(const Duration(milliseconds: 50));
-          throw Exception('Test error');
-        },
-      );
+      final provider = mutationProvider<String, String>((variables) async {
+        await Future.delayed(const Duration(milliseconds: 50));
+        throw Exception('Test error');
+      });
 
       // Listen for state changes to check if loading state was reached
-      container.listen(
-        provider,
-        (previous, next) {
-          if (next.isLoading) {
-            wasLoading = true;
-          }
-        },
-      );
+      container.listen(provider, (previous, next) {
+        if (next.isLoading) {
+          wasLoading = true;
+        }
+      });
 
       // Trigger mutation
       await container.read(provider.notifier).mutate('test');
@@ -105,12 +95,10 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final provider = mutationProvider<String, String>(
-        (variables) async {
-          await Future.delayed(const Duration(milliseconds: 10));
-          return 'result: $variables';
-        },
-      );
+      final provider = mutationProvider<String, String>((variables) async {
+        await Future.delayed(const Duration(milliseconds: 10));
+        return 'result: $variables';
+      });
 
       // Trigger mutation
       await container.read(provider.notifier).mutate('test');
@@ -200,14 +188,10 @@ void main() {
     });
 
     test('mutationProvider uses fasqClientProvider', () async {
-      final customConfig = CacheConfig(
-        defaultStaleTime: Duration(minutes: 5),
-      );
+      final customConfig = CacheConfig(defaultStaleTime: Duration(minutes: 5));
 
       final container = ProviderContainer(
-        overrides: [
-          fasqCacheConfigProvider.overrideWithValue(customConfig),
-        ],
+        overrides: [fasqCacheConfigProvider.overrideWithValue(customConfig)],
       );
       addTearDown(container.dispose);
 
@@ -229,13 +213,11 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final provider = mutationProvider<String, int>(
-        (variables) async {
-          callCount++;
-          await Future.delayed(const Duration(milliseconds: 10));
-          return 'result $variables (call $callCount)';
-        },
-      );
+      final provider = mutationProvider<String, int>((variables) async {
+        callCount++;
+        await Future.delayed(const Duration(milliseconds: 10));
+        return 'result $variables (call $callCount)';
+      });
 
       // First mutation
       await container.read(provider.notifier).mutate(1);
