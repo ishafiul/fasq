@@ -94,9 +94,10 @@ extension PrefetchExtension on WidgetRef {
     QueryKey queryKey,
     Future<T> Function() queryFn, {
     QueryOptions? options,
+    QueryClient? client,
   }) async {
-    final client = read(fasqClientProvider);
-    await client.prefetchQuery(queryKey, queryFn, options: options);
+    final QueryClient resolvedClient = client ?? read(fasqClientProvider);
+    await resolvedClient.prefetchQuery(queryKey, queryFn, options: options);
   }
 
   /// Prefetches multiple queries in parallel.
@@ -125,8 +126,11 @@ extension PrefetchExtension on WidgetRef {
   ///   ),
   /// ]);
   /// ```
-  Future<void> prefetchQueries(List<PrefetchConfig> configs) async {
-    final client = read(fasqClientProvider);
-    await client.prefetchQueries(configs);
+  Future<void> prefetchQueries(
+    List<PrefetchConfig> configs, {
+    QueryClient? client,
+  }) async {
+    final QueryClient resolvedClient = client ?? read(fasqClientProvider);
+    await resolvedClient.prefetchQueries(configs);
   }
 }

@@ -5,116 +5,203 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../provider/client_provider.dart';
 
-/// Riverpod-native [AutoDisposeNotifier] that wraps a FASQ [Mutation].
+/// Riverpod-native adapter for a core [Mutation].
 ///
-/// This is the v2 implementation that provides a more idiomatic Riverpod API
-/// while maintaining full compatibility with FASQ's mutation features.
-///
-/// Unlike queries, mutations don't return AsyncValue because they're triggered
-/// imperatively (not declaratively). Instead, the notifier exposes the mutation
-/// state directly and provides a `mutate()` method to trigger the mutation.
-///
-/// The notifier gets the [QueryClient] from [fasqClientProvider], enabling
-/// full dependency injection and testability.
-///
-/// Example:
-/// ```dart
-/// final createPostMutation = mutationProviderV2<Post, CreatePostInput>(
-///   (variables) => api.createPost(variables),
-///   options: MutationOptions(
-///     onSuccess: (data) => print('Post created: ${data.id}'),
-///     onError: (error) => print('Error: $error'),
-///   ),
-/// );
-///
-/// // In your widget:
-/// final mutation = ref.watch(createPostMutation);
-///
-/// // Show state
-/// if (mutation.isLoading) {
-///   return CircularProgressIndicator();
-/// }
-/// if (mutation.hasError) {
-///   return Text('Error: ${mutation.error}');
-/// }
-///
-/// // Trigger mutation
-/// ElevatedButton(
-///   onPressed: () {
-///     ref.read(createPostMutation.notifier).mutate(
-///       CreatePostInput(title: 'Hello', body: 'World'),
-///     );
-///   },
-///   child: Text('Create Post'),
-/// );
-/// ```
+/// Both immediate functions and typed durable [FasqMutationKey] contracts are
+/// supported. The notifier exposes the core mutation and its full submission
+/// receipt, including the opaque local reference created for queued work.
 class MutationNotifier<T, TVariables>
     extends AutoDisposeNotifier<MutationState<T>> {
-  late final Future<T> Function(TVariables variables) _mutationFn;
-  late final MutationOptions<T, TVariables>? _options;
+  Future<T> Function(TVariables variables)? _mutationFn;
+  FasqMutationKey<T, TVariables>? _mutationKey;
+  MutationOptions<T, TVariables>? _options;
+  QueryClient? _providedClient;
+  FasqRuntime? _providedRuntime;
 
-  late Mutation<T, TVariables> _mutation;
+  Mutation<T, TVariables>? _mutation;
+  QueryClient? _resolvedQueryClient;
+  FasqRuntime? _resolvedRuntime;
   StreamSubscription<MutationState<T>>? _subscription;
+  var _cleanedUp = false;
 
-  /// Initializes the notifier with the mutation configuration.
-  ///
-  /// This should be called from the provider factory before returning the notifier.
+  /// Initializes the notifier with an immediate or durable mutation.
   void configure({
-    required Future<T> Function(TVariables variables) mutationFn,
+    Future<T> Function(TVariables variables)? mutationFn,
+    FasqMutationKey<T, TVariables>? mutationKey,
     MutationOptions<T, TVariables>? options,
+    QueryClient? client,
+    FasqRuntime? runtime,
   }) {
     _mutationFn = mutationFn;
+    _mutationKey = mutationKey;
     _options = options;
+    _providedClient = client;
+    _providedRuntime = runtime;
   }
+
+  /// The client that owns mutation lifecycle notifications.
+  QueryClient get queryClient {
+    final existing = _resolvedQueryClient;
+    if (existing != null) return existing;
+    final resolved =
+        _providedClient ??
+        _providedRuntime?.queryClient ??
+        _resolvedRuntime?.queryClient ??
+        ref.read(fasqClientProvider);
+    _resolvedQueryClient = resolved;
+    return resolved!;
+  }
+
+  /// Explicit client supplied to this provider, if any.
+  QueryClient? get client => _providedClient ?? _providedRuntime?.queryClient;
+
+  /// The runtime explicitly or implicitly supplied to this adapter.
+  FasqRuntime? get runtime => _resolvedRuntime ?? _providedRuntime;
+
+  /// The underlying core mutation.
+  Mutation<T, TVariables> get mutation {
+    final value = _mutation;
+    if (value == null) {
+      throw StateError('The MutationNotifier has not been initialized.');
+    }
+    return value;
+  }
+
+  /// Variables passed to the latest submission.
+  TVariables? get lastVariables => mutation.lastVariables;
+
+  /// Whether the underlying mutation has been disposed.
+  bool get isDisposed => mutation.isDisposed;
+
+  /// Whether the mutation is currently loading.
+  bool get isLoading => state.isLoading;
+
+  /// Whether the mutation is durably queued.
+  bool get isQueued => state.isQueued;
+
+  /// Whether the mutation succeeded.
+  bool get isSuccess => state.isSuccess;
+
+  /// Whether the mutation failed.
+  bool get isError => state.isError;
+
+  /// Whether the mutation is idle.
+  bool get isIdle => state.isIdle;
+
+  /// Whether successful data exists.
+  bool get hasData => state.hasData;
+
+  /// Whether an error exists.
+  bool get hasError => state.hasError;
+
+  /// Latest mutation data.
+  T? get data => state.data;
+
+  /// Latest mutation error.
+  Object? get error => state.error;
+
+  /// Latest mutation stack trace.
+  StackTrace? get stackTrace => state.stackTrace;
 
   @override
   MutationState<T> build() {
-    // Ensure QueryClient is available (will be used by Mutation internally)
-    ref.watch(fasqClientProvider);
+    _cleanupMutation();
+    _cleanedUp = false;
+    final keepAlive = ref.keepAlive();
+    ref.onCancel(keepAlive.close);
 
-    // Create the mutation
-    _mutation = Mutation<T, TVariables>(
-      mutationFn: _mutationFn,
-      options: _options,
-    );
+    final configuredRuntime =
+        _providedRuntime ?? ref.watch(fasqRuntimeProvider);
+    final QueryClient configuredClient =
+        _providedClient ??
+        configuredRuntime?.queryClient ??
+        ref.watch(fasqClientProvider);
+    _resolvedRuntime = configuredRuntime;
+    _resolvedQueryClient = configuredClient;
 
-    // Register cleanup callback
+    final mutationKey = _mutationKey;
+    final mutationFn = _mutationFn;
+    if ((mutationKey == null) == (mutationFn == null)) {
+      throw StateError(
+        'MutationNotifier requires exactly one of mutationFn or mutationKey.',
+      );
+    }
+
+    final configuredMutation = mutationKey == null
+        ? MutationFactory.fromFunction<T, TVariables>(
+            mutationFn: mutationFn!,
+            options: _options,
+            client: configuredClient,
+          )
+        : _createDurableMutation(
+            mutationKey,
+            configuredRuntime,
+            configuredClient,
+          );
+    _mutation = configuredMutation;
     ref.onDispose(_cleanup);
-
-    // Listen to mutation state changes
-    _subscription = _mutation.stream.listen((newState) {
-      state = newState;
+    _subscription = configuredMutation.stream.listen((nextState) {
+      if (!_cleanedUp) state = nextState;
     });
-
-    // Return initial idle state
-    return const MutationState.idle();
+    return configuredMutation.state;
   }
 
-  /// Triggers the mutation with the given variables.
-  ///
-  /// This is an imperative API - call it when you want to perform the mutation
-  /// (e.g., in response to a button press).
-  ///
-  /// The state will automatically update to reflect loading, success, or error.
-  ///
-  /// Example:
-  /// ```dart
-  /// await ref.read(myMutation.notifier).mutate(variables);
-  /// ```
-  Future<void> mutate(TVariables variables) async {
-    await _mutation.mutate(variables);
+  Mutation<T, TVariables> _createDurableMutation(
+    FasqMutationKey<T, TVariables> mutationKey,
+    FasqRuntime? configuredRuntime,
+    QueryClient configuredClient,
+  ) {
+    final runtime = configuredRuntime;
+    if (runtime == null) {
+      throw StateError('Mutation ${mutationKey.value} requires a FasqRuntime.');
+    }
+    final queue = runtime.mutationQueue;
+    if (queue == null) {
+      throw StateError(
+        'Mutation ${mutationKey.value} requires a runtime with a durable queue.',
+      );
+    }
+    return MutationFactory.fromKey<T, TVariables>(
+      key: mutationKey,
+      catalog: runtime.mutations,
+      queue: queue,
+      options: _options,
+      client: configuredClient,
+    );
   }
 
-  /// Resets the mutation to its idle state.
+  /// Submits a mutation and returns its complete core receipt.
+  Future<MutationSubmission<T>> submit(TVariables variables) async {
+    final submission = await mutation.submit(variables);
+    if (!_cleanedUp) state = mutation.state;
+    return submission;
+  }
+
+  /// Backward-compatible imperative mutation method.
   ///
-  /// Useful for clearing error states or success states before retrying.
+  /// The return type is now the core submission receipt; callers that only
+  /// await completion remain source-compatible, while durable callers can
+  /// inspect [MutationSubmission.localReference] and its outcome.
+  Future<MutationSubmission<T>> mutate(TVariables variables) {
+    return submit(variables);
+  }
+
+  /// Resets the mutation to idle.
   void reset() {
-    _mutation.reset();
+    mutation.reset();
+    if (!_cleanedUp) state = mutation.state;
   }
 
-  /// Cleanup method called by Riverpod framework.
+  void _cleanupMutation() {
+    unawaited(_subscription?.cancel());
+    _subscription = null;
+    _mutation?.dispose();
+    _mutation = null;
+  }
+
   void _cleanup() {
-    _subscription?.cancel();
-    _mutation.dispose();
+    if (_cleanedUp) return;
+    _cleanedUp = true;
+    _cleanupMutation();
   }
 }

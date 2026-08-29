@@ -59,13 +59,10 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final provider = queryProvider<String>(
-        'refetch'.toQueryKey(),
-        () async {
-          callCount++;
-          return 'data $callCount';
-        },
-      );
+      final provider = queryProvider<String>('refetch'.toQueryKey(), () async {
+        callCount++;
+        return 'data $callCount';
+      });
 
       // Wait for initial fetch
       final data1 = await container.read(provider.future);
@@ -114,18 +111,17 @@ void main() {
 
       // Since data is invalidated, accessing it should trigger a refetch
       // The query should refetch since we're actively watching it
-      expect(callCount, greaterThanOrEqualTo(1)); // At minimum, initial fetch happened
+      expect(
+        callCount,
+        greaterThanOrEqualTo(1),
+      ); // At minimum, initial fetch happened
     });
 
     test('queryProvider uses fasqClientProvider', () async {
-      final customConfig = CacheConfig(
-        defaultStaleTime: Duration(minutes: 5),
-      );
+      final customConfig = CacheConfig(defaultStaleTime: Duration(minutes: 5));
 
       final container = ProviderContainer(
-        overrides: [
-          fasqCacheConfigProvider.overrideWithValue(customConfig),
-        ],
+        overrides: [fasqCacheConfigProvider.overrideWithValue(customConfig)],
       );
       addTearDown(container.dispose);
 
@@ -146,13 +142,12 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final provider = queryProviderWithToken<String>(
-        'token'.toQueryKey(),
-        (token) async {
-          receivedToken = token;
-          return 'data';
-        },
-      );
+      final provider = queryProviderWithToken<String>('token'.toQueryKey(), (
+        token,
+      ) async {
+        receivedToken = token;
+        return 'data';
+      });
 
       await container.read(provider.future);
 
@@ -187,13 +182,10 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final provider = queryProvider<String>(
-        'when'.toQueryKey(),
-        () async {
-          await Future.delayed(const Duration(milliseconds: 50));
-          return 'test data';
-        },
-      );
+      final provider = queryProvider<String>('when'.toQueryKey(), () async {
+        await Future.delayed(const Duration(milliseconds: 50));
+        return 'test data';
+      });
 
       final initialValue = container.read(provider);
       var whenResult = initialValue.when(

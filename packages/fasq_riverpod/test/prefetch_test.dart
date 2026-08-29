@@ -99,10 +99,9 @@ void main() {
                 if (!hasInitialized) {
                   hasInitialized = true;
                   // Use the extension method to prefetch
-                  Future.microtask(() => ref.prefetchQuery(
-                        'test-key'.toQueryKey(),
-                        fetchData,
-                      ));
+                  Future.microtask(
+                    () => ref.prefetchQuery('test-key'.toQueryKey(), fetchData),
+                  );
                 }
                 return const SizedBox();
               },
@@ -140,16 +139,18 @@ void main() {
                 if (!hasInitialized) {
                   hasInitialized = true;
                   // Use the extension method to prefetch multiple queries
-                  Future.microtask(() => ref.prefetchQueries([
-                        PrefetchConfig(
-                          queryKey: 'test-key-1'.toQueryKey(),
-                          queryFn: fetchData1,
-                        ),
-                        PrefetchConfig(
-                          queryKey: 'test-key-2'.toQueryKey(),
-                          queryFn: fetchData2,
-                        ),
-                      ]));
+                  Future.microtask(
+                    () => ref.prefetchQueries([
+                      PrefetchConfig(
+                        queryKey: 'test-key-1'.toQueryKey(),
+                        queryFn: fetchData1,
+                      ),
+                      PrefetchConfig(
+                        queryKey: 'test-key-2'.toQueryKey(),
+                        queryFn: fetchData2,
+                      ),
+                    ]),
+                  );
                 }
                 return const SizedBox();
               },
