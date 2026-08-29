@@ -5,3 +5,4 @@ library;
 
 export 'mutation_notifier.dart';
 export 'mutation_provider.dart';
+export 'mutation_queue_notifier.dart';
