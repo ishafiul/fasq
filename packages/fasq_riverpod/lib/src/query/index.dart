@@ -8,3 +8,5 @@ export 'query_notifier.dart';
 export 'query_provider.dart';
 export 'infinite_query_notifier.dart';
 export 'infinite_query_provider.dart';
+export 'combined_query_provider.dart';
+export 'queries_provider.dart';
