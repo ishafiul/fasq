@@ -5,190 +5,439 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../provider/client_provider.dart';
 
-/// Riverpod-native [AutoDisposeAsyncNotifier] that wraps a FASQ [InfiniteQuery].
+/// Riverpod-native adapter for a core [InfiniteQuery].
 ///
-/// This is the v2 implementation that returns [AsyncValue<InfiniteQueryState<TData, TParam>>]
-/// instead of raw [InfiniteQueryState], providing a more idiomatic Riverpod API.
-///
-/// The state contains all pagination metadata (`pages`, `hasNextPage`, `hasPreviousPage`, etc.)
-/// wrapped in [AsyncValue] for loading/error handling.
-///
-/// The notifier gets the [QueryClient] from [fasqClientProvider], enabling
-/// full dependency injection and testability.
-///
-/// Example:
-/// ```dart
-/// final postsProvider = infiniteQueryProviderV2<Post, int>(
-///   QueryKeys.posts,
-///   (pageParam) => api.fetchPosts(page: pageParam),
-///   options: InfiniteQueryOptions(
-///     initialParam: 0,
-///     getNextPageParam: (lastPage, allPages) => allPages.length,
-///   ),
-/// );
-///
-/// // In your widget:
-/// final postsAsync = ref.watch(postsProvider);
-///
-/// postsAsync.when(
-///   data: (infiniteState) {
-///     final allPosts = infiniteState.pages.expand((p) => p).toList();
-///     return ListView.builder(
-///       itemCount: allPosts.length,
-///       itemBuilder: (context, index) => PostTile(allPosts[index]),
-///     );
-///   },
-///   loading: () => CircularProgressIndicator(),
-///   error: (error, stack) => Text('Error: $error'),
-/// );
-///
-/// // Load more:
-/// if (infiniteState.hasNextPage) {
-///   ref.read(postsProvider.notifier).fetchNextPage();
-/// }
-/// ```
+/// Pagination remains owned by FASQ. Riverpod observes the complete
+/// [InfiniteQueryState], including page errors, pagination flags, and
+/// background page fetches.
 class InfiniteQueryNotifier<TData, TParam>
     extends AutoDisposeAsyncNotifier<InfiniteQueryState<TData, TParam>> {
-  late final QueryKey _queryKey;
-  late final Future<TData> Function(TParam param) _queryFn;
-  late final InfiniteQueryOptions<TData, TParam>? _options;
+  QueryKey? _queryKey;
+  Future<TData> Function(TParam param)? _queryFn;
+  InfiniteQueryOptions<TData, TParam>? _options;
+  QueryClient? _providedClient;
+  FasqRuntime? _providedRuntime;
 
-  late InfiniteQuery<TData, TParam> _query;
+  InfiniteQuery<TData, TParam>? _query;
+  QueryClient? _resolvedQueryClient;
+  FasqRuntime? _resolvedRuntime;
   StreamSubscription<InfiniteQueryState<TData, TParam>>? _subscription;
+  StreamSubscription<InfiniteQueryState<TData, TParam>>?
+  _completionSubscription;
+  Future<void>? _ready;
+  var _queryReferenceAttached = false;
+  var _generation = 0;
+  var _cleanedUp = false;
 
-  /// Initializes the notifier with the infinite query configuration.
-  ///
-  /// This should be called from the provider factory before returning the notifier.
+  /// Initializes the notifier with its pagination and ownership configuration.
   void configure({
     required QueryKey queryKey,
     required Future<TData> Function(TParam param) queryFn,
     InfiniteQueryOptions<TData, TParam>? options,
+    QueryClient? client,
+    FasqRuntime? runtime,
   }) {
     _queryKey = queryKey;
     _queryFn = queryFn;
     _options = options;
+    _providedClient = client;
+    _providedRuntime = runtime;
   }
+
+  /// The client that owns this infinite query.
+  QueryClient get queryClient {
+    final existing = _resolvedQueryClient;
+    if (existing != null) return existing;
+    final resolved =
+        _providedClient ??
+        _providedRuntime?.queryClient ??
+        _resolvedRuntime?.queryClient ??
+        ref.read(fasqClientProvider);
+    _resolvedQueryClient = resolved;
+    return resolved!;
+  }
+
+  /// Explicit client supplied to this provider, if any.
+  QueryClient? get client => _providedClient ?? _providedRuntime?.queryClient;
+
+  /// The runtime explicitly or implicitly supplied to this adapter.
+  FasqRuntime? get runtime => _resolvedRuntime ?? _providedRuntime;
+
+  /// The underlying core infinite query.
+  InfiniteQuery<TData, TParam> get query {
+    final value = _query;
+    if (value == null) {
+      throw StateError('The InfiniteQueryNotifier has not been initialized.');
+    }
+    return value;
+  }
+
+  /// Completes after persistence initialization and reference activation.
+  Future<void> get ready => _ready ?? Future<void>.value();
+
+  /// Whether at least one page is retained.
+  bool get hasPages => query.state.pages.isNotEmpty;
+
+  /// Whether another forward page can be fetched.
+  bool get hasNextPage => query.state.hasNextPage;
+
+  /// Whether another backward page can be fetched.
+  bool get hasPreviousPage => query.state.hasPreviousPage;
+
+  /// Whether a forward page is currently being fetched.
+  bool get isFetchingNextPage => query.state.isFetchingNextPage;
+
+  /// Whether a backward page is currently being fetched.
+  bool get isFetchingPreviousPage => query.state.isFetchingPreviousPage;
+
+  /// Number of Riverpod/core references holding this query alive.
+  int get referenceCount => query.referenceCount;
+
+  /// Whether the underlying query has been disposed.
+  bool get isDisposed => query.isDisposed;
 
   @override
   FutureOr<InfiniteQueryState<TData, TParam>> build() {
-    // Get the QueryClient from the provider
-    final client = ref.watch(fasqClientProvider);
+    _detachCurrentQuery();
+    _cleanedUp = false;
+    final generation = ++_generation;
+    final keepAlive = ref.keepAlive();
+    ref.onCancel(keepAlive.close);
 
-    // Create or get the infinite query
-    _query = client.getInfiniteQuery<TData, TParam>(
-      _queryKey,
-      _queryFn,
-      options: _options,
-    );
+    final configuredRuntime =
+        _providedRuntime ?? ref.watch(fasqRuntimeProvider);
+    final QueryClient configuredClient =
+        _providedClient ??
+        configuredRuntime?.queryClient ??
+        ref.watch(fasqClientProvider);
+    _resolvedRuntime = configuredRuntime;
+    _resolvedQueryClient = configuredClient;
 
-    // Register cleanup callback
-    ref.onDispose(_cleanup);
-
-    // Listen to query state changes and map to AsyncValue
-    _subscription = _query.stream.listen((infiniteState) {
-      state = _mapToAsyncValue(infiniteState);
-    });
-
-    // Trigger initial fetch if no data is available
-    final initialState = _query.state;
-    if (initialState.pages.isEmpty && initialState.error == null) {
-      _query.fetchNextPage();
+    final queryKey = _queryKey;
+    final queryFn = _queryFn;
+    if (queryKey == null || queryFn == null) {
+      throw StateError(
+        'InfiniteQueryNotifier requires a query key and query function.',
+      );
     }
 
-    // Return initial state
-    if (initialState.pages.isNotEmpty) {
-      return initialState;
-    } else if (initialState.error != null) {
-      throw initialState.error!;
-    } else {
-      // If loading, return a future that completes when data arrives
-      return _waitForData();
+    final configuredQuery = configuredClient
+        .reconfigureInfiniteQuery<TData, TParam>(
+          queryKey,
+          queryFn,
+          options: _options,
+        );
+    _query = configuredQuery;
+    ref.onDispose(_cleanup);
+    _listenToQuery(configuredQuery);
+
+    final hadPagesBeforeActivation = configuredQuery.state.pages.isNotEmpty;
+    final currentState = configuredQuery.state;
+    _emitQueryState(currentState);
+    _ready = _activateQuery(
+      configuredQuery,
+      generation,
+      hadPagesBeforeActivation,
+    );
+
+    if (_hasSuccessfulPage(currentState)) return currentState;
+    final pageError = _pageError(currentState);
+    if (pageError != null) {
+      Error.throwWithStackTrace(
+        pageError.error!,
+        pageError.stackTrace ?? StackTrace.current,
+      );
+    }
+    return _waitForData(configuredQuery);
+  }
+
+  Future<void> _activateQuery(
+    InfiniteQuery<TData, TParam> configuredQuery,
+    int generation,
+    bool hadPagesBeforeActivation,
+  ) async {
+    var attached = false;
+    try {
+      // addListener may throw after incrementing its reference count when a
+      // page parameter callback fails. Mark ownership before awaiting it.
+      _queryReferenceAttached = true;
+      attached = true;
+      await configuredQuery.addListener();
+      if (_cleanedUp ||
+          generation != _generation ||
+          !identical(_query, configuredQuery)) {
+        return;
+      }
+      await queryClient.persistenceInitialization;
+    } on Object catch (error, stackTrace) {
+      if (attached && identical(_query, configuredQuery)) {
+        configuredQuery.removeListener();
+        _queryReferenceAttached = false;
+      }
+      if (!_cleanedUp && generation == _generation) {
+        state = AsyncError<InfiniteQueryState<TData, TParam>>(
+          error,
+          stackTrace,
+        );
+      }
+      return;
+    }
+    if (_cleanedUp ||
+        generation != _generation ||
+        !identical(_query, configuredQuery)) {
+      return;
+    }
+    _emitQueryState(configuredQuery.state);
+    if (hadPagesBeforeActivation && _options?.refetchOnMount == true) {
+      await _refetchPages(configuredQuery);
     }
   }
 
-  /// Waits for the infinite query to complete and return data.
-  Future<InfiniteQueryState<TData, TParam>> _waitForData() async {
-    final completer = Completer<InfiniteQueryState<TData, TParam>>();
-    StreamSubscription<InfiniteQueryState<TData, TParam>>? subscription;
-
-    subscription = _query.stream.listen((infiniteState) {
-      if (infiniteState.pages.isNotEmpty) {
-        if (!completer.isCompleted) {
-          completer.complete(infiniteState);
-        }
-        subscription?.cancel();
-      } else if (infiniteState.error != null) {
-        if (!completer.isCompleted) {
-          completer.completeError(
-            infiniteState.error!,
-            StackTrace.current,
-          );
-        }
-        subscription?.cancel();
-      }
+  void _listenToQuery(InfiniteQuery<TData, TParam> configuredQuery) {
+    _subscription = configuredQuery.stream.listen((nextState) {
+      if (_cleanedUp || !identical(_query, configuredQuery)) return;
+      _emitQueryState(nextState);
     });
+  }
 
+  void _emitQueryState(InfiniteQueryState<TData, TParam> queryState) {
+    if (_cleanedUp) return;
+    state = _mapToAsyncValue(queryState);
+  }
+
+  Future<InfiniteQueryState<TData, TParam>> _waitForData(
+    InfiniteQuery<TData, TParam> configuredQuery,
+  ) {
+    final completer = Completer<InfiniteQueryState<TData, TParam>>();
+    late final StreamSubscription<InfiniteQueryState<TData, TParam>>
+    subscription;
+
+    void finishWithState(InfiniteQueryState<TData, TParam> nextState) {
+      if (completer.isCompleted) return;
+      if (_hasSuccessfulPage(nextState)) {
+        completer.complete(nextState);
+      } else {
+        final error = _pageError(nextState);
+        if (error == null) return;
+        completer.completeError(
+          error.error!,
+          error.stackTrace ?? StackTrace.current,
+        );
+      }
+      unawaited(subscription.cancel());
+      if (identical(_completionSubscription, subscription)) {
+        _completionSubscription = null;
+      }
+    }
+
+    subscription = configuredQuery.stream.listen(finishWithState);
+    _completionSubscription = subscription;
+    finishWithState(configuredQuery.state);
     return completer.future;
   }
 
-  /// Maps FASQ's [InfiniteQueryState] to Riverpod's [AsyncValue].
   AsyncValue<InfiniteQueryState<TData, TParam>> _mapToAsyncValue(
-    InfiniteQueryState<TData, TParam> infiniteState,
+    InfiniteQueryState<TData, TParam> queryState,
   ) {
-    if (infiniteState.pages.isNotEmpty) {
-      // If we have data (even if loading more pages), return AsyncData
-      return AsyncData<InfiniteQueryState<TData, TParam>>(infiniteState);
-    } else if (infiniteState.error != null) {
-      // If we have an error, return AsyncError
+    final pageError = _pageError(queryState);
+    final dataState = AsyncData<InfiniteQueryState<TData, TParam>>(queryState);
+
+    if (pageError != null) {
+      final errorState = AsyncError<InfiniteQueryState<TData, TParam>>(
+        pageError.error!,
+        pageError.stackTrace ?? StackTrace.current,
+      );
+      if (_hasSuccessfulPage(queryState)) {
+        return errorState.copyWithPrevious(dataState);
+      }
+      return errorState;
+    }
+    if (_hasSuccessfulPage(queryState)) {
+      if (queryState.isFetchingNextPage || queryState.isFetchingPreviousPage) {
+        return AsyncLoading<InfiniteQueryState<TData, TParam>>()
+            .copyWithPrevious(dataState);
+      }
+      return dataState;
+    }
+    if (queryState.error != null) {
       return AsyncError<InfiniteQueryState<TData, TParam>>(
-        infiniteState.error!,
+        queryState.error!,
         StackTrace.current,
       );
-    } else {
-      // If we're loading initial page, return AsyncLoading
-      return const AsyncLoading<Never>()
-          as AsyncValue<InfiniteQueryState<TData, TParam>>;
+    }
+    return const AsyncLoading<Never>()
+        as AsyncValue<InfiniteQueryState<TData, TParam>>;
+  }
+
+  bool _hasSuccessfulPage(InfiniteQueryState<TData, TParam> queryState) {
+    return queryState.pages.any((page) => page.error == null);
+  }
+
+  Page<TData, TParam>? _pageError(
+    InfiniteQueryState<TData, TParam> queryState,
+  ) {
+    for (final page in queryState.pages.reversed) {
+      if (page.error != null) return page;
+    }
+    return null;
+  }
+
+  Future<void> _refetchPages(
+    InfiniteQuery<TData, TParam> configuredQuery,
+  ) async {
+    final pageCount = configuredQuery.state.pages.length;
+    for (var index = 0; index < pageCount; index++) {
+      await configuredQuery.refetchPage(index);
     }
   }
 
-  /// Fetches the next page of data.
-  ///
-  /// Optionally provide a custom [param] to override the automatically
-  /// calculated next page parameter.
-  Future<void> fetchNextPage([TParam? param]) async {
-    await _query.fetchNextPage(param);
+  /// Fetches the next page, optionally overriding its computed parameter.
+  Future<void> fetchNextPage([TParam? param]) {
+    return query.fetchNextPage(param);
   }
 
-  /// Fetches the previous page of data.
-  ///
-  /// Only works if `getPreviousPageParam` was configured in options.
-  Future<void> fetchPreviousPage() async {
-    await _query.fetchPreviousPage();
+  /// Fetches the previous page.
+  Future<void> fetchPreviousPage() {
+    return query.fetchPreviousPage();
   }
 
-  /// Refetches a specific page by index.
-  ///
-  /// This will only refetch the specified page, not all pages.
-  Future<void> refetchPage(int index) async {
-    await _query.refetchPage(index);
+  /// Refetches one existing page.
+  Future<void> refetchPage(int index) {
+    return query.refetchPage(index);
   }
 
-  /// Resets the infinite query to its initial state.
-  ///
-  /// This clears all pages and triggers a fresh fetch of the first page.
+  /// Clears all pages and returns the core query to idle.
   void reset() {
-    _query.reset();
+    query.reset();
   }
 
-  /// Invalidates the infinite query, removing it from cache and refetching.
+  /// Restores pages from an already available cache value.
+  void updateFromCache(List<Page<TData, TParam>> pages) {
+    query.updateFromCache(pages);
+  }
+
+  /// Resets this query and starts a fresh first-page fetch when configured.
   void invalidate() {
-    final client = ref.read(fasqClientProvider);
-    client.invalidateQuery(_queryKey);
+    query.reset();
+    if (_options?.enabled != false) {
+      unawaited(query.fetchNextPage());
+    }
   }
 
-  /// Cleanup method called by Riverpod framework.
+  /// Removes this infinite query from the owning client.
+  void remove() {
+    final currentQuery = _query;
+    final currentKey = _queryKey;
+    if (currentQuery == null || currentKey == null) return;
+    _generation++;
+    _detachCurrentQuery();
+    queryClient.removeInfiniteQuery(currentKey);
+    _query = null;
+    state =
+        const AsyncLoading<Never>()
+            as AsyncValue<InfiniteQueryState<TData, TParam>>;
+  }
+
+  /// Reconfigures this query while preserving pages when the key is unchanged.
+  void updateOptions({
+    QueryKey? newQueryKey,
+    Future<TData> Function(TParam param)? newQueryFn,
+    InfiniteQueryOptions<TData, TParam>? newOptions,
+    bool clearOptions = false,
+  }) {
+    final currentQuery = _query;
+    if (currentQuery == null) return;
+
+    final nextQueryKey = newQueryKey ?? _queryKey;
+    final nextQueryFn = newQueryFn ?? _queryFn;
+    final nextOptions = clearOptions ? null : (newOptions ?? _options);
+    if (nextQueryKey == null || nextQueryFn == null) {
+      throw ArgumentError('A query key and query function are required.');
+    }
+    final keyChanged = nextQueryKey.key != _queryKey?.key;
+    final changed =
+        keyChanged ||
+        !identical(nextQueryFn, _queryFn) ||
+        !identical(nextOptions, _options);
+    if (!changed) return;
+
+    _generation++;
+    if (keyChanged) _detachCurrentQuery();
+    _queryKey = nextQueryKey;
+    _queryFn = nextQueryFn;
+    _options = nextOptions;
+
+    final configuredQuery = queryClient.reconfigureInfiniteQuery<TData, TParam>(
+      nextQueryKey,
+      nextQueryFn,
+      options: nextOptions,
+    );
+    final queryChanged = !identical(configuredQuery, currentQuery);
+    if (queryChanged) {
+      _detachCurrentQuery();
+      _query = configuredQuery;
+      _listenToQuery(configuredQuery);
+      _emitQueryState(configuredQuery.state);
+    } else {
+      _query = configuredQuery;
+      _emitQueryState(configuredQuery.state);
+    }
+
+    final activationGeneration = _generation;
+    if (!_queryReferenceAttached || queryChanged) {
+      _ready = _activateReconfiguredQuery(
+        configuredQuery,
+        activationGeneration,
+      );
+    }
+  }
+
+  Future<void> _activateReconfiguredQuery(
+    InfiniteQuery<TData, TParam> configuredQuery,
+    int generation,
+  ) async {
+    var attached = false;
+    try {
+      _queryReferenceAttached = true;
+      attached = true;
+      await configuredQuery.addListener();
+      await queryClient.persistenceInitialization;
+    } on Object catch (error, stackTrace) {
+      if (attached && identical(_query, configuredQuery)) {
+        configuredQuery.removeListener();
+        _queryReferenceAttached = false;
+      }
+      if (!_cleanedUp && generation == _generation) {
+        state = AsyncError<InfiniteQueryState<TData, TParam>>(
+          error,
+          stackTrace,
+        );
+      }
+      return;
+    }
+    if (_cleanedUp ||
+        generation != _generation ||
+        !identical(_query, configuredQuery)) {
+      return;
+    }
+    _emitQueryState(configuredQuery.state);
+  }
+
+  void _detachCurrentQuery() {
+    unawaited(_subscription?.cancel());
+    _subscription = null;
+    unawaited(_completionSubscription?.cancel());
+    _completionSubscription = null;
+    if (_queryReferenceAttached) {
+      _query?.removeListener();
+      _queryReferenceAttached = false;
+    }
+  }
+
   void _cleanup() {
-    _subscription?.cancel();
-    _query.removeListener();
+    if (_cleanedUp) return;
+    _cleanedUp = true;
+    _generation++;
+    _detachCurrentQuery();
   }
 }

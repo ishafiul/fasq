@@ -1,6 +1,13 @@
 import 'package:fasq/fasq.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Supplies an application-owned FASQ runtime to Riverpod adapters.
+///
+/// Override this provider when the application bootstraps a [FasqRuntime]
+/// itself. The Riverpod container borrows the runtime's query client and
+/// durable queue; disposing the container never closes those resources.
+final fasqRuntimeProvider = Provider<FasqRuntime?>((ref) => null);
+
 /// Provides the [CacheConfig] for the QueryClient.
 ///
 /// Override this provider to customize caching behavior:
@@ -71,8 +78,9 @@ final fasqSecurityPluginProvider = Provider<SecurityPlugin?>((ref) {
 ///   child: MyApp(),
 /// )
 /// ```
-final fasqCircuitBreakerRegistryProvider =
-    Provider<CircuitBreakerRegistry?>((ref) {
+final fasqCircuitBreakerRegistryProvider = Provider<CircuitBreakerRegistry?>((
+  ref,
+) {
   return null;
 });
 
@@ -149,6 +157,20 @@ final fasqMetricsConfigProvider = Provider<MetricsConfig>((ref) {
   return MetricsConfig();
 });
 
+/// Provides the durable queue owned by the configured runtime, when present.
+final fasqMutationQueueProvider = Provider<DurableMutationQueue?>((ref) {
+  return ref.watch(fasqRuntimeProvider)?.mutationQueue;
+});
+
+/// Provides the durable mutation catalog owned by the configured runtime.
+///
+/// An empty catalog is returned when the runtime has no durable definitions,
+/// which keeps ordinary mutation providers usable without a runtime.
+final fasqMutationCatalogProvider = Provider<DurableMutationCatalog>((ref) {
+  return ref.watch(fasqRuntimeProvider)?.mutations ??
+      DurableMutationCatalog(const <DurableMutationDefinitionBase>[]);
+});
+
 /// Provides the [QueryClient] instance configured with all the providers.
 ///
 /// This provider automatically consumes all configuration providers and
@@ -172,6 +194,10 @@ final fasqMetricsConfigProvider = Provider<MetricsConfig>((ref) {
 /// )
 /// ```
 final fasqClientProvider = Provider<QueryClient>((ref) {
+  final runtime = ref.watch(fasqRuntimeProvider);
+  final runtimeClient = runtime?.queryClient;
+  if (runtimeClient != null) return runtimeClient;
+
   final cacheConfig = ref.watch(fasqCacheConfigProvider);
   final persistenceOptions = ref.watch(fasqPersistenceOptionsProvider);
   final securityPlugin = ref.watch(fasqSecurityPluginProvider);
@@ -180,7 +206,10 @@ final fasqClientProvider = Provider<QueryClient>((ref) {
   final errorReporters = ref.watch(fasqErrorReportersProvider);
   final metricsConfig = ref.watch(fasqMetricsConfigProvider);
 
-  final client = QueryClient(
+  // Each ProviderContainer owns an isolated client. The legacy QueryClient
+  // singleton remains available through the core package, but using it here
+  // would let disposing one container tear down another container's queries.
+  final client = QueryClient.create(
     config: cacheConfig,
     persistenceOptions: persistenceOptions,
     securityPlugin: securityPlugin,
