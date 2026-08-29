@@ -32,14 +32,17 @@ UseInfiniteQueryResult<TData, TParam> useInfiniteQuery<TData, TParam>(
       queryFn,
       options: options,
     );
+    final hadPagesBeforeActivation = configuredQuery.state.pages.isNotEmpty;
+    if (shouldReconfigure) configuredQuery.reset();
     configuredQuery.addListener();
     state.value = configuredQuery.state;
     final subscription = configuredQuery.stream.listen((nextState) {
       state.value = nextState;
     });
-    if (options?.refetchOnMount == true || shouldReconfigure) {
-      if (shouldReconfigure) configuredQuery.reset();
-      unawaited(configuredQuery.fetchNextPage());
+    if (options?.refetchOnMount == true &&
+        !shouldReconfigure &&
+        hadPagesBeforeActivation) {
+      unawaited(_refetchInfinitePages(configuredQuery));
     }
     return () {
       unawaited(subscription.cancel());
@@ -52,6 +55,15 @@ UseInfiniteQueryResult<TData, TParam> useInfiniteQuery<TData, TParam>(
     query: query,
     state: state.value,
   );
+}
+
+Future<void> _refetchInfinitePages<TData, TParam>(
+  InfiniteQuery<TData, TParam> query,
+) async {
+  final pageCount = query.state.pages.length;
+  for (var index = 0; index < pageCount; index++) {
+    await query.refetchPage(index);
+  }
 }
 
 /// Reactive state and commands for one infinite query.

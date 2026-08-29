@@ -440,8 +440,29 @@ class QueryCache {
 
       final future = fn().whenComplete(() {
         final inFlight = _inFlightRequests.remove(key);
-        if (inFlight != null) unawaited(inFlight);
+        // The request result is delivered to the caller through [future].
+        // Consume the mirrored bookkeeping future as well; otherwise an
+        // expected request failure is reported as an uncaught asynchronous
+        // error even when every query subscriber handles its error state.
+        if (inFlight != null) {
+          unawaited(
+            inFlight.then<void>(
+              (_) {},
+              onError: (Object _, StackTrace __) {},
+            ),
+          );
+        }
       });
+
+      // Keep the returned future's error semantics for callers while also
+      // attaching a sink for fire-and-forget query execution. This prevents
+      // an expected fetch failure from becoming an uncaught duplicate error.
+      unawaited(
+        future.then<void>(
+          (_) {},
+          onError: (Object _, StackTrace __) {},
+        ),
+      );
 
       _inFlightRequests[key] = future.then<Object?>((v) => v);
       return future;

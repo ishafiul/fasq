@@ -15,40 +15,40 @@ class MutationState<T> {
 
   /// Creates an idle mutation state.
   const MutationState.idle()
-      : status = MutationStatus.idle,
-        data = null,
-        error = null,
-        stackTrace = null,
-        isQueued = false;
+    : status = MutationStatus.idle,
+      data = null,
+      error = null,
+      stackTrace = null,
+      isQueued = false;
 
   /// Creates a loading mutation state.
   const MutationState.loading()
-      : status = MutationStatus.loading,
-        data = null,
-        error = null,
-        stackTrace = null,
-        isQueued = false;
+    : status = MutationStatus.loading,
+      data = null,
+      error = null,
+      stackTrace = null,
+      isQueued = false;
 
   /// Creates a successful mutation state containing [data].
   const MutationState.success(this.data)
-      : status = MutationStatus.success,
-        error = null,
-        stackTrace = null,
-        isQueued = false;
+    : status = MutationStatus.success,
+      error = null,
+      stackTrace = null,
+      isQueued = false;
 
   /// Creates an error mutation state with [error] and optional [stackTrace].
   const MutationState.error(this.error, [this.stackTrace])
-      : status = MutationStatus.error,
-        data = null,
-        isQueued = false;
+    : status = MutationStatus.error,
+      data = null,
+      isQueued = false;
 
   /// Creates a queued mutation state for offline execution.
   const MutationState.queued()
-      : status = MutationStatus.idle,
-        data = null,
-        error = null,
-        stackTrace = null,
-        isQueued = true;
+    : status = MutationStatus.idle,
+      data = null,
+      error = null,
+      stackTrace = null,
+      isQueued = true;
 
   /// Current lifecycle status.
   final MutationStatus status;
@@ -107,7 +107,9 @@ class MutationState<T> {
     return other is MutationState<T> &&
         other.status == status &&
         other.data == data &&
-        other.error == error;
+        other.error == error &&
+        other.stackTrace == stackTrace &&
+        other.isQueued == isQueued;
   }
 
   @override
@@ -116,11 +118,18 @@ class MutationState<T> {
       status,
       data,
       error,
+      stackTrace,
+      isQueued,
     );
   }
 
   @override
   String toString() {
-    return 'MutationState<$T>(status: $status, data: $data, error: $error)';
+    return 'MutationState<$T>('
+        'status: $status, '
+        'data: $data, '
+        'error: $error, '
+        'stackTrace: $stackTrace, '
+        'isQueued: $isQueued)';
   }
 }

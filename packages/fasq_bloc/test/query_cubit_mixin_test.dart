@@ -1,7 +1,4 @@
-import 'dart:async';
-
 import 'package:fasq_bloc/fasq_bloc.dart';
-import 'package:fasq_bloc/src/mixins/fasq_subscription_mixin.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -192,9 +189,9 @@ class _TestQueryCubit extends QueryCubit<String> {
 
   @override
   Future<String> Function() get queryFn => () async {
-        await Future.delayed(const Duration(milliseconds: 5));
-        return 'test data';
-      };
+    await Future.delayed(const Duration(milliseconds: 5));
+    return 'test data';
+  };
 }
 
 class _DisabledQueryCubit extends QueryCubit<String> {
@@ -207,9 +204,9 @@ class _DisabledQueryCubit extends QueryCubit<String> {
 
   @override
   Future<String> Function() get queryFn => () async {
-        onQueryCall();
-        return 'data';
-      };
+    onQueryCall();
+    return 'data';
+  };
 
   @override
   QueryOptions? get options => QueryOptions(enabled: false);
@@ -223,9 +220,9 @@ class _ErrorQueryCubit extends QueryCubit<String> {
 
   @override
   Future<String> Function() get queryFn => () async {
-        await Future.delayed(const Duration(milliseconds: 5));
-        throw Exception('Test error');
-      };
+    await Future.delayed(const Duration(milliseconds: 5));
+    throw Exception('Test error');
+  };
 }
 
 class _CustomClientQueryCubit extends QueryCubit<String> {
@@ -238,9 +235,9 @@ class _CustomClientQueryCubit extends QueryCubit<String> {
 
   @override
   Future<String> Function() get queryFn => () async {
-        await Future.delayed(const Duration(milliseconds: 5));
-        return 'custom data';
-      };
+    await Future.delayed(const Duration(milliseconds: 5));
+    return 'custom data';
+  };
 
   @override
   QueryClient? get client => _client;

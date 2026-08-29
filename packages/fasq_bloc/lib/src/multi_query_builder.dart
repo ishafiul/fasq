@@ -1,25 +1,35 @@
 import 'dart:async';
 
 import 'package:fasq/fasq.dart';
-import 'package:fasq_bloc/fasq_bloc.dart';
 import 'package:flutter/material.dart';
 
-/// Configuration for a single query in a MultiQueryBuilder.
+/// Configuration for one query in a [MultiQueryBuilder].
 class MultiQueryConfig {
   /// Unique identifier for this query.
   final QueryKey queryKey;
 
-  /// Function that returns a Future with the data.
-  final Future<dynamic> Function() queryFn;
+  /// Legacy query function used when [queryFnWithToken] is absent.
+  final Future<dynamic> Function()? queryFn;
+
+  /// Cancellation-aware query function.
+  final Future<dynamic> Function(CancellationToken token)? queryFnWithToken;
+
+  /// Parent query key used for cascading cancellation.
+  final QueryKey? dependsOn;
 
   /// Optional configuration for this query.
   final QueryOptions? options;
 
   const MultiQueryConfig({
     required this.queryKey,
-    required this.queryFn,
+    this.queryFn,
+    this.queryFnWithToken,
+    this.dependsOn,
     this.options,
-  });
+  }) : assert(
+         queryFn != null || queryFnWithToken != null,
+         'Either queryFn or queryFnWithToken must be provided',
+       );
 }
 
 /// Combined state for multiple queries with helper methods.
@@ -30,22 +40,22 @@ class MultiQueryState {
   const MultiQueryState(this.states);
 
   /// True if all queries are currently loading.
-  bool get isAllLoading => states.every((s) => s.isLoading);
+  bool get isAllLoading => states.every((state) => state.isLoading);
 
   /// True if any query is currently loading.
-  bool get isAnyLoading => states.any((s) => s.isLoading);
+  bool get isAnyLoading => states.any((state) => state.isLoading);
 
   /// True if all queries have completed successfully.
-  bool get isAllSuccess => states.every((s) => s.isSuccess);
+  bool get isAllSuccess => states.every((state) => state.isSuccess);
 
   /// True if any query has an error.
-  bool get hasAnyError => states.any((s) => s.hasError);
+  bool get hasAnyError => states.any((state) => state.hasError);
 
   /// True if all queries have data.
-  bool get isAllData => states.every((s) => s.hasData);
+  bool get isAllData => states.every((state) => state.hasData);
 
   /// Gets the state for a specific query by index.
-  QueryState<T> getState<T>(int index) => states[index] as QueryState<T>;
+  QueryState<T> getState<T>(int index) => _typedState(states[index]);
 
   /// Gets the number of queries.
   int get length => states.length;
@@ -59,51 +69,24 @@ class MultiQueryState {
   }
 
   @override
-  int get hashCode => states.hashCode;
+  int get hashCode => Object.hashAll(states);
 
-  bool _listEquals<T>(List<T> a, List<T> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
+  bool _listEquals<T>(List<T> first, List<T> second) {
+    if (first.length != second.length) return false;
+    for (var index = 0; index < first.length; index++) {
+      if (first[index] != second[index]) return false;
     }
     return true;
   }
 }
 
 /// Widget that manages multiple queries and provides combined state.
-///
-/// Executes all queries in parallel and rebuilds when any query state changes.
-/// Provides helper methods to check aggregate states across all queries.
-///
-/// Example:
-/// ```dart
-/// MultiQueryBuilder(
-///   configs: [
-///     MultiQueryConfig(
-///       queryKey: 'users'.toQueryKey(),
-///       queryFn: () => api.fetchUsers(),
-///     ),
-///     MultiQueryConfig(
-///       queryKey: 'posts'.toQueryKey(),
-///       queryFn: () => api.fetchPosts(),
-///     ),
-///   ],
-///   builder: (context, state) {
-///     if (state.isAllLoading) return CircularProgressIndicator();
-///     if (state.hasAnyError) return ErrorWidget();
-///
-///     return Column(
-///       children: [
-///         UsersList(state.getState<List<User>>(0)),
-///         PostsList(state.getState<List<Post>>(1)),
-///       ],
-///     );
-///   },
-/// )
-/// ```
 class MultiQueryBuilder extends StatefulWidget {
   /// Configuration for each query to execute.
   final List<MultiQueryConfig> configs;
+
+  /// Optional client. Otherwise the nearest core/provider client is used.
+  final QueryClient? client;
 
   /// Builder function that receives the combined state.
   final Widget Function(BuildContext context, MultiQueryState state) builder;
@@ -112,6 +95,7 @@ class MultiQueryBuilder extends StatefulWidget {
     super.key,
     required this.configs,
     required this.builder,
+    this.client,
   });
 
   @override
@@ -119,76 +103,184 @@ class MultiQueryBuilder extends StatefulWidget {
 }
 
 class _MultiQueryBuilderState extends State<MultiQueryBuilder> {
-  final List<Query> _queries = [];
-  final List<StreamSubscription> _subscriptions = [];
+  final List<Query<dynamic>> _queries = [];
+  final List<bool> _queryReferences = [];
+  final List<StreamSubscription<QueryState<dynamic>>> _subscriptions = [];
   List<QueryState<dynamic>> _states = [];
+  QueryClient? _client;
+  var _initialized = false;
+  var _generation = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _initialize();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final client = _resolveClient();
+    if (!_initialized || !identical(client, _client)) {
+      _initialized = true;
+      _client = client;
+      _rebuildQueries(client, shouldRefetch: false);
+    }
   }
 
-  void _initialize() {
-    final client = QueryClient();
+  @override
+  void didUpdateWidget(covariant MultiQueryBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.client != oldWidget.client ||
+        _configsChanged(oldWidget.configs, widget.configs)) {
+      final client = _resolveClient();
+      _client = client;
+      _rebuildQueries(client, shouldRefetch: true);
+    }
+  }
 
-    // Create queries for each config
+  QueryClient _resolveClient() {
+    return widget.client ?? context.queryClient ?? QueryClient();
+  }
+
+  void _rebuildQueries(QueryClient client, {required bool shouldRefetch}) {
+    _generation++;
+    _detachQueries();
+
+    final nextQueries = <Query<dynamic>>[];
+    final nextStates = <QueryState<dynamic>>[];
     for (final config in widget.configs) {
-      final query = client.getQuery(
+      final query = client.reconfigureQuery<dynamic>(
         config.queryKey,
         queryFn: config.queryFn,
+        queryFnWithToken: config.queryFnWithToken,
         options: config.options,
+        dependsOn: config.dependsOn,
       );
-      _queries.add(query);
-      query.addListener();
+      nextQueries.add(query);
+      nextStates.add(query.state);
     }
 
-    // Initialize states with current query states
-    _states = _queries.map((q) => q.state).toList();
+    _queries.addAll(nextQueries);
+    _queryReferences.addAll(List<bool>.filled(nextQueries.length, false));
+    _states = nextStates;
 
-    // Subscribe to state changes for each query
-    for (int i = 0; i < _queries.length; i++) {
-      _subscriptions.add(_queries[i].stream.listen((newState) {
-        if (mounted) {
+    final generation = _generation;
+    for (var index = 0; index < _queries.length; index++) {
+      final queryIndex = index;
+      _subscriptions.add(
+        _queries[queryIndex].stream.listen((newState) {
+          if (!mounted || generation != _generation) return;
           setState(() {
-            _states[i] = newState;
+            _states[queryIndex] = newState;
           });
-        }
-      }));
+        }),
+      );
     }
+    unawaited(
+      _activateQueries(client, generation, shouldRefetch: shouldRefetch),
+    );
+  }
+
+  Future<void> _activateQueries(
+    QueryClient client,
+    int generation, {
+    required bool shouldRefetch,
+  }) async {
+    try {
+      await client.persistenceInitialization;
+    } on Object catch (error, stackTrace) {
+      if (mounted && generation == _generation) {
+        setState(() {
+          for (var index = 0; index < _states.length; index++) {
+            _states[index] = QueryState<dynamic>.error(error, stackTrace);
+          }
+        });
+      }
+      return;
+    }
+
+    if (!mounted || generation != _generation) return;
+    for (var index = 0; index < _queries.length; index++) {
+      _queries[index].addListener();
+      _queryReferences[index] = true;
+      _states[index] = _queries[index].state;
+    }
+    if (mounted && generation == _generation) {
+      setState(() {});
+    }
+
+    final fetches = <Future<void>>[];
+    for (final query in _queries) {
+      final forceRefetch =
+          shouldRefetch || query.options?.refetchOnMount == true;
+      final isFirstSubscriber =
+          query.referenceCount == 1 && !query.state.hasValue;
+      final shouldFetch =
+          !isFirstSubscriber &&
+          (forceRefetch || (query.state.hasValue && query.state.isStale));
+      if (!shouldFetch) continue;
+      fetches.add(query.fetch(forceRefetch: forceRefetch).catchError((_) {}));
+    }
+    await Future.wait(fetches);
+  }
+
+  void _detachQueries() {
+    for (final subscription in _subscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _subscriptions.clear();
+    for (var index = 0; index < _queries.length; index++) {
+      if (_queryReferences[index]) {
+        _queries[index].removeListener();
+      }
+    }
+    _queries.clear();
+    _queryReferences.clear();
+  }
+
+  bool _configsChanged(
+    List<MultiQueryConfig> previous,
+    List<MultiQueryConfig> next,
+  ) {
+    if (previous.length != next.length) return true;
+    for (var index = 0; index < previous.length; index++) {
+      final oldConfig = previous[index];
+      final newConfig = next[index];
+      if (oldConfig.queryKey.key != newConfig.queryKey.key ||
+          !identical(oldConfig.queryFn, newConfig.queryFn) ||
+          !identical(oldConfig.queryFnWithToken, newConfig.queryFnWithToken) ||
+          oldConfig.dependsOn?.key != newConfig.dependsOn?.key ||
+          !identical(oldConfig.options, newConfig.options)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @override
   void dispose() {
-    // Cancel all subscriptions
-    for (final sub in _subscriptions) {
-      sub.cancel();
-    }
-
-    // Remove listeners from all queries
-    for (final query in _queries) {
-      query.removeListener();
-    }
-
+    _generation++;
+    _detachQueries();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return widget.builder(context, MultiQueryState(_states));
+    return widget.builder(context, MultiQueryState(List.unmodifiable(_states)));
   }
 }
 
-/// Named configuration for MultiQueryBuilder
+/// Named configuration for [NamedMultiQueryBuilder].
 class NamedQueryConfig {
-  /// Name identifier for this query.
+  /// Name used to retrieve this query's state.
   final String name;
 
   /// Unique identifier for this query.
   final QueryKey queryKey;
 
-  /// Function that returns a Future with the data.
-  final Future<dynamic> Function() queryFn;
+  /// Legacy query function used when [queryFnWithToken] is absent.
+  final Future<dynamic> Function()? queryFn;
+
+  /// Cancellation-aware query function.
+  final Future<dynamic> Function(CancellationToken token)? queryFnWithToken;
+
+  /// Parent query key used for cascading cancellation.
+  final QueryKey? dependsOn;
 
   /// Optional configuration for this query.
   final QueryOptions? options;
@@ -196,9 +288,14 @@ class NamedQueryConfig {
   const NamedQueryConfig({
     required this.name,
     required this.queryKey,
-    required this.queryFn,
+    this.queryFn,
+    this.queryFnWithToken,
+    this.dependsOn,
     this.options,
-  });
+  }) : assert(
+         queryFn != null || queryFnWithToken != null,
+         'Either queryFn or queryFnWithToken must be provided',
+       );
 }
 
 /// Named state for multiple queries with helper methods.
@@ -209,22 +306,22 @@ class NamedQueryState {
   const NamedQueryState(this.states);
 
   /// True if all queries are currently loading.
-  bool get isAllLoading => states.values.every((s) => s.isLoading);
+  bool get isAllLoading => states.values.every((state) => state.isLoading);
 
   /// True if any query is currently loading.
-  bool get isAnyLoading => states.values.any((s) => s.isLoading);
+  bool get isAnyLoading => states.values.any((state) => state.isLoading);
 
   /// True if all queries have completed successfully.
-  bool get isAllSuccess => states.values.every((s) => s.isSuccess);
+  bool get isAllSuccess => states.values.every((state) => state.isSuccess);
 
   /// True if any query has an error.
-  bool get hasAnyError => states.values.any((s) => s.hasError);
+  bool get hasAnyError => states.values.any((state) => state.hasError);
 
   /// True if all queries have data.
-  bool get isAllData => states.values.every((s) => s.hasData);
+  bool get isAllData => states.values.every((state) => state.hasData);
 
   /// Gets the state for a specific query by name.
-  QueryState<T> getState<T>(String name) => states[name] as QueryState<T>;
+  QueryState<T> getState<T>(String name) => _typedState(states[name]!);
 
   /// Checks if a specific query is loading.
   bool isLoading(String name) => states[name]?.isLoading ?? false;
@@ -244,53 +341,26 @@ class NamedQueryState {
   }
 
   @override
-  int get hashCode => states.hashCode;
+  int get hashCode => Object.hashAllUnordered(
+    states.entries.map((entry) => Object.hash(entry.key, entry.value)),
+  );
 
-  bool _mapEquals<K, V>(Map<K, V> a, Map<K, V> b) {
-    if (a.length != b.length) return false;
-    for (final key in a.keys) {
-      if (!b.containsKey(key) || a[key] != b[key]) return false;
+  bool _mapEquals<K, V>(Map<K, V> first, Map<K, V> second) {
+    if (first.length != second.length) return false;
+    for (final key in first.keys) {
+      if (!second.containsKey(key) || first[key] != second[key]) return false;
     }
     return true;
   }
 }
 
 /// Widget that manages multiple named queries and provides combined state.
-///
-/// Executes all queries in parallel and rebuilds when any query state changes.
-/// Provides helper methods to check aggregate states across all queries.
-///
-/// Example:
-/// ```dart
-/// NamedMultiQueryBuilder(
-///   configs: [
-///     NamedQueryConfig(
-///       name: 'users',
-///       queryKey: 'users'.toQueryKey(),
-///       queryFn: () => api.fetchUsers(),
-///     ),
-///     NamedQueryConfig(
-///       name: 'posts',
-///       queryKey: 'posts'.toQueryKey(),
-///       queryFn: () => api.fetchPosts(),
-///     ),
-///   ],
-///   builder: (context, state) {
-///     if (state.isAllLoading) return CircularProgressIndicator();
-///     if (state.hasAnyError) return ErrorWidget();
-///
-///     return Column(
-///       children: [
-///         UsersList(state.getState<List<User>>('users')),
-///         PostsList(state.getState<List<Post>>('posts')),
-///       ],
-///     );
-///   },
-/// )
-/// ```
 class NamedMultiQueryBuilder extends StatefulWidget {
-  /// Configuration for each query to execute.
+  /// Configuration for each named query to execute.
   final List<NamedQueryConfig> configs;
+
+  /// Optional client. Otherwise the nearest core/provider client is used.
+  final QueryClient? client;
 
   /// Builder function that receives the combined state.
   final Widget Function(BuildContext context, NamedQueryState state) builder;
@@ -299,6 +369,7 @@ class NamedMultiQueryBuilder extends StatefulWidget {
     super.key,
     required this.configs,
     required this.builder,
+    this.client,
   });
 
   @override
@@ -306,62 +377,187 @@ class NamedMultiQueryBuilder extends StatefulWidget {
 }
 
 class _NamedMultiQueryBuilderState extends State<NamedMultiQueryBuilder> {
-  final Map<String, Query> _queries = {};
-  final List<StreamSubscription> _subscriptions = [];
+  final Map<String, Query<dynamic>> _queries = {};
+  final Map<String, bool> _queryReferences = {};
+  final List<StreamSubscription<QueryState<dynamic>>> _subscriptions = [];
   Map<String, QueryState<dynamic>> _states = {};
+  QueryClient? _client;
+  var _initialized = false;
+  var _generation = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _initialize();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final client = _resolveClient();
+    if (!_initialized || !identical(client, _client)) {
+      _initialized = true;
+      _client = client;
+      _rebuildQueries(client, shouldRefetch: false);
+    }
   }
 
-  void _initialize() {
-    final client = QueryClient();
+  @override
+  void didUpdateWidget(covariant NamedMultiQueryBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.client != oldWidget.client ||
+        _configsChanged(oldWidget.configs, widget.configs)) {
+      final client = _resolveClient();
+      _client = client;
+      _rebuildQueries(client, shouldRefetch: true);
+    }
+  }
 
-    // Create queries for each config
+  QueryClient _resolveClient() {
+    return widget.client ?? context.queryClient ?? QueryClient();
+  }
+
+  void _rebuildQueries(QueryClient client, {required bool shouldRefetch}) {
+    _generation++;
+    _detachQueries();
+
+    final names = <String>{};
     for (final config in widget.configs) {
-      final query = client.getQuery(
-        config.queryKey,
-        queryFn: config.queryFn,
-        options: config.options,
-      );
-      _queries[config.name] = query;
-      query.addListener();
+      if (!names.add(config.name)) {
+        throw ArgumentError.value(
+          config.name,
+          'configs',
+          'Named query names must be unique.',
+        );
+      }
     }
 
-    // Initialize states with current query states
-    _states = _queries.map((name, query) => MapEntry(name, query.state));
+    final nextStates = <String, QueryState<dynamic>>{};
+    for (final config in widget.configs) {
+      final query = client.reconfigureQuery<dynamic>(
+        config.queryKey,
+        queryFn: config.queryFn,
+        queryFnWithToken: config.queryFnWithToken,
+        options: config.options,
+        dependsOn: config.dependsOn,
+      );
+      _queries[config.name] = query;
+      _queryReferences[config.name] = false;
+      nextStates[config.name] = query.state;
+    }
+    _states = nextStates;
 
-    // Subscribe to state changes for each query
-    _queries.forEach((name, query) {
-      _subscriptions.add(query.stream.listen((newState) {
-        if (mounted) {
+    final generation = _generation;
+    for (final entry in _queries.entries) {
+      final name = entry.key;
+      _subscriptions.add(
+        entry.value.stream.listen((newState) {
+          if (!mounted || generation != _generation) return;
           setState(() {
             _states[name] = newState;
           });
-        }
-      }));
-    });
+        }),
+      );
+    }
+    unawaited(
+      _activateQueries(client, generation, shouldRefetch: shouldRefetch),
+    );
+  }
+
+  Future<void> _activateQueries(
+    QueryClient client,
+    int generation, {
+    required bool shouldRefetch,
+  }) async {
+    try {
+      await client.persistenceInitialization;
+    } on Object catch (error, stackTrace) {
+      if (mounted && generation == _generation) {
+        setState(() {
+          _states = {
+            for (final name in _states.keys)
+              name: QueryState<dynamic>.error(error, stackTrace),
+          };
+        });
+      }
+      return;
+    }
+
+    if (!mounted || generation != _generation) return;
+    for (final entry in _queries.entries) {
+      entry.value.addListener();
+      _queryReferences[entry.key] = true;
+      _states[entry.key] = entry.value.state;
+    }
+    if (mounted && generation == _generation) {
+      setState(() {});
+    }
+
+    final fetches = <Future<void>>[];
+    for (final query in _queries.values) {
+      final forceRefetch =
+          shouldRefetch || query.options?.refetchOnMount == true;
+      final isFirstSubscriber =
+          query.referenceCount == 1 && !query.state.hasValue;
+      final shouldFetch =
+          !isFirstSubscriber &&
+          (forceRefetch || (query.state.hasValue && query.state.isStale));
+      if (!shouldFetch) continue;
+      fetches.add(query.fetch(forceRefetch: forceRefetch).catchError((_) {}));
+    }
+    await Future.wait(fetches);
+  }
+
+  void _detachQueries() {
+    for (final subscription in _subscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _subscriptions.clear();
+    for (final entry in _queries.entries) {
+      if (_queryReferences[entry.key] ?? false) {
+        entry.value.removeListener();
+      }
+    }
+    _queries.clear();
+    _queryReferences.clear();
+  }
+
+  bool _configsChanged(
+    List<NamedQueryConfig> previous,
+    List<NamedQueryConfig> next,
+  ) {
+    if (previous.length != next.length) return true;
+    for (var index = 0; index < previous.length; index++) {
+      final oldConfig = previous[index];
+      final newConfig = next[index];
+      if (oldConfig.name != newConfig.name ||
+          oldConfig.queryKey.key != newConfig.queryKey.key ||
+          !identical(oldConfig.queryFn, newConfig.queryFn) ||
+          !identical(oldConfig.queryFnWithToken, newConfig.queryFnWithToken) ||
+          oldConfig.dependsOn?.key != newConfig.dependsOn?.key ||
+          !identical(oldConfig.options, newConfig.options)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @override
   void dispose() {
-    // Cancel all subscriptions
-    for (final sub in _subscriptions) {
-      sub.cancel();
-    }
-
-    // Remove listeners from all queries
-    for (final query in _queries.values) {
-      query.removeListener();
-    }
-
+    _generation++;
+    _detachQueries();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return widget.builder(context, NamedQueryState(_states));
+    return widget.builder(context, NamedQueryState(Map.unmodifiable(_states)));
   }
+}
+
+QueryState<T> _typedState<T>(QueryState<dynamic> state) {
+  return QueryState<T>(
+    status: state.status,
+    data: state.data as T?,
+    hasValue: state.hasValue,
+    error: state.error,
+    stackTrace: state.stackTrace,
+    isFetching: state.isFetching,
+    dataUpdatedAt: state.dataUpdatedAt,
+    isStale: state.isStale,
+  );
 }

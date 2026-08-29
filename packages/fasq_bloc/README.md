@@ -3,29 +3,22 @@
 [![Pub](https://img.shields.io/pub/v/fasq_bloc.svg)](https://pub.dev/packages/fasq_bloc)
 [![Repository](https://img.shields.io/badge/repository-GitHub-181717?style=flat-square)](https://github.com/ishafiul/fasq)
 [![Issues](https://img.shields.io/github/issues/ishafiul/fasq?style=flat-square)](https://github.com/ishafiul/fasq/issues)
-[![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-blue)]()
 [![Null Safety](https://img.shields.io/badge/null-safety-brightgreen)]()
 
-> **The Native Bloc Adapter for FASQ.**
+> The native Bloc adapter for FASQ.
 
-Bring the power of caching, optimistic updates, and offline support to your Bloc application with **zero friction**. `fasq_bloc` bridges the gap between `fasq`'s powerful query engine and the `flutter_bloc` ecosystem, allowing you to build complex data-driven apps without fighting your architecture.
+`fasq_bloc` connects FASQ's shared cache, query lifecycle, optimistic updates,
+pagination, persistence, and durable mutations to `Cubit` and Flutter widgets.
+The package also re-exports `fasq`, so all public core types remain available
+from one import.
 
 **Current Version:** 0.4.1
 
-## 📚 Documentation
+## Documentation
 
-For full documentation and API reference, visit:  
-**[https://shafi.dev/fasq/bloc](https://shafi.dev/fasq/bloc)**
+Full guides and API reference: [shafi.dev/fasq/bloc](https://shafi.dev/fasq/bloc)
 
-## ✨ Features
-
-- **🧟 Zombie-proof Caching**: Data is cached, deduplicated, and garbage collected automatically. No more stale data bugs.
-- **🛡️ Resilience Built-in**: **Circuit Breakers** protect your app from crashing backends.
-- **🔌 Offline-First**: Use the core durable mutation contract for actions that must survive offline time and app restarts.
-- **🚀 Native Feel**: Zero friction. It's just a `Cubit` where `QueryClient` is auto-injected.
-- **🧩 Composition**: Solve "Bloc Hell" by composing multiple queries in a single Bloc with `FasqSubscriptionMixin`.
-
-## 📦 Installation
+## Installation
 
 ```yaml
 dependencies:
@@ -33,126 +26,187 @@ dependencies:
   flutter_bloc: ^8.0.0
 ```
 
-## 🚀 Quick Start
+## Quick start
 
-### 1. Setup the Provider
-
-Wrap your app (or feature) with `FasqBlocProvider`. It automatically handles the `QueryClient` lifecycle.
+Pass an existing client when creating cubits. `FasqBlocProvider` exposes the
+same client to core widgets, `context.read<QueryClient>()`, and static lookup
+helpers.
 
 ```dart
-void main() {
-  runApp(
-    FasqBlocProvider(
-      child: MyApp(),
-    ),
-  );
-}
+final client = QueryClient.create();
+
+runApp(
+  FasqBlocProvider(
+    client: client,
+    child: MyApp(),
+  ),
+);
 ```
 
-For durable offline mutations, use `@FasqMutation` and the core
-`MutationBuilder` inside `FasqProvider`. `fasq_bloc` remains the Bloc state
-adapter; it does not provide the legacy `queueWhenOffline` option.
+The provider borrows an explicitly supplied client and owns only a default
+client that it creates itself. A bootstrapped runtime can be supplied instead:
 
-### 2. Create a QueryCubit
+```dart
+FasqBlocProvider(
+  runtime: runtime,
+  child: MyApp(),
+)
+```
 
-Extend `QueryCubit` for a 1-to-1 mapping between a Bloc and a Query.
+For an owned configured scope, use the same configuration fields as the core
+provider:
+
+```dart
+FasqBlocProvider(
+  config: CacheConfig(defaultStaleTime: const Duration(minutes: 5)),
+  child: MyApp(),
+)
+```
+
+Runtime-backed scopes also expose `context.read<FasqRuntime>()`. Cubits created
+by `BlocProvider` should receive the client or runtime explicitly, for example
+with `FasqBlocProvider.of(context)`.
+
+### QueryCubit
 
 ```dart
 class UserCubit extends QueryCubit<User> {
+  UserCubit(this.userId, QueryClient client) : super(client: client);
+
   final int userId;
 
-  UserCubit(this.userId);
-
   @override
-  QueryKey get queryKey => QueryKey('user', args: userId);
+  QueryKey get queryKey => 'user:$userId'.toQueryKey();
 
   @override
   Future<User> Function() get queryFn => () => api.fetchUser(userId);
 }
+
+BlocProvider(
+  create: (context) => UserCubit(
+    42,
+    FasqBlocProvider.of(context),
+  ),
+  child: UserScreen(),
+)
 ```
 
-## 🔗 Repository Links
+`QueryCubit` supports ordinary or cancellation-aware query functions,
+`dependsOn`, every `QueryOptions` feature, `ready`, `refetch`, `invalidate`,
+`cancel`, `setData`, `remove`, metrics, debug information, and live
+`updateOptions` reconfiguration. The underlying core query is available as
+`cubit.query`.
+
+```dart
+@override
+Future<User> Function(CancellationToken token)? get queryFnWithToken =>
+    (token) => api.fetchUser(userId, token: token);
+
+@override
+QueryKey? get dependsOn => sessionQueryKey;
+```
+
+### InfiniteQueryCubit
+
+`InfiniteQueryCubit<TData, TParam>` exposes `fetchNextPage`,
+`fetchPreviousPage`, `refetchPage`, `reset`, `updateFromCache`, `invalidate`,
+`remove`, and live reconfiguration while preserving the core pagination state.
+It also exposes `hasNextPage`, `hasPreviousPage`, `isFetchingNextPage`, and
+`isFetchingPreviousPage` helpers.
+
+### MutationCubit
+
+Ordinary mutations return the core `MutationSubmission`, including a durable
+local reference when the supplied options queue work offline.
+
+```dart
+class AddTodoCubit extends MutationCubit<Todo, String> {
+  AddTodoCubit(QueryClient client) : super(client: client);
+
+  @override
+  Future<Todo> Function(String text) get mutationFn => api.addTodo;
+}
+
+final submission = await context.read<AddTodoCubit>().submit('Buy milk');
+```
+
+For a generated durable mutation, pass the bootstrapped runtime and expose its
+typed key:
+
+```dart
+class CreateTodoCubit extends MutationCubit<Todo, CreateTodoInput> {
+  CreateTodoCubit(FasqRuntime runtime) : super(runtime: runtime);
+
+  @override
+  FasqMutationKey<Todo, CreateTodoInput> get mutationKey =>
+      createTodoMutationKey;
+}
+```
+
+The runtime must contain the matching catalog entry and durable queue. All
+core `MutationOptions` behavior remains available, including
+`queueWhenOffline`, write-ahead execution, projections, dependencies, retry,
+auth, and lifecycle callbacks.
+
+### Durable queue in Bloc
+
+`MutationQueueCubit` gives the durable queue a reactive Bloc state while
+forwarding replay, observation, projection, and repair commands to the core
+queue:
+
+```dart
+BlocProvider(
+  create: (_) => MutationQueueCubit(runtime: runtime),
+  child: QueueStatusScreen(),
+)
+
+BlocBuilder<MutationQueueCubit, DurableQueueObservation>(
+  builder: (context, observation) => Text(
+    'Pending: ${observation.operations.length}',
+  ),
+)
+```
+
+The cubit borrows the queue; close the runtime separately.
+
+The queue adapter also forwards `open`, `closeQueue`, `register`, `enqueue`,
+`watch`, retention checks, scoped aggregate state, operation lookup/history,
+and every core replay, projection, and repair command. The underlying
+`queue` remains available for direct core composition.
+
+## Widgets and composition
+
+- `MultiQueryBuilder` and `NamedMultiQueryBuilder` observe heterogeneous query
+  sets, including token-aware functions and dependencies.
+- `PrefetchQueryCubit` and `PrefetchBuilder` prefetch one or many queries using
+  an explicit or inherited client.
+- `FasqSubscriptionMixin` manages query subscriptions and their reference
+  counts, and releases them when the Bloc closes.
+
+```dart
+class DashboardCubit extends Cubit<DashboardState>
+    with FasqSubscriptionMixin<DashboardState> {
+  DashboardCubit(QueryClient client) : super(DashboardState.loading()) {
+    final users = client.getQuery<List<User>>(
+      'users'.toQueryKey(),
+      queryFn: api.fetchUsers,
+    );
+    subscribeToQuery(users, (state) {
+      if (!isClosed) emit(this.state.copyWith(users: state.data));
+    });
+  }
+}
+```
+
+## Core API
+
+The entrypoint re-exports `package:fasq/fasq.dart`. You can therefore use
+FASQ's cache, `QueryClient`, core providers/builders, circuit breakers,
+metrics, persistence/security types, pagination models, mutation contracts,
+and durable sync-engine APIs alongside the Bloc adapters.
+
+## Links
 
 - [Source repository](https://github.com/ishafiul/fasq)
 - [Issue tracker](https://github.com/ishafiul/fasq/issues)
 - [Pull requests](https://github.com/ishafiul/fasq/pulls)
-
-### 3. Use in UI
-
-Consume it like any other Bloc.
-
-```dart
-BlocBuilder<UserCubit, QueryState<User>>(
-  builder: (context, state) {
-    if (state.isLoading) return CircularProgressIndicator();
-    if (state.hasData) return Text('Hello ${state.data!.name}');
-    return Text('Error: ${state.error}');
-  },
-)
-```
-
-## 🛠️ Advanced Usage
-
-### Composition (Multiple Queries)
-
-Need to fetch a User and their Posts in the _same_ Bloc? Use the `FasqSubscriptionMixin`.
-
-```dart
-class DashboardBloc extends Cubit<DashboardState> with FasqSubscriptionMixin {
-  DashboardBloc() : super(DashboardState.loading()) {
-    // 1. Fetch User
-    final userQuery = client.getQuery<User>('user'.toQueryKey(), ...);
-
-    subscribeToQuery(userQuery, (state) {
-       // Update internal state based on User query
-       emit(state.copyWith(user: state.data));
-    });
-
-    // 2. Fetch Posts
-    final postsQuery = client.getQuery<List<Post>>('posts'.toQueryKey(), ...);
-
-    subscribeToQuery(postsQuery, (state) {
-       emit(state.copyWith(posts: state.data));
-    });
-  }
-}
-```
-
-### Optimistic Updates
-
-Update your UI _before_ the server responds for a snappy experience.
-
-```dart
-class TodosCubit extends MutationCubit<Todo, String> {
-  // ... configuration ...
-
-  void addTodo(String text) {
-    mutate(
-      text,
-      onMutate: () async {
-        // 1. Cancel outgoing refetches
-        await queryClient.cancelQueries('todos');
-
-        // 2. Snapshot previous value
-        final previous = queryClient.getQueryData<List<Todo>>('todos');
-
-        // 3. Optimistically update cache
-        queryClient.setQueryData<List<Todo>>(
-          'todos',
-          [...previous ?? [], Todo(id: 'temp', text: text)]
-        );
-
-        return { 'previous': previous };
-      },
-      onError: (error, context) {
-        // 4. Rollback on error
-        queryClient.setQueryData('todos', context['previous']);
-      },
-      onSettled: () {
-        // 5. Always refetch to ensure sync
-        queryClient.invalidateQueries('todos');
-      }
-    );
-  }
-}
-```
